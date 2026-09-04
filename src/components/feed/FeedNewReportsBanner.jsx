@@ -10,7 +10,7 @@ const FeedNewReportsBanner = ({ count, onRefresh }) => (
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
-        className="sticky top-[52px] z-10 flex justify-center pt-2 px-3"
+        className="sticky top-[52px] z-10 flex justify-center pt-2 px-3 lg:static"
       >
         <button
           onClick={onRefresh}

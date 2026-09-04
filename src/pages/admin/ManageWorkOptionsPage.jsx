@@ -359,7 +359,7 @@ const ManageWorkOptionsPage = () => {
         <title>Opções de Obras - Admin</title>
         <meta name="description" content="Gerencie categorias, áreas, bairros e construtoras para as obras públicas." />
       </Helmet>
-      <div className="container max-w-[88rem] mx-auto w-full px-4 py-12">
+      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center justify-between gap-4 mb-12">
           <div className="flex items-center gap-4">
             <Link to="/admin/obras"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>

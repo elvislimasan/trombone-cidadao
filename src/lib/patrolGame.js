@@ -27,7 +27,11 @@
  */
 const SO_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-const chaveDoDia = (d) => {
+// Exportada desde as diárias (`dailies.js`): o sorteio precisa da MESMA chave
+// de dia. Reusá-la não é economia de linhas — é a única forma de não repetir a
+// armadilha de fuso que o comentário acima documenta, e que já quebrou a
+// sequência de todo mundo uma vez.
+export const chaveDoDia = (d) => {
   if (typeof d === 'string') {
     const inicio = d.slice(0, 10);
     if (SO_DATA.test(inicio)) return inicio;
@@ -109,6 +113,33 @@ export const PONTOS_POR_ETAPA = 15;
 // medalhas que aquela missão empurra. Acrescentar uma medalha sobre um contador
 // que já existe a faz aparecer no cartão sozinha — que é justamente o que uma
 // lista manual deixaria de fazer.
+/**
+ * Até onde uma pessoa erra sem deixar de ser confiável.
+ *
+ * 15%. Não é tolerância generosa: quem vai à rua em dúvida, fotografa no
+ * contraluz e às vezes confunde a quadra faz parte do trabalho, e uma barra de
+ * 2% premiaria só quem envia pouco e no lugar óbvio.
+ *
+ * O que a taxa exclui é outra coisa: quem responde em volume sem olhar. Aí a
+ * recusa passa de um em seis, e a diferença é visível no primeiro mês de fila
+ * de moderação.
+ */
+export const LIMITE_DE_RECUSA = 0.15;
+
+/**
+ * Quanto do que a pessoa enviou foi recusado.
+ *
+ * Sem envio nenhum, a taxa é zero — e é o valor certo: a medalha ainda exige as
+ * 20 aceitas, então "0% de recusa em 0 envios" não desbloqueia nada. Devolver 1
+ * aqui faria quem nunca enviou aparecer como pouco confiável.
+ */
+export const taxaDeRecusa = (s) => {
+  const aceitas = Math.max(0, Number(s?.updates_aceitas) || 0);
+  const recusadas = Math.max(0, Number(s?.updates_rejeitadas) || 0);
+  const total = aceitas + recusadas;
+  return total === 0 ? 0 : recusadas / total;
+};
+
 export const CONQUISTAS = [
   {
     id: 'primeira_patrulha',
@@ -128,9 +159,19 @@ export const CONQUISTAS = [
     valor: (s) => s.total_confirmed,
     contador: 'total_confirmed',
   },
+  // "Fiscal da cidade" até a fase 4.
+  //
+  // A §36.16 do plano de gamificação pede para evitar títulos que sugiram
+  // autoridade oficial ou vigilantismo, e cita "Fiscal" pelo nome. Não é
+  // preciosismo de vocabulário: quem se lê como fiscal age como fiscal diante de
+  // um vizinho, e o app não deu autoridade nenhuma a ninguém.
+  //
+  // O id não muda de propósito. Medalha é derivada (nada gravado), mas o id
+  // aparece em `contador` de missões e em teste — e renomeá-lo não melhora nada
+  // que o rótulo já não resolva.
   {
     id: 'confirmacoes_50',
-    nome: 'Fiscal da cidade',
+    nome: 'Verificador',
     descricao: '50 broncas confirmadas',
     emoji: '🛡️',
     alvo: 50,
@@ -230,9 +271,16 @@ export const CONQUISTAS = [
   //
   // Contam a janela móvel de 90 dias, igual aos títulos: uma medalha de bairro
   // fala do que a pessoa vem fazendo, não do que fez uma vez em 2024.
+  // "Dono da rua" até a fase 4.
+  //
+  // O princípio 6 do produto é "ninguém é dono de rua, bairro ou prioridade
+  // pública", e a §36.16 pede que se evitem termos de posse sobre território. A
+  // medalha dizia exatamente o contrário do princípio — e era a única do
+  // catálogo que premiava a ideia que a fase 3 substituiu por camada de
+  // necessidade.
   {
     id: 'dono_da_rua',
-    nome: 'Dono da rua',
+    nome: 'Presença no bairro',
     descricao: '20 ações no mesmo bairro',
     emoji: '🏘️',
     alvo: 20,
@@ -254,6 +302,70 @@ export const CONQUISTAS = [
     alvo: 1,
     valor: (s) => s.bairros_liderados,
   },
+
+  // ── Qualidade e mentoria (fase 4) ──
+  //
+  // As medalhas acima contam VOLUME: quantas patrulhas, quantos quilômetros,
+  // quantas confirmações. Volume é o que o produto sabia medir, e é o que
+  // produziu a dívida de incentivo que a §36.5 manda auditar — "apoie 5",
+  // "comente 2", "sinalize 3" são fáceis de contar e fáceis de fazer mal.
+  //
+  // Estas contam se o volume PRESTOU. Vêm de `get_quality_counters` (migração
+  // 214), e é a diferença entre reconhecer quem apareceu e reconhecer quem
+  // ajudou.
+  //
+  // NENHUMA DELAS DÁ VANTAGEM
+  //
+  // Progressão social LEVE (§36.14): reconhecimento sem moeda, marco sem
+  // vantagem. Uma medalha de qualidade que desse XP extra viraria mais uma
+  // forma de acumular — e a fase 4 existe justamente para reconhecer sem
+  // acumular.
+  {
+    id: 'observacao_confiavel',
+    nome: 'Observação confiável',
+    descricao: '20 atualizações aceitas, com poucas recusas',
+    emoji: '🎖️',
+    alvo: 20,
+    familia: 'qualidade',
+    // A taxa é o ponto. "20 aceitas" sozinho também descreve quem mandou 400 e
+    // teve 380 recusadas — e premiar isso seria premiar o volume outra vez, com
+    // nome de qualidade.
+    valor: (s) => (taxaDeRecusa(s) <= LIMITE_DE_RECUSA ? s.updates_aceitas : 0),
+    contador: 'updates_aceitas',
+  },
+  {
+    id: 'cartografo',
+    nome: 'Cartógrafo',
+    descricao: '5 sugestões de rua aprovadas',
+    emoji: '🗺️',
+    alvo: 5,
+    familia: 'qualidade',
+    valor: (s) => s.sugestoes_aprovadas,
+    contador: 'sugestoes_aprovadas',
+  },
+  {
+    id: 'deu_forca',
+    nome: 'Deu força',
+    descricao: 'Fez a contribuição de 3 pessoas valer',
+    emoji: '🤝',
+    alvo: 3,
+    familia: 'mentoria',
+    // Pessoas distintas, não ações: ajudar dez vezes a mesma pessoa é outra
+    // coisa, e contar ações faria a medalha de mentoria virar mais uma medalha
+    // de volume.
+    valor: (s) => s.pessoas_ajudadas,
+    contador: 'pessoas_ajudadas',
+  },
+  {
+    id: 'rede_de_apoio',
+    nome: 'Rede de apoio',
+    descricao: 'Fez a contribuição de 15 pessoas valer',
+    emoji: '🫱',
+    alvo: 15,
+    familia: 'mentoria',
+    valor: (s) => s.pessoas_ajudadas,
+    contador: 'pessoas_ajudadas',
+  },
 ];
 
 const STATS_VAZIO = {
@@ -263,14 +375,21 @@ const STATS_VAZIO = {
   total_distance_meters: 0,
   total_duration_seconds: 0,
   sequencia: 0,
-  // Vêm de get_user_level e get_neighborhood_standing, não das patrulhas: uma
-  // medalha de bairro conta o que a pessoa fez na rua, tenha sido dentro do
-  // modo patrulha ou não.
+  // Vêm de get_mission_counters e get_neighborhood_standing, não só da linha da
+  // patrulha: uma medalha conta o que a pessoa fez, tenha sido dentro do modo
+  // patrulha ou não.
   signals_count: 0,
   missions_count: 0,
   bairros_ativos: 0,
   bairros_liderados: 0,
   acoes_no_melhor: 0,
+  // Qualidade e mentoria (fase 4). Vêm de `get_quality_counters`, que é outra
+  // chamada — zerados aqui para que a medalha apareça bloqueada, e não quebre,
+  // quando a 214 ainda não tiver sido aplicada.
+  updates_aceitas: 0,
+  updates_rejeitadas: 0,
+  sugestoes_aprovadas: 0,
+  pessoas_ajudadas: 0,
 };
 
 /**
@@ -289,6 +408,10 @@ export const avaliarConquistas = (stats) => {
       nome: c.nome,
       descricao: c.descricao,
       emoji: c.emoji,
+      // 'campo' é o default para as medalhas que já existiam. Serve para a tela
+      // agrupar qualidade e mentoria separadas de volume — que é a distinção
+      // inteira da fase 4.
+      familia: c.familia || 'campo',
       atual,
       alvo: c.alvo,
       desbloqueada: atual >= c.alvo,

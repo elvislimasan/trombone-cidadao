@@ -1157,6 +1157,14 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
                   clusters={mapItems}
                   onReportClick={handleSelectReport}
                   onUpvote={handleUpvoteWithRefresh}
+                  // SATELITE SO NO DESKTOP
+                  //
+                  // No celular o mapa da home ja divide a altura da tela com o
+                  // cabecalho, os filtros e o carrossel de broncas; mais um
+                  // botao flutuante come area de toque justamente onde os pins
+                  // sao mais densos. No desktop sobra espaco, e a foto aerea
+                  // ajuda a reconhecer o lugar — que e o que a home pede.
+                  showLayerToggle={!isMobile}
                 />
               </div>
             ) : (

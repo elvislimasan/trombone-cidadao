@@ -127,10 +127,33 @@ const splitHeadline = (title = '', maxLineLength = 18, maxLines = 6) => {
 const baseTextShadow =
   '0 4px 14px rgba(0,0,0,0.38), 0 14px 34px rgba(0,0,0,0.24)';
 
+// A LINHA DE LOCAL DO CARD
+//
+// Ela terminava em "BRASIL" quase sempre, e "BRASIL" não localiza nada: o card
+// vai para o story de alguém que precisa saber DE ONDE é aquele poste apagado —
+// é essa palavra que decide se o vizinho reconhece o problema ou passa reto.
+//
+// A causa era a ordem das fontes. A primeira, `report.city`, nunca existiu:
+// `reports` guarda `city_id`, e não um texto de cidade — o `if` estava morto
+// desde sempre. Sobrava a segunda, que ADIVINHA a cidade quebrando o endereço
+// digitado em pedaços e torcendo para o penúltimo ser o município. Num endereço
+// como "Rua X, em frente à antiga Construbem" não há penúltimo pedaço nenhum.
+//
+// Agora a primeira fonte é o cadastro: a cidade vem embutida da consulta, com o
+// UF do estado. O palpite sobre o endereço continua atrás dela, para as broncas
+// antigas que ficaram sem `city_id` — e "BRASIL" continua sendo o último
+// recurso, porque um card sem lugar nenhum ainda é melhor que um card com o
+// lugar errado.
 const getCityFromAddress = (address = '', report = {}) => {
-  if (report.city) {
-    const uf = report.state || report.uf || 'BR';
-    return `${report.city}-${uf}`.toUpperCase();
+  const cadastrada = report.city?.name || (typeof report.city === 'string' ? report.city : '');
+  if (cadastrada) {
+    const uf =
+      report.city?.states?.uf
+      || report.city?.state?.uf
+      || report.state
+      || report.uf
+      || '';
+    return (uf ? `${cadastrada}-${uf}` : cadastrada).toUpperCase();
   }
 
   const clean = normalizeText(address);

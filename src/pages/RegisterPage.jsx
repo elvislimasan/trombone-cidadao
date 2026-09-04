@@ -18,6 +18,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn, formatPhone, validateEmail } from "@/lib/utils";
 import { showAppError } from '@/lib/appError';
+import { Capacitor } from '@capacitor/core';
+import { resolvePostAuthFallback } from '@/lib/homeEntry';
+
+const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
 
 const Combobox = ({ options, value, onSelect, placeholder, emptyText, disabled = false }) => {
   const [open, setOpen] = useState(false);
@@ -207,7 +211,7 @@ const RegisterPage = () => {
         if (!target && from?.pathname) {
           target = `${from.pathname}${from.search || ''}`;
         }
-        navigate(target || '/painel-usuario', { replace: true });
+        navigate(target || postAuthFallback, { replace: true });
       } else {
         const msg = (signInError.message || '').toLowerCase();
         if (msg.includes('email not confirmed') || msg.includes('confirm')) {

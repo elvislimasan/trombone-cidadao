@@ -106,8 +106,17 @@ const CartaoMissao = ({ missao }) => {
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-content-primary leading-tight">
-          {missao.titulo}
+        {/* O SELO SÓ APARECE DEPOIS DOS DEGRAUS ESCRITOS.
+            Dentro deles, "faltam 2" já diz o passo. Passado o último, sem o
+            número da etapa a missão pareceria nunca sair do lugar — a meta
+            dobra, e quem não vê o degrau lê como se a régua tivesse mudado. */}
+        <p className="flex items-center gap-2 text-sm font-bold text-content-primary leading-tight">
+          <span className="min-w-0 truncate">{missao.titulo}</span>
+          {missao.alemDaEscada && (
+            <span className="shrink-0 rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-content-tertiary">
+              Etapa {missao.etapa}
+            </span>
+          )}
         </p>
 
         <p className="text-xs text-content-secondary mt-0.5 leading-snug">
@@ -214,7 +223,7 @@ export default function MissionList({ trilhas }) {
           <h3 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
             {trilha.nome}
           </h3>
-          <ul className="flex flex-col gap-2.5">
+          <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
             {trilha.missoes.map((missao) => (
               <CartaoMissao key={missao.id} missao={missao} />
             ))}

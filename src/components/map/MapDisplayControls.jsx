@@ -46,6 +46,37 @@ export function CurrentLocationMarker({ position }) {
   );
 }
 
+// A aparência dos botões flutuantes sobre o mapa. Exportada porque nem todo
+// mapa quer o conjunto inteiro: a home mostra só a troca de camada, e sem isso
+// ela teria de recriar o estilo — que é como dois botões iguais começam a
+// divergir.
+export const BOTAO_DE_MAPA =
+  'inline-flex h-11 w-11 items-center justify-center rounded-full border border-edge-default bg-surface-raised/95 text-content-primary shadow-lg backdrop-blur-sm transition-[background-color,transform] hover:bg-surface-subtleHover active:scale-95';
+
+/**
+ * Só a troca entre mapa e satélite.
+ *
+ * Fica separada do bloco completo porque "ver por satélite" e "ir para minha
+ * localização" respondem a perguntas diferentes, e um mapa pode querer uma sem
+ * a outra. O que NÃO pode é a url do satélite viver em dois lugares — ela mora
+ * em `MapBaseLayer`, logo acima, e os dois caminhos passam por lá.
+ */
+export function MapLayerToggle({ layer, onLayerChange, className = '' }) {
+  const satellite = layer === MAP_LAYER.SATELLITE;
+
+  return (
+    <button
+      type="button"
+      className={`${BOTAO_DE_MAPA} ${className}`}
+      onClick={() => onLayerChange?.(satellite ? MAP_LAYER.STANDARD : MAP_LAYER.SATELLITE)}
+      aria-label={satellite ? 'Usar mapa padrão' : 'Usar mapa de satélite'}
+      title={satellite ? 'Mapa padrão' : 'Satélite'}
+    >
+      <Layers className="h-5 w-5" aria-hidden="true" />
+    </button>
+  );
+}
+
 export default function MapDisplayControls({
   mapRef,
   layer,
@@ -54,7 +85,6 @@ export default function MapDisplayControls({
   className = '',
 }) {
   const [locating, setLocating] = useState(false);
-  const satellite = layer === MAP_LAYER.SATELLITE;
 
   const locate = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -89,24 +119,13 @@ export default function MapDisplayControls({
     );
   };
 
-  const buttonClass =
-    'inline-flex h-11 w-11 items-center justify-center rounded-full border border-edge-default bg-surface-raised/95 text-content-primary shadow-lg backdrop-blur-sm transition-[background-color,transform] hover:bg-surface-subtleHover active:scale-95';
-
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
-      <button
-        type="button"
-        className={buttonClass}
-        onClick={() => onLayerChange?.(satellite ? MAP_LAYER.STANDARD : MAP_LAYER.SATELLITE)}
-        aria-label={satellite ? 'Usar mapa padrão' : 'Usar mapa de satélite'}
-        title={satellite ? 'Mapa padrão' : 'Satélite'}
-      >
-        <Layers className="h-5 w-5" aria-hidden="true" />
-      </button>
+      <MapLayerToggle layer={layer} onLayerChange={onLayerChange} />
 
       <button
         type="button"
-        className={buttonClass}
+        className={BOTAO_DE_MAPA}
         onClick={locate}
         disabled={locating}
         aria-label="Ir para minha localização"

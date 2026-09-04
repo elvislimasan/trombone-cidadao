@@ -537,14 +537,25 @@ serve(async (req) => {
     // Verificar se é formato de webhook (Database Webhooks)
     if (body.record && body.type === "INSERT") {
       // Formato padrão do Database Webhook
+      // `title` e `city_event_id` faltavam neste mapeamento.
+      //
+      // Sem `title`, todo push vindo do webhook caía no rótulo genérico
+      // ("Trombone Cidadão") mais abaixo — e o título é a única linha que a
+      // pessoa lê na tela bloqueada. "Falta d'água no Morada Nobre" virava
+      // "Trombone Cidadão".
+      //
+      // `city_event_id` entra pelo mesmo motivo que `report_id` e `work_id` já
+      // estavam aqui: identificar a que o aviso se refere.
       notification = {
         id: body.record.id,
         user_id: body.record.user_id,
         type: body.record.type,
+        title: body.record.title,
         message: body.record.message,
         link: body.record.link,
         report_id: body.record.report_id,
-        work_id: body.record.work_id
+        work_id: body.record.work_id,
+        city_event_id: body.record.city_event_id
       };
       userId = body.record.user_id;
     } else if (body.notification && body.userId) {

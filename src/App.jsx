@@ -49,6 +49,13 @@ import PetitionPageModern from '@/pages/PetitionPageModern';
 import PetitionsOverviewPage from '@/pages/PetitionsOverviewPage';
 import WorkDetailsPageProject from '@/pages/WorkDetailsPageProject';
 import ModerationPage from '@/pages/admin/ModerationPage';
+import AuditRequestsPage from '@/pages/admin/AuditRequestsPage';
+import MetaComunitariaPage from '@/pages/MetaComunitariaPage';
+import ManageCommunityGoalsPage from '@/pages/admin/ManageCommunityGoalsPage';
+import ManageCampaignsPage from '@/pages/admin/ManageCampaignsPage';
+import ColecaoPage from '@/pages/ColecaoPage';
+import SensoriamentoPage from '@/pages/SensoriamentoPage';
+import AssistEvaluationPage from '@/pages/admin/AssistEvaluationPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import TermsOfUsePage from '@/pages/TermsOfUsePage';
 import FavoritesPage from '@/pages/FavoritesPage';
@@ -68,8 +75,11 @@ import MissionsPage from '@/pages/MissionsPage';
 import PatrolRunPage from '@/pages/PatrolRunPage';
 import AuditRunPage from '@/pages/AuditRunPage';
 import PatrolPickPage from '@/pages/PatrolPickPage';
+import PatrolDesktopUnavailablePage from '@/pages/PatrolDesktopUnavailablePage';
+import RotaDoDiaPage from '@/pages/RotaDoDiaPage';
 import MyPatrolsPage from '@/pages/MyPatrolsPage';
 import HomeRouter from './pages/HomeRouter';
+import FeedPage from '@/pages/FeedPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import SearchPage from '@/pages/SearchPage';
 import AppLandingPage from '@/pages/AppLandingPage';
@@ -86,8 +96,14 @@ import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
+import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
+import OrgaoRelatorioPage from '@/pages/OrgaoRelatorioPage';
 import { notifyNative } from '@/lib/nativeNotification';
 import AppFeedbackBanner from '@/components/AppFeedbackBanner';
+import AgoraPage from '@/pages/AgoraPage';
+import CityEventPage from '@/pages/CityEventPage';
+import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
+import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 
 const SEO = () => {
   const location = useLocation();
@@ -146,6 +162,10 @@ const SEO = () => {
     case '/estatisticas':
       pageTitle = `Estatísticas - ${siteName}`;
       pageDescription = "Acompanhe em tempo real as estatísticas de solicitações, resoluções e o engajamento cívico na sua cidade.";
+      break;
+    case '/feed':
+      pageTitle = `Feed da cidade - ${siteName}`;
+      pageDescription = "Acompanhe os relatos mais recentes, as prioridades da comunidade e as broncas perto de você.";
       break;
     case '/obras-publicas':
       pageTitle = `Mapa de Obras Públicas - ${siteName}`;
@@ -233,11 +253,19 @@ const PrivateRoute = ({ children }) => {
   return children;
 };
 
+// Redireciona preservando a query: `<Navigate to="/mapa">` sozinho a
+// descartaria, e com ela iriam embora o `?criar_bronca=1` do retorno do login e
+// o `?rua=` do atalho de Minha Rua.
+const ParaOMapaDeBroncas = () => {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/mapa', search }} replace />;
+};
+
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
-  return user && user.is_admin
+  return user && (user.is_admin || user.is_master)
     ? children
     : (
       <Navigate
@@ -283,6 +311,11 @@ function AppShell() {
   const location = useLocation();
   const { loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
+  const isDesktopViewport = useIsDesktopViewport();
+  const patrolBlockedOnDesktop = isPatrolBlockedOnDesktop({
+    isNative,
+    isDesktop: isDesktopViewport,
+  });
 
   // A patrulha é tela cheia: sem header, sem bottom nav e sem os paddings que
   // reservam o espaço deles. Sair pelo botão voltar do aparelho vem de graça,
@@ -291,9 +324,17 @@ function AppShell() {
   // `/patrulhar`, não `/patrulha/:id` — este segundo é a rota antiga da
   // patrulha compartilhada, hoje só um redirecionamento, e `/patrulha/buracos`
   // cairia nele como se "buracos" fosse um id.
+  //
+  // A Rota do Dia entra aqui SÓ na vista de mapa (`?vista=mapa`). A lista dela
+  // continua sendo tela normal, com header e navegação — sair da lista no meio
+  // é legítimo. O mapa é que precisa da tela inteira, e por isso o gatilho é a
+  // query string, e não o caminho: as duas vistas são a mesma rota, para não
+  // remontarem o percurso uma da outra (ver RotaDoDiaPage).
   const patrulhaAtiva =
-    location.pathname.startsWith('/patrulhar') ||
-    location.pathname.startsWith('/conferir');
+    (location.pathname.startsWith('/patrulhar') && !patrolBlockedOnDesktop) ||
+    location.pathname.startsWith('/conferir') ||
+    (location.pathname === '/rota-do-dia' &&
+      new URLSearchParams(location.search).get('vista') === 'mapa');
 
   // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
   // sobreviva à saída da rota que quebrou.
@@ -661,8 +702,8 @@ function AppShell() {
             }}
           >
             <div className="flex-1 min-h-0 flex flex-col">
-              <PendingInviteBanner />
-              <AppFeedbackBanner />
+              {!patrulhaAtiva && <PendingInviteBanner />}
+              {!patrulhaAtiva && <AppFeedbackBanner />}
               {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
                   de erro persistiria mesmo depois de sair da rota que quebrou. */}
               <ErrorBoundary key={boundaryKey}>
@@ -673,10 +714,15 @@ function AppShell() {
               <Route path="/seja-embaixador" element={<BecomeAmbassadorPage />} />
               <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
               <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
+              {/* Pública sem login: quem tem o token é quem recebeu o e-mail.
+                  Exigir cadastro de servidor público para confirmar recebimento
+                  de um ofício seria garantir que ninguém confirmasse. */}
+              <Route path="/orgao/relatorio/:token" element={<OrgaoRelatorioPage />} />
               <Route path="/app" element={<AppLandingPage />} />
               <Route path="/convite/:token" element={<AcceptInvitePage />} />
               
               <Route path="/" element={<HomeRouter />} />
+              <Route path="/feed" element={<FeedPage />} />
               <Route path="/mapa" element={<MapPage />} />
               {/* Mesma MapPage: o modo navegação é um overlay sobre o mapa, e
                   renderizar o mesmo componente evita desmontar o Leaflet ao
@@ -687,11 +733,30 @@ function AppShell() {
               {/* Sem categoria, `/patrulhar` era PatrolRunPage e redirecionava
                   de volta para a central. Agora e a tela de escolha — o destino
                   natural de todo botao de patrulha. */}
-              <Route path="/patrulhar" element={<PatrolPickPage />} />
-              <Route path="/patrulhar/:categoria" element={<PatrolRunPage />} />
+              <Route
+                path="/patrulhar"
+                element={patrolBlockedOnDesktop ? <PatrolDesktopUnavailablePage /> : <PatrolPickPage />}
+              />
+              <Route
+                path="/patrulhar/:categoria"
+                element={patrolBlockedOnDesktop ? <PatrolDesktopUnavailablePage /> : <PatrolRunPage />}
+              />
               {/* Conferir os pontos marcados. Tela cheia como a patrulha, e
                   privada: responder um ponto é ação de conta. */}
               <Route path="/conferir" element={<PrivateRoute><AuditRunPage /></PrivateRoute>} />
+              {/* A Rota do Dia NÃO é tela cheia de patrulha: é um percurso a pé
+                  que a pessoa lê e executa olhando a rua, não o aparelho. Fica
+                  fora de `patrulhaAtiva` de propósito — o header e a navegação
+                  continuam ali, porque sair dela no meio é legítimo.
+                  Privada: cada parada responde em nome da conta. */}
+              <Route path="/rota-do-dia" element={<PrivateRoute><RotaDoDiaPage /></PrivateRoute>} />
+              {/* Coleção da cidade (fase 5). Pública para ler; registrar visita
+                  exige conta, porque a coleção é pessoal. */}
+              <Route path="/colecao" element={<ColecaoPage />} />
+              {/* Consentimento e confirmação do sensoriamento passivo. A tela
+                  existe antes de a função ser liberada de propósito: o texto do
+                  consentimento é o artefato que precisa de revisão jurídica. */}
+              <Route path="/sensoriamento" element={<PrivateRoute><SensoriamentoPage /></PrivateRoute>} />
               {/* Rota antiga da patrulha: links e atalhos salvos continuam
                   funcionando, agora caindo no hub em vez de numa tela morta. */}
               <Route path="/mapa/patrulha" element={<Navigate to="/missoes" replace />} />
@@ -711,7 +776,19 @@ function AppShell() {
               <Route path="/patrulha/:id" element={<Navigate to="/" replace />} />
               <Route path="/home-legado" element={<HomePageImproved />} />
               <Route path="/buscar" element={<SearchPage />} />
-              <Route path="/broncas" element={<HomePage />} />
+              {/* UMA TELA DE BRONCAS, E NÃO DUAS
+                  `/broncas` era o feed completo e `/mapa` era o mapa — mesmo
+                  conteúdo, mesmos filtros, dois layouts, e a dúvida permanente
+                  de qual das duas era a de verdade. O mapa ganhou o modo LISTA
+                  (como pavimentação e obras já tinham), então a segunda tela
+                  deixou de ter função própria.
+                  A query string vai junto: é ela que carrega `?criar_bronca=1`
+                  do retorno do login e `?rua=` do atalho de Minha Rua.
+                  A tela antiga fica em `/broncas-legado`, pelo mesmo motivo
+                  que a home anterior ficou em `/home-legado`: trocar uma tela
+                  central é o tipo de mudança que se quer poder desfazer. */}
+              <Route path="/broncas" element={<ParaOMapaDeBroncas />} />
+              <Route path="/broncas-legado" element={<HomePage />} />
               <Route path="/bronca/:reportId" element={<ReportPage />} />
             <Route path="/abaixo-assinados" element={<PetitionsOverviewPage />} />
             <Route path="/abaixo-assinado/:id" element={<PetitionPage />} />
@@ -722,6 +799,8 @@ function AppShell() {
               <Route path="/obras-publicas/:workId" element={<WorkDetailsPageProject />} />
               <Route path="/imoveis-alugados" element={<RentalPropertiesPage />} />
               <Route path="/imoveis-alugados/:id" element={<RentalPropertyDetailsPage />} />
+              <Route path="/agora" element={<AgoraPage />} />
+              <Route path="/agora/:eventId" element={<CityEventPage />} />
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/servicos" element={<ServicesPage />} />
@@ -742,8 +821,28 @@ function AppShell() {
               
               <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
               <Route path="/admin/moderacao/:type" element={<ModuleRoute module="moderation" adminOnly><ModerationPage /></ModuleRoute>} />
+              {/* Fila de auditoria de CADASTRO (ponto, categoria, risco). Tela
+                  separada da moderação de conteúdo de propósito: aqui não se
+                  aprova nada, corrige-se o registro — e juntar as duas faria a
+                  segunda ser despachada com o hábito da primeira. */}
+              <Route path="/admin/auditorias" element={<ModuleRoute module="moderation" adminOnly><AuditRequestsPage /></ModuleRoute>} />
+              {/* Metas comunitárias e mutirões (fase 3). Gestão é de quem
+                  responde pela cidade; a página da meta é pública, porque o
+                  relatório público só serve se for público. */}
+              <Route path="/admin/metas" element={<AdminRoute><ManageCommunityGoalsPage /></AdminRoute>} />
+              {/* Campanhas sazonais editoriais (fase 4). Sem agendador de
+                  propósito: escrever a chamada é o trabalho, e nenhuma regra a
+                  gera. */}
+              <Route path="/admin/campanhas" element={<AdminRoute><ManageCampaignsPage /></AdminRoute>} />
+              {/* Avaliação do assistente de categoria (fase 5). Sem botão de
+                  ligar: a habilitação é consequência da medição. */}
+              <Route path="/admin/assistente" element={<AdminRoute><AssistEvaluationPage /></AdminRoute>} />
+              <Route path="/meta/:id" element={<MetaComunitariaPage />} />
               <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
               <Route path="/admin/permissoes" element={<MasterRoute><ManagePermissionsPage /></MasterRoute>} />
+              {/* Embaixador cadastra o canal da própria cidade; ativar é do
+                  admin, e essa regra vive no gatilho da 222, não neste guard. */}
+              <Route path="/admin/canais-do-orgao" element={<AmbassadorOrAdminRoute><ManageAgencyChannelsPage /></AmbassadorOrAdminRoute>} />
               <Route path="/admin/servicos" element={<ModuleRoute module="services" adminOnly><ManageServicesPage /></ModuleRoute>} />
               <Route path="/servicos/gerenciar" element={<ModuleRoute module="services"><ManageServicesPage /></ModuleRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />

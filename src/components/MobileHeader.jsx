@@ -35,6 +35,9 @@ const MobileHeader = () => {
     const path = location.pathname;
     if (path === '/') return siteName;
 
+    if (path === '/agora') return 'Radar da cidade';
+    if (path.startsWith('/agora/')) return 'Acontecimento';
+
     if (path === '/obras-publicas') return 'Obras';
     if (path.startsWith('/obras-publicas/')) return 'Obras • Detalhes';
 
@@ -85,6 +88,8 @@ const MobileHeader = () => {
     else if (path === '/noticias') setPageTitle('Notícias');
     else if (path.startsWith('/obras-publicas/')) setPageTitle('Detalhes da Obra');
     else if (path === '/obras-publicas') setPageTitle('Obras');
+    else if (path === '/agora') setPageTitle('Radar da cidade');
+    else if (path.startsWith('/agora/')) setPageTitle('Acontecimento');
     else if (path === '/sobre') setPageTitle('Sobre o Projeto');
     else if (path === '/servicos') setPageTitle('Serviços');
     else if (path === '/contato') setPageTitle('Contato');

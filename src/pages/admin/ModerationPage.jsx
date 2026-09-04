@@ -22,6 +22,7 @@ import { nomeDaCategoria } from '@/lib/reportCategories';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { showAppError } from '@/lib/appError';
+import { MOTIVOS_DE_REJEICAO } from '@/lib/reportRejection';
 
 // Normaliza para busca: sem acento, sem caixa. "Sao Vicente" acha "São Vicente".
 const normalizar = (s) =>
@@ -82,6 +83,7 @@ const ModerationPage = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [itemToReject, setItemToReject] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionCode, setRejectionCode] = useState('');
   const [rejectionTitle, setRejectionTitle] = useState('');
   const [rejectionDescription, setRejectionDescription] = useState('');
 
@@ -264,6 +266,7 @@ const ModerationPage = () => {
     if (newStatus === 'rejected') {
       setItemToReject(item);
       setRejectionReason('');
+      setRejectionCode('');
       setRejectionTitle('');
       setRejectionDescription('');
       setIsRejectModalOpen(true);
@@ -286,21 +289,19 @@ const ModerationPage = () => {
             .eq('id', item.id);
           if (error) throw error;
         } else {
-          // rejected: notify the update author
-          if (item.author_id) {
-            await supabase.from('notifications').insert({
-              user_id: item.author_id,
-              type: 'status_update',
-              title: 'Atualização rejeitada',
-              message: `Sua atualização em "${item.report?.title || 'bronca'}" não foi aprovada por não cumprir as diretrizes.`,
-              link: '/bronca/' + item.report_id,
-              report_id: item.report_id,
-              is_read: false,
-            });
-          }
+          // A notificação NÃO é escrita aqui desde a 207: quem avisa é o gatilho
+          // `on_report_update_rejeitada`, e com o motivo dentro. Enquanto morava
+          // nesta tela, qualquer outro lugar que rejeitasse uma atualização
+          // deixava a pessoa sem aviso — e nada acusava.
           const { error } = await supabase
             .from('report_updates')
-            .update({ status: 'rejected' })
+            .update({
+              status: 'rejected',
+              rejection_reason: rejectionCode || 'outro',
+              rejection_note: rejectionReason.trim() || null,
+              rejected_at: new Date().toISOString(),
+              rejected_by: user?.id || null,
+            })
             .eq('id', item.id);
           if (error) throw error;
         }
@@ -1295,6 +1296,51 @@ const ModerationPage = () => {
                   />
                 </div>
               </div>
+            ) : isUpdateModeration ? (
+              // Motivo estruturado + nota, e os dois são obrigatórios.
+              //
+              // O código existe para a rejeição virar dado de qualidade: sem
+              // ele, ninguém consegue perguntar "quantas recusas são de foto
+              // ilegível?" — e sem essa resposta ninguém conserta o formulário
+              // que produz foto ilegível.
+              //
+              // A nota existe porque é ela que a pessoa vai ler. O catálogo
+              // classifica; a nota ensina.
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Motivo</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {MOTIVOS_DE_REJEICAO.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setRejectionCode(m.id)}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                          rejectionCode === m.id
+                            ? 'bg-danger text-white border-danger'
+                            : 'bg-muted/30 text-content-secondary border-edge-subtle'
+                        }`}
+                      >
+                        {m.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                  {rejectionCode && (
+                    <p className="text-xs text-content-tertiary">
+                      {MOTIVOS_DE_REJEICAO.find((m) => m.id === rejectionCode)?.explicacao}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>O que dizer a quem enviou</Label>
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Ex: A foto está escura demais para ver a calçada. Vale voltar de dia."
+                    className="min-h-[100px] rounded-xl border-2 focus-visible:ring-danger bg-muted/30"
+                  />
+                </div>
+              </div>
             ) : (
               <Textarea
                 value={rejectionReason}
@@ -1309,7 +1355,17 @@ const ModerationPage = () => {
             <Button
               variant="destructive"
               onClick={confirmRejection}
-              disabled={!!actionLoadingId || (isReportModeration ? (!rejectionTitle.trim() || !rejectionDescription.trim()) : !rejectionReason.trim())}
+              // Atualização exige os dois: o código classifica, a nota ensina.
+              // Deixar a nota opcional levaria de volta ao aviso genérico que a
+              // 207 existe para acabar.
+              disabled={
+                !!actionLoadingId ||
+                (isReportModeration
+                  ? !rejectionTitle.trim() || !rejectionDescription.trim()
+                  : isUpdateModeration
+                  ? !rejectionCode || !rejectionReason.trim()
+                  : !rejectionReason.trim())
+              }
               className="rounded-xl h-12 flex-1 shadow-lg"
             >
               {actionLoadingId ? (

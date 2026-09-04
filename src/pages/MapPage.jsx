@@ -1,13 +1,26 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Loader2, Search, X, MapPin, ChevronDown, LocateFixed, Check,
-  SlidersHorizontal, ChevronRight,
+  SlidersHorizontal, ChevronRight, Megaphone, CheckCircle2, Clock, PlusCircle,
+  Map as MapaIcone, List,
 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCity, parseCityFromNominatim, matchCityInList } from '@/contexts/CityContext';
 import { useReportUpdate } from '@/hooks/useReportUpdate';
 import ReportUpdateModal from '@/components/report/ReportUpdateModal';
+import TelaDeMapa from '@/components/map/TelaDeMapa';
+import { useTelaLarga } from '@/hooks/useTelaLarga';
+import { useFocoDeRua } from '@/hooks/useFocoDeRua';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import ListaDeBroncas from '@/components/map/ListaDeBroncas';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import ReportModal from '@/components/ReportModal';
+import { useCreateReport } from '@/hooks/useCreateReport';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Button } from '@/components/ui/button';
+import { showAppError } from '@/lib/appError';
+import { statusDaConsulta, statusInicialDoMapa } from '@/lib/mapReportFilters';
 
 const MapView = lazy(() => import('@/components/MapView'));
 // Carregado sob demanda: quem só consulta o mapa não paga pelo peso dos hooks
@@ -16,6 +29,7 @@ const MapView = lazy(() => import('@/components/MapView'));
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUSES = [
+  { id: 'all',         label: 'Todas' },
   { id: 'active',      label: 'Ativas' },
   { id: 'pending',     label: 'Pendentes' },
   { id: 'in-progress', label: 'Em Andamento' },
@@ -103,6 +117,7 @@ const MapLoader = () => (
 
 export default function MapPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { cities, loadingCities } = useCity();
 
   // Esta página consulta. A patrulha mora em /patrulhar, com mapa próprio.
@@ -134,12 +149,26 @@ export default function MapPage() {
   const [nearbyCities,   setNearbyCities]   = useState([]);
 
   // ── Filter state ──
+  const statusInicial = statusInicialDoMapa(location.search);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [statusFilter,    setStatusFilter]    = useState('active');
+  const [statusFilter,    setStatusFilter]    = useState(statusInicial);
   const [categoryFilter,  setCategoryFilter]  = useState('all');
   // pending changes inside sheet
-  const [pendingStatus,   setPendingStatus]   = useState('active');
+  const [pendingStatus,   setPendingStatus]   = useState(statusInicial);
   const [pendingCategory, setPendingCategory] = useState('all');
+
+  // Também cobre uma navegação para `?rua=` enquanto o mapa já está montado.
+  // Depois disso a escolha é da pessoa: mudar o status não é desfeito enquanto
+  // o parâmetro permanece na URL.
+  const tinhaFocoNaUrl = useRef(Boolean(new URLSearchParams(location.search).get('rua')));
+  useEffect(() => {
+    const temFocoNaUrl = Boolean(new URLSearchParams(location.search).get('rua'));
+    if (temFocoNaUrl && !tinhaFocoNaUrl.current) {
+      setStatusFilter('all');
+      setPendingStatus('all');
+    }
+    tinhaFocoNaUrl.current = temFocoNaUrl;
+  }, [location.search]);
 
   // ── Search ──
   const [titleSearchInput, setTitleSearchInput] = useState('');
@@ -148,6 +177,61 @@ export default function MapPage() {
   // ── Reports / map ──
   const [mapClusters, setMapClusters] = useState([]); // [{ isCluster, lat, lng, count, ids, report }]
   const [flyToTarget, setFlyToTarget] = useState(null);
+
+  // MAPA OU LISTA — E POR QUE ISSO APAGOU UMA TELA INTEIRA
+  //
+  // O desktop tinha duas telas de broncas: este mapa e o feed completo em
+  // `/broncas`. Mesmo conteúdo, mesmos filtros, dois layouts — e a dúvida
+  // permanente de qual das duas era a de verdade. O mapa de pavimentação e o de
+  // obras já tratavam mapa e lista como duas LEITURAS do mesmo recorte, e é o
+  // que falta aqui.
+  //
+  // Com a lista dentro desta tela, `/broncas` deixa de ter função própria e
+  // passa a redirecionar para cá (ver App.jsx).
+  const [modo, setModo] = useState('mapa');
+  const PAGINA_DA_LISTA = 30;
+  const [pagina, setPagina] = useState(1);
+  const [lista, setLista] = useState({ itens: [], total: 0, carregando: false });
+
+  // REGISTRAR UMA BRONCA SEM SAIR DO MAPA
+  //
+  // No celular o "+" da barra de baixo resolve isso. No desktop não há barra de
+  // baixo: quem estava olhando o mapa e via o problema que faltava tinha de ir
+  // até o feed para registrá-lo. É o mesmo `ReportModal` e o mesmo
+  // `useCreateReport` do feed — nenhuma regra de criação mora aqui.
+  //
+  // Não recarrega os pinos depois de criar, e isso é correto: a bronca nasce em
+  // `pending_approval` e o mapa mostra o que já foi aprovado. Um refetch que
+  // não traz nada de novo ensinaria que o envio falhou.
+  const { user } = useAuth();
+  const [criandoBronca, setCriandoBronca] = useState(false);
+  const { createReport } = useCreateReport({ onCreated: () => setCriandoBronca(false) });
+
+  // `?criar_bronca=1` é como o app volta do login querendo registrar uma
+  // bronca (ver ReportModal). O destino era `/broncas`; agora é esta tela, e
+  // ela precisa saber atender ao pedido — senão o login devolve a pessoa a um
+  // mapa comum e o que ela ia registrar se perde.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const pedido = params.get('criar_bronca');
+    if (pedido !== '1' && pedido !== 'true') return;
+
+    setCriandoBronca(true);
+    params.delete('criar_bronca');
+    const resto = params.toString();
+    navigate(`${location.pathname}${resto ? `?${resto}` : ''}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  // O recorte "só as broncas desta rua", vindo de `?rua=<id>` — o link que a
+  // faixa de Minha Rua usa. Ver `useFocoDeRua`.
+  const { foco: focoDeRua, limpar: limparFocoDeRua } = useFocoDeRua('report_ids');
+
+  // Chegou o foco, o mapa vai até a rua. Sem isto, o recorte esconderia quase
+  // tudo e deixaria a pessoa procurando o punhado que sobrou no zoom anterior.
+  useEffect(() => {
+    if (!focoDeRua?.centro) return;
+    setFlyToTarget({ ...focoDeRua.centro, zoom: 17, nonce: Date.now() });
+  }, [focoDeRua]);
   const [loading,     setLoading]     = useState(true);
   const [mapBounds,   setMapBounds]   = useState(null); // { minLat, maxLat, minLng, maxLng }
   const [mapZoom,     setMapZoom]     = useState(13);
@@ -181,12 +265,19 @@ export default function MapPage() {
       const c = CATEGORIES.find(c => c.id === categoryFilter);
       if (c) chips.push({ key: 'cat', label: c.label, clear: () => setCategoryFilter('all') });
     }
+    // O recorte por rua é um chip como os outros — e precisa ser, porque é o
+    // mais fácil de esquecer que está ligado: ele chega pela URL, sem ninguém
+    // ter tocado num filtro desta tela.
+    if (focoDeRua) {
+      chips.push({ key: 'rua', label: focoDeRua.nome || 'Uma rua', clear: limparFocoDeRua });
+    }
     return chips;
-  }, [statusFilter, categoryFilter]);
+  }, [statusFilter, categoryFilter, focoDeRua, limparFocoDeRua]);
 
   const clearAllFilters = () => {
     setStatusFilter('active');
     setCategoryFilter('all');
+    limparFocoDeRua();
   };
 
   // ── selectMapCity ──
@@ -334,16 +425,20 @@ export default function MapPage() {
     cancelRef.current = false;
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('reports_map_clusters', {
-        min_lat: bounds.minLat,
-        max_lat: bounds.maxLat,
-        min_lng: bounds.minLng,
-        max_lng: bounds.maxLng,
-        zoom: Math.round(zoom),
-        status_filter: statusFilter,
-        category_filter: categoryFilter === 'all' ? null : categoryFilter,
-      });
-      if (error) throw error;
+      const respostas = await Promise.all(statusDaConsulta(statusFilter).map((status) =>
+        supabase.rpc('reports_map_clusters', {
+          min_lat: bounds.minLat,
+          max_lat: bounds.maxLat,
+          min_lng: bounds.minLng,
+          max_lng: bounds.maxLng,
+          zoom: Math.round(zoom),
+          status_filter: status,
+          category_filter: categoryFilter === 'all' ? null : categoryFilter,
+        })
+      ));
+      const erro = respostas.find((resposta) => resposta.error)?.error;
+      if (erro) throw erro;
+      const data = respostas.flatMap((resposta) => resposta.data || []);
       if (cancelRef.current) return;
 
       const mapped = (data || []).map(row => (
@@ -472,18 +567,158 @@ export default function MapPage() {
 
   useEffect(() => () => clearTimeout(boundsCityTimerRef.current), []);
 
+  // A LISTA FAZ A PRÓPRIA CONSULTA, E ISSO É DE PROPÓSITO
+  //
+  // O mapa carrega clusters por área visível: um pino pode valer doze broncas e
+  // não carrega o título de nenhuma. Montar a lista a partir deles mostraria só
+  // as que já estão desagrupadas — uma lista cujo tamanho depende do zoom
+  // anterior. Aqui os filtros são os mesmos, mas o recorte é a CIDADE, não o
+  // retângulo na tela: numa lista, "só o que cabe no enquadramento" não é um
+  // recorte que alguém pediu.
+  useEffect(() => {
+    if (modo !== 'lista') return undefined;
+
+    let cancelado = false;
+    setLista((atual) => ({ ...atual, carregando: true }));
+
+    let q = supabase
+      .from('reports')
+      .select('id, title, address, status, created_at, categories(name), upvotes:signatures(count)', { count: 'exact' })
+      .eq('moderation_status', 'approved')
+      .neq('status', 'duplicate')
+      .order('created_at', { ascending: false });
+
+    if (mapCityId) q = q.eq('city_id', mapCityId);
+    // 'active' é o mesmo par que `reports_map_clusters` usa (migração 126):
+    // pendente ou em andamento. 'all' não restringe nada — o `neq duplicate`
+    // acima já é o único corte que vale sempre. Traduzir de outro jeito faria o
+    // mapa e a lista discordarem sobre o que é uma bronca "ativa".
+    if (statusFilter === 'active') q = q.in('status', ['pending', 'in-progress']);
+    else if (statusFilter && statusFilter !== 'all') q = q.eq('status', statusFilter);
+    if (categoryFilter !== 'all') q = q.eq('category_id', categoryFilter);
+    if (focoDeRua) q = q.in('id', [...focoDeRua.ids]);
+    if (titleSearchTerm.trim()) q = q.ilike('title', `%${titleSearchTerm.trim()}%`);
+
+    const de = (pagina - 1) * PAGINA_DA_LISTA;
+    q.range(de, de + PAGINA_DA_LISTA - 1).then(({ data, count, error }) => {
+      if (cancelado) return;
+      if (error) {
+        showAppError({ title: 'Não foi possível carregar a lista', description: error.message });
+        setLista({ itens: [], total: 0, carregando: false });
+        return;
+      }
+      setLista({ itens: data || [], total: count || 0, carregando: false });
+    });
+
+    return () => { cancelado = true; };
+  }, [modo, pagina, mapCityId, statusFilter, categoryFilter, focoDeRua, titleSearchTerm]);
+
+  // Mudou o recorte, volta para a primeira página: filtrar estando na sétima
+  // daria uma lista vazia que parece "nenhuma bronca encontrada".
+  useEffect(() => {
+    setPagina(1);
+  }, [mapCityId, statusFilter, categoryFilter, focoDeRua, titleSearchTerm]);
+
   const visibleClusters = useMemo(() => {
+    let itens = mapClusters;
+
+    // O RECORTE POR RUA ATRAVESSA O CLUSTER, E ISSO NÃO É DETALHE
+    //
+    // A primeira versão descartava todo cluster, pelo mesmo motivo da busca por
+    // título: a agregação não carrega o título das broncas que resume. Só que
+    // ela carrega os IDS (`report_ids`, tanto no pino individual quanto no
+    // agrupado) — e o resultado de descartar foi um mapa completamente vazio,
+    // porque no zoom de bairro quase tudo chega agrupado.
+    //
+    // Com a interseção, o cluster sobrevive com a contagem RECORTADA: um grupo
+    // de doze que tem três da rua aparece como três. Clicar nele continua
+    // enquadrando a extensão dele, e no zoom seguinte os pinos se separam.
+    // Manter a contagem original seria o erro oposto — mostrar doze onde a
+    // faixa da rua prometeu três.
+    if (focoDeRua) {
+      itens = itens
+        .map((item) => {
+          const ids = (item.ids || []).map(String).filter((id) => focoDeRua.ids.has(id));
+          if (ids.length === 0) return null;
+          return item.isCluster ? { ...item, ids, count: ids.length } : item;
+        })
+        .filter(Boolean);
+    }
+
+    // A busca por título continua só entre pinos individuais: aqui não há o que
+    // interseccionar — o cluster não traz o título de ninguém.
     const term = titleSearchTerm.trim().toLowerCase();
-    if (!term) return mapClusters;
-    // Busca por título só filtra pins individuais — clusters agregados não têm título.
-    return mapClusters.filter(item =>
+    if (!term) return itens;
+    return itens.filter(item =>
       !item.isCluster && String(item.report?.title ?? '').toLowerCase().includes(term)
     );
-  }, [mapClusters, titleSearchTerm]);
+  }, [mapClusters, titleSearchTerm, focoDeRua]);
 
   const totalVisibleCount = useMemo(
     () => visibleClusters.reduce((sum, item) => sum + item.count, 0),
     [visibleClusters]
+  );
+
+  // OS CARTÕES CONTAM A CIDADE, NÃO O RECORTE — E O RODAPÉ DIZ ISSO
+  //
+  // O mapa devolve CLUSTERS: um pino pode valer doze broncas e não carrega o
+  // status de nenhuma delas. Somar por situação sobre o que está na tela daria
+  // um número que muda a cada zoom e que subconta sempre — o tipo de estatística
+  // que parece precisa e não é.
+  //
+  // A contagem da cidade é estável, é a mesma a qualquer zoom, e é a pergunta
+  // que estes cartões de fato respondem: "como está minha cidade". O número do
+  // recorte continua existindo, no painel da direita, com o rótulo dele.
+  const [contagemDaCidade, setContagemDaCidade] = useState(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    const contar = (aplicar) => {
+      let q = supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('moderation_status', 'approved')
+        .neq('status', 'duplicate');
+      if (mapCityId) q = q.eq('city_id', mapCityId);
+      return aplicar ? aplicar(q) : q;
+    };
+
+    Promise.all([
+      contar(),
+      contar((q) => q.eq('status', 'pending')),
+      contar((q) => q.eq('status', 'in-progress')),
+      contar((q) => q.eq('status', 'resolved')),
+    ]).then(([total, pendentes, andamento, resolvidas]) => {
+      if (cancelado) return;
+      setContagemDaCidade({
+        total: total.count || 0,
+        pendentes: pendentes.count || 0,
+        andamento: andamento.count || 0,
+        resolvidas: resolvidas.count || 0,
+      });
+    });
+
+    return () => { cancelado = true; };
+  }, [mapCityId]);
+
+  // As cores dos quadrados são as dos pinos daquela situação — as mesmas da
+  // legenda, na coluna da direita. É o que faz "Pendentes" e o ponto laranja do
+  // mapa se reconhecerem sem ninguém explicar.
+  // Tocar num cartão liga o filtro daquele status; tocar no mesmo de novo
+  // desfaz e volta ao padrão da tela. Um cartão que só conta, ao lado de um
+  // seletor de status logo abaixo, é um botão que a pessoa aperta e não
+  // acontece nada.
+  const filtrarPorStatus = (status) =>
+    setStatusFilter((atual) => (atual === status ? statusInicial : status));
+
+  const cartoesDaCidade = (
+    <CartoesDeMapa
+      cartoes={[
+        { id: 'pending', Icone: Clock, cor: 'bg-status-pendingFg', rotulo: 'Pendentes', valor: contagemDaCidade?.pendentes ?? '—', ativo: statusFilter === 'pending', aoClicar: () => filtrarPorStatus('pending') },
+        { id: 'progress', Icone: Megaphone, cor: 'bg-status-progressFg', rotulo: 'Em andamento', valor: contagemDaCidade?.andamento ?? '—', ativo: statusFilter === 'in-progress', aoClicar: () => filtrarPorStatus('in-progress') },
+        { id: 'resolved', Icone: CheckCircle2, cor: 'bg-status-resolvedFg', rotulo: 'Resolvidas', valor: contagemDaCidade?.resolvidas ?? '—', ativo: statusFilter === 'resolved', aoClicar: () => filtrarPorStatus('resolved') },
+      ]}
+    />
   );
 
   // Contagem por categoria para os chips. Deriva do que ja esta carregado - sem
@@ -538,111 +773,17 @@ export default function MapPage() {
     );
   }, [gpsLoading, selectMapCity]);
 
+
+  const telaLarga = useTelaLarga();
+
+
   // ── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
-
-      {/* ── Mapa em tela cheia, com os controles flutuando por cima ──
-          Antes busca/cidade/chips empilhavam acima e empurravam o mapa para
-          baixo. Flutuando, o mapa ganha ~100px de altura util.
-          z-[700] fica abaixo dos controles do Leaflet (800) e do BottomNav
-          (900), entao nada aqui cobre a navegacao.
-          pointer-events-none no container + auto nos filhos: o espaco vazio
-          entre os controles continua arrastavel como mapa. */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
-        {(loading || !geoSettled) && <MapLoader />}
-        {/* Só monta o mapa depois que o GPS resolveu: o Leaflet fixa o centro
-            na montagem, entao montar antes deixaria o mapa preso em Floresta e
-            a posicao do usuario chegaria tarde, causando o salto na abertura. */}
-        {geoSettled && (
-        <Suspense fallback={<MapLoader />}>
-          <div className="absolute inset-0">
-            <MapView
-              clusters={visibleClusters}
-              initialCenter={initialUserPos}
-              onReportClick={handleReportClick}
-              onUpvote={() => {}}
-              flyToTarget={flyToTarget}
-              onBoundsChange={handleBoundsChange}
-              onRecenter={syncCityFromCoords}
-              onUpdateClick={handleOpenUpdate}
-            />
-          </div>
-        </Suspense>
-        )}
-
-        <div className="absolute inset-x-0 top-0 z-[700] pointer-events-none flex flex-col gap-2 pt-2">
-
-      {/* ── Top bar: search + filtros ── */}
-      <div className="flex-shrink-0 pointer-events-auto px-3 flex items-center gap-2">
-        <div className="flex-1 flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5">
-          <Search size={15} className="text-muted-foreground flex-shrink-0" />
-          <input
-            value={titleSearchInput}
-            onChange={e => setTitleSearchInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-            placeholder="Buscar bronca..."
-            className="bg-transparent outline-none text-sm flex-1 min-w-0"
-          />
-          {titleSearchInput && (
-            <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); setFlyToTarget(null); }}>
-              <X size={14} className="text-muted-foreground hover:text-foreground" />
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={openFilterSheet}
-          className="flex-shrink-0 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/40 transition-colors"
-        >
-          <SlidersHorizontal size={14} />
-          <span className="text-xs">Filtros</span>
-          {(statusFilter !== 'active' || categoryFilter !== 'all') && (
-            <span className="w-2 h-2 rounded-full bg-primary" />
-          )}
-        </button>
-      </div>
-
-      {/* ── City pill + active filter chips ── */}
-      <div className="flex-shrink-0 pointer-events-auto px-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
-          className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary/40 transition-colors shadow-lg"
-        >
-          <MapPin size={13} className="text-primary flex-shrink-0" />
-          <span className="truncate max-w-[160px]">{mapCityName ?? 'Selecionar cidade'}</span>
-          <ChevronDown size={13} className="opacity-60 flex-shrink-0" />
-        </button>
-
-        {activeFilterChips.map(chip => (
-          <FilterChip key={chip.key} label={chip.label} onRemove={chip.clear} />
-        ))}
-
-        {activeFilterChips.length > 0 && (
-          <button type="button" onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
-            Limpar tudo
-          </button>
-        )}
-      </div>
-
-        </div>
-
-      </div>
-
-      {/* ── Bottom bar: contagem ──
-          A entrada da patrulha saiu daqui para o hub de missões: este mapa é
-          para consultar, e o botão de agir vivia escondido atrás dele. */}
-      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center gap-3">
-        <span className="text-sm font-semibold text-foreground">
-          {loading ? (
-            <span className="text-muted-foreground">Carregando…</span>
-          ) : (
-            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
-          )}
-        </span>
-      </div>
-
+  // As gavetas e o modal sao os MESMOS nas duas montagens: mudar a moldura nao
+  // muda o que abre por cima dela. Ficam numa constante para que a versao de
+  // colunas e a de celular nao guardem duas copias que divergem na primeira
+  // correcao feita so num lado.
+  const sobreposicoes = (
+    <>
       {/* ══ Bottom Sheet: Filtros ══════════════════════════════════════════════ */}
       <BottomSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filtros">
         <div className="px-5 py-4 flex flex-col gap-6">
@@ -814,6 +955,445 @@ export default function MapPage() {
           onMessageChange={reportUpdate.setMessage}
         />
       )}
+    </>
+  );
+
+  // ── Colunas, a partir de 1100px ───────────────────────────────────────────
+  //
+  // Mesma moldura do mapa de pavimentacao: filtros a esquerda, mapa ocupando a
+  // altura da janela, legenda a direita. O celular NAO passa por aqui — a tela
+  // cheia com controles flutuando por cima continua sendo o certo la, e o
+  // `return` abaixo e o mesmo de sempre.
+  if (telaLarga) {
+    return (
+      <TelaDeMapa
+        titulo="Mapa de Broncas"
+        subtitulo="O que os moradores registraram, e em que pé está cada coisa"
+        tituloDaAba="Mapa de Broncas - Trombone Cidadao"
+        descricaoSeo="Veja no mapa as broncas registradas pelos moradores, por status e categoria."
+        filtrosLigados={activeFilterChips.length}
+        /* O selo carrega o total; os cartões, a repartição. Repetir o total num
+           cartão seria dizer o mesmo número duas vezes lado a lado. */
+        destaque={
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <Megaphone className="h-4 w-4" />
+            {contagemDaCidade?.total ?? '—'} {contagemDaCidade?.total === 1 ? 'bronca registrada' : 'broncas registradas'}
+          </span>
+        }
+        estatisticas={cartoesDaCidade}
+        modo={modo}
+        lista={
+          <ListaDeBroncas
+            broncas={lista.itens}
+            carregando={lista.carregando}
+            total={lista.total}
+            pagina={pagina}
+            porPagina={PAGINA_DA_LISTA}
+            onPagina={setPagina}
+            podeEditar={Boolean(user?.is_admin || user?.is_master)}
+            onEditar={(b) => navigate(`/bronca/${b.id}`, { state: { openEditModal: true } })}
+          />
+        }
+        filtrosDaLista={
+          <div className="rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm sm:p-4">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
+                className="flex w-full items-center gap-1.5 rounded-lg border border-edge-subtle px-2.5 py-2 text-sm font-bold text-content-primary hover:border-brand/40"
+              >
+                <MapPin size={14} className="shrink-0 text-brand" />
+                <span className="min-w-0 flex-1 truncate text-left">{mapCityName ?? 'Selecionar cidade'}</span>
+                <ChevronDown size={14} className="shrink-0 opacity-60" />
+              </button>
+
+              <div className="flex items-center gap-2 rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2">
+                <Search size={14} className="shrink-0 text-content-tertiary" />
+                <input
+                  value={titleSearchInput}
+                  onChange={e => setTitleSearchInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
+                  placeholder="Buscar bronca"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                />
+                {titleSearchInput && (
+                  <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); }}>
+                    <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                aria-label="Status"
+                className="w-full rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-sm text-content-primary"
+              >
+                {STATUSES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                aria-label="Categoria"
+                className="w-full rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-sm text-content-primary"
+              >
+                {CATEGORIES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge-subtle pt-3">
+              <ToggleGroup
+                type="single"
+                value={modo}
+                onValueChange={(valor) => valor && setModo(valor)}
+                className="rounded-md border"
+              >
+                <ToggleGroupItem value="mapa" aria-label="Ver mapa" className="px-4"><MapaIcone className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="lista" aria-label="Ver lista" className="px-4"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+
+              {focoDeRua && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand-subtleBg px-2.5 py-1 text-xs font-bold text-brand-subtleFg">
+                  <MapPin size={12} /> Só {focoDeRua.nome || 'esta rua'}
+                  <button type="button" onClick={limparFocoDeRua} aria-label="Ver a cidade inteira">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+
+              {activeFilterChips.length > 0 && (
+                <Button type="button" size="sm" variant="ghost" className="text-xs" onClick={clearAllFilters}>
+                  Limpar filtros ({activeFilterChips.length})
+                </Button>
+              )}
+
+              {user && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto gap-1.5 border-tc-red/30 text-xs text-tc-red hover:bg-tc-red/5"
+                  onClick={() => setCriandoBronca(true)}
+                >
+                  <PlusCircle className="h-3.5 w-3.5" /> Registrar bronca
+                </Button>
+              )}
+            </div>
+          </div>
+        }
+        filtros={
+          <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+            <button
+              type="button"
+              onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
+              className="flex w-full items-center gap-1.5 rounded-full border border-edge-subtle px-2.5 py-1.5 text-xs font-bold text-content-primary hover:border-brand/40"
+            >
+              <MapPin size={13} className="shrink-0 text-brand" />
+              <span className="min-w-0 flex-1 truncate text-left">{mapCityName ?? 'Selecionar cidade'}</span>
+              <ChevronDown size={13} className="shrink-0 opacity-60" />
+            </button>
+
+            {/* O RECORTE POR RUA PRECISA SE ANUNCIAR
+                Ele chega pela URL, sem ninguém ter mexido em filtro nenhum
+                nesta tela. Um mapa que mostra sete pinos onde havia quinhentos,
+                sem dizer por quê, lê como mapa quebrado. */}
+            {focoDeRua && (
+              <div className="flex items-start gap-2 rounded-lg border border-brand/30 bg-brand-subtleBg px-2.5 py-2">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-brand" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-brand-subtleFg">
+                    Só {focoDeRua.nome || 'esta rua'}
+                  </p>
+
+                  {/* O atalho da página da rua começa em "Todas", para a lista
+                      corresponder ao número que foi tocado. A pessoa ainda pode
+                      estreitar por status ou categoria aqui embaixo. */}
+                  {focoDeRua.ids.size === 0 ? (
+                    <p className="text-[10px] leading-tight text-content-tertiary">
+                      Nenhuma bronca aprovada nesta rua.
+                    </p>
+                  ) : (
+                    <>
+                      {totalVisibleCount < focoDeRua.ids.size && (
+                        <p className="text-[10px] leading-tight text-content-tertiary">
+                          {focoDeRua.ids.size} nesta rua ·{' '}
+                          {focoDeRua.ids.size - totalVisibleCount} fora dos filtros atuais
+                          {statusFilter !== 'active' ? '' : ' (o status está em "Ativas")'}.
+                        </p>
+                      )}
+                      {!focoDeRua.preciso && (
+                        <p className="text-[10px] leading-tight text-content-tertiary">
+                          Sem traçado cadastrado: o recorte é um raio em volta do ponto da rua.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <button type="button" onClick={limparFocoDeRua} aria-label="Ver a cidade inteira">
+                  <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2">
+              <Search size={14} className="shrink-0 text-content-tertiary" />
+              <input
+                value={titleSearchInput}
+                onChange={e => setTitleSearchInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
+                placeholder="Buscar bronca"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+              {titleSearchInput && (
+                <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); setFlyToTarget(null); }}>
+                  <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                </button>
+              )}
+            </div>
+
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Status</span>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-sm text-content-primary"
+              >
+                {STATUSES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Categoria</span>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-sm text-content-primary"
+              >
+                {CATEGORIES.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+
+            <div className="mt-auto grid gap-2">
+              <ToggleGroup
+                type="single"
+                value={modo}
+                onValueChange={(valor) => valor && setModo(valor)}
+                className="justify-center rounded-md border"
+              >
+                <ToggleGroupItem value="mapa" aria-label="Ver mapa" className="flex-1"><MapaIcone className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="lista" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+
+              {/* Mesmo padrão de Ruas, Obras e Imóveis: a ação de cadastro
+                  pertence ao rodapé do painel, junto dos controles da tela.
+                  O cabeçalho fica reservado para nome e resumo do mapa. */}
+              {user && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-full gap-1.5 border-tc-red/30 text-[11px] text-tc-red hover:bg-tc-red/5"
+                  onClick={() => setCriandoBronca(true)}
+                >
+                  <PlusCircle className="h-3.5 w-3.5" /> Registrar bronca
+                </Button>
+              )}
+            </div>
+
+            {activeFilterChips.length > 0 && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="rounded-lg border border-edge-subtle px-2.5 py-2 text-xs font-bold text-content-secondary hover:bg-surface-subtle"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+        }
+        mapa={
+          <>
+            {(loading || !geoSettled) && <MapLoader />}
+            {geoSettled && (
+              <Suspense fallback={<MapLoader />}>
+                <div className="absolute inset-0">
+                  <MapView
+                    clusters={visibleClusters}
+                    /* A LEGENDA É UMA SÓ, E ELA MORA NA COLUNA
+                       O MapView desenha uma legenda flutuante sobre o canto do
+                       mapa — certo na tela cheia do celular, onde não existe
+                       coluna. Aqui existe, e ela repetia palavra por palavra o
+                       cartão da direita: duas legendas idênticas na mesma tela
+                       fazem a pessoa procurar a diferença entre elas. */
+                    showLegend={false}
+                    initialCenter={initialUserPos}
+                    onReportClick={handleReportClick}
+                    onUpvote={() => {}}
+                    flyToTarget={flyToTarget}
+                    onBoundsChange={handleBoundsChange}
+                    onRecenter={syncCityFromCoords}
+                    onUpdateClick={handleOpenUpdate}
+                    /* Só admin e master: embaixador modera pela tela de
+                       moderação, que tem o contexto que este balão não tem. A
+                       autoridade continua sendo a policy — isto só evita a
+                       viagem até a página para descobrir que não dá. */
+                    onEditClick={(user?.is_admin || user?.is_master)
+                      ? (r) => navigate(`/bronca/${r.id}`, { state: { openEditModal: true } })
+                      : undefined}
+                  />
+                </div>
+              </Suspense>
+            )}
+          </>
+        }
+        painel={
+          <div className="grid gap-3">
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </span>
+                Broncas visiveis
+              </p>
+              <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+                {loading ? '—' : totalVisibleCount}
+              </p>
+              <p className="mt-1 text-xs text-content-secondary">
+                No recorte atual do mapa e dos filtros.
+              </p>
+            </section>
+
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">Legenda</p>
+              <ul className="mt-2 grid gap-1.5">
+                {[
+                  ['bg-status-pendingFg', 'Pendente'],
+                  ['bg-status-progressFg', 'Em andamento'],
+                  ['bg-status-resolvedFg', 'Resolvido'],
+                ].map(([cor, rotulo]) => (
+                  <li key={rotulo} className="flex items-center gap-2 text-xs text-content-secondary">
+                    <span className={`h-2.5 w-2.5 rounded-full ${cor}`} /> {rotulo}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        }
+      >
+        {sobreposicoes}
+        {criandoBronca && (
+          <ReportModal onClose={() => setCriandoBronca(false)} onSubmit={createReport} />
+        )}
+      </TelaDeMapa>
+    );
+  }
+
+  return (
+    <div className="flex flex-col bg-background flex-1 min-h-0 overflow-hidden">
+
+      {/* ── Mapa em tela cheia, com os controles flutuando por cima ──
+          Antes busca/cidade/chips empilhavam acima e empurravam o mapa para
+          baixo. Flutuando, o mapa ganha ~100px de altura util.
+          z-[700] fica abaixo dos controles do Leaflet (800) e do BottomNav
+          (900), entao nada aqui cobre a navegacao.
+          pointer-events-none no container + auto nos filhos: o espaco vazio
+          entre os controles continua arrastavel como mapa. */}
+      <div className="flex-1 min-h-0 relative overflow-hidden">
+        {(loading || !geoSettled) && <MapLoader />}
+        {/* Só monta o mapa depois que o GPS resolveu: o Leaflet fixa o centro
+            na montagem, entao montar antes deixaria o mapa preso em Floresta e
+            a posicao do usuario chegaria tarde, causando o salto na abertura. */}
+        {geoSettled && (
+        <Suspense fallback={<MapLoader />}>
+          <div className="absolute inset-0">
+            <MapView
+              clusters={visibleClusters}
+              initialCenter={initialUserPos}
+              onReportClick={handleReportClick}
+              onUpvote={() => {}}
+              flyToTarget={flyToTarget}
+              onBoundsChange={handleBoundsChange}
+              onRecenter={syncCityFromCoords}
+              onUpdateClick={handleOpenUpdate}
+            />
+          </div>
+        </Suspense>
+        )}
+
+        <div className="absolute inset-x-0 top-0 z-[700] pointer-events-none flex flex-col gap-2 pt-2">
+
+      {/* ── Top bar: search + filtros ── */}
+      <div className="flex-shrink-0 pointer-events-auto px-3 flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5">
+          <Search size={15} className="text-muted-foreground flex-shrink-0" />
+          <input
+            value={titleSearchInput}
+            onChange={e => setTitleSearchInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
+            placeholder="Buscar bronca..."
+            className="bg-transparent outline-none text-sm flex-1 min-w-0"
+          />
+          {titleSearchInput && (
+            <button type="button" onClick={() => { setTitleSearchInput(''); setTitleSearchTerm(''); setFlyToTarget(null); }}>
+              <X size={14} className="text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={openFilterSheet}
+          className="flex-shrink-0 flex items-center gap-1.5 bg-card/95 backdrop-blur-sm border border-border shadow-lg rounded-full px-3 py-1.5 text-sm font-medium text-foreground hover:border-primary/40 transition-colors"
+        >
+          <SlidersHorizontal size={14} />
+          <span className="text-xs">Filtros</span>
+          {(statusFilter !== 'active' || categoryFilter !== 'all') && (
+            <span className="w-2 h-2 rounded-full bg-primary" />
+          )}
+        </button>
+      </div>
+
+      {/* ── City pill + active filter chips ── */}
+      <div className="flex-shrink-0 pointer-events-auto px-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => { setCitySheetOpen(true); setCitySearch(''); }}
+          className="flex items-center gap-1.5 rounded-full border border-border bg-card/95 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-foreground hover:border-primary/40 transition-colors shadow-lg"
+        >
+          <MapPin size={13} className="text-primary flex-shrink-0" />
+          <span className="truncate max-w-[160px]">{mapCityName ?? 'Selecionar cidade'}</span>
+          <ChevronDown size={13} className="opacity-60 flex-shrink-0" />
+        </button>
+
+        {activeFilterChips.map(chip => (
+          <FilterChip key={chip.key} label={chip.label} onRemove={chip.clear} />
+        ))}
+
+        {activeFilterChips.length > 0 && (
+          <button type="button" onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-primary transition-colors ml-auto">
+            Limpar tudo
+          </button>
+        )}
+      </div>
+
+        </div>
+
+      </div>
+
+      {/* ── Bottom bar: contagem ──
+          A entrada da patrulha saiu daqui para o hub de missões: este mapa é
+          para consultar, e o botão de agir vivia escondido atrás dele. */}
+      <div className="flex-shrink-0 bg-background border-t border-border px-4 py-2.5 flex items-center gap-3">
+        <span className="text-sm font-semibold text-foreground">
+          {loading ? (
+            <span className="text-muted-foreground">Carregando…</span>
+          ) : (
+            `${totalVisibleCount} ${totalVisibleCount === 1 ? 'bronca visível' : 'broncas visíveis'}`
+          )}
+        </span>
+      </div>
+
+      {sobreposicoes}
     </div>
   );
 }

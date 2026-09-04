@@ -26,8 +26,8 @@ const throwIfAborted = (signal) => {
   throw error;
 };
 
-const NAV_ITEMS = [
-  { path: '/', icon: Home, label: 'Feed' },
+const PUBLIC_NAV_ITEMS = [
+  { path: '/', icon: Home, label: 'Início' },
   { path: '/mapa', icon: Map, label: 'Mapa' },
   { path: 'modal', icon: PlusCircle, label: 'Reportar' },
   { path: '/estatisticas', icon: BarChart3, label: 'Estatísticas' },
@@ -62,6 +62,17 @@ const BottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [showReportModal, setShowReportModal] = useState(false);
+  // A PRIMEIRA ABA É "INÍCIO" PARA TODO MUNDO, INCLUSIVE ADMIN
+  //
+  // Ela chegou a virar o painel do papel — /admin, /embaixador, /painel-usuario.
+  // O efeito era o botão de casa da barra de baixo deixar de levar para casa:
+  // quem administra a cidade abre o app dezenas de vezes por dia para ver o que
+  // está acontecendo nela, e caía numa central de moderação.
+  //
+  // O painel continua a um toque, na aba Perfil — ProfilePage tem "Painel
+  // Administrativo", "Painel Embaixador" e "Meu Painel", cada um conforme o
+  // papel. Trabalho tem entrada própria; a casa é do feed.
+  const navItems = PUBLIC_NAV_ITEMS;
 
   const triggerHaptic = useCallback(async () => {
     if (Capacitor.isNativePlatform()) {
@@ -180,7 +191,7 @@ const BottomNav = () => {
     (path) => {
       const isActive =
         path === '/'
-          ? location.pathname === '/'
+          ? location.pathname === '/' || location.pathname === '/feed'
           : location.pathname.startsWith(path);
       return `flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
         isActive
@@ -206,7 +217,7 @@ const BottomNav = () => {
       >
         <div className="container mx-auto h-16">
           <div className="grid grid-cols-5 items-center h-full">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               // Centre FAB
               if (item.path === 'modal') {
                 return (

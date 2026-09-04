@@ -45,7 +45,16 @@ export function useUserLocation() {
       (pos) => {
         if (!mountedRef.current) return;
         lastFixRef.current = Date.now();
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        // `speed` vem junto porque a Rota do Dia precisa saber se a pessoa
+        // parou antes de pedir uma resposta (princípio 8: nada de interação em
+        // movimento). É `null` em muitos aparelhos, e quem consome trata a
+        // ausência como "parada" — ver `estaParado` em src/lib/rotaDoDia.js.
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          speed: pos.coords.speed,
+          accuracy: pos.coords.accuracy,
+        });
         setStatus('granted');
       },
       (err) => {

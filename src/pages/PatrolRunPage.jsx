@@ -1,8 +1,18 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 
 import { categoriaPorId, nomeDaCategoria } from '@/lib/reportCategories';
+import { precarregarRenders } from '@/components/patrol/patrolAvatarMarkup';
+import { usePatrolAvatar } from '@/hooks/usePatrolAvatar';
+import { useRuasDaCidade } from '@/hooks/useRuasDaCidade';
+import { tracarRota } from '@/lib/rotaTracada';
+import { haversine } from '@/lib/navGeo';
+import {
+  buildPatrolPickPath,
+  getPatrolTravelMode,
+  patrolTravelModeFromSearch,
+} from '@/lib/patrolTravelMode';
 
 const MapView = lazy(() => import('@/components/MapView'));
 const PatrolOverlay = lazy(() => import('@/components/patrol/PatrolOverlay'));
@@ -33,13 +43,46 @@ const PatrolOverlay = lazy(() => import('@/components/patrol/PatrolOverlay'));
 
 export default function PatrolRunPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { categoria: categoriaBruta } = useParams();
 
   // Toda patrulha é de uma categoria. Sem categoria válida — link velho de
   // quando existia a "patrulha completa", ou URL digitada errada — a pessoa vai
   // escolher uma, em vez de cair numa tela que não sabe o que procurar.
   const categoria = categoriaPorId(categoriaBruta) ? categoriaBruta : null;
+  // A tela que liga o GPS exige um modo EXPLICITO na URL. Isso impede que
+  // atalhos de missao e links antigos pulem o seletor de carro/caminhada.
+  const modoDeslocamento = useMemo(
+    () => patrolTravelModeFromSearch(location.search),
+    [location.search]
+  );
+  const modo = modoDeslocamento ? getPatrolTravelMode(modoDeslocamento) : null;
 
+  // A aparência escolhida na preparação. Lida uma vez: ela não muda com a
+  // patrulha em andamento, e reler a cada leitura de GPS tocaria o storage a
+  // cada segundo.
+  //
+  // O PERFIL PRECISA VALER AQUI TAMBÉM, E NÃO SÓ NA PREPARAÇÃO
+  //
+  // Quem não abriu a folha de escolha não gravou sexo nenhum. Se esta tela
+  // caísse no padrão enquanto a preparação já mostrava o boneco do perfil, a
+  // pessoa veria uma pessoa na conferência e outra na rua — que é exatamente
+  // a divergência que a configuração única existe para impedir.
+  //
+  // O hook memoriza pelo sexo do perfil: não relê o storage a cada leitura de
+  // GPS, e ainda assim acerta quando o perfil chega depois da primeira pintura.
+  const avatar = usePatrolAvatar();
+
+  // O MARCADOR PISCA SEM ISTO
+  //
+  // O ícone do mapa nasce de uma string de HTML e é RECRIADO toda vez que a
+  // chave do avatar muda — inclusive na troca entre andando e parado. Quando o
+  // boneco vem de camadas de imagem, um nó novo pinta vazio até o decode
+  // terminar, e a pessoa vê o próprio marcador sumir por um quadro no meio da
+  // rua. Decodificar antes custa uma vez e resolve; sem renders publicados a
+  // chamada não faz nada.
+  useEffect(() => { precarregarRenders(avatar); }, [avatar]);
+  const [sinalFraco, setSinalFraco] = useState(false);
   const [posicao, setPosicao] = useState(null);
   const [broncas, setBroncas] = useState([]);
   const [rastro, setRastro] = useState([]);
@@ -47,6 +90,41 @@ export default function PatrolRunPage() {
   // pin deles é a confirmação da sinalização desde que o toast saiu — ver o
   // comentário em PatrolOverlay, no `aoSoAlertar`.
   const [missoes, setMissoes] = useState([]);
+  const [cidadeId, setCidadeId] = useState(null);
+  const [alvoSelecionado, setAlvoSelecionado] = useState(null);
+  const { linhas: ruasDaCidade, carregando: carregandoRuas } = useRuasDaCidade(cidadeId);
+
+  const rotaAoAlvo = useMemo(
+    () =>
+      alvoSelecionado && posicao
+        ? tracarRota({
+            posicao,
+            paradas: [alvoSelecionado],
+            linhas: ruasDaCidade,
+            detalharAcessos: true,
+          })
+        : { trechos: [], metros: 0, tracado: 'reta' },
+    [alvoSelecionado, posicao, ruasDaCidade]
+  );
+
+  const selecionarBronca = useCallback((bronca) => {
+    if (!bronca) return;
+    const ponto = bronca.location || bronca;
+    setAlvoSelecionado({
+      ...bronca,
+      lat: Number(ponto.lat),
+      lng: Number(ponto.lng),
+      tipoAlvo: 'bronca',
+    });
+  }, []);
+
+  const selecionarMissao = useCallback((missao) => {
+    if (!missao) return;
+    setAlvoSelecionado({ ...missao, tipoAlvo: 'sinal' });
+  }, []);
+
+  const distanciaDireta =
+    posicao && alvoSelecionado ? Math.round(haversine(posicao, alvoSelecionado)) : null;
 
   // O mapa desenha o corredor, não o enquadramento: são poucas dezenas de pinos
   // em vez de centenas, e a referência só muda quando o corredor é rebuscado.
@@ -68,9 +146,12 @@ export default function PatrolRunPage() {
     navigate('/missoes', { replace: true });
   }, [navigate]);
 
-  if (!categoria) return <Navigate to="/missoes" replace />;
+  if (!categoria) return <Navigate to="/patrulhar" replace />;
+  if (!modoDeslocamento) {
+    return <Navigate to={buildPatrolPickPath(categoria)} replace />;
+  }
 
-  const titulo = `Patrulha · ${nomeDaCategoria(categoria)}`;
+  const titulo = `${modo.activeLabel} · ${nomeDaCategoria(categoria)}`;
 
   return (
     <div className="fixed inset-0 bg-surface-base overflow-hidden">
@@ -89,15 +170,20 @@ export default function PatrolRunPage() {
               initialCenter={posicao}
               navMode
               navPosition={posicao}
+              navTravelMode={modoDeslocamento}
+              navAvatar={avatar}
+              navGpsAtivo={!sinalFraco}
               navTrail={rastro}
+              navRouteTrechos={rotaAoAlvo.trechos}
               navMissoes={missoes}
+              onNavMissaoClick={selecionarMissao}
               showLegend={false}
               showModeToggle={false}
               interactive={false}
               // Em patrulha nada disso é alcançável: os popins estão desligados
               // e o mapa não aceita toque. Ficam como no-op para o MapView não
               // precisar de guarda em cada chamada.
-              onReportClick={() => {}}
+              onReportClick={selecionarBronca}
               onUpvote={() => {}}
               onUpdateClick={() => {}}
               onBoundsChange={() => {}}
@@ -110,10 +196,29 @@ export default function PatrolRunPage() {
       <Suspense fallback={null}>
         <PatrolOverlay
           categoria={categoria}
+          modoDeslocamento={modoDeslocamento}
           onPosicao={setPosicao}
+          onSinal={setSinalFraco}
           onBroncas={setBroncas}
           onRastro={setRastro}
           onMissoes={setMissoes}
+          onCidade={setCidadeId}
+          destinoSelecionado={
+            alvoSelecionado
+              ? {
+                  tipo: alvoSelecionado.tipoAlvo,
+                  nome:
+                    alvoSelecionado.title ||
+                    alvoSelecionado.categoryName ||
+                    alvoSelecionado.address ||
+                    'Ponto selecionado',
+                  distancia: rotaAoAlvo.metros || distanciaDireta,
+                  calculando: carregandoRuas,
+                  pelasRuas: rotaAoAlvo.tracado !== 'reta',
+                }
+              : null
+          }
+          onCancelarDestino={() => setAlvoSelecionado(null)}
           onSair={sair}
         />
       </Suspense>

@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/customSupabaseClient';
 import { placar } from '@/lib/scoring';
+import { normalizarContadoresDeMissao } from '@/lib/missionCounters';
 import { calcularSequencia, avaliarConquistas } from '@/lib/patrolGame';
 import AchievementGrid from '@/components/missions/AchievementGrid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,11 +84,7 @@ const ProfilePage = () => {
       return;
     }
 
-    const contadores = {
-      ...row,
-      confirmadasPorCategoria: row.confirmed_by_category ?? {},
-      registradasPorCategoria: row.reported_by_category ?? {},
-    };
+    const contadores = normalizarContadoresDeMissao(row);
 
     setUserLevel(placar(contadores));
 
@@ -281,7 +278,7 @@ const ProfilePage = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="px-4 md:px-6 lg:px-10 xl:px-14 pt-4 pb-8 space-y-4 max-w-[88rem] mx-auto w-full"
+          className="mx-auto w-full max-w-[112rem] space-y-4 px-3 pb-8 pt-4 sm:px-5 lg:px-8"
         >
           {/* Card do usuario */}
           <motion.div
@@ -521,12 +518,6 @@ const ProfilePage = () => {
               />
             </div>
 
-            <Link to="/excluir-conta" className="w-full mt-4 block">
-              <Button variant="outline" className="w-full gap-2 text-danger hover:text-danger hover:bg-danger-subtleBg border-danger/30">
-                <Trash2 className="w-4 h-4" />
-                Excluir conta
-              </Button>
-            </Link>
           </motion.div>
 
           {/* Conquistas.
@@ -590,6 +581,22 @@ const ProfilePage = () => {
                 <RankingList items={rankings.comments} icon={MessageSquare} currentUserId={user.id} />
               </TabsContent>
             </Tabs>
+          </motion.div>
+
+          {/* A exclusão encerra a página porque é uma ação definitiva, não uma
+              preferência de aparência ou de acesso recorrente. */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-2xl border border-edge-subtle bg-surface-raised p-6 shadow-elevation-1"
+          >
+            <Link to="/excluir-conta" className="block w-full">
+              <Button variant="outline" className="w-full gap-2 border-danger/30 text-danger hover:bg-danger-subtleBg hover:text-danger">
+                <Trash2 className="h-4 w-4" />
+                Excluir conta
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
       </div>

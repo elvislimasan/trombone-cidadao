@@ -18,26 +18,20 @@ import { formatCurrency, formatAddressWithNumber } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { showAppError } from '@/lib/appError';
-
-const StatCard = ({ icon: Icon, label, value, color }) => (
-  <Card className="border-border">
-    <CardContent className="p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="w-5 h-5 text-white" />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-bold text-foreground">{value}</p>
-      </div>
-    </CardContent>
-  </Card>
-);
+import TelaDeMapa from '@/components/map/TelaDeMapa';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import LimparFiltros from '@/components/map/LimparFiltros';
+import { useTelaLarga } from '@/hooks/useTelaLarga';
+import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { RentalPropertyEditModal } from '@/pages/admin/ManageRentalPropertiesPage';
 
 const RentalPropertiesPage = () => {
   const { cityId: activeCityId, cityName: activeCityName } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
+  const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const navigate = useNavigate();
+  const telaLarga = useTelaLarga();
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode gerenciar
   // a(s) própria(s) cidade(s) — precisamos saber quais são, não basta checar
   // se ALGUMA cidade está selecionada (poderia ser a cidade de outro embaixador).
@@ -66,6 +60,7 @@ const RentalPropertiesPage = () => {
   const [searchOwner, setSearchOwner] = useState('');
   const [selectedBairro, setSelectedBairro] = useState('all');
   const [view, setView] = useState('map');
+  const [editingProperty, setEditingProperty] = useState(null);
 
   const fetchProperties = useCallback(async () => {
     setLoading(true);
@@ -163,6 +158,26 @@ const RentalPropertiesPage = () => {
     return { mostExpensive, cheapest, largest, smallest, annualTotal, activeCount };
   }, [filteredProperties]);
 
+  // A MESMA LISTA DE CARTÕES NOS DOIS MODOS
+  //
+  // Este desenho — quadrado colorido, rótulo pequeno, valor em negrito — nasceu
+  // aqui e agora é o de todas as telas de mapa (`CartoesDeMapa`). Escrever a
+  // lista uma vez é o que garante que trocar de mapa para lista não pareça ter
+  // trocado também o recorte.
+  // Quantos recortes estão ligados. Serve à pílula "Filtros" da coluna
+  // recolhida e ao rótulo do botão que os desfaz — um número só, para os dois
+  // não divergirem.
+  const filtrosLigados = (searchOwner.trim() ? 1 : 0) + (selectedBairro !== 'all' ? 1 : 0);
+  const limparFiltros = () => { setSearchOwner(''); setSelectedBairro('all'); };
+
+  const cartoesDeImoveis = useMemo(() => [
+    { id: 'caro', Icone: TrendingUp, cor: 'bg-red-500', rotulo: 'Mais caro', valor: stats.mostExpensive ? formatCurrency(stats.mostExpensive.monthly_value) : '—' },
+    { id: 'barato', Icone: TrendingDown, cor: 'bg-green-500', rotulo: 'Mais barato', valor: stats.cheapest ? formatCurrency(stats.cheapest.monthly_value) : '—' },
+    { id: 'maior', Icone: Maximize2, cor: 'bg-blue-500', rotulo: 'Maior imóvel', valor: stats.largest ? `${stats.largest.area_m2}m²` : '—' },
+    { id: 'menor', Icone: Minimize2, cor: 'bg-amber-500', rotulo: 'Menor imóvel', valor: stats.smallest ? `${stats.smallest.area_m2}m²` : '—' },
+    { id: 'anual', Icone: DollarSign, cor: 'bg-tc-red', rotulo: 'Gasto anual total', valor: formatCurrency(stats.annualTotal) },
+  ], [stats]);
+
   const handleDownloadReport = () => {
     setDownloading(true);
     try {
@@ -198,13 +213,201 @@ const RentalPropertiesPage = () => {
     }
   };
 
+  // ── Colunas, a partir de 1100px ───────────────────────────────────────────
+  //
+  // Mesma moldura das outras telas de mapa. Só no modo MAPA — a lista tem
+  // paginação e cartões em grade, e não é uma tela de mapa.
+  const handleEditProperty = useCallback(async (property) => {
+    const { data, error } = await supabase
+      .from('rental_properties')
+      .select('*, bairro:bairro_id(id, name)')
+      .eq('id', property.id)
+      .single();
+    if (error) {
+      showAppError({ title: 'Erro ao carregar imóvel', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingProperty(data);
+  }, []);
+
+  const handleSaveProperty = useCallback(async (propertyToSave) => {
+    const { id, location, bairro, contracts, area_m2, created_at, updated_at, ...data } = propertyToSave;
+    const resolvedCityId = await resolveCityIdFromLocation(location);
+    if (resolvedCityId == null) {
+      showAppError({ title: 'Não foi possível identificar a cidade', description: 'Confira a localização do marcador.', variant: 'destructive' });
+      return null;
+    }
+    const payload = {
+      ...data,
+      city_id: resolvedCityId,
+      location: location ? `POINT(${location.lng} ${location.lat})` : null,
+    };
+    if (payload.bairro_id === '') payload.bairro_id = null;
+    ['length_m', 'width_m'].forEach((key) => { if (payload[key] === '') payload[key] = null; });
+
+    const { data: saved, error } = await supabase
+      .from('rental_properties')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) {
+      showAppError({ title: 'Erro ao salvar imóvel', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    await fetchProperties();
+    return saved;
+  }, [fetchProperties, resolveCityIdFromLocation]);
+
+  const propertyEditor = editingProperty ? (
+    <RentalPropertyEditModal
+      property={editingProperty}
+      onSave={handleSaveProperty}
+      onClose={() => setEditingProperty(null)}
+      bairros={bairros}
+      defaultCityId={activeCityId}
+      onBairroCreated={(bairro) => setBairros((prev) => [...prev, bairro])}
+    />
+  ) : null;
+
+  if (telaLarga && view === 'map' && !loading) {
+    return (
+      <>
+      <TelaDeMapa
+        titulo="Imóveis Alugados pela Prefeitura"
+        subtitulo="Onde ficam, de quem são e quanto custam por mês"
+        tituloDaAba="Imóveis Alugados - Trombone Cidadão"
+        descricaoSeo="Veja no mapa os imóveis alugados pela prefeitura, com valor mensal e proprietário."
+        filtrosLigados={filtrosLigados}
+        /* OS MESMOS CINCO CARTÕES DA LISTA
+           O modo mapa e o modo lista são a mesma tela em duas formas. Mostrar
+           números diferentes em cada uma faria a pessoa achar que a troca de
+           modo também trocou o recorte. */
+        destaque={
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <Building2 className="h-4 w-4" />
+            {stats.activeCount} {stats.activeCount === 1 ? 'imóvel alugado' : 'imóveis alugados'} (ativos)
+          </span>
+        }
+        estatisticas={
+          <CartoesDeMapa
+            cartoes={cartoesDeImoveis}
+            rodape="Números sobre os imóveis filtrados. A projeção anual é a soma dos aluguéis vigentes vezes doze — não o que foi pago."
+          />
+        }
+        filtros={
+          <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+            <CitySelector />
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
+              <Input
+                placeholder="Buscar proprietário"
+                className="h-9 pl-8 text-sm"
+                value={searchOwner}
+                onChange={(e) => setSearchOwner(e.target.value)}
+              />
+            </div>
+
+            <Combobox
+              value={selectedBairro}
+              onChange={setSelectedBairro}
+              options={[{ value: 'all', label: 'Todos os bairros' }, ...bairros.map((b) => ({ value: b.id, label: b.name }))]}
+              placeholder="Bairro"
+              searchPlaceholder="Buscar bairro..."
+            />
+
+            <LimparFiltros ligados={filtrosLigados} aoLimpar={limparFiltros} className="w-full" />
+
+            <div className="mt-auto grid gap-2">
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={(v) => v && setView(v)}
+                className="justify-center rounded-md border"
+              >
+                <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+
+              {canManageProperties && (
+                <Link to="/imoveis-alugados/gerenciar" className="w-full">
+                  <Button size="sm" variant="outline" className="w-full gap-1.5 text-xs">
+                    <PlusCircle className="h-3.5 w-3.5" /> Adicionar imóvel
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        }
+        mapa={
+          <RentalPropertiesMapView
+            properties={filteredProperties}
+            onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)}
+            canManage={canManageProperties}
+            onEditProperty={handleEditProperty}
+          />
+        }
+        painel={
+          <div className="grid gap-3">
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
+                  <Building2 className="h-4 w-4" />
+                </span>
+                Imóveis no recorte
+              </p>
+              <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+                {filteredProperties.length}
+              </p>
+              <p className="mt-1 text-xs text-content-secondary">
+                {stats.activeCount} com contrato ativo.
+              </p>
+            </section>
+
+            {/* O ANUAL É PROJEÇÃO, E O RÓTULO PRECISA DIZER ISSO
+                É a soma dos aluguéis mensais vigentes multiplicada por doze — não
+                o que a prefeitura de fato pagou no ano. Chamá-lo de "gasto anual"
+                seco afirmaria um número de execução orçamentária que esta tela
+                não tem como conferir. */}
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-content-tertiary">
+                Nos imóveis filtrados
+              </p>
+              <p className="mt-2 text-lg font-extrabold leading-none text-content-primary tabular-nums">
+                {formatCurrency(stats.annualTotal)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-content-secondary">
+                Projeção anual dos contratos vigentes
+              </p>
+
+              <Button
+                onClick={handleDownloadReport}
+                disabled={downloading}
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full gap-1.5 text-xs"
+              >
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Baixar relatório
+              </Button>
+            </section>
+          </div>
+        }
+      />
+      {propertyEditor}
+      </>
+    );
+  }
+
+
   return (
     <>
       <Helmet>
         <title>Imóveis Alugados - Trombone Cidadão</title>
         <meta name="description" content="Acompanhe os imóveis alugados pela prefeitura, valores e contratos." />
       </Helmet>
-      <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
+      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Imóveis Alugados pela Prefeitura</h1>
           <p className="mt-2 text-muted-foreground">Acompanhe os gastos e o uso de cada imóvel alugado</p>
@@ -228,12 +431,8 @@ const RentalPropertiesPage = () => {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <StatCard icon={TrendingUp} label="Mais caro" value={stats.mostExpensive ? formatCurrency(stats.mostExpensive.monthly_value) : '—'} color="bg-red-500" />
-          <StatCard icon={TrendingDown} label="Mais barato" value={stats.cheapest ? formatCurrency(stats.cheapest.monthly_value) : '—'} color="bg-green-500" />
-          <StatCard icon={Maximize2} label="Maior imóvel" value={stats.largest ? `${stats.largest.area_m2}m²` : '—'} color="bg-blue-500" />
-          <StatCard icon={Minimize2} label="Menor imóvel" value={stats.smallest ? `${stats.smallest.area_m2}m²` : '—'} color="bg-amber-500" />
-          <StatCard icon={DollarSign} label="Gasto anual total" value={formatCurrency(stats.annualTotal)} color="bg-tc-red" />
+        <div className="mb-6">
+          <CartoesDeMapa cartoes={cartoesDeImoveis} />
         </div>
 
         <Card className="mb-6 p-4">
@@ -258,6 +457,12 @@ const RentalPropertiesPage = () => {
               <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
             </ToggleGroup>
           </div>
+
+          {filtrosLigados > 0 && (
+            <div className="mt-3 flex justify-end">
+              <LimparFiltros ligados={filtrosLigados} aoLimpar={limparFiltros} />
+            </div>
+          )}
         </Card>
 
         {loading ? (
@@ -265,7 +470,12 @@ const RentalPropertiesPage = () => {
         ) : filteredProperties.length > 0 ? (
           view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-              <RentalPropertiesMapView properties={filteredProperties} onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)} />
+              <RentalPropertiesMapView
+                properties={filteredProperties}
+                onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)}
+                canManage={canManageProperties}
+                onEditProperty={handleEditProperty}
+              />
             </div>
           ) : (
             <>
@@ -326,6 +536,7 @@ const RentalPropertiesPage = () => {
           </div>
         )}
       </div>
+      {propertyEditor}
     </>
   );
 };

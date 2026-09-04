@@ -1305,6 +1305,7 @@ function HomePageImproved() {
                               onReportClick={handleReportClick}
                               onUpvote={() => {}}
                               showLegend
+                              showLayerToggle
                               interactive
                               flyToTarget={cityFlyTarget}
                             />
@@ -1325,6 +1326,7 @@ function HomePageImproved() {
                             onReportClick={handleReportClick}
                             onUpvote={() => {}}
                             showLegend
+                            showLayerToggle
                             interactive
                             flyToTarget={cityFlyTarget}
                           />

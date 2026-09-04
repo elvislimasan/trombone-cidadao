@@ -51,6 +51,8 @@ import VideoProcessorComponent from "@/components/VideoProcessor";
 import CameraCapture from "@/components/CameraCapture";
 import WebCameraCapture from "@/components/WebCameraCapture";
 import MediaViewer from "@/components/MediaViewer";
+import ColaborarOuRegistrar from "@/components/report/ColaborarOuRegistrar";
+import SugestaoDeCategoria, { registrarEscolha } from "@/components/report/SugestaoDeCategoria";
 import { useUpload } from "@/contexts/UploadContext";
 import {
   setGlobalUserViewingMedia,
@@ -126,6 +128,10 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const [wizardStep, setWizardStep] = useState(0);
   // 'unknown' | 'requesting' | 'granted' | 'denied'
   const [locationPermission, setLocationPermission] = useState("unknown");
+  // O que o assistente sugeriu, para comparar com o que a pessoa escolheu no
+  // fim. Guardado aqui, e não no componente da sugestão, porque a medição vale
+  // no ENVIO: aceitar e trocar depois de ver a foto não é acerto.
+  const [categoriaSugerida, setCategoriaSugerida] = useState(null);
   const [nearbyPoles, setNearbyPoles] = useState([]);
   const [localPendingPoles, setLocalPendingPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
@@ -2800,6 +2806,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // A medição da sugestão de categoria, comparada com a escolha FINAL. Falha
+    // em silêncio: medir o assistente não pode impedir o registro de uma bronca.
+    if (categoriaSugerida && formData.category) {
+      registrarEscolha({
+        sugerida: categoriaSugerida,
+        escolhida: formData.category,
+        userId: user?.id,
+      });
+    }
+
     const newErrors = {};
     let hasErrors = false;
 
@@ -3156,14 +3172,14 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     saveReportDraft({ formData, wizardStep });
     await saveReportDraftMedia({ photos: formData.photos });
-    const target = "/broncas?criar_bronca=1";
+    const target = "/mapa?criar_bronca=1";
 
     try {
       sessionStorage.setItem("tc_post_login_redirect", target);
     } catch {}
 
     navigate("/login", {
-      state: { from: { pathname: "/broncas", search: "?criar_bronca=1" } },
+      state: { from: { pathname: "/mapa", search: "?criar_bronca=1" } },
     });
     suppressDraftCleanupRef.current = true;
     handleClose();
@@ -3640,6 +3656,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         {errors.category}
                       </p>
                     )}
+
+                    {/* IA assistiva avaliada por categoria (fase 5, §36.14).
+                        Só aparece onde a sugestão foi MEDIDA e acertou o
+                        bastante — e nunca preenche sozinha: a escolha da pessoa
+                        é o que alimenta a avaliação da rodada seguinte. */}
+                    <div className="mt-3">
+                      <SugestaoDeCategoria
+                        posicao={formData.location}
+                        categoriaEscolhida={formData.category}
+                        onSugestao={setCategoriaSugerida}
+                        onAceitar={(id) =>
+                          setFormData((prev) => ({ ...prev, category: id }))
+                        }
+                      />
+                    </div>
                   </div>
 
                   {formData.category === "buracos" && (
@@ -4065,6 +4096,20 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
               {wizardStep === 2 && (
                 <>
+                  {/* Colaborar em vez de duplicar (fase 2, §36.6 — Aposta 5).
+                      Aqui, e não antes: é o primeiro passo em que categoria e
+                      local já existem, e portanto o primeiro em que dá para
+                      saber se já há algo parecido. Ele sugere e nunca bloqueia —
+                      "é outro problema" está sempre na lista. */}
+                  <ColaborarOuRegistrar
+                    posicao={formData.location}
+                    categoriaId={formData.category}
+                    onColaborou={(bronca) => {
+                      onClose?.();
+                      navigate(`/bronca/${bronca.id}`);
+                    }}
+                  />
+
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-sm font-medium text-foreground">

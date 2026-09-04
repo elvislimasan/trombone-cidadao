@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Check, X, MapPin, FileText, Megaphone, Loader2, Users, ShieldCheck, Copy, Link2, Search, Eye, Image as ImageIcon, Route, Building, Briefcase, Settings, ChevronDown, Inbox, PartyPopper } from 'lucide-react';
+import { Check, X, MapPin, FileText, Megaphone, Loader2, ShieldCheck, Eye, Image as ImageIcon, Route, Building, Briefcase, Settings, ChevronDown, Inbox, PartyPopper, LayoutDashboard, ArrowRight, Clock3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,10 +12,13 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { showAppError } from '@/lib/appError';
+import UserDashboardPage from '@/pages/UserDashboardPage';
 
 const AmbassadorPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
+  const [area, setArea] = useState('gestao');
+  const [managementTab, setManagementTab] = useState('cities');
 
   // Menu "Gerenciar": só os módulos que o usuário pode alterar. Sem nenhum,
   // o menu inteiro some.
@@ -49,11 +52,13 @@ const AmbassadorPage = () => {
 
   // Access guard
   const canAccess = user && (user.is_ambassador || user.is_master || user.is_admin);
-  if (!canAccess) {
-    return <Navigate to="/" replace />;
-  }
 
   const fetchMyCities = useCallback(async () => {
+    if (!user?.id) {
+      setMyCities([]);
+      setLoadingCities(false);
+      return;
+    }
     setLoadingCities(true);
     const { data, error } = await supabase
       .from('ambassador_cities')
@@ -67,7 +72,7 @@ const AmbassadorPage = () => {
       setMyCities(data || []);
     }
     setLoadingCities(false);
-  }, [user.id]);
+  }, [user?.id]);
 
   const fetchPendingReports = useCallback(async (cityIds) => {
     if (!cityIds || cityIds.length === 0) {
@@ -159,17 +164,17 @@ const AmbassadorPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchMyCities();
-  }, [fetchMyCities]);
+    if (canAccess) fetchMyCities();
+  }, [canAccess, fetchMyCities]);
 
   useEffect(() => {
-    if (!loadingCities) {
+    if (canAccess && !loadingCities) {
       const cityIds = myCities.map(c => c.city_id);
       fetchPendingReports(cityIds);
       fetchPendingUpdates(cityIds);
       fetchPendingWorkMedia(cityIds);
     }
-  }, [myCities, loadingCities, fetchPendingReports, fetchPendingUpdates, fetchPendingWorkMedia]);
+  }, [canAccess, myCities, loadingCities, fetchPendingReports, fetchPendingUpdates, fetchPendingWorkMedia]);
 
   const handleReportAction = async (reportId, newStatus) => {
     setActionLoadingId(`report-${reportId}-${newStatus}`);
@@ -259,6 +264,18 @@ const AmbassadorPage = () => {
   };
 
   const totalPending = pendingReports.length + pendingUpdates.length + pendingWorkMedia.length;
+  const managementSections = [
+    { value: 'cities', label: 'Minhas cidades', mobileLabel: 'Cidades', Icon: MapPin, count: myCities.length },
+    { value: 'reports', label: 'Broncas pendentes', mobileLabel: 'Broncas', Icon: FileText, count: pendingReports.length },
+    { value: 'updates', label: 'Atualizações pendentes', mobileLabel: 'Atualizações', Icon: Megaphone, count: pendingUpdates.length },
+    { value: 'work-media', label: 'Mídias de obra', mobileLabel: 'Mídias', Icon: ImageIcon, count: pendingWorkMedia.length },
+  ];
+
+  const pendingByCity = (cityId) => ({
+    reports: pendingReports.filter((item) => item.city_id === cityId).length,
+    updates: pendingUpdates.filter((item) => item.report?.city_id === cityId).length,
+    workMedia: pendingWorkMedia.filter((item) => item.work?.city_id === cityId).length,
+  });
 
   const handleDismissOnboarding = async () => {
     setShowOnboardingBanner(false);
@@ -268,6 +285,10 @@ const AmbassadorPage = () => {
       .eq('id', user.id);
   };
 
+  if (!canAccess) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <>
       <Helmet>
@@ -275,62 +296,64 @@ const AmbassadorPage = () => {
         <meta name="description" content="Painel do embaixador para moderar broncas e atualizações da sua cidade." />
       </Helmet>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="mx-auto w-full max-w-[100rem] px-3 py-6 sm:px-5 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#171717] via-[#26070b] to-[#7f1220] p-5 text-white shadow-elevation-2 md:p-6"
         >
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-tc-red/10 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-6 h-6 text-tc-red" />
-              </div>
+          <div className="grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="flex items-start gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-content-onBrand">
+                <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+              </span>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold text-tc-red leading-tight">Painel do Embaixador</h1>
-                <p className="text-muted-foreground text-sm truncate">
-                  Modere o conteúdo da sua cidade
-                </p>
+                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-300">Central do embaixador</p>
+                <h1 className="mt-1 text-xl font-extrabold md:text-2xl">Cuide da participação nas suas cidades</h1>
+                <p className="mt-1.5 max-w-2xl text-sm text-white/70">Modere contribuições, acompanhe pendências e gerencie os módulos sob sua responsabilidade.</p>
               </div>
             </div>
+
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{loadingCities ? '—' : myCities.length}</strong><span className="text-[10px] text-white/60">cidades</span></div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{loadingReports || loadingUpdates || loadingWorkMedia ? '—' : totalPending}</strong><span className="text-[10px] text-white/60">pendências</span></div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{manageLinks.length}</strong><span className="text-[10px] text-white/60">módulos</span></div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
+            {totalPending > 0 ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold"><Inbox className="h-4 w-4 text-amber-300" /> {totalPending} {totalPending === 1 ? 'item aguardando' : 'itens aguardando'} moderação</span>
+            ) : !loadingReports && !loadingUpdates && !loadingWorkMedia ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold"><PartyPopper className="h-4 w-4 text-amber-300" /> Tudo em dia</span>
+            ) : null}
 
             {manageLinks.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
-                    <Settings className="w-4 h-4" />
-                    <span className="hidden sm:inline">Gerenciar</span>
-                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                  <Button variant="outline" size="sm" className="ml-auto gap-1.5 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                    <Settings className="h-4 w-4" /> Gerenciar <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   {manageLinks.map(({ to, Icon, label }) => (
                     <DropdownMenuItem asChild key={to}>
-                      <Link to={to} className="gap-2 cursor-pointer">
-                        <Icon className="w-4 h-4" /> {label}
-                      </Link>
+                      <Link to={to} className="cursor-pointer gap-2"><Icon className="h-4 w-4" /> {label}</Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
           </div>
-
-          {totalPending > 0 ? (
-            <div className="flex items-center gap-2.5 mt-4 px-4 py-3 rounded-2xl bg-tc-red/5 border border-tc-red/15">
-              <Inbox className="w-4 h-4 text-tc-red shrink-0" />
-              <p className="text-sm text-foreground">
-                <strong className="text-tc-red">{totalPending}</strong>{' '}
-                {totalPending === 1 ? 'item aguardando' : 'itens aguardando'} sua moderação
-              </p>
-            </div>
-          ) : !loadingReports && !loadingUpdates && !loadingWorkMedia && (
-            <div className="flex items-center gap-2.5 mt-4 px-4 py-3 rounded-2xl bg-green-50 border border-green-200">
-              <PartyPopper className="w-4 h-4 text-green-600 shrink-0" />
-              <p className="text-sm text-green-700">Tudo em dia — nenhuma pendência na sua cidade.</p>
-            </div>
-          )}
         </motion.div>
+
+        <Tabs value={area} onValueChange={setArea} className="mt-5">
+          <TabsList className="grid h-auto w-full max-w-lg grid-cols-2 rounded-xl bg-surface-sunken p-1">
+            <TabsTrigger value="gestao" className="gap-2 rounded-lg py-2.5"><ShieldCheck className="h-4 w-4" /> Gestão das cidades</TabsTrigger>
+            <TabsTrigger value="atividade" className="gap-2 rounded-lg py-2.5"><LayoutDashboard className="h-4 w-4" /> Minha atividade</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="gestao" className="mt-5">
 
         {showOnboardingBanner && (
           <Card className="mb-6 border-tc-red/30 bg-tc-red/5">
@@ -354,47 +377,60 @@ const AmbassadorPage = () => {
           </Card>
         )}
 
-        <Tabs defaultValue="cities" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 bg-muted/50 rounded-lg mb-6">
-            <TabsTrigger value="cities" className="gap-2 text-xs sm:text-sm">
-              <MapPin className="w-4 h-4" />
-              <span className="hidden sm:inline">Minhas Cidades</span>
-              <span className="sm:hidden">Cidades</span>
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2 text-xs sm:text-sm">
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Broncas Pendentes</span>
-              <span className="sm:hidden">Broncas</span>
-              {pendingReports.length > 0 && (
-                <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-tc-red text-white text-[10px]">
-                  {pendingReports.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="updates" className="gap-2 text-xs sm:text-sm">
-              <Megaphone className="w-4 h-4" />
-              <span className="hidden sm:inline">Atualizações Pendentes</span>
-              <span className="sm:hidden">Atualizações</span>
-              {pendingUpdates.length > 0 && (
-                <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-tc-red text-white text-[10px]">
-                  {pendingUpdates.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="work-media" className="gap-2 text-xs sm:text-sm">
-              <ImageIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Mídias de Obra</span>
-              <span className="sm:hidden">Mídias</span>
-              {pendingWorkMedia.length > 0 && (
-                <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-tc-red text-white text-[10px]">
-                  {pendingWorkMedia.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={managementTab} onValueChange={setManagementTab} className="w-full lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <aside className="mb-5 min-w-0 lg:sticky lg:top-24 lg:mb-0">
+            <div className="hidden px-1 pb-3 lg:block">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-content-tertiary">Área de trabalho</p>
+              <p className="mt-1 text-sm text-content-secondary">Escolha uma fila para revisar.</p>
+            </div>
+            <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-2xl bg-surface-sunken p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:items-stretch lg:overflow-visible">
+              {managementSections.map(({ value, label, mobileLabel, Icon, count }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="min-w-fit flex-1 justify-start gap-2 rounded-xl px-3 py-2.5 text-xs data-[state=active]:bg-brand data-[state=active]:text-content-onBrand lg:w-full lg:flex-none lg:text-sm"
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="sm:hidden">{mobileLabel}</span>
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-surface-raised/80 px-1.5 py-0.5 text-[10px] font-extrabold text-content-secondary">
+                    {count}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {manageLinks.length > 0 && (
+              <div className="mt-3 hidden rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm lg:block">
+                <p className="text-xs font-bold text-content-primary">Cadastros e módulos</p>
+                <p className="mt-1 text-xs leading-relaxed text-content-tertiary">Acesse as ferramentas que você pode editar.</p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="mt-3 w-full justify-between">
+                      Gerenciar módulos <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {manageLinks.map(({ to, Icon, label }) => (
+                      <DropdownMenuItem asChild key={to}>
+                        <Link to={to} className="cursor-pointer gap-2"><Icon className="h-4 w-4" /> {label}</Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </aside>
 
           {/* ABA: Minhas Cidades */}
-          <TabsContent value="cities">
+          <TabsContent value="cities" className="m-0 min-w-0">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-extrabold text-content-primary">Cidades sob sua responsabilidade</h2>
+                <p className="mt-1 text-sm text-content-secondary">Acompanhe a carga de moderação de cada município.</p>
+              </div>
+              {!loadingCities && <Badge variant="outline">{myCities.length} {myCities.length === 1 ? 'cidade' : 'cidades'}</Badge>}
+            </div>
             {loadingCities ? (
               <div className="flex items-center justify-center py-16 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -409,29 +445,61 @@ const AmbassadorPage = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                 {myCities.map((ac) => {
                   const city = ac.cities;
+                  const cityPending = pendingByCity(ac.city_id);
+                  const cityPendingTotal = cityPending.reports + cityPending.updates + cityPending.workMedia;
+                  const firstPendingTab = cityPending.reports > 0
+                    ? 'reports'
+                    : cityPending.updates > 0
+                      ? 'updates'
+                      : 'work-media';
                   return (
                     <motion.div
                       key={ac.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      <Card className="border-border hover:border-tc-red/40 transition-all">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <MapPin className="w-4 h-4 text-tc-red shrink-0" />
-                            {city?.name || '—'}
-                          </CardTitle>
-                          <CardDescription>
-                            {city?.states?.uf ? `Estado: ${city.states.uf}` : 'Estado desconhecido'}
-                          </CardDescription>
+                      <Card className="h-full overflow-hidden border-edge-subtle bg-surface-raised transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md">
+                        <CardHeader className="border-b border-edge-subtle bg-surface-subtle/50 p-5 pb-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
+                              <MapPin className="h-5 w-5" />
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-1 text-[11px] font-bold text-success-fg">
+                              <Check className="h-3 w-3" /> Ativo
+                            </span>
+                          </div>
+                          <CardTitle className="pt-3 text-lg">{city?.name || '—'}</CardTitle>
+                          <CardDescription>{city?.states?.uf ? `Estado: ${city.states.uf}` : 'Estado desconhecido'}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full">
-                            <Check className="w-3 h-3" /> Ativo
-                          </span>
+                        <CardContent className="p-5">
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            {[
+                              { label: 'Broncas', value: cityPending.reports },
+                              { label: 'Atualiz.', value: cityPending.updates },
+                              { label: 'Mídias', value: cityPending.workMedia },
+                            ].map(({ label, value }) => (
+                              <div key={label} className="rounded-xl bg-surface-subtle px-2 py-2.5">
+                                <p className={`text-lg font-extrabold leading-none tabular-nums ${value ? 'text-brand' : 'text-content-tertiary'}`}>{value}</p>
+                                <p className="mt-1 text-[10px] font-semibold text-content-tertiary">{label}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {cityPendingTotal > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setManagementTab(firstPendingTab)}
+                              className="mt-4 flex w-full items-center justify-between rounded-xl border border-brand/20 bg-brand-subtleBg px-3 py-2.5 text-left text-xs font-bold text-brand-subtleFg transition-colors hover:bg-brand/15"
+                            >
+                              <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4" /> {cityPendingTotal} {cityPendingTotal === 1 ? 'item pendente' : 'itens pendentes'}</span>
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-success-fg"><PartyPopper className="h-4 w-4" /> Moderação em dia</p>
+                          )}
                         </CardContent>
                       </Card>
                     </motion.div>
@@ -442,7 +510,11 @@ const AmbassadorPage = () => {
           </TabsContent>
 
           {/* ABA: Broncas Pendentes */}
-          <TabsContent value="reports">
+          <TabsContent value="reports" className="m-0 min-w-0">
+            <div className="mb-4">
+              <h2 className="text-xl font-extrabold text-content-primary">Broncas aguardando moderação</h2>
+              <p className="mt-1 text-sm text-content-secondary">Revise o conteúdo antes que ele apareça para a cidade.</p>
+            </div>
             {loadingReports ? (
               <div className="flex items-center justify-center py-16 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -532,7 +604,11 @@ const AmbassadorPage = () => {
           </TabsContent>
 
           {/* ABA: Atualizações Pendentes */}
-          <TabsContent value="updates">
+          <TabsContent value="updates" className="m-0 min-w-0">
+            <div className="mb-4">
+              <h2 className="text-xl font-extrabold text-content-primary">Atualizações aguardando moderação</h2>
+              <p className="mt-1 text-sm text-content-secondary">Confira as novidades enviadas pelos cidadãos sobre cada bronca.</p>
+            </div>
             {loadingUpdates ? (
               <div className="flex items-center justify-center py-16 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -614,7 +690,11 @@ const AmbassadorPage = () => {
           </TabsContent>
 
           {/* ABA: Mídias de Obra Pendentes */}
-          <TabsContent value="work-media">
+          <TabsContent value="work-media" className="m-0 min-w-0">
+            <div className="mb-4">
+              <h2 className="text-xl font-extrabold text-content-primary">Mídias de obras aguardando moderação</h2>
+              <p className="mt-1 text-sm text-content-secondary">Avalie fotos e vídeos enviados para documentar o andamento das obras.</p>
+            </div>
             {loadingWorkMedia ? (
               <div className="flex items-center justify-center py-16 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -656,6 +736,12 @@ const AmbassadorPage = () => {
                 ))}
               </div>
             )}
+          </TabsContent>
+        </Tabs>
+          </TabsContent>
+
+          <TabsContent value="atividade" className="mt-6">
+            <UserDashboardPage embedded />
           </TabsContent>
         </Tabs>
       </div>

@@ -9,6 +9,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { formatPhone } from '@/lib/utils';
 import { showAppError } from '@/lib/appError';
+import { Capacitor } from '@capacitor/core';
+import { resolvePostAuthFallback } from '@/lib/homeEntry';
+
+const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
 
 const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '');
 
@@ -86,7 +90,7 @@ const CompleteProfilePage = () => {
     if (refreshUserProfile) await refreshUserProfile();
     // volta para onde o usuário queria ir, ou o painel
     const from = location.state?.from?.pathname;
-    navigate(from && from !== '/completar-cadastro' ? from : '/painel-usuario', { replace: true });
+    navigate(from && from !== '/completar-cadastro' ? from : postAuthFallback, { replace: true });
   };
 
   if (authLoading) {
@@ -97,7 +101,7 @@ const CompleteProfilePage = () => {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (alreadyComplete) return <Navigate to="/painel-usuario" replace />;
+  if (alreadyComplete) return <Navigate to={postAuthFallback} replace />;
 
   return (
     <>

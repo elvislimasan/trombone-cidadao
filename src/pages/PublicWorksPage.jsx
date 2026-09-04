@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
-import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, Check, PlusCircle } from 'lucide-react';
+import { Map, List, Search, SlidersHorizontal, Building, HardHat, CheckSquare, Wrench, MapPin, Activity, AlertTriangle, Check, PauseCircle, PlusCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,12 +11,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import WorksMapView from '@/components/WorksMapView';
 import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
+import TelaDeMapa from '@/components/map/TelaDeMapa';
+import { useTelaLarga } from '@/hooks/useTelaLarga';
 import { Link } from 'react-router-dom';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { showAppError } from '@/lib/appError';
+import CartoesDeMapa from '@/components/map/CartoesDeMapa';
+import LimparFiltros from '@/components/map/LimparFiltros';
+import { useFocoDeRua, dentroDoFoco } from '@/hooks/useFocoDeRua';
+import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { WorkEditModal } from '@/pages/admin/ManageWorksPage';
 
 const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, onSelectionChange, searchPlaceholder }) => {
   const Icon = triggerIcon;
@@ -66,31 +73,67 @@ const MultiSelectFilter = ({ triggerIcon, triggerLabel, items, selectedItems, on
 // frente.
 const HIDDEN_BY_DEFAULT_STATUS = 'completed';
 
+// O recorte zerado. Existe como constante para o estado inicial e o botão
+// "Limpar filtros" não divergirem — um filtro que o botão esquece de apagar é
+// pior que botão nenhum, porque a tela passa a afirmar que está limpa.
+const FILTROS_VAZIOS = { area: [], contractor: [], status: [], bairro: [] };
+
+// As cores dos pinos, repetidas aqui para a contagem do painel poder servir de
+// legenda. A fonte continua sendo `getStatusInfo` em WorksMapView — se um dia
+// as duas divergirem, quem manda é o mapa, e é lá que a cor tem de ser trocada
+// primeiro.
+const COR_DA_SITUACAO = {
+  planned: 'bg-purple-500',
+  tendered: 'bg-orange-500',
+  'in-progress': 'bg-blue-500',
+  stalled: 'bg-amber-500',
+  unfinished: 'bg-red-500',
+  completed: 'bg-green-500',
+};
+
 const PublicWorksPage = () => {
   const [view, setView] = useState('map');
   const [works, setWorks] = useState([]); // dataset para modo mapa
-  const [filteredWorks, setFilteredWorks] = useState([]); // filtrado para mapa
+
+  // "As obras desta rua", vindo de `?rua=<id>` — o link da faixa de Minha Rua.
+  // Mesma geometria que contou o número que foi clicado (migração 228).
+  const { foco: focoDeRua, limpar: limparFocoDeRua } = useFocoDeRua('work_ids');
   const [listWorks, setListWorks] = useState([]); // dataset paginado para lista
   const [listTotal, setListTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 9;
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    area: [],
-    contractor: [],
-    status: [],
-    bairro: [],
-  });
+  const [filters, setFilters] = useState(FILTROS_VAZIOS);
   const [filterOptions, setFilterOptions] = useState({
     areas: [],
     contractors: [],
     bairros: [],
   });
   const [loading, setLoading] = useState(true);
+  const [editingWork, setEditingWork] = useState(null);
+  const [editOptions, setEditOptions] = useState({ categories: [], areas: [], bairros: [], contractors: [] });
   const { cityId: activeCityId } = useCityView();
   const { user } = useAuth();
   const { canWrite } = usePermissions();
+  const { resolveCityIdFromLocation } = useCityIdFromLocation();
   const mapViewRef = useRef();
+  const telaLarga = useTelaLarga();
+  // Quantos filtros estão ligados — é o número que a pílula "Filtros" mostra
+  // quando a coluna é recolhida. Sem ele, alguém esconde a coluna, esquece o
+  // recorte e lê o mapa filtrado achando que é a cidade inteira.
+  // A busca conta como recorte: quem digitou "creche" e recolheu a coluna está
+  // vendo tanto menos da cidade quanto quem marcou um bairro.
+  const filtrosLigados = Object.values(filters)
+    .reduce((total, valor) => total + (Array.isArray(valor) ? valor.length : 0), 0)
+    + (searchTerm.trim() ? 1 : 0);
+
+  // O foco de rua NÃO entra aqui: ele chega pela URL, tem banner próprio
+  // explicando que existe e um "X" para sair. Apagá-lo junto faria o botão
+  // desfazer, sem avisar, o recorte que a pessoa nem ligou nesta tela.
+  const limparFiltros = useCallback(() => {
+    setFilters(FILTROS_VAZIOS);
+    setSearchTerm('');
+  }, []);
   const listTopRef = useRef();
 
   // Admin/master gerenciam qualquer cidade. Embaixador puro só pode cadastrar
@@ -145,20 +188,29 @@ const PublicWorksPage = () => {
       };
 
       const [
+        { data: categories, error: categoryError },
         { data: areas, error: areaError },
         { data: contractors, error: conError },
         { data: bairros, error: bairroError }
       ] = await Promise.all([
+        supabase.from('work_categories').select('id, name'),
         supabase.from('work_areas').select('id, name'),
         supabase.from('contractors').select('id, name'),
         fetchBairros(),
       ]);
 
+      if (categoryError) throw categoryError;
       if (areaError) throw areaError;
       if (conError) throw conError;
       if (bairroError) throw bairroError;
 
       setFilterOptions({
+        areas: areas || [],
+        contractors: contractors || [],
+        bairros: bairros || [],
+      });
+      setEditOptions({
+        categories: categories || [],
         areas: areas || [],
         contractors: contractors || [],
         bairros: bairros || [],
@@ -196,7 +248,6 @@ const PublicWorksPage = () => {
         location: w.location ? { lat: w.location.coordinates[1], lng: w.location.coordinates[0] } : null
       }));
       setWorks(formattedData);
-      setFilteredWorks(formattedData);
     } catch (error) {
       showAppError({
         title: "Erro ao buscar obras públicas",
@@ -223,6 +274,10 @@ const PublicWorksPage = () => {
         .eq('is_complete', true)
         .order('created_at', { ascending: false });
       if (activeCityId) query = query.eq('city_id', activeCityId);
+      // O recorte por rua vale para os DOIS modos. Sem esta linha, trocar para
+      // a lista com `?rua=` ligado devolveria a cidade inteira sem avisar — e o
+      // banner do painel continuaria dizendo que o recorte estava ativo.
+      if (focoDeRua) query = query.in('id', [...focoDeRua.ids]);
 
       if (searchTerm && searchTerm.trim()) {
         const term = searchTerm.trim();
@@ -261,14 +316,25 @@ const PublicWorksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId]);
+  }, [searchTerm, filters.area, filters.contractor, filters.status, filters.bairro, pageSize, activeCityId, focoDeRua]);
 
   useEffect(() => {
     fetchWorks();
     fetchFilterOptions();
   }, [fetchWorks, fetchFilterOptions]);
 
-  useEffect(() => {
+  // O RECORTE SEM A SITUAÇÃO — É DELE QUE SAEM AS CONTAGENS
+  //
+  // Os cartões do topo contam E filtram, e contar sobre o resultado do próprio
+  // filtro de situação fazia o contador se destruir ao ser usado: clicar em
+  // "Concluídas" zerava "Em andamento", "Paralisadas" e "Inacabadas", e a tela
+  // passava a afirmar que a cidade não tem obra parada nenhuma. Quem quisesse
+  // trocar de situação lia três zeros e concluía que não havia o que ver.
+  //
+  // Aqui entram todos os outros recortes — busca, área, construtora, bairro e a
+  // rua vinda da URL. A situação entra depois, em `filteredWorks`, que é o que
+  // o mapa desenha.
+  const worksDoRecorte = useMemo(() => {
     let result = works;
 
     if (searchTerm) {
@@ -281,24 +347,90 @@ const PublicWorksPage = () => {
     if (filters.contractor.length > 0) {
       result = result.filter(w => w.contractor?.id && filters.contractor.includes(w.contractor.id));
     }
-    if (filters.status.length > 0) {
-      result = result.filter(w => filters.status.includes(w.status));
-    } else {
-      result = result.filter(w => w.status !== HIDDEN_BY_DEFAULT_STATUS);
-    }
     if (filters.bairro.length > 0) {
       result = result.filter(w => w.bairro?.id && filters.bairro.includes(w.bairro.id));
     }
+    // Por último de propósito: o recorte por rua é o mais estreito de todos, e
+    // aplicá-lo sobre o resultado dos outros deixa claro que ele SOMA, e não
+    // substitui, o que já estava filtrado.
+    if (focoDeRua) {
+      result = result.filter(w => dentroDoFoco(focoDeRua, w.id));
+    }
 
-    setFilteredWorks(result);
+    return result;
+  }, [works, searchTerm, filters.area, filters.contractor, filters.bairro, focoDeRua]);
+
+  // O que o mapa e a lista mostram: o recorte acima, agora com a situação.
+  // Sem filtro de situação marcado, vale o padrão da tela — concluída não
+  // aparece.
+  const filteredWorks = useMemo(() => (
+    filters.status.length > 0
+      ? worksDoRecorte.filter(w => filters.status.includes(w.status))
+      : worksDoRecorte.filter(w => w.status !== HIDDEN_BY_DEFAULT_STATUS)
+  ), [worksDoRecorte, filters.status]);
+
+  // Mexer no recorte devolve a lista para a primeira página: a página 3 do
+  // recorte anterior quase nunca existe no novo.
+  useEffect(() => {
     if (view === 'list') {
       setCurrentPage(1);
       fetchListWorks(1);
     }
-  }, [searchTerm, filters, works, view, fetchListWorks]);
+  }, [searchTerm, filters, view, fetchListWorks]);
   
   const totalPages = Math.max(1, Math.ceil(listTotal / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
+
+  const handleEditWork = useCallback(async (work) => {
+    const { data, error } = await supabase
+      .from('public_works')
+      .select('*, bairro:bairro_id(id, name), work_category:work_category_id(id, name), work_area:work_area_id(id, name), contractor:contractor_id(id, name)')
+      .eq('id', work.id)
+      .single();
+    if (error) {
+      showAppError({ title: 'Erro ao carregar obra', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingWork(data);
+  }, []);
+
+  const handleSaveWork = useCallback(async (workToSave) => {
+    const { id, location, manual_city_id, bairro, work_category, work_area, contractor, ...data } = workToSave;
+    const resolvedCityId = manual_city_id || await resolveCityIdFromLocation(location);
+    if (resolvedCityId == null) {
+      showAppError({ title: 'Não foi possível identificar a cidade', description: 'Confira a localização do marcador.', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      ...data,
+      city_id: resolvedCityId,
+      location: location ? `POINT(${location.lng} ${location.lat})` : null,
+      funding_source: Array.isArray(data.funding_source) ? data.funding_source : [],
+    };
+    ['bairro_id', 'work_category_id', 'work_area_id', 'contractor_id'].forEach((key) => {
+      if (payload[key] === '') payload[key] = null;
+    });
+    const { error } = await supabase.from('public_works').update(payload).eq('id', id);
+    if (error) {
+      showAppError({ title: 'Erro ao salvar obra', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingWork(null);
+    await fetchWorks();
+  }, [fetchWorks, resolveCityIdFromLocation]);
+
+  const workEditor = editingWork ? (
+    <WorkEditModal
+      work={editingWork}
+      onSave={handleSaveWork}
+      onClose={() => setEditingWork(null)}
+      workOptions={editOptions}
+      onWorkUpdated={fetchWorks}
+      defaultCityId={activeCityId}
+      canSelectCity={Boolean(user?.is_admin || user?.is_master)}
+      onBairroCreated={(bairro) => setEditOptions((prev) => ({ ...prev, bairros: [...prev.bairros, bairro] }))}
+    />
+  ) : null;
   
   useEffect(() => {
     if (view === 'list' && listTopRef.current) {
@@ -331,12 +463,229 @@ const PublicWorksPage = () => {
     'completed': { icon: CheckSquare, text: 'Concluída', color: 'text-green-500' },
   })[status] || { icon: HardHat, text: 'N/A', color: 'text-content-tertiary' };
 
+  // ── Colunas, a partir de 1100px ───────────────────────────────────────────
+  //
+  // Mesma moldura do mapa de pavimentação e do mapa de broncas. Só no modo
+  // MAPA: a lista tem paginação e cartões em grade, e não é uma tela de mapa —
+  // espremê-la numa coluna central pioraria a leitura sem ganhar nada.
+  //
+  // O celular e o notebook estreito continuam pelo caminho de baixo, com o
+  // cartão de filtros acima do mapa.
+  if (telaLarga && view === 'map' && !loading && works.length > 0) {
+    const contarPorSituacao = (lista) => lista.reduce((conta, obra) => {
+      conta[obra.status] = (conta[obra.status] || 0) + 1;
+      return conta;
+    }, {});
+
+    // DUAS CONTAGENS, DUAS PERGUNTAS DIFERENTES
+    //
+    // A legenda da coluna descreve os PINOS que estão no mapa — por isso conta
+    // o que sobrou depois de todos os filtros. Os cartões do topo contam o
+    // recorte SEM a situação: eles são o botão que troca de situação, e um
+    // botão precisa dizer quantas obras vai mostrar ANTES de ser apertado.
+    const porSituacao = contarPorSituacao(filteredWorks);
+    const porSituacaoNoRecorte = contarPorSituacao(worksDoRecorte);
+
+    return (
+      <>
+      <TelaDeMapa
+        titulo="Mapa de Obras Públicas"
+        subtitulo="O que está sendo construído na sua cidade, e em que pé está"
+        tituloDaAba="Mapa de Obras Públicas - Trombone Cidadão"
+        descricaoSeo="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo."
+        filtrosLigados={filtrosLigados}
+        /* O TOTAL VAI NO SELO, A REPARTIÇÃO VAI NOS CARTÕES
+           Um cartão "Obras no recorte: 65" ao lado de um selo dizendo a mesma
+           coisa seria a legenda duplicada de novo, em outro formato. O selo
+           responde "quantas"; os cartões respondem "em que pé". */
+        destaque={
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <HardHat className="h-4 w-4" />
+            {filteredWorks.length} {filteredWorks.length === 1 ? 'obra no recorte' : 'obras no recorte'}
+          </span>
+        }
+        /* A COLUNA DA DIREITA SÓ EXISTE ACIMA DE 1440px
+           Até aqui, quem abrisse esta tela num notebook não via contagem
+           nenhuma — nem no topo, nem na lateral que não cabe. As cores dos
+           quadrados são as MESMAS dos pinos daquelas situações, então o cartão
+           e o mapa se reconhecem sem ninguém explicar. */
+        estatisticas={
+          <CartoesDeMapa
+            cartoes={[
+              { id: 'in-progress', Icone: HardHat, cor: 'bg-blue-500', rotulo: 'Em andamento', valor: porSituacaoNoRecorte['in-progress'] || 0 },
+              { id: 'stalled', Icone: PauseCircle, cor: 'bg-amber-500', rotulo: 'Paralisadas', valor: porSituacaoNoRecorte.stalled || 0 },
+              { id: 'unfinished', Icone: AlertTriangle, cor: 'bg-red-500', rotulo: 'Inacabadas', valor: porSituacaoNoRecorte.unfinished || 0 },
+              { id: 'completed', Icone: CheckSquare, cor: 'bg-green-500', rotulo: 'Concluídas', valor: porSituacaoNoRecorte.completed || 0 },
+            ].map((cartao) => ({
+              ...cartao,
+              // Tocar no cartão é o mesmo que marcar aquela situação no filtro
+              // de status — e tocar de novo desmarca. Sozinho é sozinho: o
+              // cartão RESTRINGE a uma situação, em vez de acrescentar à seleção
+              // atual, porque "quero ver só as paralisadas" é o que se quer
+              // dizer ao apertar um número.
+              ativo: filters.status.length === 1 && filters.status[0] === cartao.id,
+              aoClicar: () => setFilters((atual) => ({
+                ...atual,
+                status: atual.status.length === 1 && atual.status[0] === cartao.id ? [] : [cartao.id],
+              })),
+            }))}
+            rodape="Os números seguem a busca, o bairro, a área e a construtora — não a situação. Toque num cartão para ver só aquelas obras no mapa."
+          />
+        }
+        filtros={
+          <div className="flex h-full flex-col gap-3 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+            <CitySelector />
+
+            {/* Chega pela URL, sem ninguém ter tocado num filtro desta tela —
+                então precisa dizer que existe, ou o mapa quase vazio lê como
+                mapa quebrado. */}
+            {focoDeRua && (
+              <div className="flex items-start gap-2 rounded-lg border border-brand/30 bg-brand-subtleBg px-2.5 py-2">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-brand" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-brand-subtleFg">
+                    Só {focoDeRua.nome || 'esta rua'}
+                  </p>
+                  {focoDeRua.ids.size === 0 ? (
+                    <p className="text-[10px] leading-tight text-content-tertiary">
+                      Nenhuma obra cadastrada nesta rua.
+                    </p>
+                  ) : !focoDeRua.preciso && (
+                    <p className="text-[10px] leading-tight text-content-tertiary">
+                      Sem traçado cadastrado: o recorte é um raio em volta do ponto da rua.
+                    </p>
+                  )}
+                </div>
+                <button type="button" onClick={limparFocoDeRua} aria-label="Ver a cidade inteira">
+                  <X size={13} className="text-content-tertiary hover:text-content-primary" />
+                </button>
+              </div>
+            )}
+
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
+              <Input
+                placeholder="Buscar obra"
+                className="h-9 pl-8 text-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <MultiSelectFilter
+              triggerIcon={Activity}
+              triggerLabel="Status"
+              items={workStatusesAsArray}
+              selectedItems={filters.status}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('status', id)}
+              searchPlaceholder="Buscar status..."
+            />
+            {filters.status.length === 0 && (
+              <p className="text-[10px] leading-tight text-content-tertiary">
+                Obras concluídas ficam ocultas. Marque “Concluída” para vê-las.
+              </p>
+            )}
+
+            <MultiSelectFilter
+              triggerIcon={MapPin}
+              triggerLabel="Bairro"
+              items={filterOptions.bairros}
+              selectedItems={filters.bairro}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('bairro', id)}
+              searchPlaceholder="Buscar bairro..."
+            />
+
+            <MultiSelectFilter
+              triggerIcon={SlidersHorizontal}
+              triggerLabel="Área"
+              items={filterOptions.areas}
+              selectedItems={filters.area}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('area', id)}
+              searchPlaceholder="Buscar área..."
+            />
+
+            <MultiSelectFilter
+              triggerIcon={Building}
+              triggerLabel="Construtora"
+              items={filterOptions.contractors}
+              selectedItems={filters.contractor}
+              onSelectionChange={(id) => handleMultiSelectFilterChange('contractor', id)}
+              searchPlaceholder="Buscar construtora..."
+            />
+
+            {/* Fecha a lista de filtros: o último item da coluna é o que desfaz
+                a coluna inteira. */}
+            <LimparFiltros ligados={filtrosLigados} aoLimpar={limparFiltros} className="w-full" />
+
+            <div className="mt-auto grid gap-2">
+              <ToggleGroup
+                type="single"
+                value={view}
+                onValueChange={value => value && setView(value)}
+                className="justify-center rounded-md border"
+              >
+                <ToggleGroupItem value="map" aria-label="Ver mapa" className="flex-1"><Map className="h-4 w-4" /></ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
+              </ToggleGroup>
+
+              {canManageWorks && (
+                <Link to="/obras/gerenciar" className="w-full">
+                  <Button size="sm" variant="outline" className="w-full gap-1.5 border-tc-red/30 text-xs text-tc-red hover:bg-tc-red/5">
+                    <PlusCircle className="h-3.5 w-3.5" /> Adicionar obra
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        }
+        mapa={<WorksMapView ref={mapViewRef} works={filteredWorks} mostrarLegenda={false} podeGerir={canManageWorks} onEditWork={handleEditWork} />}
+        /* SÓ A CONTAGEM MORA AQUI
+           O cartão "Obras concluídas" que ficava abaixo era o cartão
+           "Concluídas" da faixa do topo repetido em outro formato: mesmo
+           número, mesmo verde, mesmo clique ligando o mesmo filtro. */
+        painel={
+          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
+            <p className="flex items-center gap-2.5 text-sm font-bold text-content-primary">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-status-pendingBg text-status-pendingFg">
+                <HardHat className="h-4 w-4" />
+              </span>
+              Obras no recorte
+            </p>
+            <p className="mt-3 text-3xl font-extrabold leading-none text-content-primary tabular-nums">
+              {filteredWorks.length}
+            </p>
+
+            {/* A CONTAGEM É A LEGENDA
+                Eram dois blocos dizendo a mesma coisa: este, com os números
+                por situação, e uma legenda flutuante sobre o mapa com as
+                cores. Juntos, cada um contava metade da história e ocupava o
+                espaço inteiro. Com a bolinha aqui, uma linha responde "que cor
+                é essa" e "quantas são" de uma vez. */}
+            <ul className="mt-3 grid gap-1.5 border-t border-edge-subtle pt-3">
+              {workStatusesAsArray
+                .filter((s) => porSituacao[s.id])
+                .map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 text-xs">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${COR_DA_SITUACAO[s.id] || 'bg-gray-500'}`} />
+                    <span className="min-w-0 flex-1 truncate text-content-secondary">{s.name}</span>
+                    <span className="shrink-0 font-bold text-content-primary tabular-nums">{porSituacao[s.id]}</span>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        }
+      />
+      {workEditor}
+      </>
+    );
+  }
+
   return <>
     <Helmet>
       <title>Mapa de Obras Públicas - Trombone Cidadão</title>
       <meta name="description" content="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo." />
     </Helmet>
-    <div className="container max-w-[88rem] mx-auto w-full px-4 py-8">
+    <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-[900] text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-tc-red">Mapa de Obras Públicas</h1>
         <p className="mt-2 text-lg text-muted-foreground">Acompanhe com transparência o que está sendo construído na sua cidade</p>
@@ -424,13 +773,23 @@ const PublicWorksPage = () => {
                 <ToggleGroupItem value="list" aria-label="Ver lista" className="flex-1"><List className="h-4 w-4" /></ToggleGroupItem>
               </ToggleGroup>
             </div>
+
+            {/* O MESMO BOTÃO DA COLUNA LARGA
+                No celular não há coluna nem pílula de contagem: o cartão de
+                filtros é tudo o que existe, e sem esta linha a única saída de um
+                recorte errado é reabrir os quatro seletores. */}
+            {filtrosLigados > 0 && (
+              <div className="mt-3 flex justify-end">
+                <LimparFiltros ligados={filtrosLigados} aoLimpar={limparFiltros} />
+              </div>
+            )}
           </Card>
 
           {loading ? <div className="text-center p-8">Carregando obras...</div> : <AnimatePresence mode="wait">
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-              <WorksMapView ref={mapViewRef} works={filteredWorks} />
+              <WorksMapView ref={mapViewRef} works={filteredWorks} podeGerir={canManageWorks} onEditWork={handleEditWork} />
             </div>
           ) : (
             <>
@@ -516,6 +875,7 @@ const PublicWorksPage = () => {
         </>
       )}
     </div>
+    {workEditor}
   </>;
 };
 
@@ -523,6 +883,8 @@ const PublicWorksPage = () => {
 // O filtro de cidade desta tela e local: explorar as obras de outra cidade nao
 // muda o feed nem a cidade do header, e nao persiste ao sair.
 export default function PublicWorksPageWithCityView() {
+
+
   return (
     <CityViewProvider>
       <PublicWorksPage />

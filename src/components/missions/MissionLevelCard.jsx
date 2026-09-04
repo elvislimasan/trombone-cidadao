@@ -98,18 +98,19 @@ export default function MissionLevelCard({
       <div className="px-4 pb-3.5">
         <div className="flex items-baseline justify-between gap-3 mb-1.5">
           <span className="text-xs font-bold text-brand tabular-nums">
-            {proxima ? `${points} / ${proxima.minimo} XP` : `${points} XP`}
+            {points} / {proxima.minimo} XP
           </span>
+          {/* Não há mais "nível máximo alcançado": a escada continua por
+              fórmula acima do último nome, então sempre existe um próximo alvo
+              para a barra perseguir. Ver `proximaFaixa` em scoring.js. */}
           <span className="text-[11px] text-content-tertiary">
-            {!proxima
-              ? 'Nível máximo alcançado'
-              : quaseLa
-              ? (
-                <span className="font-bold text-brand">
-                  Faltam apenas {proxima.faltam} XP
-                </span>
-              )
-              : `Faltam ${proxima.faltam} XP para ${proxima.rotulo}`}
+            {quaseLa ? (
+              <span className="font-bold text-brand">
+                Faltam apenas {proxima.faltam} XP
+              </span>
+            ) : (
+              `Faltam ${proxima.faltam} XP para ${proxima.rotulo}`
+            )}
           </span>
         </div>
         <div className="h-2 rounded-full bg-surface-sunken overflow-hidden">

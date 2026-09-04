@@ -52,7 +52,7 @@ export default function MissionProgressBanner({ progress, onClose }) {
 
   if (!progress) return null;
 
-  const celebratesMilestone = progress.venceuEtapa || progress.completou;
+  const celebratesMilestone = progress.venceuEtapa;
   const Wrapper = inSession ? 'div' : Link;
   const wrapperProps = inSession
     ? { className: 'block px-4 py-3.5' }
@@ -96,10 +96,15 @@ export default function MissionProgressBanner({ progress, onClose }) {
                   celebratesMilestone ? 'opacity-80' : 'text-content-tertiary'
                 }`}
               >
-                {progress.completou
-                  ? 'Missão concluída'
-                  : progress.venceuEtapa
-                  ? `Etapa ${progress.etapa - 1} de ${progress.etapas} vencida`
+                {/* O "de N" some depois dos degraus ESCRITOS: passado o último,
+                    `etapa` continua subindo e `etapas` não, e a frase virava
+                    "Etapa 5 de 4 vencida". O ramo de `completou` saiu junto —
+                    com a escada infinita ele não tem mais como acontecer, e um
+                    galho que nunca roda é uma promessa que a tela não cumpre. */}
+                {progress.venceuEtapa
+                  ? (progress.etapa - 1 >= progress.etapas
+                      ? `Etapa ${progress.etapa - 1} vencida`
+                      : `Etapa ${progress.etapa - 1} de ${progress.etapas} vencida`)
                   : 'Missão em andamento'}
               </p>
               <p

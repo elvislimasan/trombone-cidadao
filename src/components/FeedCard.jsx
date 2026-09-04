@@ -24,6 +24,7 @@ import {
   shareVideoToInstagramStory,
 } from '@/lib/instagramStory';
 import { showAppError } from '@/lib/appError';
+import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
 
 // Distancia em linguagem de rua: abaixo de 1 km em metros arredondados a 50,
 // porque "a 347 m" sugere uma precisao que o GPS do celular nao tem.
@@ -56,9 +57,11 @@ const AuthorAvatar = ({ name, avatarUrl, sizeClassName = 'w-5 h-5', textClassNam
 const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isNew = false, index = 0 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isDesktop = useIsDesktopViewport();
   const cardRef = useRef(null);
   const [isInView, setIsInView] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentFocusRequest, setCommentFocusRequest] = useState(0);
   // A contagem vem do feed, mas a folha traz o numero atualizado ao abrir —
   // moderacao pode ter aprovado comentarios desde que o feed carregou.
   const [commentsCount, setCommentsCount] = useState(report.comments_count);
@@ -84,6 +87,10 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
   useEffect(() => {
     setCommentsCount(report.comments_count);
   }, [report.comments_count]);
+
+  useEffect(() => {
+    if (isDesktop) setCommentsOpen(false);
+  }, [isDesktop]);
 
   // Reintroduzido na Task 13: a Task 12 removeu este observer do FeedCard ao
   // extrair o efeito de thumbnail para FeedCardMedia. O card observa a propria
@@ -334,8 +341,18 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
                   para ler dois comentarios custava a posicao do scroll. */}
               <button
                 type="button"
-                onClick={() => setCommentsOpen(true)}
-                aria-label="Ver comentários"
+                onClick={() => {
+                  if (!isDesktop) {
+                    setCommentsOpen(true);
+                    return;
+                  }
+                  if (!user) {
+                    navigate('/login', { state: { from: { pathname: '/feed' } } });
+                    return;
+                  }
+                  setCommentFocusRequest((request) => request + 1);
+                }}
+                aria-label={isDesktop ? 'Escrever comentário' : 'Ver comentários'}
                 className="flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
               >
                 <Icon name="comment" size={19} />
@@ -406,6 +423,16 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             </button>
           </div>
 
+          <FeedCommentsSheet
+            open={commentsOpen}
+            onOpenChange={setCommentsOpen}
+            reportId={report.id}
+            reportTitle={report.title}
+            onCountChange={setCommentsCount}
+            inlineOnDesktop
+            focusRequest={commentFocusRequest}
+          />
+
           {/* O sinal de comunidade ja era calculado em computeSignals mas o card
               nao mostrava — e ele que da a dimensao de quanta gente esta junto. */}
           {signals.community && (
@@ -460,14 +487,6 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
           />
         </button>
       )}
-
-      <FeedCommentsSheet
-        open={commentsOpen}
-        onOpenChange={setCommentsOpen}
-        reportId={report.id}
-        reportTitle={report.title}
-        onCountChange={setCommentsCount}
-      />
 
     </article>
   );

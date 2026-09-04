@@ -173,10 +173,17 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
       }`}
       aria-label={`Ver detalhes: ${report.title}`}
     >
+      {/* NO DESKTOP A CAPA TEM TETO DE ALTURA
+          4:5 é a proporção certa no celular, onde a coluna tem 360px e a foto
+          sai vertical do bolso da pessoa. Na mesma regra, um cartão de 880px de
+          largura produz uma capa de 1100px de altura: uma bronca por tela, e a
+          página parece vazia justamente por causa da foto grande. 30rem é o
+          bastante para reconhecer o problema — e a foto inteira, sem corte,
+          continua a um clique, na tela da bronca. */}
       <div
         className={`relative w-full overflow-hidden ${
           wantsAutoplay ? 'bg-black' : 'bg-surface-sunken'
-        } ${mediaAspectClass}`}
+        } ${mediaAspectClass} ${square ? '' : 'lg:max-h-[30rem]'}`}
         style={mediaStyle}
       >
         {wantsAutoplay ? (

@@ -17,8 +17,10 @@ import {
   placar,
   PONTOS_POR_ETAPA,
   FAIXAS,
+  minimoDoNivel,
 } from '../lib/scoring.js';
 import { PONTOS } from '../lib/patrolGame.js';
+import { PONTOS_DIARIA, PONTOS_DIA_PERFEITO } from '../lib/dailies.js';
 import { avancosEntre } from '../lib/missions.js';
 
 // ── Pesos ─────────────────────────────────────────────────────────────────────
@@ -44,6 +46,14 @@ test('soma as ações com o peso de cada uma', () => {
     upvotes_given: 6,      //  6
   };
   assert.equal(pontosDeAcoes(c), 77);
+});
+
+test('inclui diárias concluídas e dias perfeitos', () => {
+  const c = { dailies_completed: 3, perfect_days: 1 };
+  assert.equal(
+    pontosDeAcoes(c),
+    3 * PONTOS_DIARIA + PONTOS_DIA_PERFEITO
+  );
 });
 
 test('contadores vazios não viram NaN', () => {
@@ -117,8 +127,52 @@ test('diz quanto falta e o quanto do trecho já foi', () => {
   assert.equal(p.fracao, 0.5);   // 60 de 20→100
 });
 
-test('no topo não há próxima faixa', () => {
-  assert.equal(proximaFaixa(500), null);
+// O NIVEL 4 DEIXOU DE SER O FIM
+//
+// Enquanto era, quem mais usava o app perdia a unica medida de progresso que a
+// central oferece: chegava em "Guardiao da cidade" e via "nivel maximo
+// alcancado" com uma barra sem funcao. Agora sempre ha um proximo alvo.
+test('acima do nivel 4 a escada continua', () => {
+  assert.equal(nivelDe(500).level, 4);
+  assert.equal(nivelDe(800).level, 5);
+  assert.equal(nivelDe(800).label, 'Sentinela do bairro');
+  assert.equal(nivelDe(1600).level, 6);
+  assert.equal(nivelDe(3000).level, 7);
+  assert.equal(nivelDe(5200).level, 8);
+
+  const p = proximaFaixa(500);
+  assert.equal(p.nivel, 5);
+  assert.equal(p.minimo, 800);
+  assert.equal(p.faltam, 300);
+});
+
+// Passado o ultimo nome, os degraus saem da formula — e nunca acabam.
+test('depois do ultimo nome os niveis seguem por formula, sem teto', () => {
+  const nono = minimoDoNivel(9);
+  assert.ok(nono > 5200, 'o degrau seguinte precisa ser maior que o ultimo nomeado');
+  assert.equal(nono % 100, 0, 'degraus arredondados na centena');
+
+  assert.equal(nivelDe(nono).level, 9);
+  assert.equal(nivelDe(nono).label, 'Lenda da cidade II');
+  assert.equal(nivelDe(minimoDoNivel(12)).level, 12);
+
+  // Cada degrau custa mais que o anterior: sem isso os niveis altos cairiam em
+  // sequencia num fim de semana.
+  for (let n = 5; n < 14; n += 1) {
+    const passo = minimoDoNivel(n + 1) - minimoDoNivel(n);
+    const anterior = minimoDoNivel(n) - minimoDoNivel(n - 1);
+    assert.ok(passo > anterior, `o degrau ${n + 1} deveria custar mais que o ${n}`);
+  }
+});
+
+test('proximaFaixa nunca devolve null, em nenhum total', () => {
+  for (const total of [0, 19, 500, 5200, minimoDoNivel(11), 900000]) {
+    const p = proximaFaixa(total);
+    assert.ok(p, `${total} ficou sem proxima faixa`);
+    assert.ok(p.faltam > 0, `${total} deveria ter algo a percorrer`);
+    assert.ok(p.fracao >= 0 && p.fracao <= 1);
+    assert.equal(p.nivel, nivelDe(total).level + 1);
+  }
 });
 
 test('começando do zero, a fração é zero', () => {
@@ -154,10 +208,14 @@ test('marca quando a etapa foi vencida', () => {
   assert.equal(m.completou, false);
 });
 
-test('marca quando a missão inteira acabou', () => {
+test('passar do último degrau escrito vence a etapa, mas não "acaba" mais a missão', () => {
+  // Com a escada infinita, `completa` só é verdadeira para o caso degenerado
+  // (ver missions.test.mjs) — nenhuma missão do catálogo tem escada vazia, então
+  // `completou` nunca dispara para elas: vencer o degrau 25 só abre o 50.
   const m = avancosEntre({ reports_count: 24 }, { reports_count: 25 })
     .find((x) => x.id === 'registrar_broncas');
-  assert.equal(m.completou, true);
+  assert.equal(m.venceuEtapa, true);
+  assert.equal(m.completou, false);
 });
 
 test('sem mudança, nada a comemorar', () => {

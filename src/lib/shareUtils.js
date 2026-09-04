@@ -76,3 +76,21 @@ export const getNewsShareUrl = (id) => {
 
   return `${prodUrl}/share/noticia/${id}`;
 };
+
+/** O endereco publico de um acontecimento do Trombone Agora. */
+export const getCityEventShareUrl = (id) => `${getBaseAppUrl()}/agora/${id}`;
+
+/**
+ * O endereco publico da pagina de uma rua.
+ *
+ * Prefere o `slug` (`.../rua/rua-pastor-domicio-afonso-dos-santos`) e cai no id
+ * quando ele ainda nao existe — rua recem-criada antes de a migracao 226 rodar,
+ * ou rua cujo nome nao produz slug nenhum (so pontuacao). A pagina aceita os
+ * dois, entao os dois links funcionam.
+ */
+export const getStreetShareUrl = (street) =>
+  `${getBaseAppUrl()}/mapa-pavimentacao/rua/${street?.slug || street?.id || ''}`;
+
+/** O caminho interno, para `<Link to>`. Mesma regra do endereco publico. */
+export const streetPath = (street) =>
+  `/mapa-pavimentacao/rua/${street?.slug || street?.id || ''}`;

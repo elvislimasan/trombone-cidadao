@@ -368,7 +368,7 @@ const ManageUsersPage = () => {
       </Dialog>
 
       <Dialog open={!!viewingUserReports} onOpenChange={(open) => !open && setViewingUserReports(null)}>
-        <DialogContent className="max-w-2xl z-[1600]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Broncas de {viewingUserReports?.name}</DialogTitle>
             <DialogDescription>Lista de todas as solicitações enviadas por este usuário.</DialogDescription>

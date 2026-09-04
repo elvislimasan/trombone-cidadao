@@ -131,16 +131,27 @@
   --pin-work-unknown-bg:    var(--tc-neutral-500);
   --pin-work-unknown-fg:    var(--tc-neutral-0);
 
-  /* Pavimentacao: escala neutra para "tem asfalto", ambar para a ausencia dele,
-     que e o caso que o cidadao quer achar no mapa. */
-  --pin-pav-paved-bg:     var(--tc-neutral-700);
-  --pin-pav-paved-fg:     var(--tc-neutral-0);
-  --pin-pav-partial-bg:   var(--tc-neutral-500);
-  --pin-pav-partial-fg:   var(--tc-neutral-0);
-  --pin-pav-unpaved-bg:   var(--tc-amber-700);
-  --pin-pav-unpaved-fg:   var(--tc-neutral-0);
-  --pin-pav-unknown-bg:   var(--tc-neutral-500);
-  --pin-pav-unknown-fg:   var(--tc-neutral-0);
+  /* PAVIMENTACAO: A COR PASSOU A SIGNIFICAR A SITUACAO, E NAO UMA ESCALA.
+
+     Era neutro-escuro para pavimentada e ambar para o resto. Funcionava no PIN,
+     onde havia um icone dentro do disco explicando o que aquilo era. Nao
+     funciona no TRACADO: um risco de 2px sem rotulo nenhum, repetido por uma
+     cidade inteira. Azul-marinho nao diz "tem asfalto" para ninguem.
+
+     Verde / ambar / laranja e a convencao que se le sem consultar legenda — e a
+     legenda continua ali para quem quer os numeros. */
+  --pin-pav-paved-bg:     var(--tc-green-600);
+  /* Texto ESCURO sobre o verde e o laranja: em branco os dois reprovam AA
+     (3,30:1 e 3,56:1). Nenhum deles carrega texto hoje — os pins sairam do
+     mapa de pavimentacao —, mas o token continua sendo a resposta a pergunta
+     "o que escrever em cima disto", e a resposta tem de ser a certa. */
+  --pin-pav-paved-fg:     var(--tc-neutral-950);
+  --pin-pav-partial-bg:   var(--tc-amber-500);
+  --pin-pav-partial-fg:   var(--tc-neutral-950);
+  --pin-pav-unpaved-bg:   var(--tc-orange-600);
+  --pin-pav-unpaved-fg:   var(--tc-neutral-950);
+  --pin-pav-unknown-bg:   var(--tc-neutral-400);
+  --pin-pav-unknown-fg:   var(--tc-neutral-950);
 
   /* Badge "tem obra vinculada", sobreposto no canto do pin. */
   --pin-badge-bg: var(--tc-blue-700);
@@ -317,11 +328,13 @@
 
   /* No escuro a escala neutra inverte: pavimentada fica clara sobre o mapa
      escuro, mantendo a distancia visual para "sem pavimentacao". */
-  --pin-pav-paved-bg:     var(--tc-neutral-300);
+  /* No escuro os tons sobem uma faixa: verde-600 sobre quase-preto some, e
+     traco fino e o que menos perdoa contraste baixo. */
+  --pin-pav-paved-bg:     var(--tc-green-300);
   --pin-pav-paved-fg:     var(--tc-neutral-950);
-  --pin-pav-partial-bg:   var(--tc-neutral-400);
+  --pin-pav-partial-bg:   var(--tc-amber-300);
   --pin-pav-partial-fg:   var(--tc-neutral-950);
-  --pin-pav-unpaved-bg:   var(--tc-amber-300);
+  --pin-pav-unpaved-bg:   var(--tc-orange-300);
   --pin-pav-unpaved-fg:   var(--tc-neutral-950);
   --pin-pav-unknown-bg:   var(--tc-neutral-400);
   --pin-pav-unknown-fg:   var(--tc-neutral-950);

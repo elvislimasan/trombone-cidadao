@@ -14,6 +14,33 @@ import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
+// Entre `lg` e `4xl` não há largura para marca, dez destinos e ações da conta.
+// Estes são os caminhos de uso mais frequente; os demais continuam acessíveis
+// em "Mais". A ordem visual continua vindo da configuração administrativa.
+const COMPACT_PRIMARY_PATHS = new Set([
+  '/',
+  '/admin',
+  '/embaixador',
+  '/painel-usuario',
+  '/feed',
+  '/mapa',
+  '/agora',
+  '/obras-publicas',
+  '/mapa-pavimentacao',
+]);
+
+const PRIORIDADE_DESKTOP = new Map([
+  ['/feed', 0],
+  ['/', 1],
+  ['/admin', 1],
+  ['/embaixador', 1],
+  ['/painel-usuario', 1],
+  ['/mapa', 2],
+  ['/agora', 3],
+  ['/obras-publicas', 4],
+  ['/mapa-pavimentacao', 5],
+]);
+
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -27,7 +54,6 @@ const Header = () => {
   const {
     notificationsEnabled,
     toggleNotifications,
-    pushEnabled,
     loading
   } = useNotifications();
 
@@ -106,10 +132,39 @@ const Header = () => {
       isActive ? 'after:w-full' : 'after:w-0 hover:after:w-2/3'
     }`;
 
-  const mobileNavLinkClass = ({ isActive }) =>
-    `block py-3 text-2xl font-semibold transition-colors duration-300 ${isActive ? 'text-tc-red' : 'hover:text-tc-red'}`;
+  // Visitantes veem a Home como "Início". Para quem já entrou, o feed vira a
+  // primeira navegação e o antigo item de início vira o painel do seu papel.
+  const visibleMenuItems = menuSettings.items
+    .filter(item => item.isVisible && (!item.authOnly || user))
+    .map((item) => {
+      // Os nomes públicos são produto, não conteúdo administrativo antigo.
+      // Isso também atualiza instalações que ainda têm "Pavimentação" salvo.
+      const normalizado = item.path === '/mapa-pavimentacao'
+        ? { ...item, name: 'Ruas' }
+        : item.path === '/mapa'
+          ? { ...item, name: 'Broncas', icon: 'Megaphone' }
+          : item;
 
-  const visibleMenuItems = menuSettings.items.filter(item => item.isVisible);
+      if (normalizado.path !== '/') return normalizado;
+      if (!user) return normalizado;
+      if (user.is_admin || user.is_master) {
+        return { ...normalizado, name: 'Painel Admin', path: '/admin', icon: 'Shield' };
+      }
+      if (user.is_ambassador) {
+        return { ...normalizado, name: 'Painel Embaixador', path: '/embaixador', icon: 'ShieldCheck' };
+      }
+      return { ...normalizado, name: 'Meu Painel', path: '/painel-usuario', icon: 'LayoutDashboard' };
+    })
+    .sort((a, b) => {
+      const prioridadeA = PRIORIDADE_DESKTOP.get(a.path) ?? 100;
+      const prioridadeB = PRIORIDADE_DESKTOP.get(b.path) ?? 100;
+      return prioridadeA - prioridadeB;
+    });
+  const compactPrimaryItems = visibleMenuItems.filter(item => COMPACT_PRIMARY_PATHS.has(item.path));
+  const compactMoreItems = visibleMenuItems.filter(item => !COMPACT_PRIMARY_PATHS.has(item.path));
+  const compactMoreIsActive = compactMoreItems.some(({ path }) => (
+    path === '/' ? location.pathname === path : location.pathname.startsWith(path)
+  ));
   const darkThemeActive = resolvedTheme === 'dark';
   const nextThemeLabel = darkThemeActive ? 'Ativar tema claro' : 'Ativar tema escuro';
 
@@ -165,18 +220,18 @@ const Header = () => {
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
       <div
-        className="container mx-auto px-4 flex justify-between items-center"
+        className="container mx-auto flex items-center justify-between gap-3 px-4"
         style={{ marginTop: 0, height: 'var(--header-bar-height)' }}
       >
         {/* A marca volta a ocupar o lado esquerdo em todas as telas. A cidade
             ativa saiu daqui: virou um icone de pin no lado direito, para o nome
             do site nao competir com o nome da cidade pelo mesmo espaco. */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 shrink-0 items-center gap-3">
           <Link to="/" className="flex items-center gap-2 min-w-0">
             <img
               src={logoError ? '/logo.png' : (logoUrl || '/logo.png')}
               alt={siteName}
-              className="h-10 w-auto shrink-0"
+              className="h-9 w-auto shrink-0 2xl:h-10"
               onError={(e) => {
                 if (!logoError) {
                   setLogoError(true);
@@ -188,24 +243,73 @@ const Header = () => {
                 }
               }}
             />
-            <span className="font-extrabold text-lg tracking-tight truncate">{siteName}</span>
+            <span className="max-w-[8rem] truncate text-base font-extrabold tracking-tight xl:max-w-[10rem] 2xl:max-w-none 2xl:text-lg">
+              {siteName}
+            </span>
           </Link>
         </div>
 
-        <nav className="hidden lg:flex items-center gap-5">
+        {/* Navegação completa apenas quando os dez links realmente cabem. */}
+        <nav className="hidden min-w-0 items-center gap-5 4xl:flex">
           {visibleMenuItems.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
               end={item.path === '/'}
-              className={navLinkClass}
+              className={(state) => `${navLinkClass(state)} whitespace-nowrap`}
             >
               {item.name}
             </NavLink>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        {/* Modo notebook: cinco destinos principais e um único menu secundário.
+            Nenhum rótulo quebra linha, portanto o header mantém altura fixa. */}
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex 4xl:hidden xl:gap-4">
+          {compactPrimaryItems.map(item => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              className={(state) => `${navLinkClass(state)} whitespace-nowrap text-[13px]`}
+            >
+              {item.path === '/agora' ? 'Radar' : item.name}
+            </NavLink>
+          ))}
+
+          {compactMoreItems.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold tracking-tight transition-colors ${
+                    compactMoreIsActive ? 'text-tc-red' : 'text-white/75 hover:text-white'
+                  }`}
+                  aria-label="Abrir mais opções de navegação"
+                >
+                  Mais <LucideIcons.ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-56">
+                <DropdownMenuLabel>Navegação</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {compactMoreItems.map(item => {
+                  const ItemIcon = LucideIcons[item.icon] || LucideIcons.Circle;
+                  return (
+                    <DropdownMenuItem key={item.path} asChild>
+                      <Link to={item.path} className="flex items-center gap-2">
+                        <ItemIcon className="h-4 w-4 text-content-tertiary" aria-hidden="true" />
+                        <span>{item.name}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </nav>
+
+        <div className="flex shrink-0 items-center gap-2 2xl:gap-4">
           {/* Pin da cidade ativa: substitui o chip com o nome da cidade. Abre a
               lista como sheet centralizado, que nao corta na borda da tela. */}
           <FeedCitySelector iconOnly />

@@ -13,33 +13,15 @@ import { Shield, ChevronRight } from 'lucide-react';
 // se precisasse de três idas. Juntas, com um botão só, elas dizem a verdade:
 // é uma atividade que rende em três frentes.
 //
-// A LISTA GERAL CONTINUA TENDO ELAS
+// A LISTA GERAL CONTINUA TENDO ELAS, E POR ISSO AQUI NÃO SE REPETE NENHUMA
 //
-// Não é um recorte exclusivo — o filtro "Patrulha" mostra as mesmas. Aqui elas
-// aparecem resumidas, com a barra e o número, porque este bloco existe para
-// convencer a sair, não para explicar cada meta.
-
-const Objetivo = ({ missao }) => (
-  <div className="flex items-center gap-2.5 rounded-xl bg-surface-raised border border-edge-subtle px-3 py-2.5">
-    <span className="shrink-0 text-base leading-none" aria-hidden="true">
-      {missao.icone}
-    </span>
-    <div className="min-w-0 flex-1">
-      <p className="text-[11px] font-bold text-content-primary leading-tight truncate">
-        {missao.titulo}
-      </p>
-      <p className="text-[11px] text-content-tertiary tabular-nums mt-0.5">
-        {missao.rotulo}
-      </p>
-      <span className="mt-1.5 block h-1 rounded-full bg-surface-sunken overflow-hidden">
-        <span
-          className="block h-full rounded-full bg-success-fg transition-[width] duration-500"
-          style={{ width: `${Math.round((missao.completa ? 1 : missao.progresso) * 100)}%` }}
-        />
-      </span>
-    </div>
-  </div>
-);
+// Não é um recorte exclusivo — o filtro "Patrulha", logo acima, mostra as
+// mesmas com título, meta e recompensa. Este bloco chegou a desenhar as três
+// de novo, em cartões próprios, o que contrariava a própria razão dele: ele
+// existe para convencer a SAIR, não para explicar cada meta.
+//
+// O que sobrou é o que só ele sabe dizer: quantas correm juntas, o quanto
+// andaram no conjunto, e o caminho para a rua. Três frases e um botão.
 
 export default function MissionPatrolProgress({ missoes, para = '/patrulhar' }) {
   const ativas = (missoes || []).filter((m) => !m.bloqueada && !m.completa);
@@ -59,7 +41,7 @@ export default function MissionPatrolProgress({ missoes, para = '/patrulhar' }) 
   );
 
   return (
-    <section className="mt-6 rounded-2xl border border-edge-subtle bg-surface-subtle p-3.5">
+    <section className="rounded-2xl border border-edge-subtle bg-surface-subtle p-3.5">
       <div className="flex items-center gap-3 mb-3">
         <span className="shrink-0 w-9 h-9 rounded-xl bg-surface-raised ring-1 ring-edge-subtle flex items-center justify-center">
           <Shield size={18} className="text-success-fg" />
@@ -87,7 +69,7 @@ export default function MissionPatrolProgress({ missoes, para = '/patrulhar' }) 
 
       {/* O número que resume as três. Sem ele, quem olha o bloco tem que ler
           três barras e fazer a média de cabeça para saber se está perto. */}
-      <div className="flex items-center gap-3 mb-3 rounded-xl bg-surface-raised border border-edge-subtle px-3.5 py-2.5">
+      <div className="flex items-center gap-3 rounded-xl bg-surface-raised border border-edge-subtle px-3.5 py-2.5">
         <span className="shrink-0 text-lg font-extrabold text-success-fg tabular-nums leading-none">
           {geral}%
         </span>
@@ -104,11 +86,6 @@ export default function MissionPatrolProgress({ missoes, para = '/patrulhar' }) 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {ativas.slice(0, 3).map((m) => (
-          <Objetivo key={m.id} missao={m} />
-        ))}
-      </div>
     </section>
   );
 }

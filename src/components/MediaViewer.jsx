@@ -24,7 +24,15 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
 
   const currentItem = safeMedia[currentIndex];
 
-  if (!currentItem) return null;
+  // A GUARDA `!currentItem` FICA DEPOIS DE TODOS OS HOOKS, LÁ EMBAIXO.
+  //
+  // Ela ficava aqui, e daqui para baixo ainda há dois `useEffect`. Isso é
+  // chamada condicional de hook: no render em que a lista esvazia, o componente
+  // executa menos hooks do que no anterior, e o React perde a correspondência
+  // entre eles. O eslint acusava os dois (`react-hooks/rules-of-hooks`).
+  //
+  // Nada entre esta linha e a guarda usa `currentItem`, então descê-la é o
+  // conserto inteiro — não é preciso mover mais nada.
   useEffect(() => {
     setVideoError(false);
   }, [currentIndex]);
@@ -80,6 +88,9 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [media, onClose]);
+
+  // Todos os hooks já rodaram: agora sim dá para desistir do render.
+  if (!currentItem) return null;
 
   const isYoutubeVideo = (url) => {
     if (!url) return false;

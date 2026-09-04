@@ -1,411 +1,32 @@
 
-import React, { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
+import { streetPath } from '@/lib/shareUtils';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, MapPin, Search, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, MapPin, Search, HelpCircle, Loader2, Route as Road, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
-import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import PavementEditModal from '@/components/pavement/PavementEditModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
-import { showAppError } from '@/lib/appError';
-
-const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
-
-const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets, defaultCityId, fallbackCityCenter, onBairroCreated }) => {
-  const { resolveCityIdFromLocation } = useCityIdFromLocation();
-  const [formData, setFormData] = useState(null);
-  const [bairroSearch, setBairroSearch] = useState('');
-  const [creatingBairro, setCreatingBairro] = useState(false);
-  const [fetchingMapBairro, setFetchingMapBairro] = useState(false);
-  const [activeStep, setActiveStep] = useState(1);
-
-  useEffect(() => {
-    if (street) {
-      const initialStatus = street.status || 'unpaved';
-      const initialPavementType = street.pavement_type || 'asphalt';
-
-      setFormData({
-        ...street,
-        location: street.location && street.location.coordinates ? { lat: street.location.coordinates[1], lng: street.location.coordinates[0] } : null,
-        paving_date: street.paving_date ? new Date(street.paving_date).getUTCFullYear().toString() : '',
-        status: initialStatus,
-        pavement_type: initialPavementType,
-      });
-      setBairroSearch('');
-      setActiveStep(1);
-    } else {
-      setFormData(null);
-    }
-  }, [street]);
-
-  // Resolve o city_id alvo para criar bairro: cidade padrão (embaixador) ou,
-  // se não houver, a cidade do marcador atual (mesmo padrão de obras/imóveis).
-  const resolveTargetCityId = async () => {
-    if (defaultCityId) return defaultCityId;
-    if (formData?.location) return await resolveCityIdFromLocation(formData.location);
-    return null;
-  };
-
-  const handleCreateBairro = async (rawName) => {
-    const name = (rawName || '').trim();
-    if (!name) return;
-    const cityId = await resolveTargetCityId();
-    if (!cityId) {
-      showAppError({ title: 'Defina a localização no mapa primeiro', description: 'Precisamos da cidade para criar o bairro.', variant: 'destructive' });
-      return;
-    }
-    const existing = (bairros || []).find(
-      (b) => (b.name || '').trim().toLowerCase() === name.toLowerCase()
-    );
-    if (existing) {
-      handleSelectChange('bairro_id', existing.id);
-      setBairroSearch('');
-      return;
-    }
-    setCreatingBairro(true);
-    const { data, error } = await supabase
-      .from('bairros')
-      .insert({ name, city_id: cityId })
-      .select('id, name')
-      .single();
-    setCreatingBairro(false);
-    if (error) {
-      showAppError({ title: 'Erro ao criar bairro', description: error.message, variant: 'destructive' });
-      return;
-    }
-    onBairroCreated?.(data);
-    handleSelectChange('bairro_id', data.id);
-    setBairroSearch('');
-  };
-
-  const handleUseBairroFromMap = async () => {
-    if (!formData?.location) {
-      showAppError({ title: 'Marque a localização no mapa primeiro', variant: 'destructive' });
-      return;
-    }
-    setFetchingMapBairro(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
-        body: { lat: formData.location.lat, lng: formData.location.lng, zoom: 18 },
-      });
-      const suburb = !error ? (data?.suburb || null) : null;
-      if (!suburb) {
-        showAppError({ title: 'Bairro não encontrado no mapa', description: 'Digite o nome do bairro manualmente.', variant: 'destructive' });
-        return;
-      }
-      await handleCreateBairro(suburb);
-    } finally {
-      setFetchingMapBairro(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleLocationChange = (newLocation) => {
-    setFormData(prev => ({ ...prev, location: newLocation }));
-  };
-
-  const updateArrayItem = (field, index, key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: (prev[field] || []).map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item
-      ),
-    }));
-  };
-
-  const addArrayItem = (field, item) => {
-    setFormData((prev) => ({ ...prev, [field]: [...(prev[field] || []), item] }));
-  };
-
-  const removeArrayItem = (field, index) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: (prev[field] || []).filter((_, itemIndex) => itemIndex !== index),
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (activeStep === 1) {
-      setActiveStep(2);
-      return;
-    }
-    const pavementFieldsEnabled = formData.status === 'paved' || formData.status === 'partially_paved';
-    
-    const dataToSave = {
-      ...formData,
-      paving_date: pavementFieldsEnabled && formData.paving_date ? `${formData.paving_date}-01-01` : null,
-      pavement_type: pavementFieldsEnabled ? formData.pavement_type : null,
-    };
-    
-    onSave(dataToSave);
-  };
-
-  if (!formData) return null;
-  
-  const pavementFieldsEnabled = formData.status === 'paved' || formData.status === 'partially_paved';
-
-  const otherStreets = existingStreets
-    .filter(s => s.id !== formData.id && s.location)
-    .map(s => ({
-      ...s,
-      location: s.location.coordinates ? { lat: s.location.coordinates[1], lng: s.location.coordinates[0] } : null,
-    }));
-
-  const filteredBairros = (bairros || []).filter((b) => bairroSearch.trim() && (b.name || '').toLowerCase().includes(bairroSearch.toLowerCase()));
-  const selectedBairroName = bairros.find((b) => b.id === formData.bairro_id)?.name || '';
-
-  return (
-    <Dialog open={!!street} onOpenChange={(open) => !open && onClose()}>
-      <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden border-border p-0 sm:h-[90vh] sm:max-w-[760px]">
-        <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <DialogTitle className="text-xl font-bold text-content-primary sm:text-2xl">{formData.id ? 'Editar Rua' : 'Adicionar Nova Rua'}</DialogTitle>
-              <p className="mt-1 text-xs font-medium text-content-tertiary">
-                Etapa {activeStep} de 2 · {activeStep === 1 ? 'Dados e localização' : 'História da rua'}
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2" aria-hidden="true">
-            <span className="h-1 rounded-full bg-brand" />
-            <span className={`h-1 rounded-full transition-colors ${activeStep === 2 ? 'bg-brand' : 'bg-edge-subtle'}`} />
-          </div>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
-          <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
-          {activeStep === 1 && <>
-          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-            <Label htmlFor="name" className="sm:text-right">Nome</Label>
-            <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-            <Label htmlFor="cep" className="sm:text-right">CEP</Label>
-            <Input id="cep" name="cep" value={formData.cep || ''} onChange={handleChange} placeholder="Ex: 56400-000" />
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start sm:gap-4">
-            <Label className="sm:pt-2 sm:text-right">Bairro</Label>
-            <div className="min-w-0 space-y-2">
-              {selectedBairroName && (
-                <p className="text-sm text-muted-foreground">Selecionado: <span className="font-medium text-foreground">{selectedBairroName}</span></p>
-              )}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <Input
-                  className="col-span-2 sm:col-span-1"
-                  placeholder="Buscar ou criar bairro..."
-                  value={bairroSearch}
-                  onChange={(e) => setBairroSearch(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateBairro(bairroSearch); } }}
-                />
-                <Button type="button" variant="outline" disabled={creatingBairro} onClick={() => handleCreateBairro(bairroSearch)}>
-                  Criar
-                </Button>
-                <Button type="button" variant="outline" className="whitespace-normal leading-tight" disabled={fetchingMapBairro} onClick={handleUseBairroFromMap}>
-                  Usar bairro do mapa
-                </Button>
-              </div>
-              {filteredBairros.length > 0 && (
-                <div className="max-h-32 overflow-y-auto border rounded-md">
-                  {filteredBairros.map((b) => (
-                    <button
-                      type="button"
-                      key={b.id}
-                      onClick={() => { handleSelectChange('bairro_id', b.id); setBairroSearch(''); }}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${formData.bairro_id === b.id ? 'bg-muted font-semibold' : ''}`}
-                    >
-                      {b.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-            <Label htmlFor="status" className="sm:text-right">Status</Label>
-            <div className="min-w-0">
-              <Combobox
-                options={[
-                  { value: 'paved', label: 'Pavimentada' },
-                  { value: 'unpaved', label: 'Sem Pavimentação' },
-                  { value: 'partially_paved', label: 'Parcialmente Pavimentada' }
-                ]}
-                value={formData.status}
-                onChange={(value) => handleSelectChange('status', value)}
-                placeholder="Selecione o status"
-                searchPlaceholder="Buscar status..."
-                notFoundText="Status não encontrado"
-              />
-            </div>
-          </div>
-
-          <div className={`space-y-5 transition-opacity duration-300 ${pavementFieldsEnabled ? 'opacity-100' : 'opacity-50'}`}>
-            <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-              <Label htmlFor="pavement_type" className="sm:text-right">Tipo</Label>
-              <div className="min-w-0">
-                <Combobox
-                  options={[
-                    { value: 'asphalt', label: 'Asfáltica' },
-                    { value: 'granite', label: 'Granítica (Paralelepípedo)' }
-                  ]}
-                  value={formData.pavement_type}
-                  onChange={(value) => handleSelectChange('pavement_type', value)}
-                  placeholder="Selecione o tipo"
-                  searchPlaceholder="Buscar tipo..."
-                  notFoundText="Tipo não encontrado"
-                  disabled={!pavementFieldsEnabled}
-                />
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center sm:gap-4">
-              <Label htmlFor="paving_date" className="sm:text-right">Ano da Conclusão</Label>
-              <Input 
-                id="paving_date" 
-                name="paving_date" 
-                type="number"
-                placeholder="Ex: 2024"
-                value={formData.paving_date || ''} 
-                onChange={handleChange} 
-                disabled={!pavementFieldsEnabled}
-              />
-            </div>
-          </div>
-
-          </>}
-
-          {activeStep === 2 && (
-          <section className="overflow-hidden rounded-2xl border border-edge-subtle bg-surface-sunken">
-            <div className="flex items-center gap-3 p-4">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
-                <BookOpen className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold">História da rua</p>
-                <p className="text-xs text-content-tertiary">Etapa opcional. O botão público só aparece quando existir conteúdo.</p>
-              </div>
-            </div>
-
-            <div className="space-y-5 border-t border-edge-subtle bg-surface-raised p-4 sm:p-5">
-
-            <div className="space-y-2">
-              <Label htmlFor="honoree_name">Nome do homenageado</Label>
-              <Input id="honoree_name" name="honoree_name" value={formData.honoree_name || ''} onChange={handleChange} placeholder="Nome completo" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="biography">Biografia</Label>
-              <textarea id="biography" name="biography" value={formData.biography || ''} onChange={handleChange} rows={5} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Conte a trajetória e a contribuição do homenageado." />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="curiosities">Curiosidades</Label>
-              <textarea id="curiosities" name="curiosities" value={formData.curiosities || ''} onChange={handleChange} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="Uma curiosidade por linha ou em pequenos parágrafos." />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4" /> Documentos</Label>
-                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_documents', { title: '', url: '', description: '', type: '', size: '' })}>Adicionar</Button>
-              </div>
-              {/* A `description` existia no objeto desde sempre e nunca teve
-                  campo na tela: era gravada vazia em todo cadastro. Agora ela é
-                  o subtítulo da linha do documento na página pública. */}
-              {(formData.historical_documents || []).map((document, index) => (
-                <div key={index} className="flex items-start gap-2 rounded-lg border border-border bg-background p-3">
-                  <div className="grid min-w-0 flex-1 gap-2">
-                    <Input value={document.title || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'title', e.target.value)} placeholder="Título — ex.: Lei de Criação da Rua" />
-                    <Input value={document.description || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'description', e.target.value)} placeholder="Subtítulo — ex.: Lei Municipal nº 1.234/2010" />
-                    <Input type="url" value={document.url || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'url', e.target.value)} placeholder="Link público do documento" />
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input value={document.type || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'type', e.target.value)} placeholder="Tipo — deixe vazio para deduzir do link" />
-                      <Input value={document.size || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'size', e.target.value)} placeholder="Tamanho — ex.: 245 KB" />
-                    </div>
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" className="shrink-0 text-red-500" onClick={() => removeArrayItem('historical_documents', index)} aria-label="Remover documento"><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="inline-flex items-center gap-1.5"><ImageIcon className="h-4 w-4" /> Fotos históricas e atuais</Label>
-                <Button type="button" size="sm" variant="outline" onClick={() => addArrayItem('historical_photos', { url: '', caption: '', date: '', subject: 'street' })}>Adicionar</Button>
-              </div>
-              {/* A primeira foto marcada como "da rua" também vira a capa do
-                  topo da página pública — não há campo separado para isso. */}
-              {(formData.historical_photos || []).map((photo, index) => (
-                <div key={index} className="grid gap-2 rounded-lg border border-border bg-background p-3">
-                  <Input type="url" value={photo.url || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'url', e.target.value)} placeholder="Link público da foto" />
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_11rem]">
-                    <Input value={photo.caption || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'caption', e.target.value)} placeholder="Legenda — ex.: Vista da entrada da rua" />
-                    <Input type="date" value={photo.date || ''} onChange={(e) => updateArrayItem('historical_photos', index, 'date', e.target.value)} aria-label="Data da foto" />
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                    <select value={photo.subject || 'street'} onChange={(e) => updateArrayItem('historical_photos', index, 'subject', e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="street">Foto da rua</option>
-                      <option value="honoree">Foto do homenageado</option>
-                    </select>
-                    <Button type="button" variant="ghost" className="justify-self-end text-red-500" onClick={() => removeArrayItem('historical_photos', index)}><Trash2 className="mr-2 h-4 w-4" /> Remover</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            </div>
-          </section>
-          )}
-
-          {activeStep === 1 && (
-          <div>
-            <Label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização</Label>
-            <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
-              <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                <LocationPickerMap
-                  onLocationChange={handleLocationChange}
-                  initialPosition={formData.location}
-                  existingMarkers={otherStreets}
-                  fallbackCityCenter={fallbackCityCenter}
-                />
-              </Suspense>
-            </div>
-          </div>
-          )}
-          </div>
-          <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-4 py-3 sm:px-6">
-            {activeStep === 1 ? (
-              <>
-                <DialogClose asChild><Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28">Cancelar</Button></DialogClose>
-                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-32">Próximo <ChevronRight className="h-4 w-4" /></Button>
-              </>
-            ) : (
-              <>
-                <Button type="button" variant="outline" className="h-11 gap-2 rounded-xl sm:min-w-28" onClick={() => setActiveStep(1)}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
-                <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-28"><Save className="w-4 h-4" /> Salvar</Button>
-              </>
-            )}
-          </DialogFooter>
-        </form>
-      </FormDialogContent>
-    </Dialog>
-  );
-};
+import { showAppError, showAppNotice } from '@/lib/appError';
+import { cepsDaRua } from '@/lib/pavementReport';
+import { savePavementStreet, storagePathsFromStreet } from '@/lib/savePavementStreet';
+import { removePavementMedia } from '@/lib/pavementStreetMedia';
+import {
+  bboxDasRuas,
+  buildOverpassQuery,
+  buscarVias,
+  casarTracado,
+  coordenadaDaRua,
+  toMultiLineStringWkt,
+} from '@/lib/streetGeometry';
 
 const ManagePavementPage = () => {
   const { user } = useAuth();
@@ -415,8 +36,12 @@ const ManagePavementPage = () => {
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [buscaRua, setBuscaRua] = useState('');
+  const [mostrarSoSemNome, setMostrarSoSemNome] = useState(false);
+  const [mostrarSoSemCep, setMostrarSoSemCep] = useState(false);
+  const [mostrarSoSemTracado, setMostrarSoSemTracado] = useState(false);
   const [editingStreet, setEditingStreet] = useState(null);
   const [deletingStreet, setDeletingStreet] = useState(null);
+  const [importandoTracado, setImportandoTracado] = useState(null); // null | { feitas, total, achadas }
 
   useEffect(() => {
     if (!isScopedAmbassador || !user?.id) return;
@@ -469,94 +94,22 @@ const ManagePavementPage = () => {
   }, [fetchStreets, fetchBairros]);
 
   const handleSaveStreet = async (streetToSave) => {
-    const { id, name, location, bairro, bairro_name, cep, work_id, ...data } = streetToSave;
-
-    if (!name || name.trim() === '') {
-        showAppError({ title: "Erro ao salvar", description: "O nome da rua é obrigatório.", variant: "destructive" });
-        return;
-    }
-
-    if (!data.bairro_id) {
-      showAppError({ title: "Selecione um bairro", description: "A cidade da rua é definida pelo bairro selecionado.", variant: "destructive" });
-      return;
-    }
-
-    const selectedBairro = bairros.find((b) => b.id === data.bairro_id);
-    const resolvedCityId = selectedBairro?.city_id || null;
-    if (!resolvedCityId) {
-      showAppError({ title: "Bairro sem cidade definida", description: "Escolha outro bairro ou cadastre o bairro corretamente antes.", variant: "destructive" });
-      return;
-    }
-
-    if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
-      showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar ruas nas suas cidades.", variant: "destructive" });
-      return;
-    }
-
-    const trimmedName = name.trim();
-    // A checagem de nome repetido é POR CIDADE.
-    //
-    // Sem o recorte, ela olhava a tabela inteira: "Rua São João" cadastrada em
-    // Palmares bloqueava o cadastro de "Rua São João" em qualquer outra cidade
-    // do país. É o nome de rua mais comum do Brasil — e o embaixador da cidade
-    // vizinha via "já existe no sistema" sem ter como descobrir onde.
-    let query = supabase
-        .from('pavement_streets')
-        .select('id', { count: 'exact', head: true })
-        .eq('city_id', resolvedCityId)
-        .ilike('name', trimmedName);
-
-    if (id) {
-        query = query.neq('id', id);
-    }
-
-    const { error: checkError, count } = await query;
-
-    if (checkError) {
-        showAppError({ title: "Erro ao verificar duplicidade", description: checkError.message, variant: "destructive" });
-        return;
-    }
-
-    if (count > 0) {
-        showAppError({ title: "Rua já cadastrada", description: `A rua "${trimmedName}" já existe nesta cidade.`, variant: "destructive" });
-        return;
-    }
-
-    const locationString = location ? `POINT(${location.lng} ${location.lat})` : null;
-    
-    const payload = {
-      name: trimmedName,
-      cep: cep || null,
-      status: data.status,
-      paving_date: data.paving_date,
-      pavement_type: data.pavement_type,
-      bairro_id: data.bairro_id,
-      location: locationString,
-      city_id: resolvedCityId,
-      honoree_name: data.honoree_name?.trim() || null,
-      biography: data.biography?.trim() || null,
-      curiosities: data.curiosities?.trim() || null,
-      historical_documents: (data.historical_documents || []).filter((item) => item?.url?.trim()),
-      historical_photos: (data.historical_photos || []).filter((item) => item?.url?.trim()),
-    };
-
-    let error;
-    if (id) {
-      ({ error } = await supabase.from('pavement_streets').update(payload).eq('id', id));
-    } else {
-      ({ error } = await supabase.from('pavement_streets').insert(payload));
-    }
-
-    if (error) {
-      showAppError({ title: "Erro ao salvar rua", description: error.message, variant: "destructive" });
-    } else {
-      fetchStreets();
+    const ok = await savePavementStreet({
+      supabase,
+      streetToSave,
+      bairros,
+      isScopedAmbassador,
+      myActiveCityIds,
+    });
+    if (ok) {
+      await fetchStreets();
       setEditingStreet(null);
     }
+    return ok;
   };
 
   const handleAddNewStreet = () => {
-    setEditingStreet({ id: null, name: '', cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '', honoree_name: '', biography: '', curiosities: '', historical_documents: [], historical_photos: [] });
+    setEditingStreet({ id: null, name: '', is_unnamed: false, cep: '', status: 'unpaved', pavement_type: 'asphalt', bairro_id: null, location: null, paving_date: '', honoree_name: '', biography: '', curiosities: '', historical_documents: [], historical_photos: [] });
   };
 
   const handleDeleteStreet = async (streetId) => {
@@ -564,7 +117,12 @@ const ManagePavementPage = () => {
     if (error) {
       showAppError({ title: "Erro ao remover rua", description: error.message, variant: "destructive" });
     } else {
-      fetchStreets();
+      try {
+        await removePavementMedia(supabase, storagePathsFromStreet(deletingStreet));
+      } catch (storageError) {
+        console.error('A rua foi removida, mas seus anexos não foram removidos:', storageError);
+      }
+      await fetchStreets();
     }
     setDeletingStreet(null);
   };
@@ -578,21 +136,181 @@ const ManagePavementPage = () => {
     }
   };
 
-  // `streets` continua inteiro: o modal precisa da lista completa para avisar
-  // de nomes repetidos. O recorte é só do que vai para a tela.
+  // `streets` continua inteiro: é o que o modal usa para desenhar os outros
+  // pinos no seletor de mapa (`existingStreets` em `PavementEditModal`). A
+  // checagem de nome repetido é outra coisa — uma consulta ao banco dentro de
+  // `savePavementStreet`, que não depende desta lista. O recorte por filtro é
+  // só do que vai para a tela.
+  const totalSemNome = useMemo(() => streets.filter((street) => street.is_unnamed).length, [streets]);
+
+  // OS DOIS FILTROS SAO A MESMA PERGUNTA EM MOMENTOS DIFERENTES
+  //
+  // "Sem nome oficial" é a lista que vira projeto de lei; "sem CEP" é a lista
+  // de trabalho de quem está completando a base. Ambos respondem "o que ainda
+  // falta aqui" — e por isso combinam: ligados juntos, mostram as ruas que não
+  // têm nem nome nem CEP, que são as mais atrasadas de todas.
+  //
+  // A contagem usa `cepsDaRua`, e não a coluna antiga: uma rua cujo CEP está
+  // só na lista nova não pode aparecer como pendente.
+  const totalSemCep = useMemo(
+    () => streets.filter((street) => cepsDaRua(street).length === 0).length,
+    [streets]
+  );
+
+  // DUAS CONTAS DIFERENTES SOBRE A MESMA COLUNA, E ELAS NÃO PODEM SE MISTURAR.
+  //
+  // `totalSemTracado` é o FILTRO: toda rua sem linha no mapa, inclusive as sem
+  // nome oficial. São exatamente essas que precisam ser desenhadas à mão, então
+  // escondê-las do filtro esconderia o trabalho que sobrou.
+  //
+  // `semTracado` é o universo da IMPORTAÇÃO automática, que é menor: rua sem
+  // nome não existe no OpenStreetMap com esse nome, e rua sem ponto não tem de
+  // onde partir a busca. Usar a conta do filtro ali faria o botão prometer 91
+  // e achar 55.
+  const totalSemTracado = useMemo(
+    () => streets.filter((street) => !street.path).length,
+    [streets]
+  );
+
+  const semTracado = useMemo(
+    () => streets.filter((s) => !s.path && !s.is_unnamed && s.location),
+    [streets]
+  );
+
+  /**
+   * Traz o traçado de todas as ruas que ainda não têm.
+   *
+   * UMA chamada ao Overpass POR CIDADE, e o casamento local dentro de cada
+   * grupo. Ver o cabeçalho de `lib/streetGeometry.js` para o porquê de não ser
+   * uma por rua.
+   *
+   * `streets` não é recortado por cidade para admin/imperador — é a base
+   * inteira. Uma bbox só, sobre `comPonto` inteiro, cobriria todas as cidades
+   * cadastradas de uma vez, e o Overpass receberia uma consulta do tamanho do
+   * país (504/429, ou uma resposta grande o bastante para travar a aba). Por
+   * isso o agrupamento por `city_id` antes de montar a bbox: cada cidade pede
+   * a sua região, e a guarda de 2 km de `casarTracado` continua resolvendo
+   * homônimos dentro do grupo. Rua sem `city_id` forma grupo próprio — sumir
+   * da importação seria pior que uma bbox maior que o necessário.
+   *
+   * Nunca sobrescreve `path_source = 'manual'`: o filtro é `!s.path`, então
+   * rua com traçado — de qualquer origem — fica de fora.
+   */
+  const importarTracados = async () => {
+    const comPonto = semTracado
+      .map((s) => ({ ...s, location: coordenadaDaRua(s.location) }))
+      .filter((s) => s.location);
+
+    if (comPonto.length === 0) {
+      showAppError({ title: 'Nada a buscar', description: 'Nenhuma rua sem traçado tem ponto cadastrado.', variant: 'destructive' });
+      return;
+    }
+
+    // Rua sem city_id vai para o grupo `null` — chave própria, não descarte.
+    const grupos = new Map();
+    for (const rua of comPonto) {
+      const chave = rua.city_id ?? null;
+      if (!grupos.has(chave)) grupos.set(chave, []);
+      grupos.get(chave).push(rua);
+    }
+
+    setImportandoTracado({ feitas: 0, total: comPonto.length, achadas: 0 });
+    try {
+      let feitas = 0;
+      let achadas = 0;
+      let falhas = 0;
+      let tentadas = 0;
+      let abortadoPorFalha = false;
+
+      for (const grupo of grupos.values()) {
+        if (abortadoPorFalha) break;
+
+        const bbox = bboxDasRuas(grupo);
+        if (!bbox) continue; // defensivo: `comPonto` já garante ponto válido.
+        const ways = await buscarVias(buildOverpassQuery(bbox));
+
+        for (let i = 0; i < grupo.length; i += 1) {
+          const rua = grupo[i];
+          const wkt = toMultiLineStringWkt(casarTracado(rua, ways));
+          if (wkt) {
+            tentadas += 1;
+            const { error } = await supabase
+              .from('pavement_streets')
+              .update({ path: wkt, path_source: 'osm' })
+              .eq('id', rua.id);
+
+            // FALHA DE GRAVAÇÃO NÃO PODE PARECER "NÃO ACHEI".
+            //
+            // Contar só os acertos fazia as duas coisas terminarem na mesma
+            // frase: "0 traçados encontrados de 400 ruas" tanto quando o OSM não
+            // conhece nenhuma rua quanto quando a coluna `path` não existe ainda.
+            // A primeira é informação; a segunda é um erro de instalação que
+            // ficava escondido atrás dela.
+            //
+            // E se a PRIMEIRA gravação falha, a causa é do banco, não da rua —
+            // coluna ausente, RLS, sessão expirada. Insistir nas outras 399
+            // custaria dois minutos de espera para chegar à mesma conclusão.
+            // O aborto vale para a importação inteira, não só o grupo atual.
+            if (error) {
+              falhas += 1;
+              console.error('Falha ao gravar o traçado de', rua.name, error);
+              if (tentadas === 1) {
+                showAppError({
+                  title: 'Não foi possível gravar o traçado',
+                  description: `${error.message}. Se a coluna do traçado ainda não existe no banco, aplique a migração 203 antes de importar.`,
+                  variant: 'destructive',
+                });
+                abortadoPorFalha = true;
+                break;
+              }
+            } else {
+              achadas += 1;
+            }
+            // Espaçar os UPDATEs para não estourar o pooler numa cidade grande.
+            await new Promise((r) => setTimeout(r, 300));
+          }
+          feitas += 1;
+          setImportandoTracado({ feitas, total: comPonto.length, achadas });
+        }
+      }
+
+      if (abortadoPorFalha) return;
+
+      await fetchStreets();
+      const semCasar = comPonto.length - tentadas;
+      showAppNotice({
+        title: 'Importação concluída',
+        description: [
+          `${achadas} de ${comPonto.length} rua${comPonto.length === 1 ? '' : 's'} com traçado.`,
+          semCasar > 0 ? `${semCasar} sem correspondência no OpenStreetMap.` : '',
+          falhas > 0 ? `${falhas} falhou ao gravar — veja o console.` : '',
+        ].filter(Boolean).join(' '),
+      });
+    } catch (erro) {
+      showAppError({ title: 'Erro ao importar traçados', description: erro.message, variant: 'destructive' });
+    } finally {
+      setImportandoTracado(null);
+    }
+  };
+
   const ruasFiltradas = useMemo(() => {
     const termo = buscaRua.trim().toLowerCase();
-    if (!termo) return streets;
-    return streets.filter((s) =>
-      (s.name || '').toLowerCase().includes(termo) ||
-      (s.bairro_name || '').toLowerCase().includes(termo) ||
-      (s.cep || '').toLowerCase().includes(termo)
-    );
-  }, [streets, buscaRua]);
+    return streets.filter((s) => {
+      if (mostrarSoSemNome && !s.is_unnamed) return false;
+      if (mostrarSoSemCep && cepsDaRua(s).length > 0) return false;
+      if (mostrarSoSemTracado && s.path) return false;
+      if (!termo) return true;
+      return (s.name || '').toLowerCase().includes(termo)
+        || (s.bairro_name || '').toLowerCase().includes(termo)
+        // Procurar por CEP tem de achar QUALQUER um dos trechos: quem digita
+        // "56408-193" quer a rua daquela faixa, e ela pode ser a segunda.
+        || cepsDaRua(s).some((c) => c.cep.toLowerCase().includes(termo));
+    });
+  }, [streets, buscaRua, mostrarSoSemNome, mostrarSoSemCep, mostrarSoSemTracado]);
 
   const { visiveis: ruasVisiveis, propsPaginacao: propsPaginacaoRuas } = useListaPaginada(
     ruasFiltradas,
-    { porPagina: 20, chaveFiltro: buscaRua }
+    { porPagina: 20, chaveFiltro: `${buscaRua}|${mostrarSoSemNome}|${mostrarSoSemCep}|${mostrarSoSemTracado}` }
   );
 
   return (
@@ -601,7 +319,7 @@ const ManagePavementPage = () => {
         <title>Gerenciar Pavimentação - Admin</title>
         <meta name="description" content="Gerencie as ruas e o status de pavimentação." />
       </Helmet>
-      <div className="container max-w-[88rem] mx-auto w-full px-4 py-12">
+      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -625,13 +343,74 @@ const ManagePavementPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ruas Cadastradas</CardTitle>
-            <CardDescription>{streets.length} rua{streets.length === 1 ? '' : 's'}.</CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Ruas Cadastradas</CardTitle>
+                <CardDescription className="mt-1">{streets.length} rua{streets.length === 1 ? '' : 's'} no total.</CardDescription>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={mostrarSoSemNome ? 'default' : 'outline'}
+                  size="sm"
+                  className="gap-2"
+                  aria-pressed={mostrarSoSemNome}
+                  onClick={() => setMostrarSoSemNome((current) => !current)}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  {totalSemNome} sem nome oficial
+                </Button>
+                {/* O contador some quando chega a zero: botao que filtra nada e
+                    so mais um alvo na tela, e o zero ja diz o que precisava. */}
+                {totalSemCep > 0 && (
+                  <Button
+                    type="button"
+                    variant={mostrarSoSemCep ? 'default' : 'outline'}
+                    size="sm"
+                    className="gap-2"
+                    aria-pressed={mostrarSoSemCep}
+                    onClick={() => setMostrarSoSemCep((current) => !current)}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    {totalSemCep} sem CEP
+                  </Button>
+                )}
+                {totalSemTracado > 0 && (
+                  <Button
+                    type="button"
+                    variant={mostrarSoSemTracado ? 'default' : 'outline'}
+                    size="sm"
+                    className="gap-2"
+                    aria-pressed={mostrarSoSemTracado}
+                    onClick={() => setMostrarSoSemTracado((current) => !current)}
+                  >
+                    <Road className="h-4 w-4" />
+                    {totalSemTracado} sem traçado
+                  </Button>
+                )}
+                {semTracado.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={importarTracados}
+                    disabled={Boolean(importandoTracado)}
+                  >
+                    {importandoTracado ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> {importandoTracado.feitas}/{importandoTracado.total} · {importandoTracado.achadas} achadas</>
+                    ) : (
+                      <><Road className="h-4 w-4" /> Buscar traçado de {semTracado.length}</>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
             {/* Sem busca, achar uma rua era rolar até topá-la. */}
             <div className="relative mt-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por rua, bairro ou CEP..."
+                placeholder="Fazer busca"
                 className="pl-10"
                 value={buscaRua}
                 onChange={(e) => setBuscaRua(e.target.value)}
@@ -641,21 +420,54 @@ const ManagePavementPage = () => {
           <CardContent>
             {ruasVisiveis.length === 0 ? (
               <p className="text-center text-muted-foreground py-10">
-                {buscaRua ? 'Nenhuma rua corresponde à busca.' : 'Nenhuma rua cadastrada ainda.'}
+                {buscaRua || mostrarSoSemNome || mostrarSoSemCep || mostrarSoSemTracado
+                  ? 'Nenhuma rua corresponde ao filtro.'
+                  : 'Nenhuma rua cadastrada ainda.'}
               </p>
             ) : (
             <div className="space-y-3">
               {ruasVisiveis.map(street => (
                 <div key={street.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-background rounded-lg border gap-4">
                   <div>
-                    <p className="font-semibold">{street.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{street.name}</p>
+                      {/* Tokens do tema, e não a paleta crua: `bg-amber-50` é
+                          uma cor CLARA e continuava clara no tema escuro,
+                          virando um borrão creme no meio do cartão. O par
+                          `status-pending*` já tem versão para os dois temas. */}
+                      {street.is_unnamed && (
+                        <Badge variant="outline" className="gap-1 border-status-pendingBorder bg-status-pendingBg text-status-pendingFg hover:bg-status-pendingBg">
+                          <HelpCircle className="h-3 w-3" /> Sem nome oficial
+                        </Badge>
+                      )}
+                      {/* Com o filtro ligado toda linha teria o selo, e ele não
+                          diria nada. Ele serve para o oposto: percorrer a lista
+                          inteira e enxergar quais ainda faltam desenhar. */}
+                      {!street.path && (
+                        <Badge variant="outline" className="gap-1 text-content-tertiary">
+                          <Road className="h-3 w-3" /> Sem traçado
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">Status: {getStatusText(street.status)}</p>
                     {street.bairro_name && <p className="text-sm text-muted-foreground">Bairro: {street.bairro_name}</p>}
-                    {street.cep && <p className="text-sm text-muted-foreground">CEP: {street.cep}</p>}
+                    {cepsDaRua(street).length > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {cepsDaRua(street).length === 1 ? 'CEP: ' : 'CEPs: '}
+                        {cepsDaRua(street).map((c) => c.cep).join(' · ')}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">Última atualização: {new Date(street.updated_at).toLocaleString('pt-BR')}</p>
                   </div>
                   <div className="flex-shrink-0 flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingStreet(street)}><Edit className="w-4 h-4" /></Button>
+                    {/* Ver a pagina publica da rua: e a unica forma de conferir
+                        como o cadastro ficou sem sair procurando no mapa. */}
+                    <Button asChild variant="ghost" size="icon" title="Ver pagina da rua">
+                      <Link to={streetPath(street)} target="_blank" rel="noreferrer">
+                        <Eye className="w-4 h-4" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="icon" title="Editar" onClick={() => setEditingStreet(street)}><Edit className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-600" onClick={() => setDeletingStreet(street)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>

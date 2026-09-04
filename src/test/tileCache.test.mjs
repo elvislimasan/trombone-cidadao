@@ -36,14 +36,30 @@ test('o meridiano de Greenwich no equador cai na junção central da grade', () 
   assert.equal(tileY(0, 1), 1);
 });
 
-test('a chave separa os temas: o tile claro não serve o mapa escuro', () => {
+// A CHAVE SEGUE A FONTE, E OS DOIS TEMAS AGORA DIVIDEM UMA
+//
+// Ela separava por tema, quando cada um tinha servidor proprio. O escuro passou
+// a ser o MESMO OSM invertido em CSS, e guardar por tema faria o mesmo tile
+// ocupar duas entradas — e o prefetch da patrulha baixar a cidade duas vezes,
+// num aparelho no meio da rua.
+//
+// Se um dia o escuro voltar a ter servidor proprio, este teste falha, e falha
+// no lugar certo: a chave precisa voltar a separar junto.
+test('os dois temas dividem a chave enquanto dividem a fonte', () => {
   const coords = { z: 18, x: 102987, y: 136811 };
   const claro = chaveDoTile('light', coords);
   const escuro = chaveDoTile('dark', coords);
 
-  assert.notEqual(claro, escuro);
-  assert.equal(claro, 'https://tiles.local/light/18/102987/136811.png');
-  assert.equal(escuro, 'https://tiles.local/dark/18/102987/136811.png');
+  assert.equal(fonteDeTiles('light').url, fonteDeTiles('dark').url);
+  assert.equal(claro, escuro);
+  assert.equal(claro, 'https://tiles.local/osm/18/102987/136811.png');
+});
+
+// O escuro nao pode virar um segundo pedido de rede: a diferenca dele e uma
+// classe de CSS aplicada no conteiner da camada.
+test('o tema escuro se distingue por classe, nao por url', () => {
+  assert.equal(TILE_DARK.classe, 'map-tiles--dark');
+  assert.equal(fonteDeTiles('light').classe, undefined);
 });
 
 test('a chave é http(s) absoluta, e não um caminho relativo', () => {
@@ -60,10 +76,10 @@ test('tema desconhecido cai no claro, que é o padrão do app', () => {
 });
 
 test('a url do tile não deixa nenhum marcador do template para trás', () => {
-  // `{r}` é o caso perigoso: só existe no template escuro, e sobrando na url
-  // ele vira 404 em todo tile do tema — que é justamente o que ninguém olha.
+  // Marcador que sobra vira 404 em todo tile do tema — que e justamente o que
+  // ninguem olha, porque o mapa so fica cinza.
   const url = montarUrlDeTile(TILE_DARK, { z: 18, x: 102987, y: 136811 });
-  assert.match(url, /^https:\/\/[a-d]\.basemaps\.cartocdn\.com\/dark_all\/18\/102987\/136811\.png$/);
+  assert.match(url, /^https:\/\/[a-c]\.tile\.openstreetmap\.org\/18\/102987\/136811\.png$/);
   assert.ok(!url.includes('{'), `sobrou marcador na url: ${url}`);
 });
 
@@ -77,6 +93,6 @@ test('o subdomínio sai da lista da fonte, não de uma fixa', () => {
   const claro = new URL(montarUrlDeTile(fonteDeTiles('light'), { z: 3, x: 4, y: 5 }));
   const escuro = new URL(montarUrlDeTile(fonteDeTiles('dark'), { z: 3, x: 4, y: 5 }));
 
-  assert.ok('abc'.includes(claro.hostname[0]));
-  assert.ok('abcd'.includes(escuro.hostname[0]));
+  assert.ok(fonteDeTiles('light').subdomains.includes(claro.hostname[0]));
+  assert.ok(fonteDeTiles('dark').subdomains.includes(escuro.hostname[0]));
 });

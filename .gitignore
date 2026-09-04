@@ -233,3 +233,6 @@ COMANDOS_BACKUP.txt
 # Arquivos SQL de verificação/configuração (geralmente temporários)
 VERIFICAR_*.sql
 *_VERIFICACAO_*.sql
+# Masters do avatar da patrulha: grandes demais para versionar.
+# O que entra no bundle sai de npm run avatar:renders (ver src/assets/patrol/avatar/LEIA-ME.md).
+renders-master/

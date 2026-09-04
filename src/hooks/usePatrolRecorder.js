@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { deveRegistrarPonto, distanciaTotal, rastroParaBanco } from '@/lib/navGeo';
 import { enfileirar } from '@/lib/offlineQueue';
 import { ehErroDeRede } from '@/lib/offlineSenders';
+import { patrolTravelModeForRecord } from '@/lib/patrolTravelMode';
 
 // Grava a sessão de patrulha: rastro na tela, distância, tempo e o que foi
 // patrulhado.
@@ -18,13 +19,22 @@ import { ehErroDeRede } from '@/lib/offlineSenders';
  * @param {object} [opcoes]
  * @param {number|null} [opcoes.cityId]
  * @param {'patrol'|'audit'} [opcoes.kind]  que tipo de saída é esta.
+ * @param {'walking'|'driving'|null} [opcoes.travelMode]
  *
  * `kind` não é rótulo: `patrols_count` e a sequência de dias contam só
  * `patrol`, porque a missão "Saia em patrulha" fala de percorrer, e conferir
  * pontos é ir até o que já existe. Ver a migração 192.
  */
-export function usePatrolRecorder(posicao, { cityId = null, kind = 'patrol' } = {}) {
+export function usePatrolRecorder(
+  posicao,
+  { cityId = null, kind = 'patrol', travelMode = null } = {}
+) {
   const { user } = useAuth();
+
+  // Conferência ainda não possui escolha de deslocamento. Na Patrulha, a
+  // leitura é estrita: valor ausente ou adulterado vira `null`, nunca carro por
+  // conveniência. Assim `null` continua significando "cliente antigo/não sei".
+  const modoPersistido = patrolTravelModeForRecord(travelMode, kind);
 
   const [rastro, setRastro] = useState([]);
   const [contagens, setContagens] = useState({
@@ -225,6 +235,7 @@ export function usePatrolRecorder(posicao, { cityId = null, kind = 'patrol' } = 
     const medidas = {
       started_at: new Date(inicio).toISOString(),
       ended_at: new Date(fim).toISOString(),
+      travel_mode: modoPersistido,
       duration_seconds: Math.max(0, Math.round((fim - inicio) / 1000)),
       distance_meters: Math.round(distanciaM),
       passed_count: passadasRef.current.size,
@@ -318,7 +329,7 @@ export function usePatrolRecorder(posicao, { cityId = null, kind = 'patrol' } = 
     } finally {
       setSalvando(false);
     }
-  }, [user, cityId, kind, distanciaM, rastro, guardarPercurso]);
+  }, [user, cityId, kind, modoPersistido, distanciaM, rastro, guardarPercurso]);
 
 
   /** Segundos desde a primeira leitura de GPS. Lido ao abrir o resumo. */

@@ -1,5 +1,4 @@
-import ThemedTileLayer from '@/components/map/ThemedTileLayer';
-import React, { useEffect, useMemo, useCallback, useRef, useState } from "react";
+import React, { useEffect, useCallback, useRef, useState } from "react";
 import {
   MapContainer,
 
@@ -14,6 +13,7 @@ import {
   Calendar,
   LocateFixed,
   Megaphone,
+  Pencil,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,14 @@ import { useMapModeToggle } from "@/contexts/MapModeContext";
 import MapModeToggle from "@/components/MapModeToggle";
 import { createPinIcon } from "@/components/map/pinIcon";
 import { panParaOffsetDeTela } from "@/lib/navGeo";
+import { isPatrolTravelMode } from "@/lib/patrolTravelMode";
+import { patrolAvatarKey } from "@/lib/patrolAvatarConfig";
+import { patrolAvatarHtml } from "@/components/patrol/patrolAvatarMarkup";
+import {
+  MAP_LAYER,
+  MapBaseLayer,
+  MapLayerToggle,
+} from "@/components/map/MapDisplayControls";
 
 // Nivel de zoom ao enquadrar o usuario - na abertura da tela e no botao de
 // recentrar. Os dois usavam valores diferentes (16 e 17): o mapa abria mais
@@ -102,6 +110,57 @@ const navMarkerIcon = L.divIcon({
   iconSize: [46, 46],
   iconAnchor: [23, 23],
 });
+
+// Marcador proprio da patrulha. O modo de conferencia tambem usa `navMode`,
+// mas continua com a seta generica acima; o boneco e o carro so aparecem quando
+// a pagina de patrulha passa `navTravelMode` explicitamente.
+//
+// O DESENHO NAO MORA AQUI
+//
+// Ele vem de `patrolAvatarMarkup`, que a tela de preparacao tambem usa. Sao os
+// dois unicos lugares onde o avatar aparece, e eles precisam concordar: quem
+// escolhe "a pe" vendo um boneco andar espera encontrar esse mesmo boneco no
+// mapa. Ver o comentario de la para o porque de ser string, e nao componente.
+//
+// A raiz e contra-rotacionada pelo CSS junto dos demais pins. Toda animacao
+// acontece nos netos (a base luminosa, as pecas do SVG), para nunca sobrescrever
+// esse transform e perder o rumo do mapa.
+//
+// AQUI O BONECO E VISTO DE COSTAS
+//
+// E o unico lugar que pede a camera traseira: no mapa voce segue a si mesmo, e
+// e a nuca que se ve de quem caminha a sua frente. Nas telas de escolha ele
+// aparece de frente, porque la a pessoa esta decidindo o proprio rosto.
+const patrolNavMarkerHtml = (modo, emMovimento, avatar, gpsAtivo) => `
+  <div class="patrol-nav-marker patrol-nav-marker--${modo}">
+    ${patrolAvatarHtml(modo, { avatar, camera: 'costas', emMovimento, gpsAtivo, className: 'patrol-avatar-planted' })}
+  </div>
+`;
+
+const createPatrolNavMarkerIcon = (modo, emMovimento, avatar, gpsAtivo) => L.divIcon({
+  html: patrolNavMarkerHtml(modo, emMovimento, avatar, gpsAtivo),
+  className: 'patrol-nav-leaflet-icon',
+  iconSize: [58, 58],
+  iconAnchor: [29, 29],
+});
+
+// Cache, nao um divIcon novo a cada leitura. Recriar o no a cada segundo
+// reiniciaria a animacao e faria o boneco piscar no mapa.
+//
+// A chave inclui a aparencia escolhida (ver `patrolAvatarKey`): com a
+// personalizacao, "caminhando + em movimento" deixou de descrever um desenho
+// unico. Sao poucas combinacoes por sessao — a pessoa nao troca de mochila
+// enquanto anda.
+const patrolNavMarkerIcons = new Map();
+
+const getNavMarkerIcon = (modo, emMovimento, avatar, gpsAtivo) => {
+  if (!isPatrolTravelMode(modo)) return navMarkerIcon;
+  const chave = patrolAvatarKey(avatar, modo, emMovimento, gpsAtivo);
+  if (!patrolNavMarkerIcons.has(chave)) {
+    patrolNavMarkerIcons.set(chave, createPatrolNavMarkerIcon(modo, emMovimento, avatar, gpsAtivo));
+  }
+  return patrolNavMarkerIcons.get(chave);
+};
 
 // Missao: sinal que alguem deixou e que ainda espera cadastro completo.
 //
@@ -287,6 +346,10 @@ const MapView = ({
   onUpvote,
   showLegend = true,
   showModeToggle = true,
+  // Botao de satelite sobre o mapa. Opt-in: este MapView e o mesmo da patrulha,
+  // da conferencia e do detalhe da bronca, e nenhum deles pediu a troca de
+  // camada. Quem quer, liga.
+  showLayerToggle = false,
   flyToTarget,
   interactive = true,
   onBoundsChange,
@@ -295,15 +358,29 @@ const MapView = ({
   // do mapa). Sem essa prop, mantem o comportamento antigo de navegar para a
   // pagina da bronca com o modal aberto.
   onUpdateClick,
+  // "Editar" no balão do pino. Opt-in porque este MapView é o mesmo da
+  // patrulha, da conferência e do detalhe da bronca — nenhum deles quer um
+  // atalho de gestão dentro do popup. Quem mostra decide quem pode: a
+  // autoridade continua sendo a policy no banco, e este botão só evita a
+  // viagem até a página para descobrir que dá.
+  onEditClick,
   // Modo navegacao: o mapa gira com o rumo, segue a posicao recebida de fora e
   // nao aceita toque. A posicao vem por prop de proposito - o modo navegacao ja
   // mantem seu proprio watchPosition, e um segundo aqui dobraria o consumo de
   // GPS por leituras identicas.
   navMode = false,
   navPosition = null,
+  // Identidade visual da patrulha. Nulo preserva a seta generica usada pela
+  // tela de conferencia, que tambem compartilha este MapView.
+  navTravelMode = null,
+  navAvatar = null,
+  navGpsAtivo = true,
   // Rastro percorrido na inspecao. Vive so em memoria de quem passa a prop -
   // nao e gravado em lugar nenhum.
   navTrail = null,
+  // Caminho até um alvo escolhido. Trechos de rua são contínuos; acessos entre
+  // o ponto real e o eixo cadastrado ficam tracejados.
+  navRouteTrechos = null,
   // Missoes abertas no corredor. Chegam prontas do PatrolOverlay - o mapa nao
   // busca nada, so desenha.
   navMissoes = null,
@@ -317,6 +394,10 @@ const MapView = ({
   // o efeito de centralizacao repita o movimento assim que o watchPosition
   // devolver a primeira leitura.
   const hasCenteredRef = useRef(Boolean(initialCenter));
+  // A camada escolhida vive AQUI, e nao em quem chama: trocar para satelite e
+  // um ajuste de visualizacao momentaneo, nao uma preferencia que a pagina
+  // precise guardar ou sincronizar.
+  const [camadaDoMapa, setCamadaDoMapa] = useState(MAP_LAYER.STANDARD);
   const [userLocation, setUserLocation] = useState(null);
   const [clusterToZoom, setClusterToZoom] = useState(null);
 
@@ -412,17 +493,22 @@ const MapView = ({
     } catch {}
   }, [interactive, userLocation]);
 
+  const flyToLat = flyToTarget?.lat;
+  const flyToLng = flyToTarget?.lng;
+  const flyToZoom = flyToTarget?.zoom;
+  const flyToNonce = flyToTarget?.nonce;
+
   useEffect(() => {
     const map = mapRef.current;
-    if (!interactive || !map || !flyToTarget) return;
-    const lat = Number(flyToTarget.lat);
-    const lng = Number(flyToTarget.lng);
+    if (!interactive || !map || flyToLat == null || flyToLng == null) return;
+    const lat = Number(flyToLat);
+    const lng = Number(flyToLng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     hasCenteredRef.current = true;
     try {
-      map.flyTo([lat, lng], flyToTarget.zoom ?? 18, { animate: true });
+      map.flyTo([lat, lng], flyToZoom ?? 18, { animate: true });
     } catch {}
-  }, [interactive, flyToTarget?.lat, flyToTarget?.lng, flyToTarget?.zoom, flyToTarget?.nonce]);
+  }, [interactive, flyToLat, flyToLng, flyToZoom, flyToNonce]);
 
   const formatDate = (dateString) => {
     if (!dateString || isNaN(new Date(dateString))) return "Data inválida";
@@ -445,7 +531,6 @@ const MapView = ({
 
   const MapScrollLock = () => {
     useMapScrollLock(mode);
-    useEffect(() => {}, [mode]);
     return null;
   };
 
@@ -541,7 +626,7 @@ const MapView = ({
         className={`absolute inset-0 overflow-hidden ${navMode ? 'nav-rotating' : ''}`}
         style={navMode ? { '--nav-rot': `${anguloContinuo}deg` } : undefined}
       >
-       <div style={estiloGiro}>
+       <div className={navMode ? 'nav-map-plane' : undefined} style={estiloGiro}>
         <MapContainer
           // Monta ja no ponto do usuario quando a pagina conseguiu o GPS antes
           // de renderizar o mapa. Sem isso o Leaflet montava em Floresta e so
@@ -561,7 +646,9 @@ const MapView = ({
           className="absolute inset-0"
           style={{ height: "100%", width: "100%" }}
         >
-          <ThemedTileLayer />
+          {/* A url do satelite mora em MapDisplayControls, junto do botao que a
+              liga — duas copias dela divergiriam no primeiro ajuste de zoom. */}
+          <MapBaseLayer layer={camadaDoMapa} />
           <MapInstanceBinder
             onReady={(map) => { mapRef.current = map; }}
             onBoundsChange={onBoundsChange}
@@ -586,6 +673,32 @@ const MapView = ({
               }}
             />
           )}
+          {navMode && (navRouteTrechos || []).map((trecho, index) => {
+            const positions = (trecho.pontos || []).map((p) => [p.lat, p.lng]);
+            if (positions.length < 2) return null;
+            const segueRua = trecho.tipo === 'ruas';
+            return (
+              <React.Fragment key={`rota-alvo-${index}`}>
+                {segueRua && (
+                  <Polyline
+                    positions={positions}
+                    pathOptions={{ color: '#ffffff', weight: 9, opacity: 0.9, lineCap: 'round' }}
+                  />
+                )}
+                <Polyline
+                  positions={positions}
+                  pathOptions={{
+                    color: '#dc2626',
+                    weight: segueRua ? 5 : 4,
+                    opacity: 0.95,
+                    dashArray: segueRua ? undefined : '7 9',
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              </React.Fragment>
+            );
+          })}
           {navMode && navPosition && (
             <>
               <NavFollow
@@ -595,7 +708,7 @@ const MapView = ({
               />
               <Marker
                 position={[navPosition.lat, navPosition.lng]}
-                icon={navMarkerIcon}
+                icon={getNavMarkerIcon(navTravelMode, navPosition.emMovimento, navAvatar, navGpsAtivo)}
                 zIndexOffset={1000}
               />
             </>
@@ -665,6 +778,9 @@ const MapView = ({
                     if (isCluster && item.count > 1) {
                       e.originalEvent.stopPropagation();
                       handleClusterClick(item);
+                    } else if (!isCluster && navMode) {
+                      e.originalEvent.stopPropagation();
+                      onReportClick?.(report);
                     }
                   },
                   dblclick: (e) => {
@@ -677,15 +793,26 @@ const MapView = ({
                   <Popup>
                     {/* Sem a descricao: o popup e um cartao de identificacao,
                         nao de leitura - o texto completo esta em "Detalhes". */}
-                    <div className="w-52">
-                      <h3 className="font-bold text-sm leading-snug mb-1 line-clamp-2">
+                    <div className="w-64 max-w-[calc(100vw-4rem)]">
+                      <h3 className="mb-1 line-clamp-2 pr-5 text-sm font-bold leading-snug">
                         {report.title}
                       </h3>
                       <div className="flex items-center text-[11px] text-muted-foreground mb-2">
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatDate(report.created_at)}
                       </div>
-                      <div className="flex items-center justify-between gap-1.5">
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReportClick(report);
+                        }}
+                        className="mb-1.5 h-8 w-full bg-primary text-xs hover:bg-primary/90"
+                        style={{ pointerEvents: "auto", touchAction: "auto" }}
+                      >
+                        Ver detalhes
+                      </Button>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
@@ -693,7 +820,7 @@ const MapView = ({
                             e.stopPropagation();
                             onUpvote(report.id);
                           }}
-                          className="h-7 px-2 flex items-center gap-1 text-xs"
+                          className="h-7 min-w-[3.25rem] flex-1 px-2 flex items-center justify-center gap-1 text-xs"
                         >
                           <ThumbsUp className="w-3 h-3" />
                           <span>{report.upvotes}</span>
@@ -714,27 +841,28 @@ const MapView = ({
                               }
                               navigate(`/bronca/${report.id}`, { state: { openUpdateModal: true } });
                             }}
-                            className="h-7 px-2 flex items-center gap-1 border-primary/30 text-primary hover:bg-primary/10 text-xs"
+                            className="h-7 min-w-[5.25rem] flex-1 px-2 flex items-center justify-center gap-1 border-primary/30 text-primary hover:bg-primary/10 text-xs"
                             style={{ pointerEvents: "auto", touchAction: "auto" }}
                           >
                             <Megaphone className="w-3 h-3" />
                             Atualizar
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onReportClick(report);
-                          }}
-                          className="h-7 px-3 text-xs bg-primary hover:bg-primary/90"
-                          style={{
-                            pointerEvents: "auto",
-                            touchAction: "auto",
-                          }}
-                        >
-                          Detalhes
-                        </Button>
+                        {onEditClick && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditClick(report);
+                            }}
+                            className="h-7 min-w-[4.5rem] flex-1 px-2 flex items-center justify-center gap-1 text-xs"
+                            style={{ pointerEvents: "auto", touchAction: "auto" }}
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Editar
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </Popup>
@@ -748,6 +876,16 @@ const MapView = ({
             de categoria e com o carrossel, que ocupam o rodape do mapa. Ficam
             FORA do container girado: em navegacao eles precisam continuar de pe
             enquanto o mapa gira. */}
+        {/* SATELITE
+            Fica FORA do container girado, como os demais: em navegacao eles
+            precisam continuar de pe enquanto o mapa gira. E abaixo do bloco de
+            modo/localizacao para nao brigar por espaco quando os dois estao
+            ligados. */}
+        {showLayerToggle && (
+          <div className="absolute top-3 right-3 z-[800]">
+            <MapLayerToggle layer={camadaDoMapa} onLayerChange={setCamadaDoMapa} />
+          </div>
+        )}
         {showModeToggle && (
           <div className="absolute top-24 right-3 z-[800]">
             <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">

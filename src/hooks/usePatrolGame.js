@@ -8,6 +8,8 @@ import {
   resumoDeBairros,
   titulosDeBairro,
 } from '@/lib/patrolGame';
+import { placar } from '@/lib/scoring';
+import { normalizarContadoresDeMissao } from '@/lib/missionCounters';
 
 // Estado de jogo do patrulheiro: nível, sequência, conquistas, títulos de
 // bairro e ranking.
@@ -19,8 +21,9 @@ import {
 // (depois). É a diferença entre as duas que diz quais medalhas comemorar; sem a
 // foto inicial, toda patrulha reapresentaria as medalhas antigas como novidade.
 //
-// Os números de sinal e missão vêm de `get_user_level`, não das patrulhas: eles
-// contam o que a pessoa fez na rua, tenha sido dentro do modo patrulha ou não.
+// Pontos e nível vêm dos MESMOS contadores usados no Perfil e na central de
+// missões. `get_user_level` não conhece bônus de etapas nem diárias e, por isso,
+// fazia o resumo da Patrulha mostrar um total menor para a mesma pessoa.
 
 const vazio = {
   patrols_count: 0,
@@ -51,10 +54,9 @@ export function usePatrolGame({ cityId = null } = {}) {
   const buscar = useCallback(async () => {
     if (!user) return null;
 
-    const [totais, dias, niveis, lugares] = await Promise.all([
+    const [totais, contadores, lugares] = await Promise.all([
       supabase.rpc('get_patrol_stats', { target_user_id: user.id }),
-      supabase.rpc('get_patrol_days', { target_user_id: user.id, dias: 90 }),
-      supabase.rpc('get_user_level', { target_user_id: user.id }),
+      supabase.rpc('get_mission_counters', { target_user_id: user.id }),
       supabase.rpc('get_neighborhood_standing', {
         target_user_id: user.id,
         // Sem cidade, o placar do usuário mistura bairros homônimos de
@@ -65,22 +67,24 @@ export function usePatrolGame({ cityId = null } = {}) {
     ]);
 
     const t = totais.data?.[0] ?? {};
-    const seq = calcularSequencia((dias.data || []).map((d) => d.dia));
-    const n = niveis.data?.[0] ?? null;
+    const c = normalizarContadoresDeMissao(contadores.data?.[0]);
+    const seq = calcularSequencia(c.patrol_days || []);
     const meusBairros = lugares.data || [];
 
     const combinado = {
       ...vazio,
       ...t,
+      // Sobrescreve os totais comuns de `get_patrol_stats`: estes contadores
+      // aplicam `patrulha_conta`, igual à central de missões, e descartam saídas
+      // acidentais de poucos segundos.
+      ...c,
       sequencia: seq,
-      signals_count: n?.signals_count ?? 0,
-      missions_count: n?.missions_count ?? 0,
       ...resumoDeBairros(meusBairros),
     };
 
     setStats(combinado);
     setSequencia(seq);
-    setNivel(n);
+    setNivel(placar(c));
     setBairros(meusBairros);
     return combinado;
   }, [user, cityId]);
