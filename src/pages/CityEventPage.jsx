@@ -8,6 +8,7 @@ import BackButton from '@/components/BackButton';
 import CityEventTimeline from '@/components/agora/CityEventTimeline';
 import CityEventForm from '@/components/agora/CityEventForm';
 import CityEventManageBar from '@/components/agora/CityEventManageBar';
+import CityEventsMap from '@/components/agora/CityEventsMap';
 import CommunityConfirmation from '@/components/agora/CommunityConfirmation';
 import FollowAreaButton from '@/components/agora/FollowAreaButton';
 import { IconeDoAcontecimento, SeloDeStatus } from '@/components/agora/CityEventVisuals';
@@ -185,7 +186,7 @@ export default function CityEventPage() {
 
         {/* Cabeçalho */}
         <header className="mt-4 flex items-start gap-3">
-          <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho="lg" />
+          <IconeDoAcontecimento type={evento.type} iconKey={evento.icon_key} severity={evento.severity} tamanho="lg" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-extrabold leading-tight text-content-primary sm:text-3xl">
@@ -199,8 +200,14 @@ export default function CityEventPage() {
 
         <p className="mt-3 flex items-start gap-2 text-sm text-content-secondary">
           <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-          <span>{rotuloDasAreas(evento.areas, { maximo: 3 }) || evento.city_name}</span>
+          <span>{evento.location_label || rotuloDasAreas(evento.areas, { maximo: 3 }) || evento.city_name}</span>
         </p>
+
+        {evento.latitude != null && evento.longitude != null && Number.isFinite(Number(evento.latitude)) && Number.isFinite(Number(evento.longitude)) && (
+          <div className="mt-4">
+            <CityEventsMap eventos={[evento]} cityName={evento.city_name} compact />
+          </div>
+        )}
 
         {/* PREVISÃO — o dado que todo mundo veio buscar.
             A BARRA É O QUE FAZ ELE RESPONDER "FALTA MUITO?"
@@ -210,8 +217,8 @@ export default function CityEventPage() {
             Ela some quando não há janela (sem previsão, ou já resolvido):
             desenhar uma proporção sem denominador seria inventar um número. */}
         {evento.type === 'event' ? (
-          <div className="mt-4 rounded-3xl border border-status-progressBorder bg-status-progressBg p-4 sm:p-5">
-            <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-status-progressFg">
+          <div className="mt-4 rounded-3xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1 sm:p-5">
+            <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-brand">
               <CalendarDays className="h-3.5 w-3.5" /> Data e horário
             </p>
             <p className="mt-1.5 text-2xl font-extrabold leading-tight text-content-primary">
@@ -221,7 +228,7 @@ export default function CityEventPage() {
               <p className="mt-1 text-sm text-content-secondary">Término previsto: {previsaoLegivel(evento.estimated_end_at, agora)}</p>
             )}
             {evento.recurrence === 'weekly' && (
-              <p className="mt-3 flex items-center gap-1.5 text-sm font-bold text-status-progressFg">
+              <p className="mt-3 flex items-center gap-1.5 text-sm font-bold text-brand">
                 <Repeat2 className="h-4 w-4" /> Repete semanalmente
               </p>
             )}
@@ -235,10 +242,10 @@ export default function CityEventPage() {
             ? { fundo: 'bg-danger-subtleBg', borda: 'border-danger/25', texto: 'text-danger-subtleFg', barra: 'bg-danger' }
             : resolvido
               ? { fundo: 'bg-status-resolvedBg', borda: 'border-status-resolvedBorder', texto: 'text-status-resolvedFg', barra: 'bg-status-resolvedFg' }
-              : { fundo: 'bg-status-progressBg', borda: 'border-status-progressBorder', texto: 'text-status-progressFg', barra: 'bg-brand' };
+              : { fundo: 'bg-surface-raised', borda: 'border-edge-subtle', texto: 'text-brand', barra: 'bg-brand' };
 
           return (
-            <div className={`mt-4 rounded-3xl border p-4 sm:p-5 ${tom.fundo} ${tom.borda}`}>
+            <div className={`mt-4 rounded-3xl border p-4 shadow-elevation-1 sm:p-5 ${tom.fundo} ${tom.borda}`}>
               <p className={`flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] ${tom.texto}`}>
                 {resolvido ? <Info className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
                 {resolvido ? 'Normalizado' : 'Previsão de normalização'}

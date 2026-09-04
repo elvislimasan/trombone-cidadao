@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, MapPin, Plus, Search, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,9 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
 import { PRECISAO_PREVISAO, TIPOS, instanteDaPrevisao, precisaoDoEvento, tipoDe } from '@/lib/cityEvents';
-import { IconeDoAcontecimento } from '@/components/agora/CityEventVisuals';
+import { IconeDoAcontecimento, OPCOES_DE_ICONE_DO_EVENTO } from '@/components/agora/CityEventVisuals';
 import CityEventImageField from '@/components/agora/CityEventImageField';
+import LocationPickerMap from '@/components/LocationPickerMap';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
 import { normalizarLinkExterno, textoDoBotaoExterno } from '@/lib/externalLinks';
 
@@ -257,6 +258,18 @@ const CityEventForm = ({
   const [sourceButtonLabel, setSourceButtonLabel] = useState(evento?.source_button_label || '');
   const [notify, setNotify] = useState(true);
   const [recorrenciaSemanal, setRecorrenciaSemanal] = useState(evento?.recurrence === 'weekly');
+  const [iconKey, setIconKey] = useState(evento?.icon_key || 'calendar');
+  const [location, setLocation] = useState(() => {
+    if (evento?.latitude == null || evento?.longitude == null) return null;
+    const lat = Number(evento?.latitude);
+    const lng = Number(evento?.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  });
+  const [locationLabel, setLocationLabel] = useState(evento?.location_label || '');
+  const [localizandoArea, setLocalizandoArea] = useState(false);
+  const [localizacaoAutomatica, setLocalizacaoAutomatica] = useState(false);
+  const locationRef = useRef(location);
+  const tentouFocoInicialRef = useRef(false);
   // A foto que ja esta gravada. `null` depois que a pessoa toca no X — e o
   // que diz a diferenca entre 'nao mexi' e 'quero tirar' na hora de salvar.
   const [precisaoPrevisao, setPrecisaoPrevisao] = useState(precisaoDoEvento(evento));
@@ -271,13 +284,20 @@ const CityEventForm = ({
     if (!tituloTocado) setTitle(tipoDe(type).rotulo);
   }, [type, tituloTocado]);
 
+  const definirLocation = useCallback((ponto, automatica = false) => {
+    const proxima = ponto ? { lat: Number(ponto.lat), lng: Number(ponto.lng) } : null;
+    locationRef.current = proxima;
+    setLocation(proxima);
+    setLocalizacaoAutomatica(Boolean(proxima) && automatica);
+  }, []);
+
   const removerArea = useCallback((alvo) => {
     setAreas((atual) => atual.filter(
       (a) => !(a.area_type === alvo.area_type && String(a.area_id || '') === String(alvo.area_id || ''))
     ));
   }, []);
 
-  const adicionarArea = useCallback((nova) => {
+  const adicionarArea = useCallback(async (nova) => {
     setAreas((atual) => {
       // Cidade inteira substitui tudo: manter "Centro" ao lado de "toda a
       // cidade" descreveria a mesma coisa duas vezes.
@@ -288,7 +308,37 @@ const CityEventForm = ({
       );
       return repetida ? semCidade : [...semCidade, nova];
     });
-  }, []);
+
+    // Um ponto escolhido ou ajustado pela pessoa tem prioridade. A area serve
+    // para preencher o mapa automaticamente, nunca para desfazer uma escolha.
+    if (locationRef.current || !cityId) return;
+
+    setLocalizandoArea(true);
+    const { data } = await supabase.rpc('get_city_event_area_focus', {
+      p_city_id: cityId,
+      p_area_type: nova.area_type,
+      p_area_id: nova.area_id || null,
+    });
+    setLocalizandoArea(false);
+
+    const lat = Number(data?.lat);
+    const lng = Number(data?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || locationRef.current) return;
+
+    definirLocation({ lat, lng }, true);
+    setLocationLabel((atual) => atual || data?.label || nova.label || '');
+  }, [cityId, definirLocation]);
+
+  // Acontecimentos antigos podem ter areas, mas ainda nao ter coordenada.
+  // Ao abri-los para edicao, sugere o ponto da primeira area automaticamente.
+  useEffect(() => {
+    if (!editando || tentouFocoInicialRef.current || locationRef.current || areas.length === 0) return;
+    tentouFocoInicialRef.current = true;
+    const principal = areas.find((a) => a.area_type === 'street')
+      || areas.find((a) => a.area_type === 'neighborhood')
+      || areas[0];
+    adicionarArea(principal);
+  }, [adicionarArea, areas, editando]);
 
   const enviar = async (status) => {
     // A foto escolhida sai do hook como `File` só na hora de enviar. Resolver
@@ -317,6 +367,10 @@ const CityEventForm = ({
       sourceButtonLabel: sourceButtonLabel.trim() || null,
       notify,
       recurrence: type === 'event' && recorrenciaSemanal ? 'weekly' : null,
+      iconKey: type === 'event' ? iconKey : null,
+      locationLat: location?.lat ?? null,
+      locationLng: location?.lng ?? null,
+      locationLabel: location ? (locationLabel.trim() || null) : null,
       status,
       // Quem faz o upload é quem salva (o hook de ações), não o formulário:
       // enviar aqui deixaria um objeto órfão no bucket toda vez que a gravação
@@ -329,7 +383,7 @@ const CityEventForm = ({
   };
 
   const linkInvalido = sourceUrl.trim().length > 0 && !normalizarLinkExterno(sourceUrl);
-  const podeEnviar = areas.length > 0 && title.trim().length > 0 && !linkInvalido && !salvando;
+  const podeEnviar = areas.length > 0 && title.trim().length > 0 && !linkInvalido && !salvando && !localizandoArea;
 
   return (
     <div className="space-y-5">
@@ -388,6 +442,29 @@ const CityEventForm = ({
         </div>
       </Campo>
 
+      {type === 'event' && (
+        <Campo label="Ícone do evento" dica="Escolha o símbolo que melhor representa a atividade.">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {OPCOES_DE_ICONE_DO_EVENTO.map((opcao) => (
+              <button
+                key={opcao.id}
+                type="button"
+                onClick={() => setIconKey(opcao.id)}
+                className={`flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border-2 px-2 py-2.5 transition-colors ${
+                  iconKey === opcao.id
+                    ? 'border-brand bg-brand-subtleBg'
+                    : 'border-edge-subtle hover:border-edge-default'
+                }`}
+                aria-pressed={iconKey === opcao.id}
+              >
+                <IconeDoAcontecimento type="event" iconKey={opcao.id} tamanho="sm" />
+                <span className="w-full truncate text-center text-[11px] font-bold text-content-primary">{opcao.rotulo}</span>
+              </button>
+            ))}
+          </div>
+        </Campo>
+      )}
+
       <Campo label="Título">
         <Input
           value={title}
@@ -443,6 +520,54 @@ const CityEventForm = ({
         </div>
         {areas.length === 0 && (
           <p className="text-xs text-danger">Escolha ao menos uma área — é ela que define quem recebe o aviso.</p>
+        )}
+      </Campo>
+
+      <Campo
+        label="Local exato no mapa (opcional)"
+        dica="Toque no mapa ou arraste o pino. As áreas acima continuam definindo quem recebe o aviso."
+      >
+        <div className="h-72 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-sunken">
+          <LocationPickerMap
+            initialPosition={location}
+            onLocationChange={(ponto) => definirLocation(ponto, false)}
+            fallbackCityCenter={{ name: String(cityName || '').split(' · ')[0] }}
+            showLocateButton
+            showMarker={Boolean(location)}
+            initialZoom={16}
+          />
+        </div>
+
+        {location ? (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-subtle px-3 py-2">
+              <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-content-secondary">
+                <MapPin className="h-4 w-4 shrink-0 text-brand" />
+                {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+              </span>
+              <button
+                type="button"
+                onClick={() => { definirLocation(null); setLocationLabel(''); }}
+                className="shrink-0 text-xs font-bold text-danger"
+              >
+                Remover ponto
+              </button>
+            </div>
+            <Input
+              value={locationLabel}
+              onChange={(e) => setLocationLabel(e.target.value)}
+              placeholder="Nome do local ou endereço (opcional)"
+              maxLength={160}
+            />
+          </div>
+        ) : (
+          <p className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-content-tertiary">
+            {localizandoArea && <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />}
+            {localizandoArea ? 'Localizando a área no mapa de ruas...' : 'Nenhum ponto marcado. Escolha uma área ou toque no mapa para adicionar.'}
+          </p>
+        )}
+        {location && localizacaoAutomatica && (
+          <p className="text-xs font-semibold text-brand">Pino posicionado automaticamente pelo mapa de ruas. Você ainda pode arrastá-lo.</p>
         )}
       </Campo>
 

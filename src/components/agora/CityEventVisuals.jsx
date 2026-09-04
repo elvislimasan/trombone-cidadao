@@ -1,15 +1,23 @@
 import {
   AlertTriangle,
   Bus,
-  Calendar,
+  CalendarDays,
   Car,
+  Church,
   CloudRain,
   Construction,
+  Drama,
   Droplets,
+  GraduationCap,
   HeartPulse,
   MapPin,
   Megaphone,
+  Music2,
+  PartyPopper,
+  Store,
   TrafficCone,
+  Trophy,
+  Users,
   Zap,
 } from 'lucide-react';
 
@@ -36,12 +44,39 @@ const ICONES = {
   weather: CloudRain,
   health: HeartPulse,
   construction: Construction,
-  event: Calendar,
+  event: CalendarDays,
   public_notice: Megaphone,
   other: MapPin,
 };
 
-export const iconeDoTipo = (type) => ICONES[type] || AlertTriangle;
+const ICONES_DE_EVENTO = {
+  calendar: CalendarDays,
+  meeting: Users,
+  celebration: PartyPopper,
+  music: Music2,
+  culture: Drama,
+  sport: Trophy,
+  education: GraduationCap,
+  religious: Church,
+  fair: Store,
+};
+
+export const OPCOES_DE_ICONE_DO_EVENTO = [
+  { id: 'calendar', rotulo: 'Agenda' },
+  { id: 'meeting', rotulo: 'Reunião' },
+  { id: 'celebration', rotulo: 'Festa' },
+  { id: 'music', rotulo: 'Música' },
+  { id: 'culture', rotulo: 'Cultura' },
+  { id: 'sport', rotulo: 'Esporte' },
+  { id: 'education', rotulo: 'Educação' },
+  { id: 'religious', rotulo: 'Religioso' },
+  { id: 'fair', rotulo: 'Feira' },
+];
+
+export const iconeDoTipo = (type, iconKey) => {
+  if (type === 'event') return ICONES_DE_EVENTO[iconKey] || CalendarDays;
+  return ICONES[type] || AlertTriangle;
+};
 
 /**
  * A cor do quadradinho do ícone.
@@ -90,8 +125,8 @@ export const SeloDeStatus = ({ status, className = '' }) => {
 };
 
 /** O quadrado do ícone, do tamanho pedido. */
-export const IconeDoAcontecimento = ({ type, severity, tamanho = 'md', className = '' }) => {
-  const Icone = iconeDoTipo(type);
+export const IconeDoAcontecimento = ({ type, iconKey, severity, tamanho = 'md', className = '' }) => {
+  const Icone = iconeDoTipo(type, iconKey);
   const medidas = {
     sm: 'h-9 w-9 rounded-xl',
     md: 'h-11 w-11 rounded-2xl',

@@ -64,7 +64,7 @@ export const CityEventHighlightCard = ({ evento, agora = new Date() }) => {
 
       <div className="relative p-4 sm:p-5">
         <div className="flex items-center gap-2">
-          <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho="sm" />
+          <IconeDoAcontecimento type={evento.type} iconKey={evento.icon_key} severity={evento.severity} tamanho="sm" />
           <span className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide text-content-primary">
             {tipo.rotulo}
           </span>
@@ -128,11 +128,11 @@ const CityEventCard = ({
           <img src={evento.image_url} alt="" className="block h-full w-full object-cover" />
           <span className="absolute inset-0 bg-black/25" />
           <span className="absolute inset-0 flex items-center justify-center">
-            <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho="sm" className="!h-6 !w-6 !rounded-lg !bg-white/85 !text-content-primary" />
+            <IconeDoAcontecimento type={evento.type} iconKey={evento.icon_key} severity={evento.severity} tamanho="sm" className="!h-6 !w-6 !rounded-lg !bg-white/85 !text-content-primary" />
           </span>
         </span>
       ) : (
-        <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho={compact ? 'sm' : 'md'} />
+        <IconeDoAcontecimento type={evento.type} iconKey={evento.icon_key} severity={evento.severity} tamanho={compact ? 'sm' : 'md'} />
       )}
 
       <div className="min-w-0 flex-1">
@@ -194,7 +194,7 @@ export const CityEventUpcomingCard = ({ evento, agora = new Date() }) => {
       to={`/agora/${evento.id}`}
       className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-subtle sm:px-5"
     >
-      <IconeDoAcontecimento type={evento.type} severity={evento.severity} />
+      <IconeDoAcontecimento type={evento.type} iconKey={evento.icon_key} severity={evento.severity} />
 
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-sm font-bold text-content-primary">

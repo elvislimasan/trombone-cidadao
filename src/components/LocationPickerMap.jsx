@@ -175,6 +175,7 @@ const LocationPickerMap = ({
   focusOverlayOnSelect = true,
   showSatelliteToggle = false,
   showLocateButton = false,
+  showMarker = true,
   fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
   flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
   /**
@@ -327,11 +328,13 @@ const LocationPickerMap = ({
         )}
 
         <MapClickHandler onMapClick={handlePositionChange} />
-        <DraggableMarker
-          position={position}
-          onPositionChange={handlePositionChange}
-          icon={offline ? pinoArrastavelIcon : undefined}
-        />
+        {showMarker && (
+          <DraggableMarker
+            position={position}
+            onPositionChange={handlePositionChange}
+            icon={offline ? pinoArrastavelIcon : undefined}
+          />
+        )}
 
         {overlayMarkers.map(
           (m) =>

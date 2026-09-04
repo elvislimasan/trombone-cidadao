@@ -79,10 +79,10 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
     if (lista.length === 0) { setEventos([]); return; }
     const { data: recorrencias } = await supabase
       .from('city_events')
-      .select('id, recurrence')
+      .select('id, recurrence, icon_key, latitude, longitude, location_label')
       .in('id', lista.map((evento) => evento.id));
-    const porId = new Map((recorrencias || []).map((item) => [String(item.id), item.recurrence]));
-    setEventos(lista.map((evento) => ({ ...evento, recurrence: porId.get(String(evento.id)) || null })));
+    const porId = new Map((recorrencias || []).map((item) => [String(item.id), item]));
+    setEventos(lista.map((evento) => ({ ...evento, ...(porId.get(String(evento.id)) || {}) })));
   }, [cityId, statuses, tipos, limite]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -113,10 +113,10 @@ export function useCityEvent(eventId) {
     }
     const { data: recorrencia } = await supabase
       .from('city_events')
-      .select('recurrence')
+      .select('recurrence, icon_key, latitude, longitude, location_label')
       .eq('id', eventId)
       .maybeSingle();
-    setEvento({ ...data, recurrence: recorrencia?.recurrence || null });
+    setEvento({ ...data, ...(recorrencia || {}) });
   }, [eventId]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -138,7 +138,14 @@ export function useStreetCityEvents(streetId) {
     // funciona sem ela. Um erro vermelho no topo da história da rua por causa
     // de um alerta que não carregou seria pior que a faixa não aparecer.
     if (error) { setEventos([]); return; }
-    setEventos(data || []);
+    const lista = data || [];
+    if (lista.length === 0) { setEventos([]); return; }
+    const { data: visuais } = await supabase
+      .from('city_events')
+      .select('id, icon_key, latitude, longitude, location_label')
+      .in('id', lista.map((evento) => evento.id));
+    const porId = new Map((visuais || []).map((item) => [String(item.id), item]));
+    setEventos(lista.map((evento) => ({ ...evento, ...(porId.get(String(evento.id)) || {}) })));
   }, [streetId]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -232,9 +239,13 @@ export function useCityEventActions({ aoConcluir } = {}) {
       // A gravação falhou depois do upload: o objeto não pertence a nada.
       if (!id && imagem?.path) await removerImagemDeAcontecimento(supabase, imagem.path);
       if (id) {
-        if (dados.type === 'event') {
-          await supabase.from('city_events').update({ recurrence: dados.recurrence || null }).eq('id', id);
-        }
+        await supabase.from('city_events').update({
+          recurrence: dados.type === 'event' ? (dados.recurrence || null) : null,
+          icon_key: dados.type === 'event' ? (dados.iconKey || 'calendar') : null,
+          latitude: dados.locationLat ?? null,
+          longitude: dados.locationLng ?? null,
+          location_label: dados.locationLabel || null,
+        }).eq('id', id);
         showAppNotice({ title: dados.status === 'draft' ? 'Rascunho salvo.' : 'Acontecimento publicado.' });
         await aoConcluirRef.current?.();
       }
@@ -272,7 +283,13 @@ export function useCityEventActions({ aoConcluir } = {}) {
         return null;
       }
 
-      await supabase.from('city_events').update({ recurrence: dados.recurrence || null }).eq('id', eventId);
+      await supabase.from('city_events').update({
+        recurrence: dados.type === 'event' ? (dados.recurrence || null) : null,
+        icon_key: dados.type === 'event' ? (dados.iconKey || 'calendar') : null,
+        latitude: dados.locationLat ?? null,
+        longitude: dados.locationLng ?? null,
+        location_label: dados.locationLabel || null,
+      }).eq('id', eventId);
 
       showAppNotice({ title: 'Acontecimento atualizado.' });
       await aoConcluirRef.current?.();

@@ -105,6 +105,26 @@
   --pin-hot-bg: var(--tc-cat-alert);
   --pin-hot-fg: var(--tc-neutral-950);
 
+  /* Radar da cidade: a cor identifica o tipo, como nos grandes mapas. Isso
+     permite reconhecer agua, energia, transito e agenda antes de abrir o
+     popup; status e previsao continuam no cartao textual. */
+  --pin-city-water-bg:   var(--tc-blue-700);
+  --pin-city-water-fg:   var(--tc-neutral-0);
+  --pin-city-power-bg:   var(--tc-amber-500);
+  --pin-city-power-fg:   var(--tc-neutral-950);
+  --pin-city-traffic-bg: var(--tc-orange-600);
+  --pin-city-traffic-fg: var(--tc-neutral-0);
+  --pin-city-event-bg:   var(--tc-green-600);
+  --pin-city-event-fg:   var(--tc-neutral-0);
+  --pin-city-health-bg:  var(--tc-red-600);
+  --pin-city-health-fg:  var(--tc-neutral-0);
+  --pin-city-notice-bg:  var(--tc-violet-600);
+  --pin-city-notice-fg:  var(--tc-neutral-0);
+  --pin-city-other-bg:   var(--tc-neutral-600);
+  --pin-city-other-fg:   var(--tc-neutral-0);
+  --pin-city-cluster-bg: var(--tc-neutral-900);
+  --pin-city-cluster-fg: var(--tc-neutral-0);
+
   /* Imoveis alugados: tokens proprios em vez de reusar os de bronca, para que
      mudar a cor de uma categoria nao mexa nesta tela sem querer. */
   --pin-rental-active-bg:   var(--tc-cat-cleaning);

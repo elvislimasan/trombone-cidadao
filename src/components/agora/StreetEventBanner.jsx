@@ -63,7 +63,7 @@ const StreetEventBanner = ({ eventos, carregando }) => {
       </div>
 
       <div className="flex items-center gap-3 px-4 pb-3 pt-1">
-        <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho="sm" />
+        <IconeDoAcontecimento type={evento.type} iconKey={evento.icon_key} severity={evento.severity} tamanho="sm" />
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-extrabold text-status-pendingFg">{situacao.texto}</p>

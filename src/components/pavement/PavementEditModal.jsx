@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine } from 'lucide-react';
+import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -57,6 +57,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
   const [saving, setSaving] = useState(false);
   const [buscandoTracado, setBuscandoTracado] = useState(false);
   const [desenhando, setDesenhando] = useState(false);
+  const [generatingHistory, setGeneratingHistory] = useState(false);
 
   useEffect(() => {
     if (street) {
@@ -80,6 +81,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
       setActiveStep(1);
       setHistoryPanel('history');
       setSaving(false);
+      setGeneratingHistory(false);
     } else {
       setFormData(null);
     }
@@ -444,6 +446,65 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
     addArrayItem(field, item);
   };
 
+  const handleGenerateHistory = async () => {
+    if (!formData.id) {
+      showAppError({ title: 'Salve a rua primeiro', description: 'Depois de salvar a rua e seus PDFs, abra novamente para gerar o rascunho.', variant: 'destructive' });
+      return;
+    }
+
+    const documents = Array.isArray(formData.historical_documents) ? formData.historical_documents : [];
+    if (documents.some((document) => document?.file)) {
+      showAppError({ title: 'Salve os documentos primeiro', description: 'Há PDFs novos ou substituídos aguardando envio. Salve e abra a rua novamente.', variant: 'destructive' });
+      return;
+    }
+    const savedPdfs = documents.filter((document) => {
+      const value = [document?.type, document?.original_name, document?.path, document?.url]
+        .map((item) => String(item || '').toLowerCase());
+      return (document?.url || document?.path) && value.some((item) => item === 'pdf' || item.endsWith('.pdf'));
+    });
+    if (savedPdfs.length === 0) {
+      showAppError({ title: 'Nenhum PDF salvo', description: 'Anexe a lei ou o projeto de lei em PDF e salve a rua antes de gerar.', variant: 'destructive' });
+      return;
+    }
+
+    const hasExistingText = ['honoree_name', 'biography', 'curiosities']
+      .some((field) => String(formData[field] || '').trim());
+    if (hasExistingText && !window.confirm('A IA poderá substituir os textos atuais no formulário. Deseja continuar?')) return;
+
+    setGeneratingHistory(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-street-history', {
+        body: { street_id: formData.id },
+      });
+      if (error) {
+        let message = error.message;
+        try {
+          const body = await error.context?.json?.();
+          if (body?.error) message = body.error;
+        } catch {}
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
+
+      setFormData((previous) => ({
+        ...previous,
+        honoree_name: data.honoree_name || previous.honoree_name || '',
+        biography: data.biography || previous.biography || '',
+        curiosities: data.curiosities || previous.curiosities || '',
+      }));
+      const details = [
+        `${data.document_count || savedPdfs.length} PDF(s) analisado(s).`,
+        ...(data.sources?.length ? [`Fontes: ${data.sources.join(' • ')}`] : []),
+        ...(data.warnings?.length ? [`Confira: ${data.warnings.join(' • ')}`] : []),
+      ].join(' ');
+      showAppNotice({ title: 'Rascunho gerado — revise antes de salvar', description: details });
+    } catch (error) {
+      showAppError({ title: 'Não foi possível gerar o texto', description: error.message, variant: 'destructive' });
+    } finally {
+      setGeneratingHistory(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (activeStep === 1) {
@@ -804,6 +865,19 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
 
             {historyPanel === 'history' && (
             <div className="space-y-5" role="tabpanel">
+
+            <div className="rounded-xl border border-brand/20 bg-brand-subtleBg p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-content-primary">Criar rascunho a partir dos PDFs</p>
+                  <p className="mt-1 text-xs text-content-secondary">A IA usa somente os documentos salvos. Revise o resultado antes de salvar a rua.</p>
+                </div>
+                <Button type="button" size="sm" onClick={handleGenerateHistory} disabled={generatingHistory} className="shrink-0">
+                  {generatingHistory ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {generatingHistory ? 'Analisando PDFs...' : 'Gerar com IA'}
+                </Button>
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="honoree_name">Nome do homenageado</Label>

@@ -1,6 +1,6 @@
 import React from 'react';
 import L from 'leaflet';
-import { categoryEmoji, categoryPinToken } from '@/design-system/icons';
+import { categoryEmoji } from '@/design-system/icons';
 
 // Fabrica unica de pins do mapa. Antes cada tela montava seu proprio divIcon com
 // emoji e `border: 2px solid white` hardcoded - o anel branco estourava no tema
@@ -73,6 +73,12 @@ const renderIconMarkup = (element) => {
     return renderIconMarkup(element.type(element.props || {}));
   }
 
+  // Lucide exporta seus icones com forwardRef. Nesse caso `type` e um objeto
+  // cuja funcao de renderizacao mora em `.render`, e nao uma funcao direta.
+  if (typeof element.type?.render === 'function') {
+    return renderIconMarkup(element.type.render(element.props || {}, null));
+  }
+
   // Fragment: so os filhos importam.
   if (element.type === React.Fragment) {
     return React.Children.toArray(element.props?.children)
@@ -120,6 +126,8 @@ export const buildPinBadge = (icon) => `
  * @param {React.ReactElement} opts.icon  elemento do icone, ja dimensionado
  * @param {boolean} [opts.selected] engrossa o anel do pin ativo
  * @param {string} [opts.badge]    HTML sobreposto no canto superior direito
+ * @param {number} [opts.size]      diametro do pin; mapas densos podem reduzir
+ *                                  conforme o zoom sem afetar os outros mapas
  */
 export const createMapPin = ({
   cacheKey,
@@ -128,8 +136,10 @@ export const createMapPin = ({
   icon,
   selected = false,
   badge = '',
+  size = PIN_SIZE,
 }) => {
-  const cached = cache.get(cacheKey);
+  const sizedCacheKey = `${cacheKey}|${size}`;
+  const cached = cache.get(sizedCacheKey);
   if (cached) return cached;
 
   // Aceita emoji (string) alem de elemento React: os pins de bronca voltaram a
@@ -156,7 +166,7 @@ export const createMapPin = ({
   // position:relative e necessario aqui: o badge se posiciona por absolute
   // em relacao a este disco.
   const html = `
-    <div style="position:relative;width:${PIN_SIZE}px;height:${PIN_SIZE}px;border-radius:50%;background:${token(
+    <div style="position:relative;width:${size}px;height:${size}px;border-radius:50%;background:${token(
     bgToken
   )};border:${ring}px solid ${token(
     '--pin-ring'
@@ -171,14 +181,14 @@ export const createMapPin = ({
   const divIcon = L.divIcon({
     html,
     className: 'custom-leaflet-icon',
-    iconSize: [PIN_SIZE, PIN_SIZE],
+    iconSize: [size, size],
     // Ancora no centro, nao na base: o disco marca o ponto pelo proprio centro,
     // diferente da gota, que apontava a coordenada com a ponta.
-    iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
-    popupAnchor: [0, -PIN_SIZE / 2],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
   });
 
-  cache.set(cacheKey, divIcon);
+  cache.set(sizedCacheKey, divIcon);
   return divIcon;
 };
 
