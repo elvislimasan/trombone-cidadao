@@ -11,7 +11,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, Dr
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import { cepsDaRua, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
-import { temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
+import { autoresDeProjetos, correspondeAoFiltroDeAutor, temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 import { resumoDeExtensao } from '@/lib/pavementLength';
 import PavementStats from '@/components/pavement/PavementStats';
 import PavementSidebar, { FiltrosDePavimentacao } from '@/components/pavement/PavementSidebar';
@@ -28,6 +28,7 @@ import CitySelector from '@/components/CitySelector';
 import { showAppError } from '@/lib/appError';
 import PavementEditModal from '@/components/pavement/PavementEditModal';
 import { savePavementStreet } from '@/lib/savePavementStreet';
+import { apelidosDaRua } from '@/lib/streetAliases';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
@@ -45,7 +46,7 @@ const PavementMapPage = () => {
   // além de mais uma linha em "limpar tudo" e mais uma condição no `some` que
   // decide se o botão de limpar aparece. Ambos eram esquecíveis, e esquecer não
   // dá erro: dá um filtro que não limpa.
-  const FILTROS_VAZIOS = { bairro: 'all', situacao: 'all', tipo: 'all', cep: 'all', lei: 'all', projeto: 'all', nome: 'all' };
+  const FILTROS_VAZIOS = { bairro: 'all', situacao: 'all', tipo: 'all', cep: 'all', lei: 'all', projeto: 'all', autor: 'all', nome: 'all' };
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS);
   const [painelAberto, setPainelAberto] = useState(true);
   // MAPA OU LISTA — A MESMA SELEÇÃO, DUAS PERGUNTAS
@@ -236,6 +237,7 @@ const PavementMapPage = () => {
     const termo = searchTerm.trim().toLowerCase();
     const searchMatch = termo === ''
       || street.name.toLowerCase().includes(termo)
+      || apelidosDaRua(street).some((apelido) => apelido.toLowerCase().includes(termo))
       || (street.bairro?.name || '').toLowerCase().includes(termo);
     if (!searchMatch) return false;
 
@@ -259,6 +261,10 @@ const PavementMapPage = () => {
       const temProjeto = temProjetoDeLei(street);
       if (filtros.projeto === 'com' && !temProjeto) return false;
       if (filtros.projeto === 'sem' && temProjeto) return false;
+    }
+
+    if (filtros.autor !== 'all') {
+      if (!correspondeAoFiltroDeAutor(street, filtros.autor)) return false;
     }
 
     // `is_unnamed` é a coluna da migração 201 — a rua tem um nome de trabalho
@@ -304,6 +310,8 @@ const PavementMapPage = () => {
       .map((s) => [String(s.bairro_id), s.bairro.name])
   ).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
 
+  const autoresComProjeto = useMemo(() => autoresDeProjetos(streetData), [streetData]);
+
   // OS NÚMEROS DO PAINEL SAEM DAS RUAS FILTRADAS, NÃO DA CIDADE INTEIRA.
   //
   // Filtrar por "Centro" e continuar vendo os 68 km da cidade toda no topo
@@ -343,6 +351,7 @@ const PavementMapPage = () => {
     onFiltroChange: setFiltro,
     onLimpar: () => setFiltros(FILTROS_VAZIOS),
     bairros: bairrosComRua,
+    autores: autoresComProjeto,
   };
 
   const stats = {
@@ -648,6 +657,7 @@ const PavementMapPage = () => {
                 filtros={filtros}
                 onFiltroChange={setFiltro}
                 bairros={bairrosComRua}
+                autores={autoresComProjeto}
                 colunas="grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
               />
             </div>

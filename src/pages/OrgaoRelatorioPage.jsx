@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import {
@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { periodoPorExtenso } from '@/lib/canalDoOrgao';
+import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 
 // O relatório como a secretaria o vê, sem login.
 //
@@ -85,14 +86,14 @@ const OrgaoRelatorioPage = () => {
   const [porPagina, setPorPagina] = useState(10);
   const [pagina, setPagina] = useState(1);
 
-  const carregar = async () => {
+  const carregar = useCallback(async () => {
     const { data, error } = await supabase.rpc('relatorio_publico_do_orgao', { p_token: token });
     if (error) { setErro('Não foi possível abrir o relatório.'); return; }
     if (!data?.encontrado) { setErro('Este link não corresponde a nenhum relatório.'); return; }
     setDados(data);
-  };
+  }, [token]);
 
-  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [token]);
+  useEffect(() => { carregar(); }, [carregar]);
 
   const broncas = useMemo(() => dados?.broncas || [], [dados]);
 
@@ -182,30 +183,54 @@ const OrgaoRelatorioPage = () => {
     }, {});
 
     Object.entries(agrupadas).forEach(([nomeCategoria, itens]) => {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
       doc.setFontSize(12);
       doc.setTextColor(40);
       doc.text(`${nomeCategoria} (${itens.length})`, 14, y);
       y += 4;
 
-      doc.autoTable({
-        head: [['#', 'Protocolo', 'Título', 'Endereço', 'Aberta há', 'Data']],
-        body: itens.map((b, i) => [
-          i + 1,
-          b.protocolo || '—',
-          doc.splitTextToSize(b.titulo || '', 45),
-          doc.splitTextToSize([b.endereco, b.bairro].filter(Boolean).join(' · '), 50),
-          // Na tabela a coluna já se chama "Aberta há", então aqui cabe a forma
-          // curta: "hoje" em vez de repetir "Registrada hoje" no cabeçalho.
-          b.dias_aberta > 0 ? `${b.dias_aberta} ${b.dias_aberta === 1 ? 'dia' : 'dias'}` : 'hoje',
-          dataBR(b.criada_em),
-        ]),
-        startY: y,
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
-        headStyles: { fillColor: [230, 57, 70] },
-      });
+      const ehIluminacao = /ilumina/i.test(nomeCategoria);
+      const grupos = ehIluminacao
+        ? Object.entries(itens.reduce((acc, bronca) => {
+            const tipo = rotuloDoTipoDeProblemaIluminacao(bronca.tipo_problema);
+            (acc[tipo] = acc[tipo] || []).push(bronca);
+            return acc;
+          }, {})).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+        : [['', itens]];
 
-      y = doc.previousAutoTable.finalY + 10;
+      grupos.forEach(([tipo, broncasDoGrupo]) => {
+        if (ehIluminacao) {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFontSize(10);
+          doc.setTextColor(80);
+          doc.text(`Tipo: ${tipo} (${broncasDoGrupo.length})`, 16, y);
+          y += 5;
+        }
+
+        doc.autoTable({
+          head: [['#', 'Protocolo', 'Título', 'Endereço', 'Aberta há', 'Data']],
+          body: broncasDoGrupo.map((b, i) => [
+            i + 1,
+            b.protocolo || '—',
+            doc.splitTextToSize(b.titulo || '', 45),
+            doc.splitTextToSize([b.endereco, b.bairro].filter(Boolean).join(' · '), 50),
+            b.dias_aberta > 0 ? `${b.dias_aberta} ${b.dias_aberta === 1 ? 'dia' : 'dias'}` : 'hoje',
+            dataBR(b.criada_em),
+          ]),
+          startY: y,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+          headStyles: { fillColor: [230, 57, 70] },
+        });
+
+        y = doc.previousAutoTable.finalY + 8;
+      });
     });
 
     if (filtradas.length === 0) {
@@ -499,6 +524,11 @@ const OrgaoRelatorioPage = () => {
                           <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-surface-subtle text-content-secondary">RECORRENTE</span>
                         )}
                         <span className="text-2xs text-content-tertiary">{b.categoria}</span>
+                        {b.tipo_problema && (
+                          <span className="text-2xs text-content-tertiary">
+                            · {rotuloDoTipoDeProblemaIluminacao(b.tipo_problema)}
+                          </span>
+                        )}
                       </div>
 
                       <Link

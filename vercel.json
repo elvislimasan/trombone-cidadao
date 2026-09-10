@@ -21,6 +21,10 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-preview?id=:id&type=patrulha"
     },
     {
+      "source": "/share/rua/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-street?id=:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

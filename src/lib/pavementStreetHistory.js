@@ -21,6 +21,67 @@ export const hasPavementStreetHistory = (street) => Boolean(
 
 export const textoLimpo = (valor) => (typeof valor === 'string' ? valor.trim() : '');
 
+export const chaveDeAutor = (valor) => textoLimpo(valor)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pt-BR');
+
+/** Autores de um projeto, incluindo os cadastros antigos de autor unico. */
+export const autoresDoProjeto = (documento) => {
+  if (documento?.kind !== 'projeto_lei') return [];
+
+  const valores = Array.isArray(documento?.councilor_authors)
+    ? documento.councilor_authors
+    : [documento?.councilor_author];
+  const vistos = new Set();
+
+  return valores.flatMap((valor) => {
+    const nome = textoLimpo(valor);
+    const chave = chaveDeAutor(nome);
+    if (!chave || vistos.has(chave)) return [];
+    vistos.add(chave);
+    return [nome];
+  });
+};
+
+/** Todos os vereadores autores associados aos projetos de uma rua. */
+export const autoresDaRua = (street) => {
+  const autores = new Map();
+  for (const documento of Array.isArray(street?.historical_documents) ? street.historical_documents : []) {
+    for (const autor of autoresDoProjeto(documento)) {
+      const chave = chaveDeAutor(autor);
+      if (!autores.has(chave)) autores.set(chave, autor);
+    }
+  }
+  return [...autores.values()];
+};
+
+/** Regra do filtro de autoria usado tanto no mapa quanto na lista. */
+export const correspondeAoFiltroDeAutor = (street, filtro) => {
+  if (!filtro || filtro === 'all') return true;
+  const autores = autoresDaRua(street);
+  // "Sem autor" e pendencia de cadastro do projeto anexado. Uma rua que ainda
+  // nem tem projeto possui seu filtro proprio e nao deve misturar as duas filas.
+  if (filtro === 'sem') return temProjetoDeLei(street) && autores.length === 0;
+  return autores.some((autor) => chaveDeAutor(autor) === chaveDeAutor(filtro));
+};
+
+/**
+ * Vereadores já associados a projetos, sem duplicar nomes por caixa ou acento.
+ * A lista alimenta o campo de seleção e também deixa pronta a dimensão usada
+ * por um futuro filtro ou ranking de autoria.
+ */
+export const autoresDeProjetos = (streets) => {
+  const autores = new Map();
+  for (const street of Array.isArray(streets) ? streets : []) {
+    for (const author of autoresDaRua(street)) {
+      const key = chaveDeAutor(author);
+      if (!autores.has(key)) autores.set(key, author);
+    }
+  }
+  return [...autores.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+};
+
 /**
  * Data em dd/mm/aaaa.
  *
@@ -126,6 +187,8 @@ export const normalizarDocumentos = (street) =>
       // documentação existem para conferir o cadastro contra a prefeitura, e
       // documento que ninguém classificou ainda não é prova de nada.
       kind: ['lei', 'projeto_lei'].includes(item?.kind) ? item.kind : 'outro',
+      councilorAuthors: autoresDoProjeto(item),
+      councilorAuthor: autoresDoProjeto(item).join(', '),
     }];
   });
 

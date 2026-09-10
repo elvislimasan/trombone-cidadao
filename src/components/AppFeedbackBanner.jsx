@@ -5,8 +5,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { APP_FEEDBACK_EVENT } from '@/lib/appError';
 
 /**
- * Card do fluxo atual. Ele ocupa espaço no layout e nunca cobre a barra
- * inferior. Confirmações fecham sozinhas; erros ficam até serem lidos.
+ * Card global do fluxo atual. Fica acima de dialogs: erros de salvamento
+ * precisam continuar visíveis quando o formulário que os causou está aberto.
+ * Confirmações fecham sozinhas; erros ficam até serem lidos.
  */
 export default function AppFeedbackBanner() {
   const [feedback, setFeedback] = useState(null);
@@ -39,7 +40,7 @@ export default function AppFeedbackBanner() {
       : 'pointer-events-auto mx-auto max-w-2xl border-status-pendingBorder bg-status-pendingBg text-status-pendingFg shadow-elevation-2 pr-12 [&>svg]:text-status-pendingFg';
 
   return (
-    <div className="sticky top-0 z-[4000] w-full px-3 pt-3 pointer-events-none">
+    <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--header-safe-top)+0.5rem)] z-[10002] w-full px-3">
       <Alert
         variant={isError ? 'destructive' : 'default'}
         role={isError ? 'alert' : 'status'}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SlidersHorizontal, ChevronDown, ArrowLeft, X } from 'lucide-react';
 
 import BuscaDeRua from '@/components/pavement/BuscaDeRua';
+import { Combobox } from '@/components/ui/combobox';
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { SITUACOES } from '@/lib/pavementLength';
@@ -31,6 +32,7 @@ const SELETORES = [
   // Separado da lei de propósito: são dois documentos, e a rua que tem um e não
   // o outro é justamente a que interessa cobrar da Câmara.
   { id: 'projeto', rotulo: 'Projeto de lei', vazio: 'Todos', opcoes: [['com', 'Com projeto de lei'], ['sem', 'Sem projeto de lei']] },
+  { id: 'autor', rotulo: 'Autor do projeto', vazio: 'Todos os vereadores' },
   // A rua sem nome oficial é a pergunta de quem monta projeto de lei de
   // denominação. O contador do cabeçalho já dizia QUANTAS são, mas só abria uma
   // lista solta. Como filtro, ela cruza com bairro, situação e CEP — e "as ruas
@@ -52,21 +54,38 @@ const Titulo = ({ children, acao = null }) => (
 // coluna. São os mesmos sete seletores: duplicá-los para mudar só o arranjo
 // seria garantir que o oitavo filtro nasça em um dos dois lugares e falte no
 // outro. As colunas vêm de fora justamente por isso — o arranjo é de quem usa.
-export const FiltrosDePavimentacao = ({ filtros, onFiltroChange, bairros, colunas = 'sm:grid-cols-2 min-[1100px]:grid-cols-1' }) => (
+export const FiltrosDePavimentacao = ({ filtros, onFiltroChange, bairros, autores = [], colunas = 'sm:grid-cols-2 min-[1100px]:grid-cols-1' }) => (
   <div className={`grid gap-2 ${colunas}`}>
     {SELETORES.map(({ id, rotulo, vazio, opcoes }) => (
       <label key={id} className="grid gap-0.5">
         <span className="text-[10px] font-medium text-content-tertiary">{rotulo}</span>
-        <select
-          value={filtros[id]}
-          onChange={(e) => onFiltroChange(id, e.target.value)}
-          className="h-8 w-full rounded-lg border border-edge-default bg-surface-raised px-2 text-[11px] font-semibold text-content-primary"
-        >
-          <option value="all">{vazio}</option>
-          {(id === 'bairro' ? bairros : opcoes).map(([valor, nome]) => (
-            <option key={valor} value={valor}>{nome}</option>
-          ))}
-        </select>
+        {id === 'autor' ? (
+          <Combobox
+            modal
+            options={[
+              { value: 'all', label: vazio },
+              { value: 'sem', label: 'Sem autor vinculado' },
+              ...autores.map((autor) => ({ value: autor, label: autor })),
+            ]}
+            value={filtros[id]}
+            onChange={(value) => onFiltroChange(id, value)}
+            placeholder={vazio}
+            searchPlaceholder="Pesquisar vereador..."
+            notFoundText="Nenhum vereador encontrado."
+            className="h-8 rounded-lg border-edge-default bg-surface-raised px-2 text-[11px] font-semibold text-content-primary"
+          />
+        ) : (
+          <select
+            value={filtros[id]}
+            onChange={(e) => onFiltroChange(id, e.target.value)}
+            className="h-8 w-full rounded-lg border border-edge-default bg-surface-raised px-2 text-[11px] font-semibold text-content-primary"
+          >
+            <option value="all">{vazio}</option>
+            {(id === 'bairro' ? bairros : opcoes).map(([valor, nome]) => (
+              <option key={valor} value={valor}>{nome}</option>
+            ))}
+          </select>
+        )}
       </label>
     ))}
   </div>
@@ -103,6 +122,7 @@ export default function PavementSidebar({
   onFiltroChange,
   onLimpar,
   bairros,
+  autores = [],
   // O TOPO DO PAINEL É O CABEÇALHO DA TELA.
   //
   // Seletor de cidade, contagem de ruas e as ações vinham numa barra sobre o
@@ -146,7 +166,7 @@ export default function PavementSidebar({
 
         <div className="border-t border-edge-subtle p-3">
           <Titulo acao={limparBotao}>Filtros</Titulo>
-          <Filtros filtros={filtros} onFiltroChange={onFiltroChange} bairros={bairros} />
+          <Filtros filtros={filtros} onFiltroChange={onFiltroChange} bairros={bairros} autores={autores} />
         </div>
 
         </div>
@@ -220,7 +240,7 @@ export default function PavementSidebar({
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <Titulo acao={limparBotao}>Filtros disponíveis</Titulo>
-            <Filtros filtros={filtros} onFiltroChange={onFiltroChange} bairros={bairros} />
+            <Filtros filtros={filtros} onFiltroChange={onFiltroChange} bairros={bairros} autores={autores} />
           </div>
         </DrawerContent>
       </Drawer>

@@ -31,6 +31,12 @@ export const TIPOS_DE_PROBLEMA_ILUMINACAO = [
   { value: 'other', label: 'outro' },
 ];
 
+export const rotuloDoTipoDeProblemaIluminacao = (valor) => {
+  const id = String(valor || '').trim();
+  if (!id) return 'Não informado';
+  return TIPOS_DE_PROBLEMA_ILUMINACAO.find((tipo) => tipo.value === id)?.label || id;
+};
+
 /**
  * Descrição dos campos extras por categoria.
  *

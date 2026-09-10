@@ -1,5 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, ChevronDown, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine, Sparkles, Quote, Layers3, User, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,7 +28,8 @@ import {
   normalizarCep,
   ordenarCandidatos,
 } from '@/lib/cepLookup';
-import { formatarTamanhoArquivo } from '@/lib/pavementStreetHistory';
+import { autoresDeProjetos, autoresDoProjeto, chaveDeAutor, formatarTamanhoArquivo } from '@/lib/pavementStreetHistory';
+import { apelidosParaFormulario } from '@/lib/streetAliases';
 import {
   PAVEMENT_DOCUMENT_ACCEPT,
   PAVEMENT_PHOTO_ACCEPT,
@@ -43,6 +44,84 @@ const fileTypeLabel = (fileName) => {
 };
 
 const fileTitle = (fileName) => String(fileName || '').replace(/\.[^.]+$/, '');
+
+const DocumentField = ({ icon: Icon, label, htmlFor, children }) => (
+  <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-2.5 sm:gap-3">
+    <span className="flex h-10 items-center justify-center text-content-secondary" aria-hidden="true">
+      <Icon className="h-5 w-5" strokeWidth={1.9} />
+    </span>
+    <div className="min-w-0 space-y-1.5">
+      <Label htmlFor={htmlFor} className="block text-xs font-semibold text-content-secondary">
+        {label}
+      </Label>
+      {children}
+    </div>
+  </div>
+);
+
+const ProjectAuthorsField = ({ id, document, options, onChange }) => {
+  const [draft, setDraft] = useState('');
+  const authors = autoresDoProjeto(document);
+
+  const addAuthor = () => {
+    const name = draft.trim();
+    if (!name || authors.some((author) => chaveDeAutor(author) === chaveDeAutor(name))) return;
+    onChange([...authors, name]);
+    setDraft('');
+  };
+
+  return (
+    <div className="space-y-2">
+      {authors.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Vereadores selecionados">
+          {authors.map((author) => (
+            <span key={chaveDeAutor(author)} className="inline-flex items-center gap-1 rounded-full border border-brand/25 bg-brand-subtleBg px-2.5 py-1 text-xs font-bold text-brand-subtleFg">
+              {author}
+              <button
+                type="button"
+                onClick={() => onChange(authors.filter((item) => chaveDeAutor(item) !== chaveDeAutor(author)))}
+                aria-label={`Remover ${author}`}
+                className="rounded-full p-0.5 hover:bg-brand/10"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" aria-hidden="true" />
+          <Input
+            id={id}
+            list={`${id}-options`}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              addAuthor();
+            }}
+            placeholder="Selecione ou digite um novo nome"
+            autoComplete="off"
+            className="rounded-lg border-edge-default bg-surface-raised pl-9 shadow-sm"
+          />
+          <datalist id={`${id}-options`}>
+            {(options || [])
+              .filter((option) => !authors.some((author) => chaveDeAutor(author) === chaveDeAutor(option)))
+              .map((option) => <option key={chaveDeAutor(option)} value={option} />)}
+          </datalist>
+        </div>
+        <Button type="button" variant="outline" onClick={addAuthor} disabled={!draft.trim()} className="shrink-0 gap-1.5">
+          <PlusCircle className="h-4 w-4" /> Adicionar
+        </Button>
+      </div>
+      <p className="text-[11px] text-content-tertiary">
+        Escolha um nome da lista ou digite um novo. Repita para incluir coautores.
+      </p>
+    </div>
+  );
+};
 
 const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets = [], defaultCityId, fallbackCityCenter, onBairroCreated }) => {
   const { resolveCityIdFromLocation } = useCityIdFromLocation();
@@ -59,6 +138,13 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
   const [desenhando, setDesenhando] = useState(false);
   const [generatingHistory, setGeneratingHistory] = useState(false);
 
+  // O mesmo nome tende a aparecer em vários projetos. Reaproveitar o que já
+  // foi cadastrado reduz variações, mas o primeiro cadastro aceita texto novo.
+  const projectAuthorOptions = useMemo(
+    () => autoresDeProjetos([...(existingStreets || []), formData].filter(Boolean)),
+    [existingStreets, formData]
+  );
+
   useEffect(() => {
     if (street) {
       const initialStatus = street.status || 'unpaved';
@@ -66,6 +152,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
 
       setFormData({
         ...street,
+        informal_names: apelidosParaFormulario(street),
         location: coordenadaDaRua(street.location),
         paving_date: street.paving_date ? new Date(street.paving_date).getUTCFullYear().toString() : '',
         status: initialStatus,
@@ -431,6 +518,8 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
           type: fileTypeLabel(file.name),
           size: file.size,
           kind: 'outro',
+          councilor_author: '',
+          councilor_authors: [],
           original_name: file.name,
           file,
         }
@@ -614,6 +703,24 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 <Label htmlFor="is_unnamed" className="cursor-pointer font-semibold">Rua sem nome oficial</Label>
                 <p className="text-xs text-amber-800">Marque quando a via ainda é conhecida apenas por um nome provisório, como “Rua Projetada”.</p>
               </div>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start sm:gap-4">
+            <Label htmlFor="informal_names" className="sm:pt-2 sm:text-right">Apelidos da rua</Label>
+            <div className="space-y-2">
+              <textarea
+                id="informal_names"
+                name="informal_names"
+                value={formData.informal_names || ''}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder={'Ex.: Rua da Feira\nAntiga Rua do Mercado'}
+              />
+              <p className="text-xs text-muted-foreground">
+                Um nome informal ou antigo por linha. Eles ajudam na busca, mas não substituem o nome oficial.
+              </p>
             </div>
           </div>
 
@@ -921,68 +1028,131 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   Nenhum documento adicionado.
                 </p>
               )}
-              {(formData.historical_documents || []).map((document, index) => (
-                <div key={index} className="flex items-start gap-2 rounded-lg border border-border bg-background p-3">
-                  <div className="grid min-w-0 flex-1 gap-2">
-                    {/* Nome de arquivo é uma palavra só para o navegador, e num
-                        diálogo estreito ela estica a coluna inteira. `break-all`
-                        quebra onde precisar e `line-clamp-2` põe teto — aqui
-                        interessa CONFERIR o nome, então ele quebra em vez de
-                        virar reticências. */}
-                    {document.url && !document.file && (
-                      <a href={document.url} target="_blank" rel="noopener noreferrer" className="line-clamp-2 break-all text-xs font-medium text-brand underline-offset-2 hover:underline">
-                        Arquivo atual: {document.original_name || document.title || 'abrir documento'}
-                      </a>
-                    )}
-                    <Button asChild size="sm" variant="outline" className="w-fit">
-                      <label className="cursor-pointer">
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        {document.url || document.file ? 'Substituir arquivo' : 'Escolher arquivo'}
-                        <input
-                          type="file"
-                          accept={PAVEMENT_DOCUMENT_ACCEPT}
-                          className="hidden"
-                          onChange={(e) => {
-                            handleFileChange('historical_documents', index, 'document', e.target.files?.[0]);
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
-                    </Button>
-                    {document.file && (
-                      <p className="line-clamp-2 break-all text-xs text-muted-foreground">
-                        Selecionado: {document.file.name} · {formatarTamanhoArquivo(document.file.size)}
-                      </p>
-                    )}
-                    <Input value={document.title || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'title', e.target.value)} placeholder="Título — ex.: Lei de Criação da Rua" />
-                    <Input value={document.description || ''} onChange={(e) => updateArrayItem('historical_documents', index, 'description', e.target.value)} placeholder="Subtítulo — ex.: Lei Municipal nº 1.234/2010" />
-                    {/* O QUE O DOCUMENTO É, e não o formato do arquivo.
-                        É este campo que alimenta os filtros "ruas com/sem a lei
-                        municipal" e "sem projeto de lei" no mapa, e o relatório
-                        de documentação incompleta. Documento antigo fica em
-                        "Outro" até alguém abrir e marcar — o filtro serve para
-                        conferir o cadastro contra a prefeitura, e chutar que
-                        todo anexo é a lei responderia essa pergunta com um
-                        palpite.
+              {(formData.historical_documents || []).map((document, index) => {
+                const fileName = document.file?.name || document.original_name || document.title || 'Documento sem nome';
+                const fileSize = formatarTamanhoArquivo(document.file?.size || document.size);
+                const hasFile = Boolean(document.url || document.file);
+                const authorMissing = document.kind === 'projeto_lei' && autoresDoProjeto(document).length === 0;
+                const titleId = `document-title-${index}`;
+                const descriptionId = `document-description-${index}`;
+                const kindId = `document-kind-${index}`;
+                const authorId = `project-councilor-${index}`;
 
-                        São dois documentos distintos de propósito: a lei
-                        denomina a rua, o projeto de lei é o que a originou na
-                        Câmara. Guardá-los na mesma categoria tornaria impossível
-                        listar o que ainda falta cobrar. */}
-                    <select
-                      value={['lei', 'projeto_lei'].includes(document.kind) ? document.kind : 'outro'}
-                      onChange={(e) => updateArrayItem('historical_documents', index, 'kind', e.target.value)}
-                      aria-label="Tipo do documento"
-                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="outro">Outro documento</option>
-                      <option value="lei">Lei municipal</option>
-                      <option value="projeto_lei">Projeto de lei</option>
-                    </select>
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" className="shrink-0 text-red-500" onClick={() => removeArrayItem('historical_documents', index)} aria-label="Remover documento"><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              ))}
+                return (
+                  <article key={index} className="overflow-hidden rounded-2xl border border-edge-default bg-surface-raised shadow-sm">
+                    <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-x-3 gap-y-3 p-4 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:items-center sm:p-5">
+                      <div className="relative flex h-11 w-11 items-center justify-center text-brand" aria-hidden="true">
+                        <FileText className="h-10 w-10" strokeWidth={1.55} />
+                        <span className="absolute bottom-0 rounded-sm bg-brand px-1 py-0.5 text-[9px] font-black leading-none text-content-onBrand shadow-sm">
+                          {fileTypeLabel(fileName) || document.type || 'DOC'}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-content-tertiary">
+                          {hasFile ? 'Arquivo atual' : 'Novo arquivo'}
+                        </p>
+                        {document.url && !document.file ? (
+                          <a
+                            href={document.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-0.5 block truncate text-sm font-semibold text-brand underline-offset-2 hover:underline"
+                            title={fileName}
+                          >
+                            {fileName}
+                          </a>
+                        ) : (
+                          <p className="mt-0.5 truncate text-sm font-semibold text-brand" title={fileName}>{fileName}</p>
+                        )}
+                        <p className="mt-0.5 text-xs text-content-tertiary">
+                          {document.file ? 'Selecionado para envio' : hasFile ? 'Arquivo salvo' : 'Selecione um arquivo'}
+                          {fileSize ? ` · ${fileSize}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-1">
+                        <Button asChild size="sm" variant="outline" className="h-10 flex-1 gap-2 rounded-xl border-edge-default bg-surface-raised px-3 text-content-primary shadow-sm sm:flex-none">
+                          <label className="cursor-pointer">
+                            <UploadCloud className="h-4 w-4" />
+                            {hasFile ? 'Substituir arquivo' : 'Escolher arquivo'}
+                            <input
+                              type="file"
+                              accept={PAVEMENT_DOCUMENT_ACCEPT}
+                              className="hidden"
+                              onChange={(e) => {
+                                handleFileChange('historical_documents', index, 'document', e.target.files?.[0]);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10 shrink-0 rounded-xl border-danger/20 bg-danger-subtleBg text-danger hover:bg-danger-subtleBg hover:text-danger"
+                          onClick={() => removeArrayItem('historical_documents', index)}
+                          aria-label={`Remover ${fileName}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 border-t border-edge-subtle bg-surface-sunken/55 p-3 sm:p-4">
+                      <DocumentField icon={FileText} label="Número / Identificação" htmlFor={titleId}>
+                        <Input
+                          id={titleId}
+                          value={document.title || ''}
+                          onChange={(e) => updateArrayItem('historical_documents', index, 'title', e.target.value)}
+                          placeholder="Ex.: LEI-582-2015"
+                          className="rounded-lg border-edge-default bg-surface-raised shadow-sm"
+                        />
+                      </DocumentField>
+
+                      <DocumentField icon={Quote} label="Subtítulo (opcional)" htmlFor={descriptionId}>
+                        <Input
+                          id={descriptionId}
+                          value={document.description || ''}
+                          onChange={(e) => updateArrayItem('historical_documents', index, 'description', e.target.value)}
+                          placeholder="Ex.: Lei Municipal nº 1.234/2010"
+                          className="rounded-lg border-edge-default bg-surface-raised shadow-sm"
+                        />
+                      </DocumentField>
+
+                      {/* `kind` descreve o conteúdo, enquanto `type` guarda o formato do arquivo. */}
+                      <DocumentField icon={Layers3} label="Tipo de documento" htmlFor={kindId}>
+                        <div className="relative">
+                          <select
+                            id={kindId}
+                            value={['lei', 'projeto_lei'].includes(document.kind) ? document.kind : 'outro'}
+                            onChange={(e) => updateArrayItem('historical_documents', index, 'kind', e.target.value)}
+                            className="h-10 w-full appearance-none rounded-lg border border-edge-default bg-surface-raised px-3 pr-10 text-sm font-medium text-content-primary shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          >
+                            <option value="outro">Outro documento</option>
+                            <option value="lei">Lei municipal</option>
+                            <option value="projeto_lei">Projeto de lei</option>
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-secondary" aria-hidden="true" />
+                        </div>
+                      </DocumentField>
+
+                      {document.kind === 'projeto_lei' && (
+                        <DocumentField icon={User} label="Vereadores autores do projeto" htmlFor={authorId}>
+                          <ProjectAuthorsField
+                            id={authorId}
+                            document={document}
+                            options={projectAuthorOptions}
+                            onChange={(authors) => updateArrayItem('historical_documents', index, 'councilor_authors', authors)}
+                          />
+                          {authorMissing && <p className="text-[11px] text-danger">Vincule ao menos um vereador autor.</p>}
+                        </DocumentField>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
             )}
 

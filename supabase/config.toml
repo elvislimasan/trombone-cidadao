@@ -361,6 +361,10 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# O WhatsApp e outras redes acessam esta função sem uma sessão do aplicativo.
+[functions.share-street]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

@@ -86,7 +86,6 @@ const ReportPage = () => {
     useMobileHeader();
   const { isInteractive } = useNativeUIMode();
   const [report, setReport] = useState(null);
-  const [allReports, setAllReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
@@ -1453,21 +1452,25 @@ const ReportPage = () => {
     setShowLinkModal(true);
   };
   const handleLinkReport = async (sourceReportId, targetReportId) => {
-    const { error } = await supabase
+    const { data: linkedReport, error } = await supabase
       .from("reports")
       .update({ status: "duplicate", linked_to: targetReportId })
-      .eq("id", sourceReportId);
-    if (error)
+      .eq("id", sourceReportId)
+      .select('id')
+      .maybeSingle();
+    if (error || !linkedReport) {
       showAppError({
         title: "Erro ao vincular bronca",
-        description: error.message,
+        description: error?.message || 'A bronca não foi alterada. Confira sua permissão e tente novamente.',
         variant: "destructive",
       });
-    else {
+      return false;
+    } else {
       fetchReport();
     }
     setShowLinkModal(false);
     setReportToLink(null);
+    return true;
   };
 
   useEffect(() => {
@@ -1975,7 +1978,6 @@ const ReportPage = () => {
           {showLinkModal && reportToLink && (
             <LinkReportModal
               sourceReport={reportToLink}
-              allReports={allReports}
               onClose={() => setShowLinkModal(false)}
               onLink={handleLinkReport}
             />

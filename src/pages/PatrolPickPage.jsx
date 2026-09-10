@@ -12,7 +12,6 @@ import PatrolTravelModePicker, {
   PatrolTravelModeIcon,
 } from '@/components/patrol/PatrolTravelModePicker';
 import { CATEGORIAS_SINAL, categoriaPorId } from '@/lib/reportCategories';
-import { NAV_ALERTA, ehNoite } from '@/lib/navGeo';
 import {
   buildPatrolPickStepPath,
   getPatrolPickStep,
@@ -35,7 +34,6 @@ import {
   readRawPatrolAvatar,
   toPatrolUrbanAvatar,
 } from '@/lib/patrolAvatarConfig';
-import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 // Preparar a saída, antes de ligar o GPS.
@@ -78,7 +76,6 @@ const categoriaDaBusca = (search) => {
 export default function PatrolPickPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const posicao = usePosicaoAproximada();
   const { user } = useAuth();
 
   // A escolha do boneco vive só no aparelho. O uniforme urbano é uma projeção
@@ -136,11 +133,6 @@ export default function PatrolPickPage() {
   // inteira em vez de andar um passo.
   const empilhados = useRef(0);
 
-  const noite = useMemo(
-    () => (posicao ? ehNoite(Date.now(), posicao.lat, posicao.lng) : null),
-    [posicao]
-  );
-
   const irParaPasso = useCallback(
     (passo, { substituir = false } = {}) => {
       const destino = buildPatrolPickStepPath({
@@ -157,16 +149,6 @@ export default function PatrolPickPage() {
     },
     [categoriaSelecionada, modoDeslocamento, navigate]
   );
-
-  // A categoria noturna trazida por uma missão deixa de valer quando ainda é
-  // dia por aqui. Limpar basta: quem devolve a pessoa ao passo do foco é a
-  // guarda logo abaixo.
-  useEffect(() => {
-    if (noite !== false || !categoriaSelecionada) return;
-    if (NAV_ALERTA.categoriasNoturnas.includes(categoriaSelecionada)) {
-      setCategoriaSelecionada(null);
-    }
-  }, [categoriaSelecionada, noite]);
 
   // Sem foco não existem os passos seguintes: eles temperam ou confirmam uma
   // escolha que não foi feita. Acontece com URL montada à mão e, sobretudo,
@@ -260,7 +242,6 @@ export default function PatrolPickPage() {
 
       {passoAtual === 'foco' && (
         <PatrolFocusStep
-          noite={noite}
           selecionada={categoriaSelecionada}
           onSelecionar={setCategoriaSelecionada}
         />

@@ -24,6 +24,7 @@ import { FileOpener } from '@capacitor-community/file-opener';
 import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { showAppError } from '@/lib/appError';
+import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 
 // Le o valor computado de um token de design em runtime. O Recharts recebe
 // cor por prop JS (nao por classe CSS), entao os tokens de grafico (canal
@@ -421,55 +422,74 @@ const ReportsStats = () => {
       }, {});
       
       Object.keys(groupedByCategory).forEach(categoryName => {
+        const categoryReports = groupedByCategory[categoryName];
+        if (yPosition > 270) {
+          doc.addPage();
+          yPosition = 20;
+        }
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
-        doc.text(`${categoryName} (${groupedByCategory[categoryName].length} ${groupedByCategory[categoryName].length > 1 ? 'broncas' : 'bronca'})`, 14, yPosition);
+        doc.text(`${categoryName} (${categoryReports.length} ${categoryReports.length > 1 ? 'broncas' : 'bronca'})`, 14, yPosition);
         doc.setFont(undefined, 'normal');
         yPosition += 6;
 
         const isBuracos = /buraco/i.test(categoryName || '');
         const isIluminacao = /ilumina/i.test(categoryName || '');
-        const tableColumn = isBuracos
-          ? ["#", "Protocolo", "Título", "Origem", "Endereço", "Data"]
-          : isIluminacao
-            ? ["#", "Protocolo", "Poste", "Título", "Endereço", "Data"]
-            : ["#", "Protocolo", "Título", "Endereço", "Data"];
-        const tableRows = [];
-        
-        groupedByCategory[categoryName].forEach((report, index) => {
-          const common = [
-            index + 1,
-            report.protocol,
-          ];
-          const end = [
-            doc.splitTextToSize(report.address || 'N/A', 50),
-            new Date(report.created_at).toLocaleDateString('pt-BR'),
-          ];
-          if (isBuracos) {
-            const title = doc.splitTextToSize(report.title, 60);
-            const origem = report.is_from_water_utility ? 'Abastecimento' : 'Outros';
-            tableRows.push([...common, title, origem, ...end]);
-          } else if (isIluminacao) {
-            const poste = String(report.pole_number || report.reported_plate || report.reported_post_identifier || '').trim() || '—';
-            const title = doc.splitTextToSize(report.title, 50);
-            tableRows.push([...common, poste, title, ...end]);
-          } else {
-            const title = doc.splitTextToSize(report.title, 60);
-            tableRows.push([...common, title, ...end]);
+        const reportGroups = isIluminacao
+          ? Object.entries(categoryReports.reduce((acc, report) => {
+              const tipo = rotuloDoTipoDeProblemaIluminacao(report.issue_type);
+              (acc[tipo] = acc[tipo] || []).push(report);
+              return acc;
+            }, {})).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+          : [['', categoryReports]];
+
+        reportGroups.forEach(([issueType, reportsOfType]) => {
+          if (isIluminacao) {
+            if (yPosition > 270) {
+              doc.addPage();
+              yPosition = 20;
+            }
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(80);
+            doc.text(`Tipo: ${issueType} (${reportsOfType.length})`, 16, yPosition);
+            doc.setTextColor(0);
+            doc.setFont(undefined, 'normal');
+            yPosition += 5;
           }
+
+          const tableColumn = isBuracos
+            ? ["#", "Protocolo", "Título", "Origem", "Endereço", "Data"]
+            : isIluminacao
+              ? ["#", "Protocolo", "Poste", "Título", "Endereço", "Data"]
+              : ["#", "Protocolo", "Título", "Endereço", "Data"];
+          const tableRows = reportsOfType.map((report, index) => {
+            const common = [index + 1, report.protocol];
+            const end = [
+              doc.splitTextToSize(report.address || 'N/A', 50),
+              new Date(report.created_at).toLocaleDateString('pt-BR'),
+            ];
+            if (isBuracos) {
+              const title = doc.splitTextToSize(report.title, 60);
+              const origem = report.is_from_water_utility ? 'Abastecimento' : 'Outros';
+              return [...common, title, origem, ...end];
+            }
+            if (isIluminacao) {
+              const poste = String(report.pole_number || report.reported_plate || report.reported_post_identifier || '').trim() || '—';
+              return [...common, poste, doc.splitTextToSize(report.title, 50), ...end];
+            }
+            return [...common, doc.splitTextToSize(report.title, 60), ...end];
+          });
+
+          doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: yPosition,
+            theme: 'grid',
+            headStyles: { fillColor: [239, 68, 68] },
+          });
+          yPosition = doc.previousAutoTable.finalY + 8;
         });
-        
-        doc.autoTable({
-          head: [tableColumn],
-          body: tableRows,
-          startY: yPosition,
-          theme: 'grid',
-          headStyles: { fillColor: [239, 68, 68] }, // Red color for header
-          didDrawPage: (data) => {
-            yPosition = data.cursor.y + 10;
-          }
-        });
-        yPosition = doc.previousAutoTable.finalY + 10;
       });
     });
 

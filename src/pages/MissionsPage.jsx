@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { Moon, ChevronRight, ChevronDown, Loader2, Lock } from 'lucide-react';
+import { ChevronRight, ChevronDown, Loader2, Lock } from 'lucide-react';
 
 import { usePosicaoAproximada } from '@/hooks/usePosicaoAproximada';
 import MissionList from '@/components/missions/MissionList';
@@ -11,12 +11,10 @@ import DailyCard from '@/components/missions/DailyCard';
 import CampanhaBanner from '@/components/missions/CampanhaBanner';
 import CommunityGoalsBanner from '@/components/missions/CommunityGoalsBanner';
 import MarcosCosmeticos from '@/components/missions/MarcosCosmeticos';
-import MissionResume from '@/components/missions/MissionResume';
+import LightingPatrolHero from '@/components/missions/LightingPatrolHero';
 import MissionPatrolProgress from '@/components/missions/MissionPatrolProgress';
 import { useMissions } from '@/hooks/useMissions';
 import { useAlvosPorPerto } from '@/hooks/useAlvosPorPerto';
-import { CATEGORIAS_SINAL } from '@/lib/reportCategories';
-import { NAV_ALERTA, ehNoite } from '@/lib/navGeo';
 import { calcularSequencia } from '@/lib/patrolGame';
 
 // Hub das missões: onde a patrulha começa.
@@ -48,13 +46,6 @@ export default function MissionsPage() {
     diarias, resumoDiarias, tempoRestante,
   } = useMissions({ temBroncas, temSinais });
 
-  // null = não sabemos ainda (ou o GPS recusou). Diferente de "é dia".
-  const noite = useMemo(
-    () => (posicao ? ehNoite(Date.now(), posicao.lat, posicao.lng) : null),
-    [posicao]
-  );
-
-
   // ── O que a tela nova precisa saber ──
 
   const sequencia = useMemo(
@@ -77,27 +68,9 @@ export default function MissionsPage() {
     [trilhas]
   );
 
-  /**
-   * As mais perto de fechar, para o "Continue daqui".
-   *
-   * Ordena por QUANTO FALTA, não por porcentagem: 90% de uma etapa de 50 ainda
-   * são cinco ações, e uma missão a um passo do fim tem que vir antes.
-   */
-  const quaseLa = useMemo(() => {
-    const abertas = trilhas
-      .flatMap((t) => t.missoes)
-      .filter((m) => !m.bloqueada && !m.completa && m.atual > 0);
-    return [...abertas].sort((a, b) => a.faltam - b.faltam).slice(0, 4);
-  }, [trilhas]);
-
   const dePatrulha = useMemo(
     () => trilhas.find((t) => t.id === 'patrulha')?.missoes ?? [],
     [trilhas]
-  );
-
-  const adiadasParaANoite = useMemo(
-    () => CATEGORIAS_SINAL.filter((c) => NAV_ALERTA.categoriasNoturnas.includes(c.id)),
-    []
   );
 
   const bloqueadas = useMemo(
@@ -174,12 +147,7 @@ export default function MissionsPage() {
       {/* Em telas muito largas os blocos de ação formam pares. Abaixo de
           1536px, `contents` preserva o fluxo empilhado e a ordem do mobile. */}
       <div className="contents min-[1536px]:grid min-[1536px]:grid-cols-2 min-[1536px]:items-stretch min-[1536px]:gap-6">
-        {/* RETOMAR VEM ANTES DE ESCOLHER
-            A missão mais perto de fechar subiu para logo abaixo do nível, e como
-            cartão de marca. Enterrada depois das categorias ela competia com o
-            catálogo inteiro — e quem volta ao app pela terceira vez não quer
-            escolher entre doze, quer terminar o que começou. */}
-        {!carregando && <MissionResume missoes={quaseLa} />}
+        {!carregando && <LightingPatrolHero />}
 
         {/* O que dá para fazer HOJE, antes do catálogo de vida inteira.
             Quem abre a central numa terça à noite não quer escolher entre doze
@@ -333,36 +301,6 @@ export default function MissionsPage() {
 
       {!carregando && (
         <MissionPatrolProgress missoes={dePatrulha} para="/patrulhar" />
-      )}
-
-      {/* PRÓXIMA OPORTUNIDADE.
-
-          A patrulha de iluminação fica desabilitada de dia — poste apagado ao
-          sol é invisível, e o alerta pediria um julgamento impossível. Mas a
-          tela só mostrava o botão apagado, o que lê como "quebrado".
-
-          Dito como espera, vira convite para voltar: o app deixa de negar e
-          passa a marcar hora. */}
-      {noite === false && adiadasParaANoite.length > 0 && (
-        <section>
-          <h2 className="text-[11px] font-bold uppercase tracking-widest text-content-tertiary mb-2.5">
-            Próxima oportunidade
-          </h2>
-          <div className="flex items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3.5">
-            <span className="shrink-0 w-9 h-9 rounded-xl bg-surface-raised ring-1 ring-edge-subtle flex items-center justify-center">
-              <Moon size={17} className="text-content-tertiary" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-content-primary leading-tight">
-                {adiadasParaANoite.map((c) => `Patrulha de ${c.name.toLowerCase()}`).join(' · ')}
-              </p>
-              <p className="text-xs text-content-secondary mt-0.5 leading-snug">
-                Abre quando escurecer — de dia não dá para saber se o poste está
-                aceso.
-              </p>
-            </div>
-          </div>
-        </section>
       )}
 
       {/* ── O QUE NÃO PRODUZ DADO FICA NO FIM ──

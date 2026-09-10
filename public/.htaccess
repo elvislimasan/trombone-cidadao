@@ -28,6 +28,9 @@
    RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
   RewriteRule ^obra/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-work?id=$1 [R=302,L]
 
+  # Redirect /share/rua/SLUG to Supabase Edge Function (rua)
+  RewriteRule ^share/rua/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-street?id=$1 [R=302,L]
+
 
   
   RewriteCond %{REQUEST_FILENAME} !-f

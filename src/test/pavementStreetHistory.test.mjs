@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  autoresDaRua,
+  autoresDeProjetos,
+  autoresDoProjeto,
+  correspondeAoFiltroDeAutor,
   capaDaRua,
   fotosDaRuaOrdenadas,
   formatarDataBr,
@@ -125,6 +129,8 @@ test('so entra na tela o que tem endereco utilizavel', () => {
     type: 'PDF',
     size: '245 KB',
     kind: 'outro',
+    councilorAuthors: [],
+    councilorAuthor: '',
   });
 });
 
@@ -265,6 +271,75 @@ test('documento marcado como lei é reconhecido', () => {
 test('valor estranho em `kind` cai em "outro"', () => {
   const docs = normalizarDocumentos({ historical_documents: [{ url: 'a.pdf', kind: 'LEI' }] });
   assert.equal(docs[0].kind, 'outro');
+});
+
+test('projeto de lei preserva o vereador autor', () => {
+  const docs = normalizarDocumentos({
+    historical_documents: [{ url: 'projeto.pdf', kind: 'projeto_lei', councilor_author: '  Maria Souza  ' }],
+  });
+  assert.equal(docs[0].councilorAuthor, 'Maria Souza');
+});
+
+test('autoria so pertence a documento marcado como projeto de lei', () => {
+  const docs = normalizarDocumentos({
+    historical_documents: [{ url: 'lei.pdf', kind: 'lei', councilor_author: 'Maria Souza' }],
+  });
+  assert.equal(docs[0].councilorAuthor, '');
+});
+
+test('lista vereadores de projetos sem duplicar caixa ou acento', () => {
+  const authors = autoresDeProjetos([
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'José Lima' }] },
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'JOSE LIMA' }] },
+    { historical_documents: [{ kind: 'lei', councilor_author: 'Nao e autoria do projeto' }] },
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'Ana Alves' }] },
+  ]);
+  assert.deepEqual(authors, ['Ana Alves', 'José Lima']);
+});
+
+test('um projeto aceita varios vereadores e remove repeticoes', () => {
+  const document = {
+    kind: 'projeto_lei',
+    councilor_authors: ['Maria Souza', 'Joao Lima', ' maria souza '],
+  };
+  assert.deepEqual(autoresDoProjeto(document), ['Maria Souza', 'Joao Lima']);
+});
+
+test('lista autores de todos os projetos da rua e preserva cadastro antigo', () => {
+  const street = {
+    historical_documents: [
+      { kind: 'projeto_lei', councilor_author: 'Ana Alves' },
+      { kind: 'projeto_lei', councilor_authors: ['Carlos Melo', 'ANA ALVES'] },
+    ],
+  };
+  assert.deepEqual(autoresDaRua(street), ['Ana Alves', 'Carlos Melo']);
+});
+
+test('normalizacao publica todos os autores do projeto', () => {
+  const [document] = normalizarDocumentos({
+    historical_documents: [{
+      url: 'projeto.pdf',
+      kind: 'projeto_lei',
+      councilor_authors: ['Maria Souza', 'Joao Lima'],
+    }],
+  });
+  assert.deepEqual(document.councilorAuthors, ['Maria Souza', 'Joao Lima']);
+  assert.equal(document.councilorAuthor, 'Maria Souza, Joao Lima');
+});
+
+test('filtro sem autor lista apenas rua com projeto ainda sem autoria', () => {
+  const comProjetoSemAutor = { historical_documents: [{ url: 'projeto.pdf', kind: 'projeto_lei' }] };
+  const semProjeto = { historical_documents: [] };
+  const comAutor = { historical_documents: [{ url: 'projeto.pdf', kind: 'projeto_lei', councilor_author: 'Ana' }] };
+
+  assert.equal(correspondeAoFiltroDeAutor(comProjetoSemAutor, 'sem'), true);
+  assert.equal(correspondeAoFiltroDeAutor(semProjeto, 'sem'), false);
+  assert.equal(correspondeAoFiltroDeAutor(comAutor, 'sem'), false);
+});
+
+test('filtro por vereador ignora acento e caixa', () => {
+  const street = { historical_documents: [{ url: 'p.pdf', kind: 'projeto_lei', councilor_author: 'José Lima' }] };
+  assert.equal(correspondeAoFiltroDeAutor(street, 'JOSE LIMA'), true);
 });
 
 test('temLeiMunicipal só é verdadeiro com documento marcado', () => {

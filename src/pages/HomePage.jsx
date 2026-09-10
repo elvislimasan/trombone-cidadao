@@ -719,13 +719,15 @@ function HomePage() {
 
   const handleLinkReport = async (sourceReportId, targetReportId) => {
     try {
-      const { error } = await supabase
+      const { data: linkedReport, error } = await supabase
         .from('reports')
         .update({ status: 'duplicate', linked_to: targetReportId })
-        .eq('id', sourceReportId);
+        .eq('id', sourceReportId)
+        .select('id')
+        .maybeSingle();
 
-      if (error) {
-        throw error;
+      if (error || !linkedReport) {
+        throw error || new Error('A bronca não foi alterada. Confira sua permissão e tente novamente.');
       }
 
       setShowLinkModal(false);

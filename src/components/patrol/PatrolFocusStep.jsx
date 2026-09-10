@@ -1,7 +1,6 @@
-import { Check, ChevronRight, Moon } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 
 import { CATEGORIAS_SINAL } from '@/lib/reportCategories';
-import { NAV_ALERTA } from '@/lib/navGeo';
 import { getPatrolPickStep } from '@/lib/patrolPickFlow';
 
 // Primeiro passo: o que a patrulha vai procurar.
@@ -20,7 +19,6 @@ const CartaoPatrulha = ({
   icone,
   titulo,
   descricao,
-  aviso,
   desabilitado,
   selecionado,
   onClick,
@@ -52,12 +50,6 @@ const CartaoPatrulha = ({
       <span className="block text-xs text-content-secondary mt-0.5 leading-snug">
         {descricao}
       </span>
-      {aviso && (
-        <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-status-pendingBg px-2 py-1 text-[11px] font-semibold text-status-pendingFg">
-          <Moon size={12} />
-          {aviso}
-        </span>
-      )}
     </span>
 
     {!desabilitado && (
@@ -72,7 +64,7 @@ const CartaoPatrulha = ({
   </button>
 );
 
-export default function PatrolFocusStep({ noite, selecionada, onSelecionar }) {
+export default function PatrolFocusStep({ selecionada, onSelecionar }) {
   const passo = getPatrolPickStep('foco');
 
   return (
@@ -92,29 +84,17 @@ export default function PatrolFocusStep({ noite, selecionada, onSelecionar }) {
             sinalização usa, e pela mesma razão: uma patrulha de "outros" não
             conseguiria dizer o que procurar. */}
         {CATEGORIAS_SINAL.map((categoria) => {
-          const soANoite = NAV_ALERTA.categoriasNoturnas.includes(categoria.id);
-          // Só desabilita quando SABEMOS que é dia. Sem posição, entra com o
-          // aviso — a regra é do alerta, e ele explica de novo lá dentro.
-          const bloqueada = soANoite && noite === false;
-
           return (
             <CartaoPatrulha
               key={categoria.id}
               icone={categoria.icon}
               titulo={`Patrulha de ${categoria.name.toLowerCase()}`}
               descricao={
-                soANoite
-                  ? 'Confira se os postes da sua rua estão acesos'
+                categoria.id === 'iluminacao'
+                  ? 'Encontre postes acesos de dia, apagados, sem braço ou com defeito'
                   : `Só as broncas de ${categoria.name.toLowerCase()}`
               }
-              aviso={
-                soANoite
-                  ? bloqueada
-                    ? 'Disponível quando escurecer por aqui'
-                    : 'Só alerta depois que escurece'
-                  : null
-              }
-              desabilitado={bloqueada}
+              desabilitado={false}
               selecionado={selecionada === categoria.id}
               onClick={() => onSelecionar(categoria.id)}
             />

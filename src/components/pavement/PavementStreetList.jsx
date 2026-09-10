@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { SITUACOES, extensaoDaRua, formatarKm } from '@/lib/pavementLength';
 import { cepsDaRua } from '@/lib/pavementReport';
 import { streetPath } from '@/lib/shareUtils';
+import { apelidosDaRua } from '@/lib/streetAliases';
+import { autoresDaRua, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 
 // O mapa de pavimentação lido como LISTA.
 //
@@ -83,7 +85,9 @@ export default function PavementStreetList({
       <ul className={`divide-y divide-edge-subtle ${emPagina ? '' : 'min-h-0 flex-1 overflow-y-auto'}`}>
         {visiveis.map((rua) => {
           const ceps = cepsDaRua(rua);
+          const apelidos = apelidosDaRua(rua);
           const metros = extensaoDaRua(rua);
+          const autores = autoresDaRua(rua);
           return (
             <li
               key={rua.id}
@@ -117,6 +121,21 @@ export default function PavementStreetList({
                     </span>
                   )}
                 </div>
+                {apelidos.length > 0 && (
+                  <p className="mt-0.5 truncate text-[11px] text-content-secondary">
+                    Também conhecida como {apelidos.join(', ')}
+                  </p>
+                )}
+                {autores.length > 0 && (
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-content-secondary">
+                    Projeto de lei: {autores.join(', ')}
+                  </p>
+                )}
+                {autores.length === 0 && temProjetoDeLei(rua) && (
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-status-pendingFg">
+                    Projeto de lei sem autor vinculado
+                  </p>
+                )}
                 <p className="mt-0.5 truncate text-[11px] text-content-tertiary">
                   {[
                     rua.bairro?.name,

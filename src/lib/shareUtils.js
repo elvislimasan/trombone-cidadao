@@ -88,8 +88,13 @@ export const getCityEventShareUrl = (id) => `${getBaseAppUrl()}/agora/${id}`;
  * ou rua cujo nome nao produz slug nenhum (so pontuacao). A pagina aceita os
  * dois, entao os dois links funcionam.
  */
-export const getStreetShareUrl = (street) =>
-  `${getBaseAppUrl()}/mapa-pavimentacao/rua/${street?.slug || street?.id || ''}`;
+export const getStreetShareUrl = (street) => {
+  const key = street?.slug || street?.id || '';
+  // WhatsApp mantem a previa por URL. Quando a foto ou a biografia muda, o
+  // `updated_at` cria um endereco novo sem mudar o slug publico.
+  const version = street?.updated_at ? `?v=${encodeURIComponent(street.updated_at)}` : '';
+  return `${getBaseAppUrl()}/share/rua/${key}${version}`;
+};
 
 /** O caminho interno, para `<Link to>`. Mesma regra do endereco publico. */
 export const streetPath = (street) =>

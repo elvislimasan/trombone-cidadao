@@ -1,13 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { X, Search, Link as LinkIcon } from 'lucide-react';
+import { X, Search, Link as LinkIcon, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/customSupabaseClient';
 
-const LinkReportModal = ({ sourceReport, allReports, onClose, onLink }) => {
+const EMPTY_REPORTS = [];
+
+const LinkReportModal = ({ sourceReport, allReports = EMPTY_REPORTS, onClose, onLink }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTargetId, setSelectedTargetId] = useState(null);
+  const [availableReports, setAvailableReports] = useState(allReports || []);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [linking, setLinking] = useState(false);
 
   // === Portal target ===
   const portalTarget = useMemo(() => {
@@ -24,8 +31,46 @@ const LinkReportModal = ({ sourceReport, allReports, onClose, onLink }) => {
     };
   }, []);
 
-  // === Lista filtrada de possíveis alvos ===
-  const potentialTargets = (allReports || []).filter((report) =>
+  // A lista nao pode depender do feed que abriu o modal. Na pagina de detalhe,
+  // `allReports` era vazia; em Favoritos, continha apenas os favoritos.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setLoadingReports(true);
+      setLoadError('');
+
+      let query = supabase
+        .from('reports')
+        .select('id, title, description, status, city_id, category_id, address, created_at')
+        .eq('moderation_status', 'approved')
+        .neq('id', sourceReport.id)
+        .neq('status', 'duplicate')
+        .neq('status', 'resolved')
+        .order('created_at', { ascending: false })
+        .limit(80);
+
+      if (sourceReport.city_id) query = query.eq('city_id', sourceReport.city_id);
+      const term = searchTerm.trim().replace(/[,()%]/g, ' ');
+      if (term) query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+
+      const { data, error } = await query;
+      if (cancelled) return;
+      if (error) {
+        setLoadError('Não foi possível carregar as broncas disponíveis.');
+        setAvailableReports(allReports || []);
+      } else {
+        setAvailableReports(data || []);
+      }
+      setLoadingReports(false);
+    }, searchTerm ? 250 : 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [allReports, searchTerm, sourceReport.city_id, sourceReport.id]);
+
+  const potentialTargets = (availableReports || []).filter((report) =>
     report.id !== sourceReport.id &&
     report.status !== 'duplicate' &&
     report.status !== 'resolved' &&
@@ -35,8 +80,14 @@ const LinkReportModal = ({ sourceReport, allReports, onClose, onLink }) => {
     )
   );
 
-  const handleLink = () => {
-    if (selectedTargetId) onLink(sourceReport.id, selectedTargetId);
+  const handleLink = async () => {
+    if (!selectedTargetId || linking) return;
+    setLinking(true);
+    try {
+      await onLink(sourceReport.id, selectedTargetId);
+    } finally {
+      setLinking(false);
+    }
   };
 
   // === Conteúdo do modal ===
@@ -104,7 +155,11 @@ const LinkReportModal = ({ sourceReport, allReports, onClose, onLink }) => {
             </div>
 
             <div className="space-y-2">
-              {potentialTargets.length > 0 ? (
+              {loadingReports ? (
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Buscando broncas...
+                </div>
+              ) : potentialTargets.length > 0 ? (
                 potentialTargets.map((target) => (
                   <div
                     key={target.id}
@@ -121,11 +176,16 @@ const LinkReportModal = ({ sourceReport, allReports, onClose, onLink }) => {
                     <p className="text-xs text-muted-foreground truncate">
                       {target.description}
                     </p>
+                    {target.address && (
+                      <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" /> {target.address}
+                      </p>
+                    )}
                   </div>
                 ))
               ) : (
                 <p className="text-center text-sm text-muted-foreground py-4">
-                  Nenhuma bronca compatível encontrada.
+                  {loadError || 'Nenhuma bronca compatível encontrada nesta cidade.'}
                 </p>
               )}
             </div>
@@ -138,11 +198,11 @@ const LinkReportModal = ({ sourceReport, allReports, onClose, onLink }) => {
             </Button>
             <Button
               onClick={handleLink}
-              disabled={!selectedTargetId}
+              disabled={!selectedTargetId || linking}
               className="bg-primary hover:bg-primary/90 gap-2"
             >
-              <LinkIcon className="w-4 h-4" />
-              Vincular
+              {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
+              {linking ? 'Vinculando...' : 'Vincular'}
             </Button>
           </div>
         </div>

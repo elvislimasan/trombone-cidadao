@@ -188,15 +188,16 @@ test('in-progress alerta igual a pending', () => {
 // chega ao avaliador. O que sobrou aqui é a regra que não é de categoria, e sim
 // de física.
 
-test('iluminação continua muda de dia, venha de onde vier', () => {
-  // Escuridão é física: nenhuma escolha de tela faz o poste ficar visível ao
-  // meio-dia.
+test('iluminação alerta de dia, venha de onde vier', () => {
+  // A patrulha também identifica postes acesos durante o dia, sem braço ou com
+  // outros defeitos visíveis.
   const r = avaliarAlerta(
     posicao(),
     bronca(0, DENTRO, { category: 'iluminacao' }),
     { agora: new Date('2026-08-20T15:00:00Z').getTime() }
   );
-  assert.equal(r.motivo, 'so-a-noite');
+  assert.equal(r.alerta, true);
+  assert.equal(r.motivo, 'ok');
 });
 
 test('categoria sem regra especial alerta normalmente', () => {
@@ -208,22 +209,20 @@ test('bronca sem categoria não é silenciada por engano', () => {
   assert.equal(avaliarAlerta(posicao(), bronca(0, DENTRO)).alerta, true);
 });
 
-// ── Iluminação só à noite ─────────────────────────────────────────────────────
+// ── Iluminação em qualquer horário ────────────────────────────────────────────
 
 // Floresta/PE em 20/ago/2026. O pôr do sol local é ~17h31 (UTC-3).
 const MEIO_DIA = new Date('2026-08-20T15:00:00Z').getTime();
 const NOITE = new Date('2026-08-20T22:00:00Z').getTime();
 
-test('poste apagado não alerta de dia', () => {
-  // De dia ninguém consegue confirmar nem desmentir um poste apagado — o
-  // alerta pediria um julgamento impossível.
+test('bronca de iluminação também alerta de dia', () => {
   const r = avaliarAlerta(
     posicao(),
     bronca(0, DENTRO, { category: 'iluminacao' }),
     { agora: MEIO_DIA }
   );
-  assert.equal(r.alerta, false);
-  assert.equal(r.motivo, 'so-a-noite');
+  assert.equal(r.alerta, true);
+  assert.equal(r.motivo, 'ok');
 });
 
 test('poste apagado alerta à noite', () => {
@@ -235,7 +234,7 @@ test('poste apagado alerta à noite', () => {
   assert.equal(r.alerta, true);
 });
 
-test('a regra da noite não afeta as outras categorias', () => {
+test('outras categorias continuam alertando de dia', () => {
   const r = avaliarAlerta(
     posicao(),
     bronca(0, DENTRO, { category: 'buracos' }),

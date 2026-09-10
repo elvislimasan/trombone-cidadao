@@ -63,7 +63,7 @@ const Numero = ({ Icone, valor, rotulo, para, destaque = false }) => {
 
 const StreetSummary = ({ streetId }) => {
   const [resumo, setResumo] = useState(null);
-  const [previas, setPrevias] = useState({ broncas: [], obras: [] });
+  const [obrasProximas, setObrasProximas] = useState([]);
 
   useEffect(() => {
     if (!streetId) return;
@@ -79,29 +79,18 @@ const StreetSummary = ({ streetId }) => {
       if (cancelado || error) return;
       setResumo(dadosResumo);
 
-      const idsBroncas = Array.isArray(foco?.report_ids) ? foco.report_ids : [];
       const idsObras = Array.isArray(foco?.work_ids) ? foco.work_ids : [];
-      const [broncas, obras] = await Promise.all([
-        idsBroncas.length
-          ? supabase
-              .from('reports')
-              .select('id, title, status, address, created_at')
-              .in('id', idsBroncas)
-              .order('created_at', { ascending: false })
-              .limit(3)
-          : Promise.resolve({ data: [] }),
-        idsObras.length
-          ? supabase
-              .from('public_works')
-              .select('id, title, status, execution_percentage, last_update')
-              .in('id', idsObras)
-              .order('last_update', { ascending: false, nullsFirst: false })
-              .limit(3)
-          : Promise.resolve({ data: [] }),
-      ]);
+      const obras = idsObras.length
+        ? await supabase
+            .from('public_works')
+            .select('id, title, status, execution_percentage, last_update')
+            .in('id', idsObras)
+            .order('last_update', { ascending: false, nullsFirst: false })
+            .limit(3)
+        : { data: [] };
 
       if (!cancelado) {
-        setPrevias({ broncas: broncas.data || [], obras: obras.data || [] });
+        setObrasProximas(obras.data || []);
       }
     };
 
@@ -110,12 +99,6 @@ const StreetSummary = ({ streetId }) => {
   }, [streetId]);
 
   if (!resumo) return null;
-
-  const rotuloDaBronca = (status) => ({
-    pending: 'Pendente',
-    'in-progress': 'Em andamento',
-    resolved: 'Resolvida',
-  })[status] || 'Publicada';
 
   const rotuloDaObra = (status) => ({
     planned: 'Prevista',
@@ -169,49 +152,27 @@ const StreetSummary = ({ streetId }) => {
         )}
       </div>
 
-      {/* No celular os contadores são suficientes. No desktop, a largura total
-          permite comparar as ocorrências e as obras sem alongar a página. */}
-      {(previas.broncas.length > 0 || previas.obras.length > 0) && (
-        <div className="mt-5 hidden gap-5 border-t border-edge-subtle pt-5 xl:grid xl:grid-cols-2">
-          {previas.broncas.length > 0 && (
-            <section className={previas.obras.length === 0 ? 'xl:col-span-2' : ''}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-extrabold text-content-primary">Broncas recentes</h3>
-                <Link to={`/mapa?rua=${streetId}`} className="text-xs font-bold text-brand hover:underline">Ver todas</Link>
-              </div>
-              <div className={`grid gap-2 ${previas.obras.length === 0 ? 'xl:grid-cols-3' : ''}`}>
-                {previas.broncas.map((bronca) => (
-                  <LinhaPrevia
-                    key={bronca.id}
-                    para={`/bronca/${bronca.id}`}
-                    Icone={Megaphone}
-                    titulo={bronca.title}
-                    detalhe={[rotuloDaBronca(bronca.status), bronca.address].filter(Boolean).join(' · ')}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {previas.obras.length > 0 && (
-            <section className={previas.broncas.length === 0 ? 'xl:col-span-2' : ''}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-extrabold text-content-primary">Obras próximas</h3>
-                <Link to={`/obras-publicas?rua=${streetId}`} className="text-xs font-bold text-brand hover:underline">Ver todas</Link>
-              </div>
-              <div className={`grid gap-2 ${previas.broncas.length === 0 ? 'xl:grid-cols-3' : ''}`}>
-                {previas.obras.map((obra) => (
-                  <LinhaPrevia
-                    key={obra.id}
-                    para={`/obras-publicas/${obra.id}`}
-                    Icone={HardHat}
-                    titulo={obra.title}
-                    detalhe={`${rotuloDaObra(obra.status)}${obra.execution_percentage != null ? ` · ${obra.execution_percentage}% executada` : ''}`}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+      {/* As broncas agora fecham a página num carrossel visual. Aqui permanecem
+          apenas as obras, que ainda não têm uma vitrine própria. */}
+      {obrasProximas.length > 0 && (
+        <div className="mt-5 hidden border-t border-edge-subtle pt-5 xl:block">
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-extrabold text-content-primary">Obras próximas</h3>
+              <Link to={`/obras-publicas?rua=${streetId}`} className="text-xs font-bold text-brand hover:underline">Ver todas</Link>
+            </div>
+            <div className="grid gap-2 xl:grid-cols-3">
+              {obrasProximas.map((obra) => (
+                <LinhaPrevia
+                  key={obra.id}
+                  para={`/obras-publicas/${obra.id}`}
+                  Icone={HardHat}
+                  titulo={obra.title}
+                  detalhe={`${rotuloDaObra(obra.status)}${obra.execution_percentage != null ? ` · ${obra.execution_percentage}% executada` : ''}`}
+                />
+              ))}
+            </div>
+          </section>
         </div>
       )}
     </div>

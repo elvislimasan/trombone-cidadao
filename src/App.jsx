@@ -56,6 +56,7 @@ import ManageCampaignsPage from '@/pages/admin/ManageCampaignsPage';
 import ColecaoPage from '@/pages/ColecaoPage';
 import SensoriamentoPage from '@/pages/SensoriamentoPage';
 import AssistEvaluationPage from '@/pages/admin/AssistEvaluationPage';
+import AudienceAnalyticsPage from '@/pages/admin/AudienceAnalyticsPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import TermsOfUsePage from '@/pages/TermsOfUsePage';
 import FavoritesPage from '@/pages/FavoritesPage';
@@ -104,6 +105,7 @@ import AgoraPage from '@/pages/AgoraPage';
 import CityEventPage from '@/pages/CityEventPage';
 import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
 import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
+import AudienceTracker from '@/components/AudienceTracker';
 
 const SEO = () => {
   const location = useLocation();
@@ -678,6 +680,7 @@ function AppShell() {
   return (
     <UploadProvider>
       <SEO />
+      <AudienceTracker />
       <MobileHeaderProvider>
         {/* bg-surface-base em vez do #F9FAFB fixo: o padding inferior do <main>
             (que reserva o espaco da bottom nav) deixava esse cinza claro
@@ -801,6 +804,11 @@ function AppShell() {
               <Route path="/imoveis-alugados/:id" element={<RentalPropertyDetailsPage />} />
               <Route path="/agora" element={<AgoraPage />} />
               <Route path="/agora/:eventId" element={<CityEventPage />} />
+              {/* Fallback para hospedagens que entreguem o SPA antes de aplicar
+                  o proxy social. O .htaccess/Vercel normalmente envia esta URL
+                  para share-street; se isso nao acontecer, o visitante ainda
+                  abre a rua em vez de cair no 404. */}
+              <Route path="/share/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/servicos" element={<ServicesPage />} />
@@ -820,6 +828,7 @@ function AppShell() {
               <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
               
               <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+              <Route path="/admin/audiencia" element={<AdminRoute><AudienceAnalyticsPage /></AdminRoute>} />
               <Route path="/admin/moderacao/:type" element={<ModuleRoute module="moderation" adminOnly><ModerationPage /></ModuleRoute>} />
               {/* Fila de auditoria de CADASTRO (ponto, categoria, risco). Tela
                   separada da moderação de conteúdo de propósito: aqui não se

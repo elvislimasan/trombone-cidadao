@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useParams } from 'react-router-dom';
 import { compartilharLink } from '@/lib/shareLink';
 import { getStreetShareUrl } from '@/lib/shareUtils';
 import { baixarPlacaDaRua } from '@/lib/streetSignPdf';
 import { linhasDoTracado } from '@/lib/streetGeometry';
-import { CircleMarker, MapContainer } from 'react-leaflet';
+import { apelidosDaRua } from '@/lib/streetAliases';
+import { CircleMarker, MapContainer, Polyline, useMap } from 'react-leaflet';
 import {
   BookOpen,
   ChevronDown,
@@ -32,12 +33,17 @@ import PavementEditModal from '@/components/pavement/PavementEditModal';
 import { supabase } from '@/lib/customSupabaseClient';
 import { savePavementStreet } from '@/lib/savePavementStreet';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
-import { MapBaseLayer } from '@/components/map/MapDisplayControls';
+import {
+  MAP_LAYER,
+  MapBaseLayer,
+  MapLayerToggle,
+} from '@/components/map/MapDisplayControls';
 import { cepsDaRua, rotuloDoPavimento } from '@/lib/pavementReport';
 import { showAppError } from '@/lib/appError';
 import StreetEventBanner from '@/components/agora/StreetEventBanner';
 import FollowAreaButton from '@/components/agora/FollowAreaButton';
 import StreetSummary from '@/components/pavement/StreetSummary';
+import RecentReportsCarousel from '@/components/report/RecentReportsCarousel';
 import SugerirClassificacao from '@/components/pavement/SugerirClassificacao';
 import { useStreetCityEvents } from '@/hooks/useCityEvents';
 import {
@@ -92,6 +98,21 @@ const parseLocation = (location) => {
   }
   const match = String(location).match(/POINT\(([-\d.]+) ([-\d.]+)\)/i);
   return match ? { lat: Number(match[2]), lng: Number(match[1]) } : null;
+};
+
+const AjustarMapaAoTracado = ({ linhas, centro }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const pontos = (linhas || []).flat().map(([lng, lat]) => [lat, lng]);
+    if (pontos.length >= 2) {
+      map.fitBounds(pontos, { padding: [22, 22], maxZoom: 18, animate: false });
+      return;
+    }
+    if (centro) map.setView([centro.lat, centro.lng], 16, { animate: false });
+  }, [centro, linhas, map]);
+
+  return null;
 };
 
 const statusLabel = (street) => {
@@ -293,6 +314,12 @@ const LinhaDocumento = ({ documento }) => {
         <span className="line-clamp-2 break-words text-sm font-bold text-content-primary">
           {documento.title || 'Documento'}
         </span>
+        {documento.councilorAuthor && (
+          <span className="mt-1 flex min-w-0 items-baseline gap-1 text-sm">
+            <span className="shrink-0 font-semibold text-content-secondary">Autoria:</span>
+            <span className="truncate font-bold text-brand">{documento.councilorAuthor}</span>
+          </span>
+        )}
         {segundaLinha && (
           <span className="mt-0.5 block truncate text-xs text-content-tertiary">{segundaLinha}</span>
         )}
@@ -350,6 +377,7 @@ export default function PavementStreetPage() {
   // rua so traz o bairro DELA, e um CEP pode apontar para outro.
   const [bairroDoCep, setBairroDoCep] = useState({});
   const [baixandoPlaca, setBaixandoPlaca] = useState(null);
+  const [mapLayer, setMapLayer] = useState(MAP_LAYER.STANDARD);
 
   const { canManage, isPureAmbassador, myActiveCityIds } = useCanManagePavement(street?.city_id);
   // Minha Rua: o que esta acontecendo na regiao agora. A rua nunca guarda
@@ -438,6 +466,7 @@ export default function PavementStreetPage() {
   const fotosDaRua = fotosDaRuaOrdenadas(fotos);
 
   const honoreeName = textoLimpo(street?.honoree_name);
+  const apelidos = apelidosDaRua(street);
   const biography = textoLimpo(street?.biography);
   const curiosities = textoLimpo(street?.curiosities);
   const bairroName = textoLimpo(street?.bairro?.name);
@@ -447,16 +476,20 @@ export default function PavementStreetPage() {
   const nomeDoHomenageadoRepete = nomeRedundante(street?.name, honoreeName);
   const pavementStatus = statusLabel(street);
   const atualizadoEm = formatarDataBr(street?.updated_at);
+  const tracado = useMemo(() => linhasDoTracado(street), [street]);
   const extremos = useMemo(() => {
-    const linhas = linhasDoTracado(street);
-    const pontos = linhas.flat();
+    const pontos = tracado.flat();
     if (pontos.length >= 2) {
       const [inicioLng, inicioLat] = pontos[0];
       const [fimLng, fimLat] = pontos[pontos.length - 1];
       return { inicio: { lat: inicioLat, lng: inicioLng }, fim: { lat: fimLat, lng: fimLng } };
     }
     return street?.location ? { inicio: street.location, fim: street.location } : null;
-  }, [street]);
+  }, [street, tracado]);
+
+  const mapCenter = street?.location || (tracado[0]?.[0]
+    ? { lat: tracado[0][0][1], lng: tracado[0][0][0] }
+    : null);
 
   // O BAIRRO APARECE UMA VEZ SÓ
   //
@@ -474,8 +507,8 @@ export default function PavementStreetPage() {
     bairroJaApareceNosCeps ? localidade?.nome : (bairroName || localidade?.nome),
     localidade?.uf,
   ].filter(Boolean).join(', ');
-  const routeUrl = street?.location
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${street.location.lat},${street.location.lng}`)}&travelmode=driving`
+  const routeUrl = mapCenter
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${mapCenter.lat},${mapCenter.lng}`)}&travelmode=driving`
     : null;
 
   const documentosVisiveis = todosOsDocumentos ? documentos : documentos.slice(0, DOCUMENTOS_VISIVEIS);
@@ -522,7 +555,7 @@ export default function PavementStreetPage() {
     ceps.length > 0 || temReferenciaGeografica || atualizadoEm
   );
   const temHistoria = Boolean(honoreeName || biography || fotoDoHomenageado);
-  const temConsulta = Boolean(street.location) || temFicha;
+  const temConsulta = Boolean(mapCenter) || temFicha;
 
   // DUAS COLUNAS SÓ QUANDO A LARGA TEM CORPO PARA SUSTENTÁ-LAS
   //
@@ -543,7 +576,7 @@ export default function PavementStreetPage() {
           página inteira ser tão alta quanto ele.
           "Traçar rota" parte da coordenada cadastrada, e é por isso que funciona
           para rua que mapa comercial ainda não conhece. */}
-      {street.location && (
+      {mapCenter && (
         <Cartao
           icone={Navigation}
           titulo="Onde fica"
@@ -555,27 +588,50 @@ export default function PavementStreetPage() {
             </Button>
           )}
         >
-          <div className="h-56 w-full sm:h-64">
+          <div className="relative h-56 w-full sm:h-64">
             <MapContainer
-              center={[street.location.lat, street.location.lng]}
+              center={[mapCenter.lat, mapCenter.lng]}
               zoom={16}
               scrollWheelZoom={false}
               className="h-full w-full"
             >
-              <MapBaseLayer />
-              <CircleMarker
-                center={[street.location.lat, street.location.lng]}
-                radius={9}
-                pathOptions={{ color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1 }}
-              />
+              <MapBaseLayer layer={mapLayer} />
+              <AjustarMapaAoTracado linhas={tracado} centro={mapCenter} />
+              {tracado.length > 0 ? tracado.map((linha, indice) => {
+                const positions = linha.map(([lng, lat]) => [lat, lng]);
+                return (
+                  <Fragment key={`tracado-${indice}`}>
+                    <Polyline
+                      positions={positions}
+                      pathOptions={{ color: '#ffffff', weight: 9, opacity: 0.9, lineCap: 'round' }}
+                    />
+                    <Polyline
+                      positions={positions}
+                      pathOptions={{ color: '#dc2626', weight: 5, opacity: 1, lineCap: 'round' }}
+                    />
+                  </Fragment>
+                );
+              }) : (
+                <CircleMarker
+                  center={[mapCenter.lat, mapCenter.lng]}
+                  radius={9}
+                  pathOptions={{ color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1 }}
+                />
+              )}
             </MapContainer>
+            <MapLayerToggle
+              layer={mapLayer}
+              onLayerChange={setMapLayer}
+              className="absolute right-3 top-3 z-[800]"
+            />
           </div>
 
           {/* A ressalva vem DEPOIS do mapa: antes dele, ela era a primeira coisa
               lida num cartão cujo assunto é a imagem. */}
           <p className="px-4 py-3 text-xs leading-relaxed text-content-tertiary sm:px-5">
-            A rota usa a coordenada cadastrada, mesmo que a rua ainda não conste
-            nos mapas comerciais.
+            {tracado.length > 0
+              ? 'A linha destaca o traçado cadastrado da rua. A rota usa um ponto desse trecho.'
+              : 'Sem traçado cadastrado, o mapa mostra a coordenada de referência da rua.'}
           </p>
         </Cartao>
       )}
@@ -852,6 +908,11 @@ export default function PavementStreetPage() {
           <div className="mt-2 min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Minha rua</p>
             <h1 className="mt-1 text-3xl font-extrabold leading-tight text-content-primary sm:text-4xl">{street.name}</h1>
+            {apelidos.length > 0 && (
+              <p className="mt-2 text-sm font-medium text-content-secondary">
+                Também conhecida como {apelidos.join(', ')}
+              </p>
+            )}
           </div>
 
           {/* NO TOPO FICA SÓ A IDENTIDADE
@@ -917,6 +978,8 @@ export default function PavementStreetPage() {
             {leitura}
           </>
         )}
+
+        <RecentReportsCarousel streetId={street.id} streetName={street.name} />
       </main>
 
       <PavementEditModal

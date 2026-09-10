@@ -2,6 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { normalizarCep } from '@/lib/cepLookup';
+import { normalizarApelidosDaRua } from '@/lib/streetAliases';
+import { autoresDoProjeto } from '@/lib/pavementStreetHistory';
 import {
   pavementMediaStoragePath,
   removePavementMedia,
@@ -168,6 +170,16 @@ export const savePavementStreet = async ({
         // valor novo digitado por engano viraria 'outro' em vez de criar uma
         // terceira categoria invisivel que nenhum filtro conhece.
         kind: ['lei', 'projeto_lei'].includes(item.kind) ? item.kind : 'outro',
+        // A autoria pertence ao projeto, não à rua nem à lei sancionada. Guardar
+        // no próprio documento permite mais de um projeto e deixa a base pronta
+        // para agrupar ruas por vereador sem atribuir autoria ao anexo errado.
+        ...(item.kind === 'projeto_lei' && autoresDoProjeto(item).length > 0
+          ? {
+              councilor_authors: autoresDoProjeto(item),
+              // Compatibilidade com clientes ainda na versao singular.
+              councilor_author: autoresDoProjeto(item)[0],
+            }
+          : {}),
         url: stored?.url || item.url,
         ...(stored?.path || item.path ? { path: stored?.path || item.path } : {}),
       });
@@ -225,6 +237,7 @@ export const savePavementStreet = async ({
 
   const payload = {
     name: trimmedName,
+    informal_names: normalizarApelidosDaRua(data.informal_names, trimmedName),
     is_unnamed: Boolean(data.is_unnamed),
     // CEPS: A LISTA É A VERDADE, `cep` É COMPATIBILIDADE
     //

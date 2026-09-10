@@ -26,6 +26,7 @@ const adminLinks = [
   // ao contrário da anterior, tem porta de entrada.
   { to: '/admin/moderacao/comentarios', icon: 'Flag', title: 'Comentários Denunciados', description: 'Veja o que foi denunciado, antes e depois de sair do ar.', module: 'moderation' },
   { to: '/admin/usuarios', icon: 'Users', title: 'Gerenciar Usuários', description: 'Adicione, edite e remova usuários.' },
+  { to: '/admin/audiencia', icon: 'BarChart3', title: 'Audiência', description: 'Acessos, usuários e páginas no site, Android e iOS.' },
   { to: '/admin/moderacao/peticoes', icon: 'ShieldCheck', title: 'Moderar Petições', description: 'Aprove ou rejeite petições pendentes.', module: 'moderation' },
   { to: '/admin/assinaturas', icon: 'FileSignature', title: 'Gerenciar Petições', description: 'Acompanhe abaixo-assinados publicados.' },
   { to: '/admin/broncas', icon: 'Megaphone', title: 'Gerenciar Broncas', description: 'Edite ou remova broncas publicadas.', module: 'moderation' },
@@ -54,7 +55,7 @@ const GRUPOS = [
 
 const grupoDoLink = ({ to }) => {
   if (/moderacao|auditorias|lixeira|assistente/.test(to)) return 'moderacao';
-  if (/usuarios|embaixadores|permissoes/.test(to)) return 'pessoas';
+  if (/usuarios|embaixadores|permissoes|audiencia/.test(to)) return 'pessoas';
   if (/configuracoes|canais-do-orgao/.test(to)) return 'sistema';
   return 'conteudo';
 };

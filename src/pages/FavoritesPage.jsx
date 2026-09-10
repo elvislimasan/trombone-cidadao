@@ -208,9 +208,14 @@ const FavoritesPage = () => {
   };
 
   const handleLinkReport = async (sourceReportId, targetReportId) => {
-    const { error } = await supabase.from('reports').update({ status: 'duplicate', linked_to: targetReportId }).eq('id', sourceReportId);
-    if (error) {
-      showAppError({ title: "Erro ao vincular", description: error.message, variant: "destructive" });
+    const { data: linkedReport, error } = await supabase
+      .from('reports')
+      .update({ status: 'duplicate', linked_to: targetReportId })
+      .eq('id', sourceReportId)
+      .select('id')
+      .maybeSingle();
+    if (error || !linkedReport) {
+      showAppError({ title: "Erro ao vincular", description: error?.message || 'A bronca não foi alterada. Confira sua permissão e tente novamente.', variant: "destructive" });
     } else {
       fetchFavorites(page);
       setSelectedReport(null);

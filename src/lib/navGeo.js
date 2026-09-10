@@ -146,14 +146,6 @@ export const NAV_ALERTA = {
   /** Abertura do cone à frente, para cada lado do rumo. */
   coneGraus: 45,
   /**
-   * Categorias que só alertam com o sol abaixo do horizonte.
-   *
-   * Poste apagado de dia é invisível: ninguém consegue confirmar nem desmentir,
-   * e o alerta pediria um julgamento impossível. À noite é a única hora em que
-   * a informação existe — e é quando o problema de fato atrapalha alguém.
-   */
-  categoriasNoturnas: ['iluminacao'],
-  /**
    * Piso de movimento para alertar. 0,7 m/s (~2,5 km/h) fica acima do tremor do
    * GPS parado e abaixo do passo de uma pessoa: quem anda a pé também encontra
    * buracos e postes apagados, e com 1,5 m/s a caminhada ficava de fora.
@@ -206,7 +198,7 @@ export const NAV_ALERTA = {
  * @param {{lat:number,lng:number,heading:number,speed:number,accuracy:number}} pos
  * @param {{id:string,lat:number,lng:number,status:string}} bronca
  */
-export const avaliarAlerta = (pos, bronca, { jaAlertadas, agora } = {}) => {
+export const avaliarAlerta = (pos, bronca, { jaAlertadas } = {}) => {
   const nao = (motivo, extra = {}) => ({ alerta: false, motivo, ...extra });
 
   if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lng)) {
@@ -225,14 +217,6 @@ export const avaliarAlerta = (pos, bronca, { jaAlertadas, agora } = {}) => {
   // categorias silenciosas: "outros" simplesmente não tem patrulha, então
   // nenhuma bronca dessa categoria chega até aqui.
   //
-  // A regra da noite continua, e não é o mesmo tipo de coisa: escolher a
-  // patrulha de iluminação não faz o poste ficar visível ao meio-dia.
-  if (
-    NAV_ALERTA.categoriasNoturnas.includes(bronca.category) &&
-    !ehNoite(agora ?? Date.now(), pos.lat, pos.lng)
-  ) {
-    return nao('so-a-noite');
-  }
   if (Number(pos.accuracy) > NAV_ALERTA.precisaoMaximaM) return nao('sinal-fraco');
   if (!(Number(pos.speed) >= NAV_ALERTA.velocidadeMinimaMs)) return nao('parado');
   if (!Number.isFinite(pos.heading)) return nao('sem-rumo');
