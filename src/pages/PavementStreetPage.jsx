@@ -45,6 +45,7 @@ import FollowAreaButton from '@/components/agora/FollowAreaButton';
 import StreetSummary from '@/components/pavement/StreetSummary';
 import RecentReportsCarousel from '@/components/report/RecentReportsCarousel';
 import SugerirClassificacao from '@/components/pavement/SugerirClassificacao';
+import CouncilorAttributionCard from '@/components/pavement/CouncilorAttributionCard';
 import { useStreetCityEvents } from '@/hooks/useCityEvents';
 import {
   capaDaRua,
@@ -980,6 +981,7 @@ export default function PavementStreetPage() {
         )}
 
         <RecentReportsCarousel streetId={street.id} streetName={street.name} />
+        <CouncilorAttributionCard street={street} />
       </main>
 
       <PavementEditModal

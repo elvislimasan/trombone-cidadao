@@ -227,8 +227,10 @@ function HomeDesktop() {
       // de broncas com foto. E o limite sobe de 3 para 8 — num carrossel, o que
       // não cabe na primeira tela continua existindo; numa pilha, não.
       supabase.from('petitions')
-        .select('id, title, goal, status, image_url, signatures(count)')
+        .select('id, title, goal, status, image_url, is_featured, featured_order, signatures(count)')
         .eq('status', 'open')
+        .eq('is_featured', true)
+        .order('featured_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(8),
       // Um caso real para a faixa de impacto. Ele e consultado separadamente

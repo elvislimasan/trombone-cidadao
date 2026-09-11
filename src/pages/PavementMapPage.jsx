@@ -27,6 +27,7 @@ import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import CitySelector from '@/components/CitySelector';
 import { showAppError } from '@/lib/appError';
 import PavementEditModal from '@/components/pavement/PavementEditModal';
+import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
 import { savePavementStreet } from '@/lib/savePavementStreet';
 import { apelidosDaRua } from '@/lib/streetAliases';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
@@ -892,6 +893,17 @@ const PavementMapPage = () => {
         </>
         )}
         </motion.div>
+
+        {/* O ranking é conteúdo complementar, não parte do painel cartográfico.
+            Fora do contêiner com altura de viewport ele aparece depois do mapa
+            sem consumir a altura do canvas nem apertar seus controles. */}
+        <div className="mx-auto w-full max-w-[112rem] px-3 pb-6 pt-1 md:px-6 lg:px-8">
+          <CouncilorRankingCard
+            streets={streetData}
+            cityId={activeCityId}
+            cityName={activeCityName}
+          />
+        </div>
       </div>
 
       <Drawer

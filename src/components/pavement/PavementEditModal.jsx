@@ -62,9 +62,15 @@ const DocumentField = ({ icon: Icon, label, htmlFor, children }) => (
 const ProjectAuthorsField = ({ id, document, options, onChange }) => {
   const [draft, setDraft] = useState('');
   const authors = autoresDoProjeto(document);
+  const available = (options || [])
+    .filter((option) => !authors.some((author) => chaveDeAutor(author) === chaveDeAutor(option)));
+  const suggestions = draft.trim()
+    ? available.filter((option) => chaveDeAutor(option).includes(chaveDeAutor(draft))).slice(0, 6)
+    : available.slice(0, 6);
+  const draftMatchesOption = available.some((option) => chaveDeAutor(option) === chaveDeAutor(draft));
 
-  const addAuthor = () => {
-    const name = draft.trim();
+  const addAuthor = (value = draft) => {
+    const name = value.trim();
     if (!name || authors.some((author) => chaveDeAutor(author) === chaveDeAutor(name))) return;
     onChange([...authors, name]);
     setDraft('');
@@ -94,7 +100,6 @@ const ProjectAuthorsField = ({ id, document, options, onChange }) => {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" aria-hidden="true" />
           <Input
             id={id}
-            list={`${id}-options`}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -105,12 +110,38 @@ const ProjectAuthorsField = ({ id, document, options, onChange }) => {
             placeholder="Selecione ou digite um novo nome"
             autoComplete="off"
             className="rounded-lg border-edge-default bg-surface-raised pl-9 shadow-sm"
+            aria-controls={`${id}-options`}
+            aria-expanded={Boolean(draft.trim())}
           />
-          <datalist id={`${id}-options`}>
-            {(options || [])
-              .filter((option) => !authors.some((author) => chaveDeAutor(author) === chaveDeAutor(option)))
-              .map((option) => <option key={chaveDeAutor(option)} value={option} />)}
-          </datalist>
+          {draft.trim() && (
+            <div id={`${id}-options`} role="listbox" className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border border-edge-default bg-surface-overlay p-1 shadow-xl">
+              {!draftMatchesOption && (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => addAuthor(draft)}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-brand hover:bg-brand-subtleBg"
+                >
+                  <PlusCircle className="h-4 w-4 shrink-0" /> Cadastrar “{draft.trim()}”
+                </button>
+              )}
+              {suggestions.map((option) => (
+                <button
+                  key={chaveDeAutor(option)}
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => addAuthor(option)}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-subtle"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <Button type="button" variant="outline" onClick={addAuthor} disabled={!draft.trim()} className="shrink-0 gap-1.5">
           <PlusCircle className="h-4 w-4" /> Adicionar
@@ -137,12 +168,43 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
   const [buscandoTracado, setBuscandoTracado] = useState(false);
   const [desenhando, setDesenhando] = useState(false);
   const [generatingHistory, setGeneratingHistory] = useState(false);
+  const [registeredCouncilorAuthors, setRegisteredCouncilorAuthors] = useState([]);
+
+  const authorCityId = formData?.city_id
+    || bairros.find((bairro) => String(bairro.id) === String(formData?.bairro_id))?.city_id
+    || defaultCityId
+    || null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!authorCityId) {
+      setRegisteredCouncilorAuthors([]);
+      return undefined;
+    }
+    supabase
+      .from('councilors')
+      .select('name')
+      .eq('city_id', authorCityId)
+      .order('name')
+      .then(({ data, error }) => {
+        if (!cancelled) setRegisteredCouncilorAuthors(error ? [] : (data || []).map((item) => item.name));
+      });
+    return () => { cancelled = true; };
+  }, [authorCityId]);
 
   // O mesmo nome tende a aparecer em vários projetos. Reaproveitar o que já
-  // foi cadastrado reduz variações, mas o primeiro cadastro aceita texto novo.
+  // foi cadastrado reduz variações. A lista junta os perfis do painel com os
+  // nomes históricos, porque um vereador pode ser cadastrado antes da 1ª rua.
   const projectAuthorOptions = useMemo(
-    () => autoresDeProjetos([...(existingStreets || []), formData].filter(Boolean)),
-    [existingStreets, formData]
+    () => {
+      const names = [
+        ...registeredCouncilorAuthors,
+        ...autoresDeProjetos([...(existingStreets || []), formData].filter(Boolean)),
+      ];
+      return [...new Map(names.filter(Boolean).map((name) => [chaveDeAutor(name), name])).values()]
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    },
+    [existingStreets, formData, registeredCouncilorAuthors]
   );
 
   useEffect(() => {

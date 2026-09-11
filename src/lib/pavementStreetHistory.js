@@ -24,7 +24,14 @@ export const textoLimpo = (valor) => (typeof valor === 'string' ? valor.trim() :
 export const chaveDeAutor = (valor) => textoLimpo(valor)
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/gi, ' ')
+  .trim()
   .toLocaleLowerCase('pt-BR');
+
+export const slugDeVereador = (valor) => chaveDeAutor(valor).replace(/\s+/g, '-');
+
+export const rotaDoVereador = (cityId, nomeOuSlug) =>
+  `/vereadores/${cityId}/${/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(nomeOuSlug || '')) ? nomeOuSlug : slugDeVereador(nomeOuSlug)}`;
 
 /** Autores de um projeto, incluindo os cadastros antigos de autor unico. */
 export const autoresDoProjeto = (documento) => {
@@ -80,6 +87,22 @@ export const autoresDeProjetos = (streets) => {
     }
   }
   return [...autores.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+};
+
+/** Ranking por número de ruas, sem contar duas vezes coautoria repetida na mesma rua. */
+export const rankingDeAutores = (streets) => {
+  const ranking = new Map();
+  for (const street of Array.isArray(streets) ? streets : []) {
+    for (const name of autoresDaRua(street)) {
+      const key = chaveDeAutor(name);
+      const current = ranking.get(key) || { key, name, streets: 0 };
+      current.streets += 1;
+      ranking.set(key, current);
+    }
+  }
+  return [...ranking.values()].sort((a, b) =>
+    b.streets - a.streets || a.name.localeCompare(b.name, 'pt-BR')
+  );
 };
 
 /**

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck, Radar } from 'lucide-react';
+import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck, Radar, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import EditProfileModal from '@/components/EditProfileModal';
@@ -41,6 +41,7 @@ const ProfilePage = () => {
   const [rankings, setRankings] = useState({ reports: [], upvotes: [], comments: [] });
   const [userLevel, setUserLevel] = useState(null);
   const [conquistas, setConquistas] = useState([]);
+  const [managedCouncilorPages, setManagedCouncilorPages] = useState([]);
 
   const fetchRankings = useCallback(async () => {
     const { data: reportsRank, error: reportsError } = await supabase.rpc('get_top_users_by_reports');
@@ -107,6 +108,30 @@ const ProfilePage = () => {
     }
   }, [user, navigate, fetchRankings, fetchUserLevel]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      setManagedCouncilorPages([]);
+      return;
+    }
+    let active = true;
+    supabase
+      .from('councilors')
+      .select('id, city_id, name, slug, party, claim_status')
+      .eq('user_id', user.id)
+      .in('claim_status', ['linked', 'verified'])
+      .order('name')
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          console.error('Erro ao carregar páginas legislativas:', error);
+          setManagedCouncilorPages([]);
+          return;
+        }
+        setManagedCouncilorPages(data || []);
+      });
+    return () => { active = false; };
+  }, [user?.id]);
+
   const handleProfileUpdate = async (updatedData) => {
     // city_id/city vêm juntos: "city" é o nome desnormalizado que telas antigas
     // ainda leem. Gravar só o id deixaria as duas colunas discordando —
@@ -121,8 +146,14 @@ const ProfilePage = () => {
         avatar_config: updatedData.avatar_config,
         city_id: updatedData.city_id ?? null,
         city: updatedData.city ?? null,
+        username: updatedData.username ?? null,
+        public_profile_enabled: updatedData.public_profile_enabled ?? false,
+        public_bio: updatedData.public_bio ?? null,
+        public_website: updatedData.public_website ?? null,
+        public_city_visible: updatedData.public_city_visible ?? true,
       })
       .eq('id', user.id);
+
 
     if (error) {
       showAppError({ title: "Erro ao atualizar perfil", description: error.message, variant: "destructive" });
@@ -320,6 +351,11 @@ const ProfilePage = () => {
               </div>
               <div className="min-w-0">
                 <h2 className="text-lg md:text-xl font-bold text-content-primary truncate">{user.name}</h2>
+                {user.username && (
+                  <p className="font-mono text-xs font-semibold text-content-secondary mt-0.5">
+                    @{user.username}
+                  </p>
+                )}
                 <div className={`flex items-center gap-1.5 mt-1 text-sm font-semibold ${userTypeDisplay[user.user_type]?.color}`}>
                   <UserTypeIcon className="w-4 h-4" />
                   <span>{userTypeDisplay[user.user_type]?.text}</span>
@@ -333,6 +369,28 @@ const ProfilePage = () => {
             </div>
 
             <div className="w-full mt-5 space-y-2">
+              {managedCouncilorPages.map((page) => (
+                <Link key={page.id} to={`/perfil/pagina-legislativa/${page.id}`} className="w-full block">
+                  <Button variant="outline" className="h-auto w-full justify-between gap-3 border-brand/30 bg-brand-subtleBg px-4 py-3 text-content-primary hover:bg-brand-subtleBg/80">
+                    <span className="flex min-w-0 items-center gap-3 text-left">
+                      <Landmark className="h-5 w-5 shrink-0 text-brand" />
+                      <span className="min-w-0"><span className="block truncate text-sm font-bold">Gerenciar página legislativa</span><span className="block truncate text-xs font-normal text-content-secondary">{page.name}{page.party ? ` · ${page.party}` : ''}{page.claim_status === 'verified' ? ' · Verificada' : ''}</span></span>
+                    </span>
+                    <Icon name="chevronright" size={16} />
+                  </Button>
+                </Link>
+              ))}
+              {user.public_profile_enabled && user.username && (
+                <Link to={`/u/${user.username}`} className="w-full block">
+                  <Button variant="outline" className="w-full justify-between gap-2 border-edge-default text-content-primary hover:bg-surface-subtle">
+                    <span className="flex items-center gap-2">
+                      <Icon name="profile" size={16} />
+                      Ver meu perfil de participação
+                    </span>
+                    <Icon name="chevronright" size={16} />
+                  </Button>
+                </Link>
+              )}
               {/* "Minhas Broncas" saiu daqui em ago/2026: apontava para
                   /painel-usuario?tab=reports, e a aba de broncas ja e a que o
                   painel abre por padrao — eram dois botoes para a mesma tela.
@@ -354,6 +412,7 @@ const ProfilePage = () => {
                   <Icon name="chevronright" size={16} />
                 </Button>
               </Link>
+
               {/* Veio do cartão de configurações, onde era uma linha chamada
                   "Admin" entre "Privacidade" e "Sair da conta" — o lugar de
                   quem mexe numa preferência uma vez por ano, não o de quem

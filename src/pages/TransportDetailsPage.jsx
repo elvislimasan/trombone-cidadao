@@ -114,7 +114,7 @@ const TransportDetailsPage = () => {
           <Link to="/servicos">
             <Button variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar para o Guia de Serviços
+              Voltar para o Guia da Cidade
             </Button>
           </Link>
           <div className="flex items-center gap-2">

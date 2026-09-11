@@ -31,6 +31,9 @@
   # Redirect /share/rua/SLUG to Supabase Edge Function (rua)
   RewriteRule ^share/rua/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-street?id=$1 [R=302,L]
 
+  # Redirect /share/radar/ID to the social preview for city events
+  RewriteRule ^share/radar/([^?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-event?id=$1 [R=302,L]
+
 
   
   RewriteCond %{REQUEST_FILENAME} !-f

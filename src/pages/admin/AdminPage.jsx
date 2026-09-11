@@ -35,6 +35,7 @@ const adminLinks = [
   { to: '/admin/moderacao/obras-midias', icon: 'ShieldCheck', title: 'Moderar Mídias de Obras', description: 'Aprove ou rejeite fotos e vídeos enviados.', module: 'moderation' },
   { to: '/admin/obras/opcoes', icon: 'ListChecks', title: 'Opções de Obras', description: 'Gerencie categorias e áreas das obras.', module: 'works' },
   { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar Pavimentação', description: 'Atualize o status das ruas.', module: 'pavement' },
+  { to: '/admin/vereadores', icon: 'Landmark', title: 'Vereadores e vínculos', description: 'Cadastre vereadores e analise solicitações de vínculo de contas.', module: 'pavement' },
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.', module: 'services' },
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },
@@ -55,7 +56,7 @@ const GRUPOS = [
 
 const grupoDoLink = ({ to }) => {
   if (/moderacao|auditorias|lixeira|assistente/.test(to)) return 'moderacao';
-  if (/usuarios|embaixadores|permissoes|audiencia/.test(to)) return 'pessoas';
+  if (/usuarios|embaixadores|vereadores|permissoes|audiencia/.test(to)) return 'pessoas';
   if (/configuracoes|canais-do-orgao/.test(to)) return 'sistema';
   return 'conteudo';
 };
@@ -103,6 +104,10 @@ const criarConsultasPendentes = () => ({
     .eq('status', 'pending'),
   '/admin/embaixadores': () => supabase
     .from('ambassador_applications')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending'),
+  '/admin/vereadores': () => supabase
+    .from('councilor_link_requests')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'pending'),
 });

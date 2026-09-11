@@ -6,7 +6,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart } from 'lucide-react';
-import { formatAndCreateWhatsAppLink } from '@/lib/utils';
+import { whatsappNumber } from '@/lib/utils';
 import ServicesRankingSidebar from '@/components/ServicesRankingSidebar';
 import { showAppError } from '@/lib/appError';
 
@@ -24,7 +24,7 @@ const DirectoryDetailsPage = () => {
 
     const { data, error } = await supabase
       .from('directory')
-      .select('*')
+      .select('*, category:directory_categories(name)')
       .eq('id', id)
       .single();
 
@@ -55,19 +55,20 @@ const DirectoryDetailsPage = () => {
         <h1 className="text-2xl font-bold">Item não encontrado</h1>
         <p className="text-muted-foreground">O item que você está procurando não existe ou foi removido.</p>
         <Link to="/servicos">
-          <Button className="mt-4">Voltar ao Guia de Serviços</Button>
+          <Button className="mt-4">Voltar ao Guia da Cidade</Button>
         </Link>
       </div>
     );
   }
 
-  const { formattedPhone, whatsappLink } = formatAndCreateWhatsAppLink(item.phone);
+  const waNumber = whatsappNumber(item.phone);
+  const phoneLink = waNumber ? `https://wa.me/${waNumber}` : `tel:${item.phone || ''}`;
   const initialPosition = item.location ? { lat: item.location.coordinates[1], lng: item.location.coordinates[0] } : null;
 
   return (
     <>
       <Helmet>
-        <title>{`${item.name} - Guia Comercial`}</title>
+        <title>{`${item.name} - Guia da Cidade`}</title>
         <meta name="description" content={`Detalhes sobre ${item.name}: ${item.address}`} />
       </Helmet>
       <motion.div
@@ -80,7 +81,7 @@ const DirectoryDetailsPage = () => {
           <Link to="/servicos">
             <Button variant="outline" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              Voltar ao Guia
+              Voltar ao Guia da Cidade
             </Button>
           </Link>
         </div>
@@ -94,16 +95,19 @@ const DirectoryDetailsPage = () => {
                   {item.type === 'public' ? <Building className="w-8 h-8 text-primary" /> : <ShoppingCart className="w-8 h-8 text-secondary" />}
                   {item.name}
                 </CardTitle>
+                {item.category?.name && <p className="mt-2 text-sm font-semibold text-primary">{item.category.name}</p>}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start gap-3 text-lg">
                   <MapPin className="w-6 h-6 text-muted-foreground mt-1 flex-shrink-0" />
                   <span>{item.address}</span>
                 </div>
-                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-lg hover:text-primary transition-colors">
-                  <Phone className="w-6 h-6 text-muted-foreground" />
-                  <span>{formattedPhone}</span>
-                </a>
+                {item.phone && (
+                  <a href={phoneLink} target={waNumber ? '_blank' : undefined} rel={waNumber ? 'noopener noreferrer' : undefined} className="flex items-center gap-3 text-lg hover:text-primary transition-colors">
+                    <Phone className="w-6 h-6 text-muted-foreground" />
+                    <span>{item.phone}</span>
+                  </a>
+                )}
                 {item.instagram_url && (
                   <a href={item.instagram_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-lg hover:text-primary transition-colors">
                     <Instagram className="w-6 h-6 text-muted-foreground" />

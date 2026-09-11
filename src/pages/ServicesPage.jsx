@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Bus, Bike, Car, CarTaxiFront, Truck, Landmark, Building, ShoppingCart, ArrowRight, PlusCircle, Download, Loader2 } from 'lucide-react';
+import { MapPin, Phone, Bus, Bike, Car, CarTaxiFront, Truck, Landmark, Building, ArrowRight, PlusCircle, Download, Loader2, Church } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -42,6 +42,7 @@ const ServicesPage = () => {
   const [transportOptions, setTransportOptions] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
   const [directory, setDirectory] = useState({ public: [], commerce: [] });
+  const [directoryCategories, setDirectoryCategories] = useState([]);
 
   const fetchData = useCallback(async () => {
     let transportQuery = supabase.from('transport').select('*');
@@ -59,13 +60,19 @@ const ServicesPage = () => {
     let directoryQuery = supabase.from('directory').select('*').eq('status', 'approved');
     if (activeCityId) directoryQuery = directoryQuery.eq('city_id', activeCityId);
     const { data: directoryData, error: directoryError } = await directoryQuery;
-    if (directoryError) showAppError({ title: "Erro ao buscar guia comercial", description: directoryError.message, variant: "destructive" });
+    if (directoryError) showAppError({ title: "Erro ao buscar Guia da Cidade", description: directoryError.message, variant: "destructive" });
     else {
       setDirectory({
         public: directoryData.filter(d => d.type === 'public'),
         commerce: directoryData.filter(d => d.type === 'commerce'),
+        all: directoryData,
       });
     }
+
+    let categoriesQuery = supabase.from('directory_categories').select('*').eq('active', true).order('sort_order').order('name');
+    if (activeCityId) categoriesQuery = categoriesQuery.eq('city_id', activeCityId);
+    const { data: categoriesData } = await categoriesQuery;
+    setDirectoryCategories(categoriesData || []);
 
   }, [activeCityId]);
 
@@ -103,6 +110,22 @@ const ServicesPage = () => {
   }, [selectedDestination, selectedVehicleType, transportOptions]);
 
   const [downloadingTransport, setDownloadingTransport] = useState(false);
+
+  const directoryGroups = useMemo(() => {
+    const byId = new Map(directoryCategories.map((category) => [String(category.id), category]));
+    const groups = new Map();
+    for (const entry of directory.all || []) {
+      const category = byId.get(String(entry.category_id || ''));
+      const parent = category?.parent_id ? byId.get(String(category.parent_id)) : null;
+      const key = category?.id || `legacy-${entry.type || 'other'}`;
+      const label = category
+        ? `${parent ? `${parent.name} · ` : ''}${category.name}`
+        : entry.type === 'public' ? 'Serviços públicos' : 'Comércio e outros locais';
+      if (!groups.has(key)) groups.set(key, { key, label, entries: [] });
+      groups.get(key).entries.push(entry);
+    }
+    return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [directory, directoryCategories]);
 
   const handleDownloadTransportPdf = () => {
     setDownloadingTransport(true);
@@ -157,7 +180,8 @@ const ServicesPage = () => {
   };
 
   const DirectoryCard = ({ item }) => (
-    <Card className="overflow-hidden">
+    <Link to={`/servicos/guia/${item.id}`} className="block">
+    <Card className="overflow-hidden transition-shadow hover:shadow-md">
       <div className="flex">
         <div className="w-1/3 min-w-[80px]">
           <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
@@ -169,13 +193,14 @@ const ServicesPage = () => {
         </div>
       </div>
     </Card>
+    </Link>
   );
 
   return (
     <>
       <Helmet>
         <title>Serviços - Trobone Cidadão</title>
-        <meta name="description" content={`Encontre informações úteis sobre ${activeCityName || 'sua cidade'}: pontos turísticos, transportes e guia comercial.`} />
+        <meta name="description" content={`Encontre informações úteis sobre ${activeCityName || 'sua cidade'}: pontos turísticos, transportes e Guia da Cidade.`} />
       </Helmet>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -185,7 +210,7 @@ const ServicesPage = () => {
       >
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl gradient-text">
-            Guia de Serviços{activeCityName ? ` de ${activeCityName}` : ''}
+            Guia da Cidade{activeCityName ? ` de ${activeCityName}` : ''}
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
             Tudo o que você precisa saber sobre a cidade em um só lugar.
@@ -212,7 +237,7 @@ const ServicesPage = () => {
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 bg-card border border-border h-auto">
             <TabsTrigger value="tourist" className="gap-2 py-2"><Landmark className="w-4 h-4" /> Pontos Turísticos</TabsTrigger>
             <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>
-            <TabsTrigger value="directory" className="gap-2 py-2"><Phone className="w-4 h-4" /> Guia Comercial</TabsTrigger>
+            <TabsTrigger value="directory" className="gap-2 py-2"><Church className="w-4 h-4" /> Guia da Cidade</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tourist" className="mt-8">
@@ -325,18 +350,15 @@ const ServicesPage = () => {
           </TabsContent>
 
           <TabsContent value="directory" className="mt-8 space-y-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-3"><Building className="w-6 h-6 text-primary" /> Serviços Públicos</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {directory.public.map((item) => <DirectoryCard key={item.id} item={item} />)}
+            {directoryGroups.map((group) => (
+              <div key={group.key}>
+                <h2 className="mb-4 flex items-center gap-3 text-2xl font-bold"><Building className="h-6 w-6 text-primary" /> {group.label}</h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {group.entries.map((item) => <DirectoryCard key={item.id} item={item} />)}
+                </div>
               </div>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-3"><ShoppingCart className="w-6 h-6 text-secondary" /> Comércio Local</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {directory.commerce.map((item) => <DirectoryCard key={item.id} item={item} />)}
-              </div>
-            </div>
+            ))}
+            {directoryGroups.length === 0 && <p className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">Nenhum local cadastrado nesta cidade.</p>}
           </TabsContent>
         </Tabs>
       </motion.div>

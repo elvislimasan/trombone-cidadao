@@ -25,6 +25,10 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-street?id=:id"
     },
     {
+      "source": "/share/radar/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-city-event?id=:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

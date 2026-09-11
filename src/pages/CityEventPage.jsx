@@ -157,7 +157,7 @@ export default function CityEventPage() {
             onClick={() => compartilharLink({
               title: `${tipo.rotulo} — ${evento.title}`,
               text: evento.description || tipo.rotulo,
-              url: getCityEventShareUrl(evento.id),
+              url: getCityEventShareUrl(evento),
             })}
           >
             <Share2 className="h-4 w-4" />

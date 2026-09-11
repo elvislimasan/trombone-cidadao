@@ -1,11 +1,13 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Dialog, FormDialogContent, FormDialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import ImageCropper from '@/components/ui/ImageCropper';
 import Avatar, { genConfig } from 'react-nice-avatar';
-import { RefreshCw, Link as LinkIcon } from 'lucide-react';
+import { RefreshCw, Link as LinkIcon, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import {
   DropdownMenu,
@@ -20,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Combobox } from '@/components/ui/combobox';
 import { useCity } from '@/contexts/CityContext';
 import { showAppError } from '@/lib/appError';
+import { validateUsername, normalizeUsername } from '@/lib/username';
 
 const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => {
   const { cities, loadingCities } = useCity();
@@ -36,6 +39,15 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarCropOpen, setAvatarCropOpen] = useState(false);
   const [avatarCropSrc, setAvatarCropSrc] = useState('');
+
+  // Identidade cívica e perfil público
+  const [username, setUsername] = useState('');
+  const [publicProfileEnabled, setPublicProfileEnabled] = useState(false);
+  const [publicBio, setPublicBio] = useState('');
+  const [publicWebsite, setPublicWebsite] = useState('');
+  const [publicCityVisible, setPublicCityVisible] = useState(true);
+  const [usernameCheck, setUsernameCheck] = useState({ checking: false, available: null, reason: null });
+  const checkTimeoutRef = useRef(null);
 
   const initialAvatarConfig = useMemo(() => {
     if (user && user.avatar_config) {
@@ -61,12 +73,59 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       setAvatarType(user.avatar_type || 'generated');
       setAvatarUrl(user.avatar_url || '');
       setAvatarConfig(initialAvatarConfig);
+      setUsername(user.username || '');
+      setPublicProfileEnabled(Boolean(user.public_profile_enabled));
+      setPublicBio(user.public_bio || '');
+      setPublicWebsite(user.public_website || '');
+      setPublicCityVisible(user.public_city_visible ?? true);
+      setUsernameCheck({ checking: false, available: Boolean(user.username), reason: null });
       setAvatarFile(null);
       setAvatarPreviewUrl('');
       setAvatarCropOpen(false);
       setAvatarCropSrc('');
     }
   }, [user, initialAvatarConfig]);
+
+  const handleUsernameChange = useCallback((value) => {
+    const norm = normalizeUsername(value);
+    setUsername(norm);
+
+    if (checkTimeoutRef.current) {
+      clearTimeout(checkTimeoutRef.current);
+    }
+
+    if (!norm) {
+      setUsernameCheck({ checking: false, available: null, reason: null });
+      return;
+    }
+
+    const validation = validateUsername(norm);
+    if (!validation.valid) {
+      setUsernameCheck({ checking: false, available: false, reason: validation.error });
+      return;
+    }
+
+    setUsernameCheck({ checking: true, available: null, reason: null });
+
+    checkTimeoutRef.current = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.rpc('check_username_availability', {
+          p_username: norm,
+        });
+        if (error) {
+          setUsernameCheck({ checking: false, available: null, reason: 'Erro ao verificar disponibilidade.' });
+        } else {
+          setUsernameCheck({
+            checking: false,
+            available: Boolean(data?.available),
+            reason: data?.reason || null,
+          });
+        }
+      } catch (e) {
+        setUsernameCheck({ checking: false, available: null, reason: 'Erro de conexão.' });
+      }
+    }, 400);
+  }, []);
 
   useEffect(() => {
     if (!avatarFile) return;
@@ -161,13 +220,57 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       return;
     }
     
+    if (publicProfileEnabled && !username) {
+      showAppError({
+        title: "Nome de usuário obrigatório",
+        description: "Para ativar o perfil público, defina um nome de usuário (@username).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (username) {
+      const v = validateUsername(username);
+      if (!v.valid) {
+        showAppError({
+          title: "Nome de usuário inválido",
+          description: v.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (usernameCheck.available === false) {
+        showAppError({
+          title: "Nome de usuário indisponível",
+          description: usernameCheck.reason || "Escolha outro nome de usuário.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       setUploadingAvatar(true);
       let nextAvatarUrl = avatarType === 'url' ? avatarUrl : null;
       let nextAvatarType = avatarType;
 
       if (avatarType === 'upload') {
-        if (!avatarFile) {
+        if (avatarFile) {
+          if (avatarFile.size > 5 * 1024 * 1024) {
+            showAppError({
+              title: 'Imagem muito grande',
+              description: 'Escolha uma imagem de até 5MB.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          nextAvatarUrl = await uploadAvatarToStorage(avatarFile);
+          nextAvatarType = 'upload';
+        } else if (avatarUrl) {
+          // Mantém a foto já existente do perfil
+          nextAvatarUrl = avatarUrl;
+          nextAvatarType = 'upload';
+        } else {
           showAppError({
             title: 'Selecione uma imagem',
             description: 'Escolha um arquivo para usar como foto de perfil.',
@@ -175,17 +278,8 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
           });
           return;
         }
-        if (avatarFile.size > 5 * 1024 * 1024) {
-          showAppError({
-            title: 'Imagem muito grande',
-            description: 'Escolha uma imagem de até 5MB.',
-            variant: 'destructive',
-          });
-          return;
-        }
-        nextAvatarUrl = await uploadAvatarToStorage(avatarFile);
-        nextAvatarType = 'upload';
       }
+
 
       const dataToSave = {
         name,
@@ -196,7 +290,13 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
         // (e não no handler) para o valor chegar pronto em quem salva.
         city_id: cityId ? Number(cityId) : null,
         city: cityId ? (cities.find((c) => String(c.id) === String(cityId))?.name ?? null) : null,
+        username: username || null,
+        public_profile_enabled: Boolean(publicProfileEnabled && username),
+        public_bio: publicBio?.trim() || null,
+        public_website: publicWebsite?.trim() || null,
+        public_city_visible: publicCityVisible,
       };
+
 
       if (isAdminEditing) {
         dataToSave.id = user.id;
@@ -286,7 +386,113 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
               </div>
             </div>
           )}
+
+          {/* Perfil pessoal de participação; identidades institucionais são vinculadas pelo admin. */}
+          <div className="border-t border-border pt-4 mt-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Perfil de participação</h4>
+                <p className="text-xs text-muted-foreground">
+                  Mostre suas contribuições públicas. Isso não cria uma página de vereador ou outra identidade verificada.
+                </p>
+              </div>
+              <Switch
+                checked={publicProfileEnabled}
+                onCheckedChange={setPublicProfileEnabled}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-xs font-medium text-foreground">
+                Nome de usuário (@username)
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">
+                  @
+                </span>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  placeholder="seunome"
+                  className="pl-7 pr-9 bg-background border-input font-mono text-sm"
+                  maxLength={30}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {usernameCheck.checking && (
+                    <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                  )}
+                  {!usernameCheck.checking && usernameCheck.available === true && (
+                    <Check className="w-4 h-4 text-green-500" />
+                  )}
+                  {!usernameCheck.checking && usernameCheck.available === false && (
+                    <AlertCircle className="w-4 h-4 text-destructive" />
+                  )}
+                </div>
+              </div>
+              {usernameCheck.available === false && usernameCheck.reason && (
+                <p className="text-xs text-destructive font-medium">{usernameCheck.reason}</p>
+              )}
+              {usernameCheck.available === true && username && (
+                <p className="text-xs text-muted-foreground">
+                  Seu perfil de participação será: <span className="font-mono font-medium text-foreground">/u/{username}</span>
+                </p>
+              )}
+            </div>
+
+            {publicProfileEnabled && (
+              <div className="space-y-3 pt-1">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="publicBio" className="text-xs font-medium text-foreground">
+                      Biografia cívica
+                    </Label>
+                    <span className="text-2xs text-muted-foreground">
+                      {publicBio.length}/280
+                    </span>
+                  </div>
+                  <Textarea
+                    id="publicBio"
+                    value={publicBio}
+                    onChange={(e) => setPublicBio(e.target.value.slice(0, 280))}
+                    placeholder="Ex: Acompanho demandas de mobilidade e iluminação pública no meu bairro."
+                    rows={2}
+                    className="bg-background border-input text-xs resize-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="publicWebsite" className="text-xs font-medium text-foreground">
+                    Link externo ou portfólio (opcional)
+                  </Label>
+                  <Input
+                    id="publicWebsite"
+                    value={publicWebsite}
+                    onChange={(e) => setPublicWebsite(e.target.value)}
+                    placeholder="https://..."
+                    className="bg-background border-input text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium text-foreground">
+                      Exibir cidade no perfil público
+                    </Label>
+                    <p className="text-2xs text-muted-foreground">
+                      Mostra o nome da sua cidade sem exibir seu endereço pessoal.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={publicCityVisible}
+                    onCheckedChange={setPublicCityVisible}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
 
         <Tabs value={avatarType} onValueChange={setAvatarType} className="w-full">
           <TabsList className="grid w-full grid-cols-3">

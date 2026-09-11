@@ -45,7 +45,8 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
+  const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', category_id: null, photo: null, photoPreview: null });
+  const [guideCategories, setGuideCategories] = useState([]);
   const photoInputRef = useRef(null);
   const suppressReportAutoOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -73,6 +74,12 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     }
   }, [location.search]);
   const { handleUpvote: handleUpvoteHook } = useUpvote();
+
+  useEffect(() => {
+    if (!activeCityId) { setGuideCategories([]); return; }
+    supabase.from('directory_categories').select('*').eq('city_id', activeCityId).eq('active', true).order('name')
+      .then(({ data }) => setGuideCategories(data || []));
+  }, [activeCityId]);
 
   const fetchUserContributions = useCallback(async () => {
     if (!user) return;
@@ -316,6 +323,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
         address: newEntry.address,
         phone: newEntry.phone,
         type: newEntry.type,
+        category_id: newEntry.category_id || null,
         city_id: activeCityId,
         submitted_by: user.id,
         status: 'pending'
@@ -324,7 +332,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     if (error) {
       showAppError({ title: "Erro ao enviar colaboração", description: error.message, variant: "destructive" });
     } else {
-      setNewEntry({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
+      setNewEntry({ name: '', address: '', phone: '', type: 'commerce', category_id: null, photo: null, photoPreview: null });
     }
   };
 
@@ -831,14 +839,14 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
           <TabsContent value="guide" className="mt-8">
             <Card className="max-w-2xl mx-auto">
               <CardHeader>
-                <CardTitle>Adicionar ao Guia Comercial</CardTitle>
-                <CardDescription>Ajude a mapear os serviços e comércios da nossa cidade. Sua colaboração é muito importante!</CardDescription>
+                <CardTitle>Adicionar ao Guia da Cidade</CardTitle>
+                <CardDescription>Ajude a mapear comércios, igrejas, órgãos e outros locais importantes da cidade.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleNewEntrySubmit} className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Nome do Estabelecimento</Label>
-                    <Input id="name" name="name" value={newEntry.name} onChange={handleNewEntryChange} placeholder="Ex: Supermercado Central" />
+                    <Label htmlFor="name">Nome do local</Label>
+                    <Input id="name" name="name" value={newEntry.name} onChange={handleNewEntryChange} placeholder="Ex.: Igreja Matriz ou Mercado Central" />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="address">Endereço</Label>
@@ -849,17 +857,17 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                     <Input id="phone" name="phone" value={newEntry.phone} onChange={handleNewEntryChange} placeholder="(87) 99999-8888" />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Tipo</Label>
+                    <Label>Categoria</Label>
                     <Combobox
-                      options={[
-                        { value: 'commerce', label: 'Comércio Local' },
-                        { value: 'public', label: 'Serviço Público' }
-                      ]}
-                      value={newEntry.type}
-                      onChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}
-                      placeholder="Selecione o tipo"
-                      searchPlaceholder="Buscar tipo..."
-                      notFoundText="Tipo não encontrado"
+                      options={guideCategories.map((category) => {
+                        const parent = guideCategories.find((item) => String(item.id) === String(category.parent_id));
+                        return { value: category.id, label: `${parent ? `${parent.name} · ` : ''}${category.name}` };
+                      })}
+                      value={newEntry.category_id || ''}
+                      onChange={(value) => setNewEntry(prev => ({ ...prev, category_id: value || null }))}
+                      placeholder="Selecione a categoria"
+                      searchPlaceholder="Buscar categoria..."
+                      notFoundText="Nenhuma categoria cadastrada"
                     />
                   </div>
                   <div className="grid gap-2">

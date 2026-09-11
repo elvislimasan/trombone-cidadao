@@ -89,9 +89,15 @@ const PetitionsOverviewPage = () => {
 
       const totalSignaturesSum = processedData.reduce((acc, p) => acc + (p.signatureCount || 0), 0);
 
-      // Find featured petition (highest progress but not 100% yet, or just most popular)
-      // Prefer one that is > 50% progress but < 100%
-      const featured = processedData.find(p => p.progress > 50 && p.progress < 100) || processedData.sort((a, b) => b.signatureCount - a.signatureCount)[0];
+      // O destaque é uma decisão editorial do administrador. Assinaturas e
+      // progresso continuam servindo para os filtros, mas não promovem uma
+      // campanha automaticamente.
+      const featured = [...processedData]
+        .filter((petition) => petition.is_featured)
+        .sort((a, b) =>
+          (Number(a.featured_order) || 999) - (Number(b.featured_order) || 999)
+          || new Date(b.created_at) - new Date(a.created_at)
+        )[0] || null;
       setFeaturedPetition(featured);
 
       // Sorting

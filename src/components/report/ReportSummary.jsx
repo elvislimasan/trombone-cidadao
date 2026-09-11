@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Icon from "@/design-system/icons";
 import TimeAgo from "@/components/TimeAgo";
 
@@ -36,9 +37,11 @@ const ReportSummary = ({
   isAnonymous,
   authorName,
   authorAvatar,
+  authorUsername,
   reportAgeStory,
 }) => {
   const showAuthor = !isAnonymous && !!authorName;
+
 
   return (
     <div className="space-y-3">
@@ -56,20 +59,39 @@ const ReportSummary = ({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           {showAuthor ? (
-            <>
-              <AuthorAvatar name={authorName} avatarUrl={authorAvatar} />
-              <span className="text-xs text-content-secondary truncate">
-                Denunciado por{" "}
-                <span className="font-semibold text-content-primary">
-                  {authorName}
+            authorUsername ? (
+              <Link
+                to={`/u/${authorUsername}`}
+                className="flex items-center gap-2 min-w-0 hover:opacity-85 transition group"
+              >
+                <AuthorAvatar name={authorName} avatarUrl={authorAvatar} />
+                <span className="text-xs text-content-secondary truncate group-hover:text-content-primary">
+                  Denunciado por{" "}
+                  <span className="font-semibold text-content-primary group-hover:text-brand underline decoration-transparent group-hover:decoration-brand transition">
+                    {authorName}
+                  </span>
+                  <span className="text-2xs font-mono text-content-tertiary ml-1">
+                    @{authorUsername}
+                  </span>
                 </span>
-              </span>
-            </>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2 min-w-0">
+                <AuthorAvatar name={authorName} avatarUrl={authorAvatar} />
+                <span className="text-xs text-content-secondary truncate">
+                  Denunciado por{" "}
+                  <span className="font-semibold text-content-primary">
+                    {authorName}
+                  </span>
+                </span>
+              </div>
+            )
           ) : (
             <span className="text-xs text-content-tertiary">
               Denúncia anônima
             </span>
           )}
+
         </div>
 
         <TimeAgo date={createdAt} className="text-2xs text-content-tertiary flex-shrink-0" />

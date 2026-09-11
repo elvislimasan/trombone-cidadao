@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Phone, Save, X, Upload, Building, ShoppingCart, Check, Hourglass } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Save, X, Upload, Check, Hourglass, Tags, Church } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,7 +47,7 @@ const ListaServicos = ({ data, type, onEdit, onDelete }) => {
   );
 };
 
-const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
+const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategories }) => {
   const [formData, setFormData] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -81,6 +81,15 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
   };
 
   if (!formData) return null;
+
+  const categoryById = new Map((directoryCategories || []).map((category) => [String(category.id), category]));
+  const directoryCategoryOptions = (directoryCategories || [])
+    .filter((category) => !formData.city_id || String(category.city_id) === String(formData.city_id))
+    .sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0) || a.name.localeCompare(b.name, 'pt-BR'))
+    .map((category) => ({
+      value: category.id,
+      label: `${category.parent_id ? `${categoryById.get(String(category.parent_id))?.name || 'Categoria'} · ` : ''}${category.name}`,
+    }));
 
   const renderFields = () => {
     switch (type) {
@@ -198,6 +207,17 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions }) => {
               <Input id="name" name="name" value={formData.name} onChange={handleChange} />
             </div>
             <div className="grid gap-2">
+              <Label>Categoria ou subcategoria</Label>
+              <Combobox
+                options={directoryCategoryOptions}
+                value={formData.category_id || ''}
+                onChange={(value) => setFormData((prev) => ({ ...prev, category_id: value || null }))}
+                placeholder="Selecione a categoria"
+                searchPlaceholder="Buscar categoria..."
+                notFoundText="Crie a categoria na aba Guia da Cidade."
+              />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="address">Endereço</Label>
               <Input id="address" name="address" value={formData.address} onChange={handleChange} />
             </div>
@@ -256,7 +276,10 @@ const ManageServicesPage = () => {
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [transport, setTransport] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
-  const [directoryData, setDirectoryData] = useState({ public: [], commerce: [] });
+  const [directoryData, setDirectoryData] = useState({ public: [], commerce: [], all: [] });
+  const [directoryCategories, setDirectoryCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState({ name: '', city_id: null, parent_id: null });
+  const [savingCategory, setSavingCategory] = useState(false);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
@@ -292,7 +315,8 @@ const ManageServicesPage = () => {
     if (isScopedAmbassador && myActiveCityIds.length === 0) {
       setTransport([]);
       setTouristSpots([]);
-      setDirectoryData({ public: [], commerce: [] });
+      setDirectoryData({ public: [], commerce: [], all: [] });
+      setDirectoryCategories([]);
       setPendingEntries([]);
       return;
     }
@@ -304,6 +328,7 @@ const ManageServicesPage = () => {
       directory: (data) => setDirectoryData({
         public: data.filter(d => d.type === 'public' && d.status === 'approved'),
         commerce: data.filter(d => d.type === 'commerce' && d.status === 'approved'),
+        all: data.filter(d => d.status === 'approved'),
       }),
     };
 
@@ -318,6 +343,11 @@ const ManageServicesPage = () => {
       }
     }
 
+    let categoriesQuery = supabase.from('directory_categories').select('*').order('sort_order').order('name');
+    if (isScopedAmbassador) categoriesQuery = categoriesQuery.in('city_id', myActiveCityIds);
+    const { data: categories, error: categoriesError } = await categoriesQuery;
+    if (!categoriesError) setDirectoryCategories(categories || []);
+
     let pendingQuery = supabase.from('directory').select('*').eq('status', 'pending');
     if (isScopedAmbassador) pendingQuery = pendingQuery.in('city_id', myActiveCityIds);
     const { data: pending, error: pendingError } = await pendingQuery;
@@ -327,6 +357,32 @@ const ManageServicesPage = () => {
       setPendingEntries(pending);
     }
   }, [isScopedAmbassador, myActiveCityIds]);
+
+  useEffect(() => {
+    if (!newCategory.city_id && cityOptions.length === 1) {
+      setNewCategory((current) => ({ ...current, city_id: cityOptions[0].value }));
+    }
+  }, [cityOptions, newCategory.city_id]);
+
+  const handleCreateCategory = async () => {
+    if (!newCategory.name.trim() || !newCategory.city_id) {
+      showAppError({ title: 'Informe o nome e a cidade da categoria', variant: 'destructive' });
+      return;
+    }
+    setSavingCategory(true);
+    const { error } = await supabase.from('directory_categories').insert({
+      name: newCategory.name.trim(),
+      city_id: newCategory.city_id,
+      parent_id: newCategory.parent_id || null,
+    });
+    setSavingCategory(false);
+    if (error) {
+      showAppError({ title: 'Não foi possível criar a categoria', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setNewCategory((current) => ({ ...current, name: '', parent_id: null }));
+    await fetchData();
+  };
 
   useEffect(() => {
     fetchData();
@@ -426,8 +482,9 @@ const ManageServicesPage = () => {
     switch (targetTab) {
       case 'transport': newItem = { name: '', destination: '', vehicle_type: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
       case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
-      case 'directory_public': newItem = { name: '', address: '', phone: '', image_url: '', type: 'public', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
-      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: 'commerce', status: 'approved', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
+      case 'directory':
+      case 'directory_public':
+      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: targetTab === 'directory_public' ? 'public' : 'commerce', status: 'approved', category_id: null, city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
       default: return;
     }
     if (explicitTab) setActiveTab(explicitTab);
@@ -460,16 +517,16 @@ const ManageServicesPage = () => {
   return (
     <>
       <Helmet>
-        <title>Gerenciar Guia de Serviços - Admin</title>
-        <meta name="description" content="Gerencie o conteúdo do Guia de Serviços e modere sugestões." />
+        <title>Gerenciar Guia da Cidade - Admin</title>
+        <meta name="description" content="Gerencie o Guia da Cidade, suas categorias e sugestões." />
       </Helmet>
       <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center justify-between gap-4 mb-12">
           <div className="flex items-center gap-4">
             <Link to="/admin"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Gerenciar Guia de Serviços</h1>
-              <p className="mt-2 text-lg text-muted-foreground">Adicione, edite ou remova itens e modere as colaborações.</p>
+              <h1 className="text-3xl md:text-4xl font-bold text-tc-red">Gerenciar Guia da Cidade</h1>
+              <p className="mt-2 text-lg text-muted-foreground">Cadastre comércios, igrejas, órgãos e outros locais da cidade.</p>
             </div>
           </div>
           {activeTab === 'moderation' ? (
@@ -486,11 +543,8 @@ const ManageServicesPage = () => {
                 <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('tourist_spots')}>
                   <Landmark className="w-4 h-4" /> Ponto Turístico
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory_public')}>
-                  <Building className="w-4 h-4" /> Serviço Público
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory_commerce')}>
-                  <ShoppingCart className="w-4 h-4" /> Comércio Local
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory')}>
+                  <Church className="w-4 h-4" /> Local do Guia da Cidade
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -506,12 +560,12 @@ const ManageServicesPage = () => {
             <TabsTrigger value="moderation" className="gap-2 py-2"><Hourglass className="w-4 h-4" /> Moderação ({pendingEntries.length})</TabsTrigger>
             <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>
             <TabsTrigger value="tourist_spots" className="gap-2 py-2"><Landmark className="w-4 h-4" /> Pontos Turísticos</TabsTrigger>
-            <TabsTrigger value="directory" className="gap-2 py-2"><Phone className="w-4 h-4" /> Guia Comercial</TabsTrigger>
+            <TabsTrigger value="directory" className="gap-2 py-2"><Church className="w-4 h-4" /> Guia da Cidade</TabsTrigger>
           </TabsList>
 
           <TabsContent value="moderation" className="mt-8">
             <Card>
-              <CardHeader><CardTitle>Moderar Sugestões do Guia Comercial</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Moderar sugestões do Guia da Cidade</CardTitle></CardHeader>
               <CardContent>
                 {pendingEntries.length > 0 ? (
                   <div className="space-y-4">
@@ -546,34 +600,53 @@ const ManageServicesPage = () => {
             <Card><CardHeader><CardTitle>Gerenciar Pontos Turísticos</CardTitle></CardHeader><CardContent>{renderList(touristSpots, 'tourist_spots')}</CardContent></Card>
           </TabsContent>
 
-          <TabsContent value="directory" className="mt-8 grid md:grid-cols-2 gap-8">
-            <Card>
+          <TabsContent value="directory" className="mt-8 grid gap-8 lg:grid-cols-[22rem_minmax(0,1fr)]">
+            <Card className="h-fit">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Building className="w-5 h-5 text-primary" /> Serviços Públicos</CardTitle>
-                <CardDescription>
-                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => handleAddNew('directory_public')}>
-                    <PlusCircle className="w-4 h-4" /> Adicionar
-                  </Button>
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2"><Tags className="h-5 w-5 text-primary" /> Categorias</CardTitle>
+                <CardDescription>Crie categorias principais e subcategorias, como “Igrejas · Católicas”.</CardDescription>
               </CardHeader>
-              <CardContent>{renderList(directoryData.public, 'directory')}</CardContent>
+              <CardContent className="grid gap-3">
+                <Combobox
+                  options={cityOptions}
+                  value={newCategory.city_id || ''}
+                  onChange={(value) => setNewCategory({ name: newCategory.name, city_id: value, parent_id: null })}
+                  placeholder="Cidade"
+                  searchPlaceholder="Buscar cidade..."
+                />
+                <Input placeholder="Nome da categoria" value={newCategory.name} onChange={(event) => setNewCategory((current) => ({ ...current, name: event.target.value }))} />
+                <Combobox
+                  options={directoryCategories
+                    .filter((category) => String(category.city_id) === String(newCategory.city_id) && !category.parent_id)
+                    .map((category) => ({ value: category.id, label: `Subcategoria de ${category.name}` }))}
+                  value={newCategory.parent_id || ''}
+                  onChange={(value) => setNewCategory((current) => ({ ...current, parent_id: value || null }))}
+                  placeholder="Categoria principal (opcional)"
+                  searchPlaceholder="Buscar categoria principal..."
+                />
+                <Button onClick={handleCreateCategory} disabled={savingCategory} className="gap-2"><PlusCircle className="h-4 w-4" /> {savingCategory ? 'Criando...' : 'Criar categoria'}</Button>
+                <div className="mt-2 grid gap-1.5 border-t pt-3">
+                  {directoryCategories
+                    .filter((category) => !newCategory.city_id || String(category.city_id) === String(newCategory.city_id))
+                    .map((category) => {
+                      const parent = directoryCategories.find((item) => String(item.id) === String(category.parent_id));
+                      return <div key={category.id} className="rounded-lg bg-muted/50 px-3 py-2 text-xs"><span className="font-semibold">{parent ? `${parent.name} · ` : ''}{category.name}</span></div>;
+                    })}
+                </div>
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ShoppingCart className="w-5 h-5 text-secondary" /> Comércio Local</CardTitle>
-                <CardDescription>
-                  <Button size="sm" variant="outline" className="mt-2 gap-2" onClick={() => handleAddNew('directory_commerce')}>
-                    <PlusCircle className="w-4 h-4" /> Adicionar
-                  </Button>
-                </CardDescription>
+              <CardHeader className="flex-row items-center justify-between gap-3">
+                <div><CardTitle>Locais cadastrados</CardTitle><CardDescription>Comércios, igrejas, órgãos e serviços.</CardDescription></div>
+                <Button size="sm" variant="outline" className="gap-2" onClick={() => handleAddNew('directory')}><PlusCircle className="h-4 w-4" /> Adicionar local</Button>
               </CardHeader>
-              <CardContent>{renderList(directoryData.commerce, 'directory')}</CardContent>
+              <CardContent>{renderList(directoryData.all, 'directory')}</CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
 
-      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} cityOptions={cityOptions} />}
+      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} cityOptions={cityOptions} directoryCategories={directoryCategories} />}
 
       <Dialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
         <DialogContent className="sm:max-w-md bg-card border-border">

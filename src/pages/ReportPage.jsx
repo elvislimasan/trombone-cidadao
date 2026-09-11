@@ -73,6 +73,7 @@ import {
 import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
 import { showAppError } from '@/lib/appError';
+import { linkDuplicateReport } from '@/lib/linkReport';
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -1117,7 +1118,7 @@ const ReportPage = () => {
         // `city` entra para o card de compartilhamento dizer a cidade em vez
         // de "BRASIL". É uma linha só e uma tabela pequena — o custo é o de um
         // join contra a chave primária de `cities`.
-        "*, pole_number, city:cities(name, states(uf)), pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)"
+        "*, pole_number, city:cities(name, states(uf)), pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config, username, public_profile_enabled), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)"
       )
       .eq("id", reportId)
       .single();
@@ -1156,6 +1157,8 @@ const ReportPage = () => {
       pole: data.pole || null,
       authorName: data.author?.name || "Anônimo",
       authorAvatar: data.author?.avatar_url,
+      authorUsername: !data.is_anonymous && data.author?.public_profile_enabled ? data.author?.username : null,
+
       photos: (data.report_media || [])
         .filter((m) => m.type === "photo")
         .sort(
@@ -1452,22 +1455,17 @@ const ReportPage = () => {
     setShowLinkModal(true);
   };
   const handleLinkReport = async (sourceReportId, targetReportId) => {
-    const { data: linkedReport, error } = await supabase
-      .from("reports")
-      .update({ status: "duplicate", linked_to: targetReportId })
-      .eq("id", sourceReportId)
-      .select('id')
-      .maybeSingle();
-    if (error || !linkedReport) {
+    try {
+      await linkDuplicateReport(supabase, sourceReportId, targetReportId);
+    } catch (error) {
       showAppError({
         title: "Erro ao vincular bronca",
-        description: error?.message || 'A bronca não foi alterada. Confira sua permissão e tente novamente.',
+        description: error.message,
         variant: "destructive",
       });
       return false;
-    } else {
-      fetchReport();
     }
+    fetchReport();
     setShowLinkModal(false);
     setReportToLink(null);
     return true;
@@ -1610,7 +1608,9 @@ const ReportPage = () => {
                       isAnonymous={report.is_anonymous}
                       authorName={report.authorName}
                       authorAvatar={report.authorAvatar}
+                      authorUsername={report.authorUsername}
                       reportAgeStory={reportAgeStory}
+
                     />
                   </div>
 

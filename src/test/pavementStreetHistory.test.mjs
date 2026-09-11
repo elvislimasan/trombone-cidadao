@@ -15,6 +15,9 @@ import {
   temLeiMunicipal,
   nomeRedundante,
   normalizarFotos,
+  rankingDeAutores,
+  rotaDoVereador,
+  slugDeVereador,
   tipoDoArquivo,
 } from '../lib/pavementStreetHistory.js';
 
@@ -340,6 +343,23 @@ test('filtro sem autor lista apenas rua com projeto ainda sem autoria', () => {
 test('filtro por vereador ignora acento e caixa', () => {
   const street = { historical_documents: [{ url: 'p.pdf', kind: 'projeto_lei', councilor_author: 'José Lima' }] };
   assert.equal(correspondeAoFiltroDeAutor(street, 'JOSE LIMA'), true);
+});
+
+test('perfil do vereador ganha uma rota legível por cidade', () => {
+  assert.equal(slugDeVereador('José d’Ávila Júnior'), 'jose-d-avila-junior');
+  assert.equal(rotaDoVereador(64, 'José d’Ávila Júnior'), '/vereadores/64/jose-d-avila-junior');
+});
+
+test('ranking conta ruas, não a repetição do autor no mesmo projeto', () => {
+  const ranking = rankingDeAutores([
+    { historical_documents: [{ kind: 'projeto_lei', councilor_authors: ['Ana Lima', 'ANA LIMA', 'José Melo'] }] },
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'Ana-Lima' }] },
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'José Melo' }] },
+  ]);
+  assert.deepEqual(ranking.map(({ name, streets }) => ({ name, streets })), [
+    { name: 'Ana Lima', streets: 2 },
+    { name: 'José Melo', streets: 2 },
+  ]);
 });
 
 test('temLeiMunicipal só é verdadeiro com documento marcado', () => {

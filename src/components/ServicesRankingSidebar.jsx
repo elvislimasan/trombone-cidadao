@@ -62,7 +62,7 @@ const ServicesRankingSidebar = ({ currentServiceType, currentServiceId }) => {
     >
       <h3 className="font-semibold text-md flex items-center gap-2 text-muted-foreground mb-2">
         <Icon className="w-5 h-5" />
-        Top 5 {type === 'transport' ? 'Transportes' : type === 'tourist_spots' ? 'Pontos Turísticos' : 'Guia Comercial'}
+        Top 5 {type === 'transport' ? 'Transportes' : type === 'tourist_spots' ? 'Pontos Turísticos' : 'Guia da Cidade'}
       </h3>
       {items.length > 0 ? items.map((item, index) => (
         <motion.div
