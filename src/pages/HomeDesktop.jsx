@@ -9,7 +9,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import CitySelector from '@/components/CitySelector';
-import { CityViewProvider, useCityView } from '@/contexts/CityContext';
+import { useCity } from '@/contexts/CityContext';
 import CityEventCard from '@/components/agora/CityEventCard';
 import { useCityEvents } from '@/hooks/useCityEvents';
 import { FILTROS } from '@/lib/cityEvents';
@@ -153,13 +153,14 @@ const VerTodos = ({ para, children }) => (
 );
 
 function HomeDesktop() {
-  const { cityId, cityName } = useCityView();
+  const { activeCityId: cityId, activeCityName: cityName, activeCity: city } = useCity();
   const [filtro, setFiltro] = useState('todos');
   const [numeros, setNumeros] = useState(null);
   const [broncas, setBroncas] = useState([]);
   const [peticoes, setPeticoes] = useState([]);
   const [casoResolvido, setCasoResolvido] = useState(null);
   const [carregando, setCarregando] = useState(true);
+  const requisicaoAtual = useRef(0);
 
   const alertas = useCityEvents(cityId, { filtro, escopo: 'abertos' });
   const emAndamento = alertas.eventos || [];
@@ -184,7 +185,14 @@ function HomeDesktop() {
   };
 
   const carregar = useCallback(async () => {
+    const numeroDaRequisicao = ++requisicaoAtual.current;
     setCarregando(true);
+    // Nao mantenha na tela os numeros e cartoes da cidade anterior enquanto o
+    // novo recorte esta sendo consultado.
+    setNumeros(null);
+    setBroncas([]);
+    setPeticoes([]);
+    setCasoResolvido(null);
     const porCidade = (q) => (cityId ? q.eq('city_id', cityId) : q);
     const esteMes = inicioDoMes(0);
     const mesPassado = inicioDoMes(-1);
@@ -245,6 +253,10 @@ function HomeDesktop() {
           .maybeSingle(),
       ),
     ]);
+
+    // Se a pessoa trocar de cidade antes desta consulta terminar, descarte a
+    // resposta antiga para ela nao sobrescrever o recorte mais recente.
+    if (numeroDaRequisicao !== requisicaoAtual.current) return;
 
     const total = totalBroncas.count || 0;
     const feitas = resolvidas.count || 0;
@@ -327,7 +339,7 @@ function HomeDesktop() {
             </p>
 
             <div className="reveal reveal-delay-2 mt-5 flex flex-wrap items-center gap-3">
-              <CitySelector align="left" />
+              <CitySelector align="left" scope="global" />
               <span className="text-xs text-content-tertiary">
                 {temCidadeSelecionada ? `Exibindo dados de ${nomeDoRecorte}` : 'Exibindo o panorama nacional'}
               </span>
@@ -338,22 +350,28 @@ function HomeDesktop() {
                 o rótulo abaixo. Os cartões tingidos que estavam aqui competiam
                 com os seis cartões de módulo logo em seguida — duas grades de
                 caixinhas seguidas, e a abertura perdia a hierarquia. */}
-            <div className="reveal reveal-delay-3 mt-8 flex flex-wrap gap-10">
-              {[
-                // "Cadastrados", e não "ativos": `profiles` não guarda último
-                // acesso, então "ativos" seria um critério que a base não
-                // confirma.
-                { valor: numeros?.cidadaos, rotulo: 'Cidadãos cadastrados' },
-                { valor: numeros?.broncas, rotulo: 'Broncas registradas' },
-                { valor: numeros?.resolvidas, rotulo: 'Problemas resolvidos' },
-              ].map(({ valor, rotulo }) => (
-                <div key={rotulo}>
-                  <p className="text-3xl font-extrabold leading-none text-brand tabular-nums">
-                    <Contador valor={valor} />
-                  </p>
-                  <p className="mt-1.5 text-xs text-content-secondary">{rotulo}</p>
-                </div>
-              ))}
+            <div className="reveal reveal-delay-3 mt-8">
+              <p className="mb-4 flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-content-tertiary">
+                {temCidadeSelecionada ? <MapPin className="h-3.5 w-3.5 text-brand" /> : <Globe2 className="h-3.5 w-3.5 text-brand" />}
+                {temCidadeSelecionada ? `Dados de ${nomeDoRecorte}` : 'Dados do Brasil'}
+              </p>
+              <div className="flex flex-wrap gap-x-10 gap-y-5">
+                {[
+                  // "Cadastrados", e não "ativos": `profiles` não guarda último
+                  // acesso, então "ativos" seria um critério que a base não
+                  // confirma.
+                  { valor: numeros?.cidadaos, rotulo: 'Cidadãos cadastrados' },
+                  { valor: numeros?.broncas, rotulo: 'Broncas registradas' },
+                  { valor: numeros?.resolvidas, rotulo: 'Problemas resolvidos' },
+                ].map(({ valor, rotulo }) => (
+                  <div key={rotulo}>
+                    <p className="text-3xl font-extrabold leading-none text-brand tabular-nums">
+                      <Contador valor={valor} />
+                    </p>
+                    <p className="mt-1.5 text-xs text-content-secondary">{rotulo}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="reveal reveal-delay-3 mt-7 flex flex-wrap gap-3">
@@ -371,8 +389,8 @@ function HomeDesktop() {
           <div className="relative">
             <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-[#7F1220] text-white shadow-elevation-3">
               <img
-                src={`${HOME_IMAGE_BASE_URL}/hero-img.webp`}
-                alt="Cidadã usando o Trombone Cidadão em uma rua brasileira"
+                src={city?.civic_thumbnail_url || `${HOME_IMAGE_BASE_URL}/hero-img.webp`}
+                alt={city?.civic_thumbnail_url ? `Imagem de ${city.name}` : 'Cidadã usando o Trombone Cidadão em uma rua brasileira'}
                 fetchPriority="high"
                 className="absolute inset-0 h-full w-full object-cover object-center saturate-[0.9]"
               />
@@ -867,10 +885,4 @@ function HomeDesktop() {
   );
 }
 
-export default function HomeDesktopWithCityView() {
-  return (
-    <CityViewProvider>
-      <HomeDesktop />
-    </CityViewProvider>
-  );
-}
+export default HomeDesktop;

@@ -124,5 +124,5 @@ export const streetPath = (street) =>
 /** O endereço público canônico de um perfil cívico (/u/:username). */
 export const getPublicProfileShareUrl = (username) => {
   const clean = String(username || '').trim().toLowerCase().replace(/^@/, '');
-  return `${getBaseAppUrl()}/u/${clean}`;
+  return `${getBaseAppUrl()}/share/perfil/${encodeURIComponent(clean)}`;
 };

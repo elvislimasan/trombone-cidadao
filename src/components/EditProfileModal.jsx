@@ -42,7 +42,6 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
 
   // Identidade cívica e perfil público
   const [username, setUsername] = useState('');
-  const [publicProfileEnabled, setPublicProfileEnabled] = useState(false);
   const [publicBio, setPublicBio] = useState('');
   const [publicWebsite, setPublicWebsite] = useState('');
   const [publicCityVisible, setPublicCityVisible] = useState(true);
@@ -74,7 +73,6 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       setAvatarUrl(user.avatar_url || '');
       setAvatarConfig(initialAvatarConfig);
       setUsername(user.username || '');
-      setPublicProfileEnabled(Boolean(user.public_profile_enabled));
       setPublicBio(user.public_bio || '');
       setPublicWebsite(user.public_website || '');
       setPublicCityVisible(user.public_city_visible ?? true);
@@ -220,15 +218,6 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       return;
     }
     
-    if (publicProfileEnabled && !username) {
-      showAppError({
-        title: "Nome de usuário obrigatório",
-        description: "Para ativar o perfil público, defina um nome de usuário (@username).",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (username) {
       const v = validateUsername(username);
       if (!v.valid) {
@@ -291,7 +280,9 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
         city_id: cityId ? Number(cityId) : null,
         city: cityId ? (cities.find((c) => String(c.id) === String(cityId))?.name ?? null) : null,
         username: username || null,
-        public_profile_enabled: Boolean(publicProfileEnabled && username),
+        // Um @username cria o perfil público. Não há uma segunda ativação
+        // escondida para deixar a interface em contradição com o cadastro.
+        public_profile_enabled: Boolean(username),
         public_bio: publicBio?.trim() || null,
         public_website: publicWebsite?.trim() || null,
         public_city_visible: publicCityVisible,
@@ -387,19 +378,14 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
             </div>
           )}
 
-          {/* Perfil pessoal de participação; identidades institucionais são vinculadas pelo admin. */}
+          {/* O perfil social pertence à pessoa. Páginas institucionais vinculadas
+              (como a legislativa) continuam sendo produtos separados. */}
           <div className="border-t border-border pt-4 mt-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">Perfil de participação</h4>
-                <p className="text-xs text-muted-foreground">
-                  Mostre suas contribuições públicas. Isso não cria uma página de vereador ou outra identidade verificada.
-                </p>
-              </div>
-              <Switch
-                checked={publicProfileEnabled}
-                onCheckedChange={setPublicProfileEnabled}
-              />
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Perfil público</h4>
+              <p className="text-xs text-muted-foreground">
+                Escolha um @username para compartilhar suas broncas, cobranças e conquistas.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -435,17 +421,17 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
               )}
               {usernameCheck.available === true && username && (
                 <p className="text-xs text-muted-foreground">
-                  Seu perfil de participação será: <span className="font-mono font-medium text-foreground">/u/{username}</span>
+                  Seu perfil será: <span className="font-mono font-medium text-foreground">trombonecidadao.com.br/u/{username}</span>
                 </p>
               )}
             </div>
 
-            {publicProfileEnabled && (
+            {username && (
               <div className="space-y-3 pt-1">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="publicBio" className="text-xs font-medium text-foreground">
-                      Biografia cívica
+                      Biografia
                     </Label>
                     <span className="text-2xs text-muted-foreground">
                       {publicBio.length}/280
@@ -455,7 +441,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
                     id="publicBio"
                     value={publicBio}
                     onChange={(e) => setPublicBio(e.target.value.slice(0, 280))}
-                    placeholder="Ex: Acompanho demandas de mobilidade e iluminação pública no meu bairro."
+                    placeholder="Conte quem você é e quais causas acompanha na cidade."
                     rows={2}
                     className="bg-background border-input text-xs resize-none"
                   />

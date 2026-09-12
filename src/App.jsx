@@ -28,7 +28,7 @@ import DirectoryDetailsPage from '@/pages/DirectoryDetailsPage';
 import NewsPage from '@/pages/NewsPage';
 import NewsDetailsPage from '@/pages/NewsDetailsPage';
 import AdminPage from '@/pages/admin/AdminPage';
-import UserDashboardPage from '@/pages/UserDashboardPage';
+import ProfileSettingsPage from '@/pages/ProfileSettingsPage';
 import TransportDetailsPage from '@/pages/TransportDetailsPage';
 import TouristSpotDetailsPage from '@/pages/TouristSpotDetailsPage';
 import ManageServicesPage from '@/pages/admin/ManageServicesPage';
@@ -102,6 +102,7 @@ import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
+import ManageCityIdentityPage from '@/pages/admin/ManageCityIdentityPage';
 import OrgaoRelatorioPage from '@/pages/OrgaoRelatorioPage';
 import { notifyNative } from '@/lib/nativeNotification';
 import AppFeedbackBanner from '@/components/AppFeedbackBanner';
@@ -111,6 +112,7 @@ import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
 import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 import AudienceTracker from '@/components/AudienceTracker';
 import PublicProfilePage from '@/pages/PublicProfilePage';
+import FollowingActivityPage from '@/pages/FollowingActivityPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -266,6 +268,13 @@ const PrivateRoute = ({ children }) => {
 const ParaOMapaDeBroncas = () => {
   const { search } = useLocation();
   return <Navigate to={{ pathname: '/mapa', search }} replace />;
+};
+
+// O antigo painel pessoal agora faz parte de /perfil. Preservamos a query para
+// links antigos de notificações que abrem uma bronca específica.
+const LegacyUserDashboardRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/perfil', search }} replace />;
 };
 
 const AdminRoute = ({ children }) => {
@@ -810,6 +819,7 @@ function AppShell() {
               <Route path="/agora" element={<AgoraPage />} />
               <Route path="/agora/:eventId" element={<CityEventPage />} />
               <Route path="/share/radar/:eventId" element={<CityEventPage />} />
+              <Route path="/share/perfil/:username" element={<PublicProfilePage />} />
               {/* Fallback para hospedagens que entreguem o SPA antes de aplicar
                   o proxy social. O .htaccess/Vercel normalmente envia esta URL
                   para share-street; se isso nao acontecer, o visitante ainda
@@ -831,12 +841,14 @@ function AppShell() {
               <Route path="/@:username" element={<PublicProfilePage />} />
 
               <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="/configuracoes" element={<PrivateRoute><ProfileSettingsPage /></PrivateRoute>} />
+              <Route path="/seguindo" element={<PrivateRoute><FollowingActivityPage /></PrivateRoute>} />
               <Route path="/perfil/pagina-legislativa/:councilorId" element={<PrivateRoute><ManageMyCouncilorPage /></PrivateRoute>} />
               <Route path="/perfil/preferencias" element={<PrivateRoute><NativePreferencesPage /></PrivateRoute>} />
               <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
               <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
               <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
-              <Route path="/painel-usuario" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
+              <Route path="/painel-usuario" element={<PrivateRoute><LegacyUserDashboardRedirect /></PrivateRoute>} />
               <Route path="/alterar-senha" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
               <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
               
@@ -877,6 +889,7 @@ function AppShell() {
               <Route path="/admin/vereadores" element={<ModuleRoute module="pavement" adminOnly><ManageCouncilorsPage /></ModuleRoute>} />
               <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="pavement"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
+              <Route path="/admin/identidade-da-cidade" element={<AdminRoute><ManageCityIdentityPage /></AdminRoute>} />
               <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
               <Route path="/admin/reports" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
               <Route path="/admin/broncas" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />

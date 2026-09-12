@@ -1,141 +1,99 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { User, Briefcase, Edit, LogOut, ThumbsUp, MessageSquare, FileText, KeyRound, Shield, Trash2, LayoutDashboard, Star, HardHat, ShieldCheck, Radar, Landmark } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import Avatar from 'react-nice-avatar';
+import {
+  Bell,
+  Bookmark,
+  Edit,
+  ExternalLink,
+  FileText,
+  Landmark,
+  Radar,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import EditProfileModal from '@/components/EditProfileModal';
+import UserDashboardPage from '@/pages/UserDashboardPage';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { placar } from '@/lib/scoring';
 import { normalizarContadoresDeMissao } from '@/lib/missionCounters';
-import { calcularSequencia, avaliarConquistas } from '@/lib/patrolGame';
-import AchievementGrid from '@/components/missions/AchievementGrid';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Avatar from 'react-nice-avatar';
-import { Capacitor } from '@capacitor/core';
-import { useTheme } from '@/design-system/theme/ThemeProvider';
-import { useNotifications } from '@/contexts/NotificationContext';
-import { useCity } from '@/contexts/CityContext';
-import Icon from '@/design-system/icons';
 import { showAppError } from '@/lib/appError';
+import Icon from '@/design-system/icons';
+import { rotaDoVereador } from '@/lib/pavementStreetHistory';
+import SuggestedProfiles from '@/components/SuggestedProfiles';
 
-// Meses abreviados em portugues para "Membro desde".
-const MONTHS_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+function ProfileAvatar({ profile }) {
+  if ((profile?.avatar_type === 'url' || profile?.avatar_type === 'upload') && profile.avatar_url) {
+    return <img src={profile.avatar_url} alt={profile.name || 'Foto de perfil'} className="h-full w-full object-cover" />;
+  }
 
-function formatMemberSince(createdAt) {
-  if (!createdAt) return null;
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${MONTHS_PT[date.getMonth()]}/${date.getFullYear()}`;
+  if (profile?.avatar_type === 'generated' && profile.avatar_config) {
+    let config = profile.avatar_config;
+    if (typeof config === 'string') {
+      try { config = JSON.parse(config); } catch { config = {}; }
+    }
+    return <Avatar className="h-full w-full" {...config} />;
+  }
+
+  return <Avatar className="h-full w-full" />;
 }
 
 const ProfilePage = () => {
-  const { user, signOut, refreshUserProfile } = useAuth();
-  const { preference, setPreference } = useTheme();
-  const { notificationsEnabled, toggleNotifications, loading: notificationsLoading } = useNotifications();
-  const { setActiveCity } = useCity();
-  const navigate = useNavigate();
+  const { user, refreshUserProfile } = useAuth();
+  const { activeCityId, setActiveCity } = useCity();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [rankings, setRankings] = useState({ reports: [], upvotes: [], comments: [] });
-  const [userLevel, setUserLevel] = useState(null);
-  const [conquistas, setConquistas] = useState([]);
   const [managedCouncilorPages, setManagedCouncilorPages] = useState([]);
+  const [followState, setFollowState] = useState({ followers_count: 0, following_count: 0 });
+  const [userLevel, setUserLevel] = useState(null);
 
-  const fetchRankings = useCallback(async () => {
-    const { data: reportsRank, error: reportsError } = await supabase.rpc('get_top_users_by_reports');
-    if (reportsError) console.error("Ranking error (reports):", reportsError);
-
-    const { data: upvotesRank, error: upvotesError } = await supabase.rpc('get_top_users_by_upvotes');
-    if (upvotesError) console.error("Ranking error (upvotes):", upvotesError);
-
-    const { data: commentsRank, error: commentsError } = await supabase.rpc('get_top_users_by_comments');
-    if (commentsError) console.error("Ranking error (comments):", commentsError);
-
-    setRankings({
-      reports: reportsRank || [],
-      upvotes: upvotesRank || [],
-      comments: commentsRank || [],
-    });
-  }, []);
-
-  // O nivel vem do MESMO calculo da central de missoes (src/lib/scoring.js),
-  // nao mais do `get_user_level`.
-  //
-  // A funcao do banco continua existindo e correta — ela so nao conhece o bonus
-  // das etapas de missao, que sao um catalogo JavaScript. Enquanto o perfil a
-  // usava, a mesma pessoa via um total aqui e outro maior na central, sem nada
-  // na tela explicando a diferenca.
-  //
-  // A tela nao pode quebrar se a RPC falhar ou ainda nao existir no banco: sem
-  // dado, o bloco de nivel simplesmente nao aparece.
-  const fetchUserLevel = useCallback(async (userId) => {
-    const { data, error } = await supabase.rpc('get_mission_counters', {
-      target_user_id: userId,
-    });
-    if (error) {
-      console.error("Erro ao buscar contadores do usuario:", error);
-      setUserLevel(null);
-      return;
-    }
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) {
-      setUserLevel(null);
-      return;
-    }
-
-    const contadores = normalizarContadoresDeMissao(row);
-
-    setUserLevel(placar(contadores));
-
-    // A mesma consulta alimenta as medalhas: a sequência de dias é função pura
-    // sobre as datas que a RPC já devolve.
-    setConquistas(
-      avaliarConquistas({
-        ...contadores,
-        sequencia: calcularSequencia(contadores.patrol_days || []),
-      })
-    );
-  }, []);
+  const hasPublicProfile = Boolean(user?.username);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    } else {
-      fetchRankings();
-      fetchUserLevel(user.id);
-    }
-  }, [user, navigate, fetchRankings, fetchUserLevel]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setManagedCouncilorPages([]);
-      return;
-    }
+    if (!user?.id) return;
     let active = true;
-    supabase
-      .from('councilors')
-      .select('id, city_id, name, slug, party, claim_status')
-      .eq('user_id', user.id)
-      .in('claim_status', ['linked', 'verified'])
-      .order('name')
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          console.error('Erro ao carregar páginas legislativas:', error);
-          setManagedCouncilorPages([]);
-          return;
-        }
-        setManagedCouncilorPages(data || []);
-      });
-    return () => { active = false; };
-  }, [user?.id]);
 
-  const handleProfileUpdate = async (updatedData) => {
-    // city_id/city vêm juntos: "city" é o nome desnormalizado que telas antigas
-    // ainda leem. Gravar só o id deixaria as duas colunas discordando —
-    // "Recife" no texto e o id de outra cidade.
+    Promise.all([
+      supabase
+        .from('councilors')
+        .select('id, city_id, name, slug, party, claim_status')
+        .eq('user_id', user.id)
+        .in('claim_status', ['linked', 'verified'])
+        .order('name'),
+      supabase.rpc('get_mission_counters', { target_user_id: user.id }),
+      hasPublicProfile
+        ? supabase.rpc('get_public_profile_follow_state', { p_profile_id: user.id })
+        : Promise.resolve({ data: null, error: null }),
+    ]).then(([councilorsResult, levelResult, followResult]) => {
+      if (!active) return;
+
+      if (councilorsResult.error) console.error('Erro ao carregar páginas legislativas:', councilorsResult.error);
+      setManagedCouncilorPages(councilorsResult.data || []);
+
+      if (!levelResult.error) {
+        const row = Array.isArray(levelResult.data) ? levelResult.data[0] : levelResult.data;
+        setUserLevel(row ? placar(normalizarContadoresDeMissao(row)) : null);
+      }
+
+      if (!followResult.error && followResult.data) {
+        setFollowState({
+          followers_count: Number(followResult.data.followers_count || 0),
+          following_count: Number(followResult.data.following_count || 0),
+        });
+      }
+    });
+
+    return () => { active = false; };
+  }, [hasPublicProfile, user?.id]);
+
+  const handleProfileUpdate = useCallback(async (updatedData) => {
     const cityChanged = String(updatedData.city_id ?? '') !== String(user.city_id ?? '');
     const { error } = await supabase
       .from('profiles')
@@ -154,517 +112,133 @@ const ProfilePage = () => {
       })
       .eq('id', user.id);
 
-
     if (error) {
-      showAppError({ title: "Erro ao atualizar perfil", description: error.message, variant: "destructive" });
-    } else {
-      await refreshUserProfile();
-      // Trocar a cidade do perfil não move sozinha a cidade ATIVA: essa é uma
-      // escolha separada, guardada no localStorage pelo CityContext, e que
-      // pode estar propositalmente em outra cidade. Trocamos junto porque, no
-      // fluxo "me mudei", manter o feed na cidade antiga é exatamente o bug
-      // que essa tela veio consertar.
-      if (cityChanged && updatedData.city_id) setActiveCity(updatedData.city_id);
-    }
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-    // Sem toast: quem tocou em "Sair" sabe que saiu, e a tela de login que
-    // aparece em seguida é a confirmação. O toast só repetia o óbvio por cima.
-    navigate('/login');
-  };
-
-  const userTypeDisplay = {
-    citizen: { icon: User, text: 'Cidadão', color: 'text-status-progressFg' },
-    public_official: { icon: Briefcase, text: 'Órgão Público', color: 'text-success-fg' }
-  };
-
-  if (!user) {
-    return <div className="flex justify-center items-center h-screen">Carregando...</div>;
-  }
-
-  const UserTypeIcon = userTypeDisplay[user.user_type]?.icon || User;
-  const memberSince = formatMemberSince(user.created_at);
-
-  const getAvatarComponent = (profile) => {
-    if (!profile) return <Avatar className="w-full h-full" />;
-
-    if ((profile.avatar_type === 'url' || profile.avatar_type === 'upload') && profile.avatar_url) {
-      return <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />;
+      showAppError({ title: 'Erro ao atualizar perfil', description: error.message, variant: 'destructive' });
+      return;
     }
 
-    if (profile.avatar_type === 'generated' && profile.avatar_config) {
-      let config = profile.avatar_config;
-      if (typeof config === 'string') {
-        try {
-          config = JSON.parse(config);
-        } catch (e) {
-          config = {};
-        }
-      }
-      return <Avatar className="w-full h-full" {...config} />;
-    }
+    await refreshUserProfile();
+    if (cityChanged && updatedData.city_id) setActiveCity(updatedData.city_id);
+  }, [refreshUserProfile, setActiveCity, user]);
 
-    return <Avatar className="w-full h-full" />;
-  };
+  const quickLinks = useMemo(() => [
+    { to: '/seguindo', label: 'Acompanhando', description: 'Novidades de quem você segue', Icon: Users },
+    { to: '/favoritos', label: 'Salvas', description: 'Broncas para rever', Icon: Bookmark },
+    { to: '/minhas-peticoes', label: 'Petições', description: 'Abaixo-assinados criados', Icon: FileText },
+    { to: '/minhas-patrulhas', label: 'Patrulhas', description: 'Histórico de fiscalização', Icon: Radar },
+  ], []);
 
-  // Item de lista com icone a esquerda, rotulo e chevron a direita.
-  const SettingsRow = ({ icon, label, to, onClick, danger = false }) => {
-    const content = (
-      <div
-        className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-colors hover:bg-surface-subtleHover ${
-          danger ? 'text-danger' : 'text-content-primary'
-        }`}
-      >
-        <span className={`flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 ${
-          danger ? 'bg-danger-subtleBg text-danger' : 'bg-surface-subtle text-content-secondary'
-        }`}>
-          {icon}
-        </span>
-        <span className="flex-1 text-left text-sm font-medium">{label}</span>
-        <Icon name="chevronright" size={18} className="text-content-tertiary flex-shrink-0" />
-      </div>
-    );
-
-    if (onClick) {
-      return (
-        <button type="button" onClick={onClick} className="w-full text-left">
-          {content}
-        </button>
-      );
-    }
-
-    return (
-      <Link to={to} className="w-full block">
-        {content}
-      </Link>
-    );
-  };
-
-  // Medalha de posicao no ranking: 1o/2o/3o ganham destaque, os demais ficam
-  // neutros. Sem token proprio de ouro/prata/bronze no design system, usamos
-  // accentHighlight para o 1o lugar e neutros/marca-sutil para os seguintes.
-  const rankBadgeClass = (index) => {
-    if (index === 0) return 'bg-accentHighlight text-content-primary';
-    if (index === 1) return 'bg-surface-sunken text-content-secondary';
-    if (index === 2) return 'bg-brand-subtleBg text-brand-subtleFg';
-    return 'bg-surface-subtle text-content-tertiary';
-  };
-
-  const RankingList = ({ items, icon: Icon2, currentUserId }) => (
-    <div className="space-y-2">
-      {items.map((item, index) => {
-        const isCurrentUser = item.id === currentUserId;
-        const isTop3 = index < 3;
-
-        return (
-          <div
-            key={item.id}
-            className={`flex items-center gap-3 p-2.5 rounded-xl border border-edge-subtle bg-surface-raised hover:border-edge-default hover:shadow-elevation-1 transition ${
-              isCurrentUser ? 'ring-2 ring-brand/30' : ''
-            }`}
-          >
-            <span
-              className={`flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full flex-shrink-0 ${rankBadgeClass(index)}`}
-            >
-              {index + 1}
-            </span>
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-subtle flex-shrink-0">
-              {getAvatarComponent(item)}
-            </div>
-            <div className="flex flex-col flex-grow min-w-0">
-              <span className="font-medium text-xs md:text-sm text-content-primary truncate">
-                {item.name}
-              </span>
-              <div className="flex items-center gap-2 text-2xs">
-                {isCurrentUser && (
-                  <span className="px-2 py-0.5 rounded-full bg-danger-subtleBg text-danger-subtleFg text-2xs font-semibold">
-                    Você
-                  </span>
-                )}
-                {isTop3 && !isCurrentUser && (
-                  <span className="px-2 py-0.5 rounded-full bg-status-progressBg text-status-progressFg text-2xs font-semibold">
-                    Destaque
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1 text-xs md:text-sm text-content-secondary flex-shrink-0">
-              <Icon2 className="w-4 h-4" />
-              <span className="font-semibold">{item.count}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+  if (!user) return <div className="flex min-h-[60vh] items-center justify-center">Carregando...</div>;
 
   return (
     <>
       <Helmet>
-        <title>Meu Perfil - Trombone Cidadão</title>
+        <title>{user.name || 'Meu perfil'} — Trombone Cidadão</title>
+        <meta name="description" content="Seu perfil, suas broncas e sua participação na cidade." />
       </Helmet>
-      <div className="flex flex-col bg-surface-base md:px-6">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mx-auto w-full max-w-[112rem] space-y-4 px-3 pb-8 pt-4 sm:px-5 lg:px-8"
-        >
-          {/* Card do usuario */}
-          <motion.div
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="bg-surface-raised p-6 rounded-2xl border border-edge-subtle shadow-elevation-1 relative"
+
+      <main className="min-h-screen bg-surface-base pb-20">
+        <div className="mx-auto w-full max-w-[112rem] px-3 py-4 sm:px-5 lg:px-8">
+          <div className="space-y-5 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start lg:gap-4 lg:space-y-0">
+            <aside className="space-y-5 lg:sticky lg:top-20">
+          <motion.section
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised shadow-elevation-1"
           >
-            {userLevel && (
-              <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right">
-                <p className="font-display font-bold text-lg md:text-xl text-brand leading-none">
-                  Nível {userLevel.level}
-                </p>
-                <p className="text-2xs text-content-tertiary mt-1">{userLevel.label}</p>
-                {/* O total agora aparece: sem ele, subir de nivel parecia
-                    acontecer sozinho, e o bonus das missoes ficava invisivel. */}
-                <p className="text-2xs font-semibold text-content-tertiary mt-0.5 tabular-nums">
-                  {userLevel.points} pts
-                  {userLevel.pontosMissoes > 0 && (
-                    <span className="text-brand"> · +{userLevel.pontosMissoes}</span>
-                  )}
-                </p>
+            <div className="relative bg-gradient-to-br from-brand-subtleBg via-surface-raised to-accentHighlight/30 p-4 sm:p-6 lg:p-4">
+              <Button asChild size="icon" variant="outline" className="absolute right-4 top-4 z-10 h-10 w-10 rounded-full bg-surface-raised/90" aria-label="Configurações">
+                <Link to="/configuracoes"><Settings className="h-5 w-5" /></Link>
+              </Button>
+
+              <div className="flex items-start gap-4 pr-12 sm:items-center sm:gap-6 lg:flex-col lg:items-center lg:gap-3 lg:pr-0 lg:text-center">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-surface-raised bg-surface-subtle shadow-elevation-1 sm:h-28 sm:w-28 lg:h-20 lg:w-20">
+                  <ProfileAvatar profile={user} />
+                </div>
+
+                <div className="min-w-0 flex-1 lg:w-full">
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-center">
+                    <h1 className="truncate text-xl font-black text-content-primary sm:text-3xl lg:text-lg">{user.name}</h1>
+                    {user.verification_status === 'verified' && <ShieldCheck className="h-5 w-5 shrink-0 text-brand" aria-label="Perfil verificado" />}
+                  </div>
+                  {user.username && <p className="mt-0.5 truncate font-mono text-xs font-semibold text-content-secondary">@{user.username}</p>}
+                  {user.public_bio && <p className="mt-2 line-clamp-3 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-content-primary lg:hidden">{user.public_bio}</p>}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-content-secondary lg:justify-center lg:gap-x-3">
+                    <span><strong className="text-content-primary tabular-nums">{followState.followers_count}</strong> seguidores</span>
+                    <Link to="/seguindo" className="hover:text-brand"><strong className="text-content-primary tabular-nums">{followState.following_count}</strong> seguindo</Link>
+                    {userLevel && <Link to="/missoes" className="inline-flex items-center gap-1 font-bold text-brand"><Trophy className="h-3.5 w-3.5" />Nível {userLevel.level}</Link>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2 lg:flex-col">
+                <Button type="button" onClick={() => setIsEditModalOpen(true)} className="h-9 gap-2 rounded-xl bg-brand px-4 font-bold text-brand-fg hover:bg-brand-hover lg:w-full">
+                  <Edit className="h-4 w-4" />Editar perfil
+                </Button>
+                {hasPublicProfile ? (
+                  <Button asChild variant="outline" className="h-9 gap-2 rounded-xl bg-surface-raised/80 px-4 font-bold lg:w-full">
+                    <Link to={`/u/${user.username}`}>Ver como público<ExternalLink className="h-4 w-4" /></Link>
+                  </Button>
+                ) : (
+                  <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(true)} className="h-9 gap-2 rounded-xl bg-surface-raised/80 px-4 font-bold lg:w-full">
+                    Criar meu perfil público
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {(managedCouncilorPages.length > 0 || user.is_admin || user.is_ambassador || user.is_master) && (
+              <div className="grid gap-2 border-t border-edge-subtle p-3 sm:grid-cols-2 lg:grid-cols-1">
+                {managedCouncilorPages.map((page) => (
+                  <Link key={page.id} to={rotaDoVereador(page.city_id, page.slug)} className="flex items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand-subtleBg px-3 py-2.5 hover:border-brand/40">
+                    <span className="flex min-w-0 items-center gap-2"><Landmark className="h-4 w-4 shrink-0 text-brand" /><span className="min-w-0"><span className="block truncate text-xs font-extrabold text-content-primary">Ver página legislativa</span><span className="block truncate text-2xs text-content-secondary">{page.name}{page.party ? ` · ${page.party}` : ''}</span></span></span>
+                    <Icon name="chevronright" size={15} />
+                  </Link>
+                ))}
+                {(user.is_admin || user.is_master) && (
+                  <Link to="/admin" className="flex items-center justify-between rounded-xl border border-edge-subtle px-3 py-2.5 text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover"><span className="flex items-center gap-2"><Shield className="h-4 w-4 text-brand" />Painel administrativo</span><Icon name="chevronright" size={15} /></Link>
+                )}
+                {(user.is_ambassador || user.is_master) && (
+                  <Link to="/embaixador" className="flex items-center justify-between rounded-xl border border-edge-subtle px-3 py-2.5 text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover"><span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" />Área do embaixador</span><Icon name="chevronright" size={15} /></Link>
+                )}
               </div>
             )}
+          </motion.section>
 
-            <div className="flex items-center gap-4 pr-24 md:pr-32">
-              <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-brand object-cover overflow-hidden bg-surface-subtle">
-                  {getAvatarComponent(user)}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute -bottom-1 -right-1 w-8 h-8 bg-surface-raised rounded-full text-brand hover:bg-surface-subtleHover shadow-elevation-1 border border-edge-subtle"
-                  onClick={() => setIsEditModalOpen(true)}
-                  aria-label="Editar perfil"
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg md:text-xl font-bold text-content-primary truncate">{user.name}</h2>
-                {user.username && (
-                  <p className="font-mono text-xs font-semibold text-content-secondary mt-0.5">
-                    @{user.username}
-                  </p>
-                )}
-                <div className={`flex items-center gap-1.5 mt-1 text-sm font-semibold ${userTypeDisplay[user.user_type]?.color}`}>
-                  <UserTypeIcon className="w-4 h-4" />
-                  <span>{userTypeDisplay[user.user_type]?.text}</span>
-                </div>
-                {memberSince && (
-                  <p className="text-2xs text-content-tertiary mt-1">
-                    Membro desde {memberSince}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="w-full mt-5 space-y-2">
-              {managedCouncilorPages.map((page) => (
-                <Link key={page.id} to={`/perfil/pagina-legislativa/${page.id}`} className="w-full block">
-                  <Button variant="outline" className="h-auto w-full justify-between gap-3 border-brand/30 bg-brand-subtleBg px-4 py-3 text-content-primary hover:bg-brand-subtleBg/80">
-                    <span className="flex min-w-0 items-center gap-3 text-left">
-                      <Landmark className="h-5 w-5 shrink-0 text-brand" />
-                      <span className="min-w-0"><span className="block truncate text-sm font-bold">Gerenciar página legislativa</span><span className="block truncate text-xs font-normal text-content-secondary">{page.name}{page.party ? ` · ${page.party}` : ''}{page.claim_status === 'verified' ? ' · Verificada' : ''}</span></span>
-                    </span>
-                    <Icon name="chevronright" size={16} />
-                  </Button>
+          <section aria-label="Atalhos do perfil">
+            <h2 className="mb-2 hidden px-1 text-xs font-extrabold text-content-primary lg:block">Acesso rápido</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {quickLinks.map(({ to, label, description, Icon: LinkIcon }) => (
+                <Link key={to} to={to} className="flex min-w-0 items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm transition hover:border-edge-default hover:bg-surface-subtleHover lg:flex-col lg:items-start lg:gap-2">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><LinkIcon className="h-5 w-5" /></span>
+                  <span className="min-w-0 lg:w-full"><span className="block truncate text-sm font-extrabold text-content-primary lg:whitespace-normal">{label}</span><span className="hidden truncate text-2xs text-content-secondary sm:block lg:whitespace-normal">{description}</span></span>
                 </Link>
               ))}
-              {user.public_profile_enabled && user.username && (
-                <Link to={`/u/${user.username}`} className="w-full block">
-                  <Button variant="outline" className="w-full justify-between gap-2 border-edge-default text-content-primary hover:bg-surface-subtle">
-                    <span className="flex items-center gap-2">
-                      <Icon name="profile" size={16} />
-                      Ver meu perfil de participação
-                    </span>
-                    <Icon name="chevronright" size={16} />
-                  </Button>
-                </Link>
-              )}
-              {/* "Minhas Broncas" saiu daqui em ago/2026: apontava para
-                  /painel-usuario?tab=reports, e a aba de broncas ja e a que o
-                  painel abre por padrao — eram dois botoes para a mesma tela.
-                  Ficou "Meu Painel", que e o nome da tela de verdade.
-
-                  Os atalhos abaixo vieram do menu do avatar no header. O avatar
-                  saiu de la no mobile (virou a aba Perfil da barra inferior),
-                  entao eles se juntaram aos que ja existiam aqui.
-
-                  O destaque em vermelho é dele, e não de "Minhas Petições":
-                  petição é o que uma minoria das pessoas cria, o painel é para
-                  onde todo mundo volta. */}
-              <Link to="/painel-usuario" className="w-full block">
-                <Button variant="default" className="w-full justify-between gap-2 bg-cta-bg text-cta-fg border border-cta-border hover:bg-brand-hover">
-                  <span className="flex items-center gap-2">
-                    <LayoutDashboard className="w-4 h-4" />
-                    Meu Painel
-                  </span>
-                  <Icon name="chevronright" size={16} />
-                </Button>
-              </Link>
-
-              {/* Veio do cartão de configurações, onde era uma linha chamada
-                  "Admin" entre "Privacidade" e "Sair da conta" — o lugar de
-                  quem mexe numa preferência uma vez por ano, não o de quem
-                  entra no painel várias vezes por dia.
-
-                  Logo abaixo do CTA porque, para quem é admin, esta é a tela
-                  mais visitada da lista: ordem por frequência de uso, não por
-                  hierarquia. Mesma condição do AdminRoute (`is_admin`), senão o
-                  atalho levaria a um redirecionamento silencioso. */}
-              {user?.is_admin && (
-                <Link to="/admin" className="w-full block">
-                  <Button variant="outline" className="w-full justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
-                      Painel Administrativo
-                    </span>
-                    <Icon name="chevronright" size={16} />
-                  </Button>
-                </Link>
-              )}
-              <Link to="/minhas-peticoes" className="w-full block">
-                <Button variant="outline" className="w-full justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Minhas Petições
-                  </span>
-                  <Icon name="chevronright" size={16} />
-                </Button>
-              </Link>
-              {/* Veio da tela de missões em ago/2026. Lá ele fazia a tela
-                  terminar olhando para trás; aqui fica ao lado dos outros
-                  "meus": painel, favoritas, petições. */}
-              <Link to="/minhas-patrulhas" className="w-full block">
-                <Button variant="outline" className="w-full justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <Radar className="w-4 h-4" />
-                    Minhas Patrulhas
-                  </span>
-                  <Icon name="chevronright" size={16} />
-                </Button>
-              </Link>
-              <Link to="/favoritos" className="w-full block">
-                <Button variant="outline" className="w-full justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <Star className="w-4 h-4" />
-                    Broncas Favoritas
-                  </span>
-                  <Icon name="chevronright" size={16} />
-                </Button>
-              </Link>
-              <Link to="/obras-favoritas" className="w-full block">
-                <Button variant="outline" className="w-full justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <HardHat className="w-4 h-4" />
-                    Obras Favoritas
-                  </span>
-                  <Icon name="chevronright" size={16} />
-                </Button>
-              </Link>
-              {(user.is_ambassador || user.is_master) && (
-                <Link to="/embaixador" className="w-full block">
-                  <Button variant="outline" className="w-full justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4" />
-                      Painel Embaixador
-                    </span>
-                    <Icon name="chevronright" size={16} />
-                  </Button>
-                </Link>
-              )}
             </div>
-          </motion.div>
+          </section>
 
-          {/* Card Aparencia + configuracoes */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.05 }}
-            className="bg-surface-raised p-6 rounded-2xl border border-edge-subtle shadow-elevation-1"
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Icon name="soundon" size={20} className="text-content-primary" />
-              <h3 className="font-display font-bold text-base text-content-primary">
-                Aparência
-              </h3>
+          <SuggestedProfiles cityId={activeCityId} limit={4} />
+
+            </aside>
+
+            <div className="space-y-4">
+          <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-3 shadow-elevation-1 sm:p-5">
+            <UserDashboardPage embedded profileMode />
+          </section>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-content-secondary">
+            <Bell className="h-3.5 w-3.5" />
+            <span>Notificações, aparência, segurança e conta ficam em</span>
+            <Link to="/configuracoes" className="font-bold text-brand hover:underline">Configurações</Link>
+          </div>
             </div>
-            <p className="text-xs text-content-secondary mb-3">
-              Escolha como o app deve ser exibido
-            </p>
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              {[
-                { key: 'light', label: 'Claro' },
-                { key: 'dark', label: 'Escuro' },
-                { key: 'system', label: 'Automático' },
-              ].map((opt) => {
-                const active = preference === opt.key;
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => setPreference(opt.key)}
-                    aria-pressed={active}
-                    className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${
-                      active
-                        ? 'border-brand bg-brand-subtleBg text-brand'
-                        : 'border-edge-subtle bg-surface-base text-content-secondary hover:text-content-primary'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+          </div>
+        </div>
+      </main>
 
-            <div className="mt-4 pt-4 border-t border-edge-subtle space-y-1">
-              <SettingsRow
-                icon={<KeyRound className="w-4 h-4" />}
-                label="Alterar senha"
-                to="/alterar-senha"
-              />
-              <SettingsRow
-                icon={<Icon name="bell" size={16} />}
-                label="Notificações"
-                to="/settings/notifications"
-              />
-              {/* Liga/desliga rapido, equivalente ao switch que ficava no menu
-                  do avatar. As preferencias detalhadas seguem na linha acima. */}
-              <div className="flex items-center gap-3 w-full px-3 py-3 rounded-xl">
-                <span className="flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 bg-surface-subtle text-content-secondary">
-                  <Icon name="bell" size={16} />
-                </span>
-                <div className="flex-1 flex flex-col text-left">
-                  <span className="text-sm font-medium text-content-primary">Notificações do Site</span>
-                  <span className="text-xs text-content-secondary">
-                    {notificationsEnabled ? 'Ativadas' : 'Desativadas'}
-                  </span>
-                </div>
-                <Switch
-                  checked={notificationsEnabled}
-                  onCheckedChange={() => { toggleNotifications().catch(() => {}); }}
-                  disabled={notificationsLoading}
-                  aria-label="Notificações do Site"
-                />
-              </div>
-              <SettingsRow
-                icon={<Shield className="w-4 h-4" />}
-                label="Privacidade"
-                to="/termos-de-uso"
-              />
-              {Capacitor.isNativePlatform() && (
-                <SettingsRow
-                  icon={<Briefcase className="w-4 h-4" />}
-                  label="Preferências"
-                  to="/perfil/preferencias"
-                />
-              )}
-              {/* "Admin" ficava aqui; subiu para o cartão de atalhos. */}
-              <SettingsRow
-                icon={<LogOut className="w-4 h-4" />}
-                label="Sair da conta"
-                onClick={handleLogout}
-              />
-            </div>
-
-          </motion.div>
-
-          {/* Conquistas.
-
-              Vieram da central de missões, e não só por espaço: medalha e
-              missão são de tempos diferentes. Missão é o que há para fazer
-              agora — renova a meta e sai da lista quando acaba. Medalha é o que
-              já foi feito, para sempre. O perfil é onde se olha para trás. */}
-          {conquistas.length > 0 && (
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.05 }}
-              className="bg-surface-raised p-6 rounded-2xl border border-edge-subtle shadow-elevation-1"
-            >
-              <AchievementGrid conquistas={conquistas} />
-            </motion.div>
-          )}
-
-          {/* Card Gamificacao e Ranking */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="bg-surface-raised p-6 rounded-2xl border border-edge-subtle shadow-elevation-1"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Icon name="ambassador" size={22} className="text-brand" />
-                <h3 className="font-display font-bold text-lg md:text-xl text-content-primary">
-                  Gamificação e Ranking
-                </h3>
-              </div>
-              <Link to="/estatisticas" className="text-xs md:text-sm font-semibold text-brand hover:underline flex-shrink-0">
-                Ver ranking geral
-              </Link>
-            </div>
-
-            <Tabs defaultValue="reports" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-surface-subtle border border-edge-subtle rounded-xl">
-                <TabsTrigger value="reports" className="gap-1 text-xs md:text-sm">
-                  <FileText className="w-4 h-4" />
-                  Mais Broncas
-                </TabsTrigger>
-                <TabsTrigger value="upvotes" className="gap-1 text-xs md:text-sm">
-                  <ThumbsUp className="w-4 h-4" />
-                  Mais Apoios
-                </TabsTrigger>
-                <TabsTrigger value="comments" className="gap-1 text-xs md:text-sm">
-                  <MessageSquare className="w-4 h-4" />
-                  Mais Comentários
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="reports" className="mt-4">
-                <RankingList items={rankings.reports} icon={FileText} currentUserId={user.id} />
-              </TabsContent>
-              <TabsContent value="upvotes" className="mt-4">
-                <RankingList items={rankings.upvotes} icon={ThumbsUp} currentUserId={user.id} />
-              </TabsContent>
-              <TabsContent value="comments" className="mt-4">
-                <RankingList items={rankings.comments} icon={MessageSquare} currentUserId={user.id} />
-              </TabsContent>
-            </Tabs>
-          </motion.div>
-
-          {/* A exclusão encerra a página porque é uma ação definitiva, não uma
-              preferência de aparência ou de acesso recorrente. */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className="rounded-2xl border border-edge-subtle bg-surface-raised p-6 shadow-elevation-1"
-          >
-            <Link to="/excluir-conta" className="block w-full">
-              <Button variant="outline" className="w-full gap-2 border-danger/30 text-danger hover:bg-danger-subtleBg hover:text-danger">
-                <Trash2 className="h-4 w-4" />
-                Excluir conta
-              </Button>
-            </Link>
-          </motion.div>
-        </motion.div>
-      </div>
       {isEditModalOpen && (
-        <EditProfileModal
-          user={user}
-          onClose={() => setIsEditModalOpen(false)}
-          onSave={handleProfileUpdate}
-        />
+        <EditProfileModal user={user} onClose={() => setIsEditModalOpen(false)} onSave={handleProfileUpdate} />
       )}
     </>
   );

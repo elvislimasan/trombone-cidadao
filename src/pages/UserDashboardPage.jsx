@@ -36,7 +36,7 @@ const normalizarBusca = (value) => String(value || '')
   .replace(/\p{Mn}/gu, '')
   .toLowerCase();
 
-const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null }) => {
+const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null, profileMode = false }) => {
   const { user } = useAuth();
   const { activeCityId } = useCity();
   const location = useLocation();
@@ -87,7 +87,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
     const { data: reportsData, error: reportsError } = await supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*)')
+      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:signatures(count), timeline:report_timeline(*)')
       .eq('author_id', user.id)
       .order('created_at', { ascending: false });
     
@@ -530,10 +530,19 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
         {impactFirst && impactBanner}
         {impactFirst && navigationAfterImpact && <div className="mb-6">{navigationAfterImpact}</div>}
 
-        <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-content-primary md:text-3xl">Olá, {primeiroNome}! <span aria-hidden="true">👋</span></h1>
-            <p className="mt-1 text-sm text-content-secondary">Acompanhe suas contribuições e o impacto da sua participação.</p>
+            {profileMode ? (
+              <>
+                <h2 className="text-xl font-extrabold text-content-primary md:text-2xl">Minha atividade</h2>
+                <p className="mt-1 text-sm text-content-secondary">Publique e gerencie suas contribuições na cidade.</p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-extrabold text-content-primary md:text-3xl">Olá, {primeiroNome}! <span aria-hidden="true">👋</span></h1>
+                <p className="mt-1 text-sm text-content-secondary">Acompanhe suas contribuições e o impacto da sua participação.</p>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <Button
@@ -570,14 +579,14 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
           </div>
         </section>
 
-        {!impactFirst && impactBanner}
+        {!profileMode && !impactFirst && impactBanner}
 
         <div className="mb-4 flex items-end justify-between gap-4">
-          <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2><p className="text-sm text-content-secondary">Gerencie o que você publicou na plataforma.</p></div>
+          <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2></div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-xl grid-cols-3 bg-muted/50 rounded-lg p-1 gap-1 h-auto">
+          <TabsList className="hidden" aria-hidden="true">
             <TabsTrigger 
               value="reports" 
               className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
@@ -601,7 +610,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="reports" className="mt-6 relative min-h-[300px]">
+          <TabsContent value="reports" className="relative min-h-[300px]">
             <div className="mb-5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
               <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
                 <label className="relative min-w-0">

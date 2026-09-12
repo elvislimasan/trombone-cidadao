@@ -62,7 +62,7 @@ const NewsPage = () => {
         <title>Notícias - Trombone Cidadão</title>
         <meta name="description" content="Fique por dentro de todas as novidades sobre a plataforma Trombone Cidadão e o impacto na nossa cidade." />
       </Helmet>
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
+      <div className="mx-auto w-full max-w-[100rem] px-3 py-8 sm:px-5 lg:px-6 lg:py-12">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -78,7 +78,7 @@ const NewsPage = () => {
         </motion.div>
 
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8"
+          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8 2xl:grid-cols-4"
           variants={containerVariants}
           initial="hidden"
           animate="visible"

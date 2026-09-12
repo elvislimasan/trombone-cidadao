@@ -15,6 +15,11 @@ import {
   Loader2,
   Sparkles,
   Landmark,
+  UserPlus,
+  UserCheck,
+  Users,
+  MapPin,
+  Edit,
 } from 'lucide-react';
 import Avatar from 'react-nice-avatar';
 import { Button } from '@/components/ui/button';
@@ -41,6 +46,7 @@ import Icon from '@/design-system/icons';
 import TimeAgo from '@/components/TimeAgo';
 import { usePublicProfile } from '@/hooks/usePublicProfile';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useCity } from '@/contexts/CityContext';
 import { getPublicProfileShareUrl } from '@/lib/shareUtils';
 import { PROFILE_TYPE_INFO, normalizeUsername } from '@/lib/username';
 import { showAppError } from '@/lib/appError';
@@ -68,6 +74,7 @@ export default function PublicProfilePage() {
   const { username: routeUsername } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { cities } = useCity();
   const cleanUsername = normalizeUsername(routeUsername);
 
   const {
@@ -79,6 +86,9 @@ export default function PublicProfilePage() {
     statusFilter,
     setStatusFilter,
     reportProfile,
+    followState,
+    followLoading,
+    setFollowing,
   } = usePublicProfile(cleanUsername);
 
   const [activeTab, setActiveTab] = useState('reports');
@@ -93,6 +103,18 @@ export default function PublicProfilePage() {
   const safeWebsite = useMemo(() => sanitizeUrl(profile?.public_website), [profile?.public_website]);
   const profileTypeData = PROFILE_TYPE_INFO[profile?.public_profile_type] || PROFILE_TYPE_INFO.citizen;
   const isOwnProfile = currentUser?.id && profile?.id && currentUser.id === profile.id;
+  const profileCity = useMemo(
+    () => cities.find((city) => String(city.id) === String(profile?.city_id)) || null,
+    [cities, profile?.city_id]
+  );
+  const categoryStats = useMemo(() => {
+    const counts = new Map();
+    reports.forEach((report) => {
+      const name = report.category_name || 'Outras';
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [reports]);
 
   useEffect(() => {
     if (!profile?.id) {
@@ -122,7 +144,7 @@ export default function PublicProfilePage() {
     if (!profile) return;
     const shareUrl = getPublicProfileShareUrl(profile.username);
     const shareTitle = `${profile.name} (@${profile.username}) no Trombone Cidadão`;
-    const shareText = `Veja o histórico de participação cívica e cobranças de ${profile.name} (@${profile.username}) na cidade.`;
+    const shareText = `Veja as broncas, cobranças e conquistas de ${profile.name} (@${profile.username}) no Trombone Cidadão.`;
 
     if (navigator.share) {
       try {
@@ -156,6 +178,23 @@ export default function PublicProfilePage() {
       `Conheça o perfil de ${profile.name} (@${profile.username}) no Trombone Cidadão: ${shareUrl}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleFollow = async () => {
+    if (!currentUser) {
+      navigate('/login', { state: { from: { pathname: `/u/${cleanUsername}` } } });
+      return;
+    }
+
+    try {
+      await setFollowing(!followState.is_following);
+    } catch (err) {
+      showAppError({
+        title: 'Não foi possível atualizar',
+        description: err?.message || 'Tente novamente em instantes.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSubmitReport = async () => {
@@ -264,10 +303,10 @@ export default function PublicProfilePage() {
   }
 
   const shareUrl = getPublicProfileShareUrl(profile.username);
-  const pageTitle = `${profile.name} (@${profile.username}) — Histórico Cívico | Trombone Cidadão`;
+  const pageTitle = `${profile.name} (@${profile.username}) | Trombone Cidadão`;
   const pageDesc = profile.public_bio
     ? `${profile.name} (@${profile.username}): ${profile.public_bio}`
-    : `Acompanhe as cobranças e o impacto cívico de ${profile.name} (@${profile.username}) no Trombone Cidadão.`;
+    : `Siga ${profile.name} (@${profile.username}) e acompanhe suas broncas e conquistas no Trombone Cidadão.`;
 
   return (
     <div className="min-h-screen bg-surface-base pb-16">
@@ -284,7 +323,7 @@ export default function PublicProfilePage() {
 
       {/* Barra superior de navegação */}
       <div className="sticky top-0 z-20 bg-surface-raised/90 backdrop-blur-md border-b border-edge-subtle">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+        <div className="mx-auto h-14 w-full max-w-[100rem] px-3 sm:px-5 lg:px-6 flex items-center justify-between gap-3">
           <Button
             size="icon"
             variant="ghost"
@@ -352,21 +391,110 @@ export default function PublicProfilePage() {
                     </Link>
                   </DropdownMenuItem>
                 )}
+                {isOwnProfile && (
+                  <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+                    <Link to="/seguindo">
+                      <Users className="w-4 h-4" />
+                      Acompanhar quem sigo
+                    </Link>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 pt-5 sm:px-6 space-y-6">
+      <div className="mx-auto w-full max-w-[100rem] space-y-6 px-3 pt-5 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5 lg:space-y-0 lg:px-6 xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <div className="min-w-0 space-y-6">
         {/* Cartão de Cabeçalho do Perfil */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-surface-raised rounded-2xl border border-edge-subtle p-5 sm:p-6 shadow-elevation-1"
+          className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1 sm:p-5 lg:flex lg:h-60 lg:items-center lg:p-6"
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-brand flex-shrink-0 bg-surface-subtle shadow-elevation-1">
+          <div className="w-full lg:hidden">
+            <div className="flex items-start gap-4">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-3 border-brand bg-surface-subtle shadow-elevation-1">
+                {renderAvatar()}
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="truncate text-lg font-display font-extrabold text-content-primary">{profile.name}</h2>
+                  {profile.verification_status === 'verified' && (
+                    <ShieldCheck className="h-4 w-4 shrink-0 fill-brand/20 text-brand" aria-label="Perfil verificado" />
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+                  <span className="truncate font-mono font-semibold text-content-secondary">@{profile.username}</span>
+                  {profile.city_name && (
+                    <span className="inline-flex items-center gap-1 text-content-secondary">
+                      <MapPin className="h-3 w-3 text-brand" />
+                      {profile.city_name}
+                    </span>
+                  )}
+                </div>
+
+                {profile.public_bio && (
+                  <p className="line-clamp-2 whitespace-pre-line text-xs leading-relaxed text-content-primary">{profile.public_bio}</p>
+                )}
+
+                {memberSince && (
+                  <p className="flex items-center gap-1.5 text-[11px] text-content-tertiary">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Membro desde {memberSince}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 divide-x divide-edge-subtle text-center">
+              <div className="px-2">
+                <strong className="block text-xl font-black leading-none tabular-nums text-content-primary">{profile.stats?.total_reports || 0}</strong>
+                <span className="mt-1 block text-[10px] leading-tight text-content-secondary">publicações</span>
+              </div>
+              <div className="px-2">
+                <strong className="block text-xl font-black leading-none tabular-nums text-content-primary">{followState.followers_count}</strong>
+                <span className="mt-1 block text-[10px] leading-tight text-content-secondary">seguidores</span>
+              </div>
+              <div className="px-2">
+                <strong className="block text-xl font-black leading-none tabular-nums text-content-primary">{followState.following_count}</strong>
+                <span className="mt-1 block text-[10px] leading-tight text-content-secondary">seguindo</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              {!isOwnProfile && (
+                <Button
+                  type="button"
+                  onClick={handleFollow}
+                  disabled={followLoading}
+                  variant={followState.is_following ? 'outline' : 'default'}
+                  className={followState.is_following
+                    ? 'h-10 w-full gap-2 rounded-xl border-brand/40 font-bold text-brand'
+                    : 'h-10 w-full gap-2 rounded-xl bg-brand font-bold text-brand-fg hover:bg-brand-hover'}
+                >
+                  {followLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : followState.is_following ? <UserCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                  {followState.is_following ? 'Seguindo' : 'Seguir'}
+                </Button>
+              )}
+              {isOwnProfile && (
+                <Button asChild type="button" className="h-10 w-full gap-2 rounded-xl bg-brand font-bold text-brand-fg hover:bg-brand-hover">
+                  <Link to="/perfil"><Edit className="h-4 w-4" /> Editar perfil</Link>
+                </Button>
+              )}
+              {safeWebsite && (
+                <Button asChild type="button" variant="outline" className="h-10 w-full gap-2 rounded-xl border-brand/35 font-bold text-brand">
+                  <a href={safeWebsite} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /> Visitar site</a>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="hidden w-full items-center gap-6 lg:flex">
+            <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-3 border-brand bg-surface-subtle shadow-elevation-1">
               {renderAvatar()}
             </div>
 
@@ -389,10 +517,14 @@ export default function PublicProfilePage() {
                 <span className="font-mono font-semibold text-content-secondary">
                   @{profile.username}
                 </span>
-                <span className="text-content-tertiary">·</span>
-                <span className={`px-2 py-0.5 rounded-full border text-2xs font-semibold ${profileTypeData.badgeClass}`}>
-                  {profileTypeData.label}
-                </span>
+                {profile.verification_status === 'verified' && profile.public_profile_type !== 'citizen' && (
+                  <>
+                    <span className="text-content-tertiary">·</span>
+                    <span className={`px-2 py-0.5 rounded-full border text-2xs font-semibold ${profileTypeData.badgeClass}`}>
+                      {profileTypeData.label}
+                    </span>
+                  </>
+                )}
                 {profile.city_name && (
                   <>
                     <span className="text-content-tertiary">·</span>
@@ -429,6 +561,45 @@ export default function PublicProfilePage() {
                   </span>
                 )}
               </div>
+
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 text-xs text-content-secondary">
+                <span><strong className="text-content-primary tabular-nums">{profile.stats?.total_reports || 0}</strong> publicações</span>
+                <span><strong className="text-content-primary tabular-nums">{followState.followers_count}</strong> seguidores</span>
+                <span><strong className="text-content-primary tabular-nums">{followState.following_count}</strong> seguindo</span>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                {!isOwnProfile && (
+                  <Button
+                    type="button"
+                    onClick={handleFollow}
+                    disabled={followLoading}
+                    variant={followState.is_following ? 'outline' : 'default'}
+                    className={followState.is_following
+                      ? 'h-9 gap-2 rounded-xl border-edge-default px-5 font-bold'
+                      : 'h-9 gap-2 rounded-xl bg-brand px-5 font-bold text-brand-fg hover:bg-brand-hover'}
+                  >
+                    {followLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : followState.is_following ? (
+                      <UserCheck className="h-4 w-4" />
+                    ) : (
+                      <UserPlus className="h-4 w-4" />
+                    )}
+                    {followState.is_following ? 'Seguindo' : 'Seguir'}
+                  </Button>
+                )}
+                {isOwnProfile && (
+                  <Button asChild type="button" variant="outline" className="h-9 gap-2 rounded-xl px-5 font-bold">
+                    <Link to="/perfil">Editar perfil</Link>
+                  </Button>
+                )}
+                {isOwnProfile && followState.following_count > 0 && (
+                  <Button asChild type="button" variant="outline" className="h-9 gap-2 rounded-xl px-5 font-bold">
+                    <Link to="/seguindo"><Users className="h-4 w-4" /> Acompanhando</Link>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
@@ -456,50 +627,6 @@ export default function PublicProfilePage() {
             </div>
           </motion.section>
         )}
-
-        {/* Resumo de Impacto Cívico */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-        >
-          <div className="bg-surface-raised rounded-xl border border-edge-subtle p-3.5 text-center shadow-elevation-1">
-            <p className="font-display text-2xl font-black text-content-primary tabular-nums">
-              {profile.stats?.total_reports || 0}
-            </p>
-            <p className="text-2xs font-semibold text-content-secondary uppercase tracking-wider mt-0.5">
-              Broncas Abertas
-            </p>
-          </div>
-
-          <div className="bg-surface-raised rounded-xl border border-edge-subtle p-3.5 text-center shadow-elevation-1">
-            <p className="font-display text-2xl font-black text-status-resolvedFg tabular-nums">
-              {profile.stats?.resolved_reports || 0}
-            </p>
-            <p className="text-2xs font-semibold text-content-secondary uppercase tracking-wider mt-0.5">
-              Resolvidas
-            </p>
-          </div>
-
-          <div className="bg-surface-raised rounded-xl border border-edge-subtle p-3.5 text-center shadow-elevation-1">
-            <p className="font-display text-2xl font-black text-brand tabular-nums">
-              {profile.stats?.total_upvotes_received || 0}
-            </p>
-            <p className="text-2xs font-semibold text-content-secondary uppercase tracking-wider mt-0.5">
-              Apoios Recebidos
-            </p>
-          </div>
-
-          <div className="bg-surface-raised rounded-xl border border-edge-subtle p-3.5 text-center shadow-elevation-1">
-            <p className="font-display text-2xl font-black text-content-primary tabular-nums">
-              {profile.stats?.cities_count || (profile.city_name ? 1 : 0)}
-            </p>
-            <p className="text-2xs font-semibold text-content-secondary uppercase tracking-wider mt-0.5">
-              Cidades
-            </p>
-          </div>
-        </motion.div>
 
         {/* Abas Públicas */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -568,15 +695,15 @@ export default function PublicProfilePage() {
                 }
               />
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {reports.map((report) => (
                   <Link
                     key={report.id}
                     to={`/bronca/${report.id}`}
-                    className="block bg-surface-raised hover:bg-surface-subtleHover border border-edge-subtle hover:border-edge-default rounded-xl p-4 transition shadow-elevation-1"
+                    className="flex h-full flex-col overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-elevation-1 transition hover:-translate-y-0.5 hover:border-edge-default hover:shadow-elevation-2"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-col-reverse">
+                      <div className="min-w-0 flex-1 space-y-1 p-4">
                         <div className="flex items-center gap-2">
                           <StatusBadge status={report.status} withIcon size="sm" />
                           {report.category_name && (
@@ -596,19 +723,21 @@ export default function PublicProfilePage() {
                         )}
                       </div>
 
-                      {report.media?.[0]?.url && (
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-surface-subtle">
+                      <div className="aspect-[16/9] w-full overflow-hidden bg-surface-sunken">
+                        {report.media?.[0]?.url ? (
                           <img
                             src={report.media[0].url}
                             alt=""
-                            className="w-full h-full object-cover"
+                            className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                             loading="lazy"
                           />
-                        </div>
-                      )}
+                        ) : (
+                          <div className="flex h-full items-center justify-center bg-gradient-to-br from-brand/10 via-surface-sunken to-brand/5 text-4xl">{report.category_icon || '📣'}</div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-edge-subtle text-2xs text-content-tertiary">
+                    <div className="mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle px-4 py-3 text-2xs text-content-tertiary">
                       <div className="flex items-center gap-1 text-brand font-semibold">
                         <Icon name="support" size={13} />
                         <span>{report.upvotes || 0} apoios</span>
@@ -635,17 +764,17 @@ export default function PublicProfilePage() {
                 description="Quando as demandas cobradas por este perfil forem resolvidas, elas aparecerão com destaque aqui."
               />
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {reports
                   .filter((r) => r.status === 'resolved')
                   .map((report) => (
                     <Link
                       key={report.id}
                       to={`/bronca/${report.id}`}
-                      className="block bg-surface-raised border border-status-resolvedBorder/50 hover:border-status-resolvedBorder rounded-xl p-4 transition shadow-elevation-1"
+                      className="flex h-full flex-col overflow-hidden rounded-2xl border border-status-resolvedBorder/50 bg-surface-raised shadow-elevation-1 transition hover:-translate-y-0.5 hover:border-status-resolvedBorder hover:shadow-elevation-2"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-col-reverse">
+                        <div className="min-w-0 flex-1 space-y-1.5 p-4">
                           <div className="flex items-center gap-1.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-status-resolvedBg text-status-resolvedFg border border-status-resolvedBorder text-2xs font-bold uppercase tracking-wider">
                               <Sparkles className="w-3 h-3" />
@@ -668,19 +797,21 @@ export default function PublicProfilePage() {
                           )}
                         </div>
 
-                        {report.media?.[0]?.url && (
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-surface-subtle">
+                        <div className="aspect-[16/9] w-full overflow-hidden bg-surface-sunken">
+                          {report.media?.[0]?.url ? (
                             <img
                               src={report.media[0].url}
                               alt=""
-                              className="w-full h-full object-cover"
+                              className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                               loading="lazy"
                             />
-                          </div>
-                        )}
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-gradient-to-br from-success-bg via-surface-sunken to-brand/5 text-4xl">{report.category_icon || '✅'}</div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-edge-subtle text-2xs text-content-tertiary">
+                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle px-4 py-3 text-2xs text-content-tertiary">
                         <span className="text-brand font-semibold flex items-center gap-1">
                           <Icon name="support" size={13} />
                           {report.upvotes || 0} pessoas apoiaram
@@ -759,6 +890,69 @@ export default function PublicProfilePage() {
             </div>
           </TabsContent>
         </Tabs>
+        </div>
+
+        <aside className="hidden space-y-4 lg:sticky lg:top-20 lg:block">
+          {profileCity && (
+            <Link to="/agora" className="block overflow-hidden rounded-2xl border border-edge-subtle bg-surface-sunken shadow-elevation-1">
+              <div className="relative h-60">
+                {profileCity.civic_thumbnail_url ? (
+                  <img src={profileCity.civic_thumbnail_url} alt={`Imagem de ${profileCity.name}`} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-[radial-gradient(circle_at_70%_30%,rgba(255,171,64,.45),transparent_30%),linear-gradient(135deg,#f8fafc,#fff0df)]" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+                <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-2 text-white">
+                  <span><strong className="block text-sm">{profileCity.name}{profileCity.state?.uf ? ` · ${profileCity.state.uf}` : ''}</strong><small className="text-[10px] text-white/80">Acompanhe sua cidade</small></span>
+                  <MapPin className="h-4 w-4" />
+                </div>
+              </div>
+            </Link>
+          )}
+
+          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1">
+            <h2 className="flex items-center gap-2 text-xs font-extrabold text-content-primary"><Icon name="statistics" size={15} className="text-brand" /> Resumo do impacto</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {[
+                ['Broncas publicadas', profile.stats?.total_reports || 0, 'text-brand'],
+                ['Resolvidas', profile.stats?.resolved_reports || 0, 'text-status-resolvedFg'],
+                ['Apoios recebidos', profile.stats?.total_upvotes_received || 0, 'text-brand'],
+                ['Cidades mencionadas', profile.stats?.cities_count || (profile.city_name ? 1 : 0), 'text-sky-600'],
+              ].map(([label, value, tone]) => (
+                <div key={label} className="rounded-xl bg-surface-subtle p-2.5">
+                  <strong className={`block text-base font-black tabular-nums ${tone}`}>{value}</strong>
+                  <span className="mt-0.5 block text-[9px] leading-3 text-content-tertiary">{label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {categoryStats.length > 0 && (
+            <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1">
+              <h2 className="text-xs font-extrabold text-content-primary">Categorias mais publicadas</h2>
+              <div className="mt-3 space-y-2.5">
+                {categoryStats.map(([name, total]) => (
+                  <div key={name} className="grid grid-cols-[minmax(0,1fr)_5rem_1rem] items-center gap-2 text-[10px]">
+                    <span className="truncate text-content-secondary">{name}</span>
+                    <span className="h-1.5 overflow-hidden rounded-full bg-surface-sunken"><span className="block h-full rounded-full bg-brand" style={{ width: `${Math.max(18, (total / categoryStats[0][1]) * 100)}%` }} /></span>
+                    <strong className="text-right text-content-primary">{total}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1">
+            <h2 className="text-xs font-extrabold text-content-primary">Sobre este perfil</h2>
+            <p className="mt-2 text-[11px] leading-4 text-content-secondary">{profile.public_bio || 'Cidadão que utiliza o Trombone para registrar problemas e contribuir para uma cidade melhor.'}</p>
+            {memberSince && <p className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-content-tertiary"><Calendar className="h-3.5 w-3.5" /> Membro desde {memberSince}</p>}
+          </section>
+
+          <section className="rounded-2xl border border-brand/20 bg-brand/5 p-4">
+            <p className="text-xs font-extrabold text-brand">Juntos por uma cidade melhor</p>
+            <p className="mt-1 text-[11px] leading-4 text-content-secondary">Cada bronca publicada ajuda a construir uma cidade mais justa e transparente.</p>
+          </section>
+        </aside>
       </div>
 
       {/* Modal de Denúncia de Perfil */}

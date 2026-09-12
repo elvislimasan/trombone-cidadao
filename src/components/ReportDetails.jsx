@@ -1020,7 +1020,7 @@ const ReportDetails = ({
             rejectionTitle: rejectionTitle.trim(),
             rejectionDescription: rejectionDescription.trim(),
             reportTitle: report.title,
-            reportUrl: `${window.location.origin}/painel-usuario?tab=reports&report=${report.id}`
+            reportUrl: `${window.location.origin}/perfil?tab=reports&report=${report.id}`
           }
         });
       } catch (emailError) {

@@ -7,8 +7,6 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import UserDashboardPage from '@/pages/UserDashboardPage';
 
 // `module`: quando presente, o card só aparece se o usuário puder alterar
 // aquele módulo (painel /admin/permissoes). Sem `module`, aparece sempre.
@@ -43,6 +41,7 @@ const adminLinks = [
   { to: '/admin/embaixadores', icon: 'ShieldCheck', title: 'Gestão de Embaixadores', description: 'Convites, embaixadores ativos e promoções de masters.' },
   { to: '/admin/permissoes', icon: 'ShieldCheck', title: 'Permissões', description: 'Defina quem pode alterar cada módulo.', masterOnly: true },
   { to: '/admin/configuracoes', icon: 'Settings', title: 'Configurações do Site', description: 'Personalize a aparência do site.' },
+  { to: '/admin/identidade-da-cidade', icon: 'ImagePlus', title: 'Imagem da Cidade', description: 'Defina a imagem do Radar, home e perfis públicos.' },
   { to: '/admin/lixeira', icon: 'Trash2', title: 'Lixeira', description: 'Gerencie broncas rejeitadas.' },
 ];
 
@@ -115,7 +114,6 @@ const criarConsultasPendentes = () => ({
 const AdminPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
-  const [area, setArea] = useState('administracao');
   const [busca, setBusca] = useState('');
   const [grupo, setGrupo] = useState('todos');
   const [pendencias, setPendencias] = useState({});
@@ -134,9 +132,6 @@ const AdminPage = () => {
       return combinaGrupo && combinaBusca;
     });
   }, [visibleLinks, busca, grupo]);
-
-  const primeiroNome = String(user?.name || 'Administrador').trim().split(/\s+/)[0];
-  const modulosLiberados = new Set(visibleLinks.map((link) => link.module).filter(Boolean)).size;
 
   const carregarPendencias = useCallback(async () => {
     const consultas = criarConsultasPendentes();
@@ -161,13 +156,6 @@ const AdminPage = () => {
     carregarPendencias();
   }, [carregarPendencias]);
 
-  const seletorDeArea = (
-    <TabsList className="grid h-auto w-full max-w-lg grid-cols-2 rounded-xl bg-surface-sunken p-1">
-      <TabsTrigger value="administracao" className="gap-2 rounded-lg py-2.5"><LucideIcons.Shield className="h-4 w-4" /> Administração</TabsTrigger>
-      <TabsTrigger value="atividade" className="gap-2 rounded-lg py-2.5"><LucideIcons.LayoutDashboard className="h-4 w-4" /> Minha atividade</TabsTrigger>
-    </TabsList>
-  );
-
   return (
     <>
       <Helmet>
@@ -175,38 +163,7 @@ const AdminPage = () => {
         <meta name="description" content="Painel de controle para administradores." />
       </Helmet>
       <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
-        {area === 'administracao' && (
-          <motion.header
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#171717] via-[#26070b] to-[#7f1220] p-6 text-white shadow-elevation-2 md:p-8 lg:flex lg:h-56 lg:items-center"
-          >
-            <div className="grid items-center gap-7 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="flex items-start gap-4">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-content-onBrand">
-                  <LucideIcons.ShieldCheck className="h-7 w-7" aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-300">Central administrativa</p>
-                  <h1 className="mt-1 text-2xl font-extrabold md:text-3xl">Olá, {primeiroNome}. Gerencie a plataforma.</h1>
-                  <p className="mt-2 max-w-2xl text-sm text-white/70">Modere publicações, atualize os módulos da cidade e acompanhe também sua atividade cidadã em um só lugar.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{visibleLinks.length}</strong><span className="text-[10px] text-white/60">ferramentas</span></div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{modulosLiberados}</strong><span className="text-[10px] text-white/60">módulos</span></div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-sm leading-7">{user?.is_master ? 'Master' : 'Admin'}</strong><span className="text-[10px] text-white/60">perfil</span></div>
-              </div>
-            </div>
-          </motion.header>
-        )}
-
-        <Tabs value={area} onValueChange={setArea} className={area === 'administracao' ? 'mt-6' : ''}>
-          {area === 'administracao' && seletorDeArea}
-
-          <TabsContent value="administracao" className="mt-6">
-            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-content-primary">Ferramentas administrativas</h2>
                 <p className="mt-0.5 text-sm text-content-secondary">Somente as áreas permitidas para o seu perfil são exibidas.</p>
@@ -261,12 +218,6 @@ const AdminPage = () => {
                 <button type="button" className="mt-1 text-xs font-bold text-brand hover:underline" onClick={() => { setBusca(''); setGrupo('todos'); }}>Limpar busca e filtros</button>
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="atividade" className="mt-0">
-            <UserDashboardPage embedded impactFirst navigationAfterImpact={seletorDeArea} />
-          </TabsContent>
-        </Tabs>
       </div>
     </>
   );

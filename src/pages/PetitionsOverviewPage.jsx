@@ -192,11 +192,11 @@ const PetitionsOverviewPage = () => {
 
       <Header />
 
-      <main className="flex-1 px-2">
+      <main className="flex-1">
         {/* Hero Section */}
         <section className="relative bg-muted/30 border-b">
           <div className="absolute inset-0 bg-grid-black/[0.02] dark:bg-grid-white/[0.02]" />
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 max-w-7xl relative z-10">
+          <div className="relative z-10 mx-auto w-full max-w-[100rem] px-3 py-16 sm:px-5 md:py-24 lg:px-6">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <motion.div 
                 initial={{ opacity: 0, x: -20 }}
@@ -295,7 +295,7 @@ const PetitionsOverviewPage = () => {
 
         {/* How it Works Section */}
         <section className="py-16 bg-background">
-           <div className="container mx-auto px-4 max-w-7xl">
+           <div className="mx-auto w-full max-w-[100rem] px-3 sm:px-5 lg:px-6">
               <div className="text-center mb-16">
                  <h2 className="text-3xl font-bold mb-4">Como funciona?</h2>
                  <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -342,7 +342,7 @@ const PetitionsOverviewPage = () => {
 
         {/* Main Content: Filters & Grid */}
         <section id="petitions-list" className="py-16 bg-muted/30">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="mx-auto w-full max-w-[100rem] px-3 sm:px-5 lg:px-6">
             <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
                <div>
                   <h2 className="text-3xl font-bold mb-2">Causas em Aberto</h2>
@@ -474,7 +474,7 @@ const PetitionsOverviewPage = () => {
         {/* Registration CTA for Guests */}
         {!user && (
             <section className="py-16 bg-muted/30 border-y">
-                <div className="container px-4 text-center space-y-6">
+                <div className="mx-auto w-full max-w-[100rem] space-y-6 px-3 text-center sm:px-5 lg:px-6">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
                         <Users className="w-8 h-8 text-primary" />
                     </div>

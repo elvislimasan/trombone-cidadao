@@ -10,7 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useCityView } from '@/contexts/CityContext';
+import { useCity, useCityView } from '@/contexts/CityContext';
 
 /**
  * Seletor local de cidade para telas de exploração.
@@ -20,7 +20,9 @@ import { useCityView } from '@/contexts/CityContext';
  * um dropdown absoluto seria recortado pela coluna e perderia o início dos
  * nomes, especialmente no mapa de pavimentação em notebook.
  */
-export default function CitySelector({ align = 'right', mobileBare = false, inverted = false }) {
+export default function CitySelector({ align = 'right', mobileBare = false, inverted = false, scope = 'local' }) {
+  const globalCity = useCity();
+  const localCity = useCityView();
   const {
     cityId: activeCityId,
     cityName: activeCityName,
@@ -29,7 +31,14 @@ export default function CitySelector({ align = 'right', mobileBare = false, inve
     resetToMyCity,
     cities,
     loadingCities,
-  } = useCityView();
+  } = scope === 'global' ? {
+    cityId: globalCity.activeCityId,
+    cityName: globalCity.activeCityName,
+    setCityId: globalCity.setActiveCity,
+    isExploring: false,
+    cities: globalCity.cities,
+    loadingCities: globalCity.loadingCities,
+  } : localCity;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 

@@ -51,8 +51,8 @@ test('conta e página legislativa possuem navegação nos dois sentidos', async 
     read('src/pages/CouncilorProfilePage.jsx'),
   ]);
 
-  assert.match(myProfile, /Gerenciar página legislativa/);
-  assert.match(myProfile, /\/perfil\/pagina-legislativa\/\$\{page\.id\}/);
+  assert.match(myProfile, /Ver página legislativa/);
+  assert.match(myProfile, /rotaDoVereador\(page\.city_id, page\.slug\)/);
   assert.match(publicProfile, /Atuação pública verificada/);
   assert.match(councilorPage, /accountIdentity\?\.profile\?\.username && <Link to=\{`\/u\//);
 });

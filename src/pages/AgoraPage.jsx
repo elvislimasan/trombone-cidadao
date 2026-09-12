@@ -242,7 +242,9 @@ function AgoraPage() {
   }, [todosAbertos]);
 
   const areasEmFoco = resumoDasAreas.slice(0, 5);
-  const imagemHero = city?.cover_url || city?.image_url || todosAbertos.find((evento) => evento.image_url)?.image_url;
+  // A identidade visual da cidade tem prioridade: evento é efêmero, a imagem
+  // institucional mantém o Radar reconhecível mesmo quando não há alertas.
+  const imagemHero = city?.civic_thumbnail_url || city?.cover_url || city?.image_url || todosAbertos.find((evento) => evento.image_url)?.image_url;
   const nomeDaCidade = city?.name || String(cityName || '').split(' · ')[0] || 'sua cidade';
   const ufDaCidade = city?.state?.uf;
 
@@ -273,7 +275,7 @@ function AgoraPage() {
         <meta name="description" content={`Acompanhe alertas, interrupções e eventos em ${nomeDaCidade}.`} />
       </Helmet>
 
-      <main className="mx-auto w-full max-w-[100rem] px-4 py-5 sm:px-6 lg:px-10 lg:py-8 2xl:px-12">
+      <main className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-5 lg:px-6 lg:py-8">
         <section className="relative overflow-hidden rounded-[1.75rem] border border-edge-subtle bg-surface-raised shadow-elevation-2">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/90 to-surface-raised/55" />
           <div className="relative grid min-h-[16rem] gap-8 p-6 md:p-8 lg:grid-cols-[minmax(0,1.22fr)_minmax(26rem,.78fr)] lg:items-center lg:p-10">

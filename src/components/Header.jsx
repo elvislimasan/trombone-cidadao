@@ -21,7 +21,6 @@ const COMPACT_PRIMARY_PATHS = new Set([
   '/',
   '/admin',
   '/embaixador',
-  '/painel-usuario',
   '/feed',
   '/mapa',
   '/agora',
@@ -34,7 +33,6 @@ const PRIORIDADE_DESKTOP = new Map([
   ['/', 1],
   ['/admin', 1],
   ['/embaixador', 1],
-  ['/painel-usuario', 1],
   ['/mapa', 2],
   ['/agora', 3],
   ['/obras-publicas', 4],
@@ -148,13 +146,19 @@ const Header = () => {
       if (normalizado.path !== '/') return normalizado;
       if (!user) return normalizado;
       if (user.is_admin || user.is_master) {
-        return { ...normalizado, name: 'Painel Admin', path: '/admin', icon: 'Shield' };
+        // Gestão administrativa é uma área de conta, acessível pelo perfil;
+        // não deve disputar espaço com os módulos públicos da cidade.
+        return null;
       }
       if (user.is_ambassador) {
         return { ...normalizado, name: 'Painel Embaixador', path: '/embaixador', icon: 'ShieldCheck' };
       }
-      return { ...normalizado, name: 'Meu Painel', path: '/painel-usuario', icon: 'LayoutDashboard' };
+      // A conta pessoal já está no menu do avatar e na barra inferior móvel.
+      // Repeti-la entre as áreas da cidade mistura navegação de conteúdo com
+      // navegação da conta.
+      return null;
     })
+    .filter(Boolean)
     .sort((a, b) => {
       const prioridadeA = PRIORIDADE_DESKTOP.get(a.path) ?? 100;
       const prioridadeB = PRIORIDADE_DESKTOP.get(b.path) ?? 100;
@@ -337,9 +341,6 @@ const Header = () => {
                     <Link to="/perfil" className="flex items-center"><LucideIcons.User className="mr-2 h-4 w-4" /><span>Meu Perfil</span></Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/painel-usuario" className="flex items-center"><LucideIcons.LayoutDashboard className="mr-2 h-4 w-4" /><span>Meu Painel</span></Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link to="/minhas-peticoes" className="flex items-center"><LucideIcons.FileText className="mr-2 h-4 w-4" /><span>Minhas Petições</span></Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -353,14 +354,14 @@ const Header = () => {
                       <Link to="/embaixador" className="flex items-center"><LucideIcons.ShieldCheck className="mr-2 h-4 w-4" /><span>Painel Embaixador</span></Link>
                     </DropdownMenuItem>
                   )}
-                  {user.is_admin && (
+                  {(user.is_admin || user.is_master) && (
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center"><LucideIcons.Shield className="mr-2 h-4 w-4" /><span>Admin</span></Link>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/settings/notifications" className="flex items-center"><LucideIcons.Settings className="mr-2 h-4 w-4" /><span>Preferências de Notificações</span></Link>
+                    <Link to="/configuracoes" className="flex items-center"><LucideIcons.Settings className="mr-2 h-4 w-4" /><span>Configurações</span></Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="flex items-center justify-between"

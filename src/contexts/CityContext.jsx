@@ -92,7 +92,7 @@ export const CityProvider = ({ children }) => {
         while (true) {
           const { data, error } = await supabase
             .from('cities')
-            .select('id, name, state:states(uf)')
+            .select('id, name, civic_thumbnail_url, civic_thumbnail_path, state:states(uf)')
             .order('name', { ascending: true })
             .range(from, from + PAGE - 1);
           if (error) throw error;
@@ -168,11 +168,20 @@ export const CityProvider = ({ children }) => {
     } catch {}
   }, []);
 
+  // Mantém todas as telas sincronizadas depois que um gestor altera dados
+  // visuais da cidade. Sem isso, o banco era atualizado, mas Home e Radar
+  // continuavam usando o objeto carregado no início da sessão.
+  const updateCity = useCallback((cityId, changes) => {
+    setCities((current) => current.map((city) => (
+      String(city.id) === String(cityId) ? { ...city, ...changes } : city
+    )));
+  }, []);
+
   const activeCity = activeCityId
     ? cities.find((c) => String(c.id) === String(activeCityId)) || null
     : null;
 
-  const value = { activeCityId, activeCityName, activeCity, setActiveCity, cities, loadingCities };
+  const value = { activeCityId, activeCityName, activeCity, setActiveCity, updateCity, cities, loadingCities };
 
   return (
     <CityContext.Provider value={value}>
