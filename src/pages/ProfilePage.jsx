@@ -167,21 +167,24 @@ const ProfilePage = () => {
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-content-secondary lg:justify-center lg:gap-x-3">
                     <span><strong className="text-content-primary tabular-nums">{followState.followers_count}</strong> seguidores</span>
                     <Link to="/seguindo" className="hover:text-brand"><strong className="text-content-primary tabular-nums">{followState.following_count}</strong> seguindo</Link>
-                    {userLevel && <Link to="/missoes" className="inline-flex items-center gap-1 font-bold text-brand"><Trophy className="h-3.5 w-3.5" />Nível {userLevel.level}</Link>}
+                    <Link to="/missoes#conquistas" className="inline-flex items-center gap-1 font-bold text-brand hover:underline">
+                      <Trophy className="h-3.5 w-3.5" />
+                      Minhas conquistas{userLevel ? ` · Nível ${userLevel.level}` : ''}
+                    </Link>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2 lg:flex-col">
-                <Button type="button" onClick={() => setIsEditModalOpen(true)} className="h-9 gap-2 rounded-xl bg-brand px-4 font-bold text-brand-fg hover:bg-brand-hover lg:w-full">
-                  <Edit className="h-4 w-4" />Editar perfil
+              <div className="mt-3 flex flex-wrap items-center gap-1 lg:justify-center">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary">
+                  <Edit className="h-3.5 w-3.5" />Editar perfil
                 </Button>
                 {hasPublicProfile ? (
-                  <Button asChild variant="outline" className="h-9 gap-2 rounded-xl bg-surface-raised/80 px-4 font-bold lg:w-full">
-                    <Link to={`/u/${user.username}`}>Ver como público<ExternalLink className="h-4 w-4" /></Link>
+                  <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary">
+                    <Link to={`/u/${user.username}`}>Ver como público<ExternalLink className="h-3.5 w-3.5" /></Link>
                   </Button>
                 ) : (
-                  <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(true)} className="h-9 gap-2 rounded-xl bg-surface-raised/80 px-4 font-bold lg:w-full">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-8 rounded-lg px-2.5 text-xs font-semibold text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary">
                     Criar meu perfil público
                   </Button>
                 )}

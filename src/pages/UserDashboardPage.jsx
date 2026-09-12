@@ -55,6 +55,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const [filtroSituacao, setFiltroSituacao] = useState('all');
   const [filtroModeracao, setFiltroModeracao] = useState('all');
   const [ordemBroncas, setOrdemBroncas] = useState('recentes');
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [paginaBroncas, setPaginaBroncas] = useState(1);
   const navigate = useNavigate();
 
@@ -465,6 +466,9 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const paginaAtualBroncas = Math.min(paginaBroncas, totalPaginasBroncas);
   const inicioDaPagina = (paginaAtualBroncas - 1) * BRONCAS_POR_PAGINA;
   const broncasDaPagina = broncasFiltradas.slice(inicioDaPagina, inicioDaPagina + BRONCAS_POR_PAGINA);
+  const quantidadeFiltrosAtivos = Number(filtroSituacao !== 'all')
+    + Number(filtroModeracao !== 'all')
+    + Number(ordemBroncas !== 'recentes');
 
   const primeiroNome = String(user?.name || 'Cidadão').trim().split(/\s+/)[0];
   const totalDeApoios = reports.reduce((total, report) => total + Number(report.upvotes || 0), 0);
@@ -563,15 +567,15 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
         <section aria-labelledby="resumo-painel" className="mb-6">
           <h2 id="resumo-painel" className="sr-only">Resumo da sua participação</h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
             {metricas.map(({ rotulo, valor, detalhe, Icone, tom }) => (
-              <div key={rotulo} className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tom}`}><Icone className="h-5 w-5" /></span>
+              <div key={rotulo} className="rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm sm:p-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${tom}`}><Icone className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-content-secondary">{rotulo}</p>
-                    <p className="mt-0.5 text-xl font-extrabold text-content-primary tabular-nums">{loading ? '—' : valor}</p>
-                    <p className="text-[11px] text-content-tertiary">{detalhe}</p>
+                    <p className="truncate text-[11px] font-semibold text-content-secondary sm:text-xs">{rotulo}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-content-primary tabular-nums sm:text-xl">{loading ? '—' : valor}</p>
+                    <p className="truncate text-[10px] text-content-tertiary sm:text-[11px]">{detalhe}</p>
                   </div>
                 </div>
               </div>
@@ -612,8 +616,8 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
           
           <TabsContent value="reports" className="relative min-h-[300px]">
             <div className="mb-5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
-              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
-                <label className="relative min-w-0">
+              <div className="flex items-center gap-2">
+                <label className="relative min-w-0 flex-1">
                   <span className="sr-only">Buscar nas minhas broncas</span>
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
                   <Input
@@ -624,36 +628,68 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                   />
                 </label>
 
-                <label className="relative">
-                  <span className="sr-only">Filtrar por situação</span>
-                  <select value={filtroSituacao} onChange={(event) => setFiltroSituacao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
-                    <option value="all">Todas as situações</option>
-                    <option value="pending">Pendentes</option>
-                    <option value="in-progress">Em andamento</option>
-                    <option value="resolved">Resolvidas</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span className="sr-only">Filtrar por moderação</span>
-                  <select value={filtroModeracao} onChange={(event) => setFiltroModeracao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
-                    <option value="all">Toda moderação</option>
-                    <option value="pending_approval">Aguardando análise</option>
-                    <option value="approved">Aprovadas</option>
-                    <option value="rejected">Rejeitadas</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span className="sr-only">Ordenar broncas</span>
-                  <select value={ordemBroncas} onChange={(event) => setOrdemBroncas(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
-                    <option value="recentes">Mais recentes</option>
-                    <option value="antigas">Mais antigas</option>
-                    <option value="apoios">Mais apoiadas</option>
-                    <option value="visualizacoes">Mais visualizadas</option>
-                  </select>
-                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-expanded={filtrosAbertos}
+                  aria-controls="filtros-das-broncas"
+                  onClick={() => setFiltrosAbertos((abertos) => !abertos)}
+                  className={`h-10 shrink-0 gap-1.5 rounded-lg px-3 ${quantidadeFiltrosAtivos ? 'border-brand/40 text-brand' : 'text-content-secondary'}`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span className="hidden sm:inline">Filtros</span>
+                  {quantidadeFiltrosAtivos > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-extrabold text-content-onBrand">
+                      {quantidadeFiltrosAtivos}
+                    </span>
+                  )}
+                </Button>
               </div>
+
+              <AnimatePresence initial={false}>
+                {filtrosAbertos && (
+                  <motion.div
+                    id="filtros-das-broncas"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                      <label className="relative">
+                        <span className="sr-only">Filtrar por situação</span>
+                        <select value={filtroSituacao} onChange={(event) => setFiltroSituacao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                          <option value="all">Todas as situações</option>
+                          <option value="pending">Pendentes</option>
+                          <option value="in-progress">Em andamento</option>
+                          <option value="resolved">Resolvidas</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span className="sr-only">Filtrar por moderação</span>
+                        <select value={filtroModeracao} onChange={(event) => setFiltroModeracao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                          <option value="all">Toda moderação</option>
+                          <option value="pending_approval">Aguardando análise</option>
+                          <option value="approved">Aprovadas</option>
+                          <option value="rejected">Rejeitadas</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span className="sr-only">Ordenar broncas</span>
+                        <select value={ordemBroncas} onChange={(event) => setOrdemBroncas(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                          <option value="recentes">Mais recentes</option>
+                          <option value="antigas">Mais antigas</option>
+                          <option value="apoios">Mais apoiadas</option>
+                          <option value="visualizacoes">Mais visualizadas</option>
+                        </select>
+                      </label>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-edge-subtle pt-3 text-xs text-content-tertiary">
                 <span className="inline-flex items-center gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" /> {broncasFiltradas.length} {broncasFiltradas.length === 1 ? 'bronca encontrada' : 'broncas encontradas'}</span>
