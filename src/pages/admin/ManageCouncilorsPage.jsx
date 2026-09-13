@@ -20,6 +20,7 @@ import { autoresDaRua, chaveDeAutor, rotaDoVereador, slugDeVereador } from '@/li
 const EMPTY_FORM = {
   city_id: '',
   name: '',
+  nickname: '',
   photo_url: '',
   party: '',
   biography: '',
@@ -116,7 +117,7 @@ export default function ManageCouncilorsPage() {
       if (cityFilter !== 'all' && String(councilor.city_id) !== cityFilter) return false;
       if (!term) return true;
       const cityName = `${councilor.city?.name || ''} ${councilor.city?.states?.uf || ''}`;
-      return [councilor.name, councilor.party, cityName, councilor.manager?.name, councilor.manager?.username].some((value) => chaveDeAutor(value).includes(term));
+      return [councilor.name, councilor.nickname, councilor.party, cityName, councilor.manager?.name, councilor.manager?.username].some((value) => chaveDeAutor(value).includes(term));
     });
   }, [councilors, search, cityFilter]);
 
@@ -195,6 +196,7 @@ export default function ManageCouncilorsPage() {
       }
     }
     const details = {
+      nickname: nullable(form.nickname),
       photo_url: nullable(form.photo_url),
       party: nullable(form.party),
       biography: nullable(form.biography),
@@ -327,10 +329,11 @@ export default function ManageCouncilorsPage() {
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {filtered.map((councilor) => (
-                  <article key={councilor.id} className="flex items-center gap-3 rounded-2xl border border-edge-subtle p-3">
+                  <article key={councilor.id} className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-edge-subtle p-3 sm:flex">
                     {councilor.photo_url ? <img src={councilor.photo_url} alt="" className="h-16 w-16 shrink-0 rounded-2xl object-cover" /> : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-surface-subtle text-content-tertiary"><User className="h-7 w-7" /></span>}
                     <div className="min-w-0 flex-1">
                       <h2 className="truncate text-sm font-extrabold text-content-primary">{councilor.name}</h2>
+                      {councilor.nickname && <p className="truncate text-xs font-semibold text-content-secondary">Conhecido como {councilor.nickname}</p>}
                       <p className="truncate text-xs text-content-secondary">{councilor.city?.name || 'Cidade'}{councilor.city?.states?.uf ? ` - ${councilor.city.states.uf}` : ''}{councilor.party ? ` · ${councilor.party}` : ''}</p>
                       <p className="mt-1 text-xs font-bold text-brand">{councilor.linked_streets} {councilor.linked_streets === 1 ? 'rua vinculada' : 'ruas vinculadas'}</p>
                       <p className="mt-1 flex items-center gap-1 text-xs text-content-secondary">
@@ -342,9 +345,9 @@ export default function ManageCouncilorsPage() {
                             : 'Página criada a partir do acervo'}
                       </p>
                     </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button variant="ghost" size="icon" title="Editar" onClick={() => openEdit(councilor)}><Pencil className="h-4 w-4" /></Button>
-                      <Button asChild variant="ghost" size="icon" title="Abrir página pública"><Link to={rotaDoVereador(councilor.city_id, councilor.slug)}><ExternalLink className="h-4 w-4" /></Link></Button>
+                    <div className="col-span-2 grid grid-cols-2 gap-2 border-t border-edge-subtle pt-2 sm:col-span-1 sm:flex sm:shrink-0 sm:border-0 sm:pt-0">
+                      <Button variant="ghost" size="sm" className="gap-2 sm:h-10 sm:w-10 sm:px-0" title="Editar" onClick={() => openEdit(councilor)}><Pencil className="h-4 w-4" /><span className="sm:hidden">Editar</span></Button>
+                      <Button asChild variant="ghost" size="sm" className="gap-2 sm:h-10 sm:w-10 sm:px-0" title="Abrir página pública"><Link to={rotaDoVereador(councilor.city_id, councilor.slug)}><ExternalLink className="h-4 w-4" /><span className="sm:hidden">Ver perfil</span></Link></Button>
                     </div>
                   </article>
                 ))}
@@ -370,6 +373,7 @@ export default function ManageCouncilorsPage() {
           <div className="grid min-h-0 content-start gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-6">
             <label className="grid gap-1.5"><Label>Cidade</Label><CityCombobox value={form.city_id || ''} onChange={(value) => setForm((current) => ({ ...current, city_id: value }))} disabled={Boolean(editing?.id)} modal /></label>
             <label className="grid gap-1.5"><Label htmlFor="councilor-name">Nome</Label><Input id="councilor-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nome completo" /></label>
+            <label className="grid gap-1.5"><Label htmlFor="councilor-nickname">Apelido <span className="font-normal text-content-tertiary">(opcional)</span></Label><Input id="councilor-nickname" value={form.nickname} onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))} placeholder="Como é conhecido" /></label>
             <label className="grid gap-1.5"><Label htmlFor="councilor-party">Partido</Label><Input id="councilor-party" value={form.party} onChange={(event) => setForm((current) => ({ ...current, party: event.target.value }))} /></label>
             <div className="sm:col-span-2"><CouncilorPhotoUploader value={form.photo_url || ''} onChange={(photo_url) => setForm((current) => ({ ...current, photo_url }))} onUploadingChange={setUploadingPhoto} councilorId={editing?.id || 'novo'} name={form.name || 'vereador'} disabled={saving} /></div>
             <label className="grid gap-1.5"><Label htmlFor="councilor-phone">Telefone</Label><Input id="councilor-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>

@@ -22,7 +22,7 @@ export default function CouncilorRankingCard({ streets, cityId, cityName }) {
     if (!cityId || ranking.length === 0) { setProfiles(new Map()); return undefined; }
     supabase
       .from('councilors')
-      .select('name, normalized_name, slug, photo_url, party')
+      .select('name, nickname, normalized_name, slug, photo_url, party')
       .eq('city_id', cityId)
       .in('normalized_name', ranking.map((item) => item.key))
       .then(({ data }) => {
@@ -56,7 +56,7 @@ export default function CouncilorRankingCard({ streets, cityId, cityName }) {
               <span className="w-5 shrink-0 text-center text-xs font-extrabold text-content-tertiary">{index + 1}</span>
               <Avatar profile={profile} name={item.name} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-bold text-content-primary">{profile?.name || item.name}</span>
+                <span className="block truncate text-xs font-bold text-content-primary">{profile?.nickname || profile?.name || item.name}</span>
                 <span className="block text-[11px] text-content-secondary">{item.streets} {item.streets === 1 ? 'rua' : 'ruas'}{profile?.party ? ` · ${profile.party}` : ''}</span>
               </span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-content-tertiary" />

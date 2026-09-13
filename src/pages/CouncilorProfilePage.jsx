@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, ShieldCheck, User, UserPlus } from 'lucide-react';
 
 import BackButton from '@/components/BackButton';
+import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { autoresDaRua, chaveDeAutor, normalizarFotos, rotaDoVereador, slugDeVereador } from '@/lib/pavementStreetHistory';
@@ -18,6 +19,7 @@ export default function CouncilorProfilePage() {
   const { user } = useAuth();
   const [councilor, setCouncilor] = useState(null);
   const [streets, setStreets] = useState([]);
+  const [cityStreets, setCityStreets] = useState([]);
   const [cityName, setCityName] = useState('');
   const [loading, setLoading] = useState(true);
   const [accountIdentity, setAccountIdentity] = useState(null);
@@ -48,6 +50,7 @@ export default function CouncilorProfilePage() {
 
     setCouncilor(profile);
     setStreets(matchingStreets);
+    setCityStreets(streetsResult.data || []);
     setCityName(cityResult.data ? `${cityResult.data.name}${cityResult.data.states?.uf ? ` - ${cityResult.data.states.uf}` : ''}` : '');
     if (profile?.id) {
       const { data } = await supabase.rpc('get_councilor_account_identity', { p_councilor_id: profile.id });
@@ -195,6 +198,7 @@ export default function CouncilorProfilePage() {
                 {councilor.claim_status === 'verified' && <span className="inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-0.5 text-[10px] font-bold text-success-fg"><ShieldCheck className="h-3 w-3" /> Verificado</span>}
               </div>
               <h1 className="mt-1 break-words text-2xl font-black leading-tight tracking-tight text-content-primary sm:text-3xl">{councilor.name}</h1>
+              {councilor.nickname && <p className="mt-1 text-sm font-bold text-brand sm:text-base">Conhecido como {councilor.nickname}</p>}
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-content-secondary sm:text-sm">
                 <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-brand" /> {cityName}</span>
                 {councilor.party && <><span>•</span><strong className="text-content-primary">{councilor.party}</strong></>}
@@ -312,6 +316,10 @@ export default function CouncilorProfilePage() {
               </section>
             )}
           </aside>
+        </div>
+
+        <div className="mt-4">
+          <CouncilorRankingCard streets={cityStreets} cityId={cityId} cityName={cityName} />
         </div>
       </main>
     </div>
