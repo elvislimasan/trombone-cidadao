@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Save, X, Upload, Check, Hourglass, Tags, Church } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import CityCombobox from '@/components/CityCombobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -18,6 +19,7 @@ import { TIPOS_TRANSPORTE } from '@/lib/transportTypes';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 // Uma aba do guia: transportes, pontos turísticos, órgãos públicos, comércios.
 // As quatro têm a mesma linha e o mesmo par de botões — e agora o mesmo
@@ -47,7 +49,7 @@ const ListaServicos = ({ data, type, onEdit, onDelete }) => {
   );
 };
 
-const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategories }) => {
+const EditModal = ({ item, type, onSave, onClose, allowedCityIds, directoryCategories }) => {
   const [formData, setFormData] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -83,8 +85,7 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
   if (!formData) return null;
 
   const categoryById = new Map((directoryCategories || []).map((category) => [String(category.id), category]));
-  const directoryCategoryOptions = (directoryCategories || [])
-    .filter((category) => !formData.city_id || String(category.city_id) === String(formData.city_id))
+  const directoryCategoryOptions = [...(directoryCategories || [])]
     .sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0) || a.name.localeCompare(b.name, 'pt-BR'))
     .map((category) => ({
       value: category.id,
@@ -113,6 +114,7 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
                 placeholder="Selecione o tipo (moto, tuk tuk, carro...)"
                 searchPlaceholder="Buscar tipo..."
                 notFoundText="Nenhum tipo encontrado."
+                modal
               />
               <p className="text-xs text-muted-foreground">
                 Define o ícone e a imagem ilustrativa do serviço, e alimenta o filtro por tipo no guia.
@@ -144,13 +146,11 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
             </div>
             <div className="grid gap-2">
               <Label htmlFor="city_id">Cidade</Label>
-              <Combobox
-                options={cityOptions}
+              <CityCombobox
                 value={formData.city_id}
                 onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
-                placeholder="Selecione a cidade"
-                searchPlaceholder="Buscar cidade..."
-                notFoundText="Nenhuma cidade encontrada."
+                allowedCityIds={allowedCityIds}
+                modal
               />
             </div>
           </>
@@ -188,13 +188,11 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
             </div>
             <div className="grid gap-2">
               <Label htmlFor="city_id">Cidade</Label>
-              <Combobox
-                options={cityOptions}
+              <CityCombobox
                 value={formData.city_id}
                 onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
-                placeholder="Selecione a cidade"
-                searchPlaceholder="Buscar cidade..."
-                notFoundText="Nenhuma cidade encontrada."
+                allowedCityIds={allowedCityIds}
+                modal
               />
             </div>
           </>
@@ -215,6 +213,7 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
                 placeholder="Selecione a categoria"
                 searchPlaceholder="Buscar categoria..."
                 notFoundText="Crie a categoria na aba Guia da Cidade."
+                modal
               />
             </div>
             <div className="grid gap-2">
@@ -235,13 +234,11 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
             </div>
             <div className="grid gap-2">
               <Label htmlFor="city_id">Cidade</Label>
-              <Combobox
-                options={cityOptions}
+              <CityCombobox
                 value={formData.city_id}
                 onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
-                placeholder="Selecione a cidade"
-                searchPlaceholder="Buscar cidade..."
-                notFoundText="Nenhuma cidade encontrada."
+                allowedCityIds={allowedCityIds}
+                modal
               />
             </div>
           </>
@@ -251,19 +248,34 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
     }
   };
 
+  const itemTypeLabel = {
+    transport: 'transporte',
+    tourist_spots: 'ponto turístico',
+    directory: 'local do Guia',
+  }[type] || 'item';
+
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
-      <FormDialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">{formData.id ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
+      <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:h-[90vh] sm:max-w-2xl">
+        <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
+          <DialogTitle className="text-xl font-bold text-content-primary">
+            {formData.id ? `Editar ${itemTypeLabel}` : `Adicionar ${itemTypeLabel}`}
+          </DialogTitle>
+          <p className="text-sm text-content-tertiary">Preencha as informações exibidas no Guia da Cidade.</p>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-6 pl-1 grid gap-4">
-          {renderFields()}
+        <form onSubmit={handleSubmit} className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden">
+          <div className="grid min-h-0 content-start gap-4 overflow-y-auto px-5 py-5 sm:px-6">
+            {renderFields()}
+          </div>
+          <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-4 sm:px-6">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28">Cancelar</Button>
+            </DialogClose>
+            <Button type="submit" className="h-11 gap-2 rounded-xl sm:min-w-32">
+              <Save className="h-4 w-4" /> Salvar
+            </Button>
+          </DialogFooter>
         </form>
-        <DialogFooter className="flex-shrink-0 pt-4 border-t">
-          <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-          <Button type="submit" onClick={handleSubmit} className="gap-2"><Save className="w-4 h-4" /> Salvar</Button>
-        </DialogFooter>
       </FormDialogContent>
     </Dialog>
   );
@@ -272,7 +284,6 @@ const EditModal = ({ item, type, onSave, onClose, cityOptions, directoryCategori
 const ManageServicesPage = () => {
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
-  const [cityOptions, setCityOptions] = useState([]);
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [transport, setTransport] = useState([]);
   const [touristSpots, setTouristSpots] = useState([]);
@@ -288,26 +299,17 @@ const ManageServicesPage = () => {
 
   useEffect(() => {
     if (!isScopedAmbassador || !user?.id) {
-      // admin/master: todas as cidades disponíveis no dropdown
-      if (user?.is_admin || user?.is_master) {
-        supabase.from('cities').select('id, name, states(uf)').then(({ data }) => {
-          setCityOptions((data || []).map((c) => ({ value: c.id, label: `${c.name}${c.states?.uf ? ` - ${c.states.uf}` : ''}` })));
-        });
-      }
+      setMyActiveCityIds([]);
       return;
     }
     supabase
       .from('ambassador_cities')
-      .select('city_id, cities(id, name, states(uf))')
+      .select('city_id')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .then(({ data }) => {
         const rows = data || [];
         setMyActiveCityIds(rows.map((r) => r.city_id));
-        setCityOptions(rows.map((r) => ({
-          value: r.city_id,
-          label: `${r.cities?.name || ''}${r.cities?.states?.uf ? ` - ${r.cities.states.uf}` : ''}`,
-        })).filter((c) => c.label.trim()));
       });
   }, [isScopedAmbassador, user?.id, user?.is_admin, user?.is_master]);
 
@@ -343,9 +345,7 @@ const ManageServicesPage = () => {
       }
     }
 
-    let categoriesQuery = supabase.from('directory_categories').select('*').order('sort_order').order('name');
-    if (isScopedAmbassador) categoriesQuery = categoriesQuery.in('city_id', myActiveCityIds);
-    const { data: categories, error: categoriesError } = await categoriesQuery;
+    const { data: categories, error: categoriesError } = await supabase.from('directory_categories').select('*').order('sort_order').order('name');
     if (!categoriesError) setDirectoryCategories(categories || []);
 
     let pendingQuery = supabase.from('directory').select('*').eq('status', 'pending');
@@ -359,20 +359,20 @@ const ManageServicesPage = () => {
   }, [isScopedAmbassador, myActiveCityIds]);
 
   useEffect(() => {
-    if (!newCategory.city_id && cityOptions.length === 1) {
-      setNewCategory((current) => ({ ...current, city_id: cityOptions[0].value }));
+    if (!newCategory.city_id && myActiveCityIds.length === 1) {
+      setNewCategory((current) => ({ ...current, city_id: myActiveCityIds[0] }));
     }
-  }, [cityOptions, newCategory.city_id]);
+  }, [myActiveCityIds, newCategory.city_id]);
 
   const handleCreateCategory = async () => {
-    if (!newCategory.name.trim() || !newCategory.city_id) {
-      showAppError({ title: 'Informe o nome e a cidade da categoria', variant: 'destructive' });
+    if (!newCategory.name.trim()) {
+      showAppError({ title: 'Informe o nome da categoria', variant: 'destructive' });
       return;
     }
     setSavingCategory(true);
     const { error } = await supabase.from('directory_categories').insert({
       name: newCategory.name.trim(),
-      city_id: newCategory.city_id,
+      city_id: isScopedAmbassador ? (newCategory.city_id || myActiveCityIds[0] || null) : null,
       parent_id: newCategory.parent_id || null,
     });
     setSavingCategory(false);
@@ -398,6 +398,7 @@ const ManageServicesPage = () => {
 
     const source = editType === 'transport' ? transport
       : editType === 'tourist_spots' ? touristSpots
+      : editType === 'directory' ? directoryData.all
       : null;
     if (!source || source.length === 0) return;
 
@@ -412,7 +413,7 @@ const ManageServicesPage = () => {
         return next;
       }, { replace: true });
     }
-  }, [searchParams, transport, touristSpots, setSearchParams]);
+  }, [searchParams, transport, touristSpots, directoryData.all, setSearchParams]);
 
   const handleSave = async (itemToSave, type) => {
     const { image_file, ...dbData } = itemToSave;
@@ -436,8 +437,9 @@ const ManageServicesPage = () => {
     }
 
     if (image_file) {
-      const filePath = `${tableName}/${Date.now()}-${image_file.name}`;
-      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, image_file);
+      const uploadFile = await optimizeImageFile(image_file);
+      const filePath = `${tableName}/${Date.now()}-${uploadFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
       if (uploadError) {
         showAppError({ title: "Erro no upload da imagem", description: uploadError.message, variant: "destructive" });
         return;
@@ -604,20 +606,21 @@ const ManageServicesPage = () => {
             <Card className="h-fit">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Tags className="h-5 w-5 text-primary" /> Categorias</CardTitle>
-                <CardDescription>Crie categorias principais e subcategorias, como “Igrejas · Católicas”.</CardDescription>
+                <CardDescription>Crie categorias reutilizáveis em todas as cidades, como “Igrejas · Católicas”.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3">
-                <Combobox
-                  options={cityOptions}
-                  value={newCategory.city_id || ''}
-                  onChange={(value) => setNewCategory({ name: newCategory.name, city_id: value, parent_id: null })}
-                  placeholder="Cidade"
-                  searchPlaceholder="Buscar cidade..."
-                />
+                {isScopedAmbassador && (
+                  <CityCombobox
+                    value={newCategory.city_id || ''}
+                    onChange={(value) => setNewCategory((current) => ({ ...current, city_id: value, parent_id: null }))}
+                    allowedCityIds={myActiveCityIds}
+                    placeholder="Cidade da categoria"
+                  />
+                )}
                 <Input placeholder="Nome da categoria" value={newCategory.name} onChange={(event) => setNewCategory((current) => ({ ...current, name: event.target.value }))} />
                 <Combobox
                   options={directoryCategories
-                    .filter((category) => String(category.city_id) === String(newCategory.city_id) && !category.parent_id)
+                    .filter((category) => !category.parent_id)
                     .map((category) => ({ value: category.id, label: `Subcategoria de ${category.name}` }))}
                   value={newCategory.parent_id || ''}
                   onChange={(value) => setNewCategory((current) => ({ ...current, parent_id: value || null }))}
@@ -626,9 +629,7 @@ const ManageServicesPage = () => {
                 />
                 <Button onClick={handleCreateCategory} disabled={savingCategory} className="gap-2"><PlusCircle className="h-4 w-4" /> {savingCategory ? 'Criando...' : 'Criar categoria'}</Button>
                 <div className="mt-2 grid gap-1.5 border-t pt-3">
-                  {directoryCategories
-                    .filter((category) => !newCategory.city_id || String(category.city_id) === String(newCategory.city_id))
-                    .map((category) => {
+                  {directoryCategories.map((category) => {
                       const parent = directoryCategories.find((item) => String(item.id) === String(category.parent_id));
                       return <div key={category.id} className="rounded-lg bg-muted/50 px-3 py-2 text-xs"><span className="font-semibold">{parent ? `${parent.name} · ` : ''}{category.name}</span></div>;
                     })}
@@ -646,7 +647,7 @@ const ManageServicesPage = () => {
         </Tabs>
       </div>
 
-      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} cityOptions={cityOptions} directoryCategories={directoryCategories} />}
+      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} allowedCityIds={isScopedAmbassador ? myActiveCityIds : undefined} directoryCategories={directoryCategories} />}
 
       <Dialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
         <DialogContent className="sm:max-w-md bg-card border-border">

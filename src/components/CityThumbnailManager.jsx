@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError } from '@/lib/appError';
 import { useCity } from '@/contexts/CityContext';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -39,9 +40,10 @@ export default function CityThumbnailManager({ city, onSaved }) {
     }
     setSaving(true);
     try {
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const uploadFile = await optimizeImageFile(file, { maxDimension: 1600, quality: 0.84 });
+      const extension = uploadFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const path = `${city.id}/thumbnail-${Date.now()}.${extension}`;
-      const { error: uploadError } = await supabase.storage.from('city-media').upload(path, file, { upsert: false, contentType: file.type });
+      const { error: uploadError } = await supabase.storage.from('city-media').upload(path, uploadFile, { upsert: false, contentType: uploadFile.type });
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from('city-media').getPublicUrl(path);
       await save(data.publicUrl, path);

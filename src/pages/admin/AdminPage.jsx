@@ -165,7 +165,7 @@ const AdminPage = () => {
       <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <h2 className="text-xl font-extrabold text-content-primary">Ferramentas administrativas</h2>
+                <h1 className="text-2xl font-extrabold text-content-primary">Gestão da plataforma</h1>
                 <p className="mt-0.5 text-sm text-content-secondary">Somente as áreas permitidas para o seu perfil são exibidas.</p>
               </div>
               <label className="relative w-full xl:max-w-sm">
@@ -174,6 +174,13 @@ const AdminPage = () => {
                 <Input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar ferramenta" className="h-10 bg-surface-raised pl-9" />
               </label>
             </div>
+
+            <section className="mb-6 rounded-2xl border border-edge-subtle bg-surface-raised p-5">
+              <h2 className="text-lg font-bold text-content-primary">Precisa de atenção</h2>
+              <p className="mt-1 text-sm text-content-secondary">Filas com contribuições aguardando análise.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{visibleLinks.filter(link => pendencias[link.to] > 0).map(link => <Link key={link.to} to={link.to} className="flex items-center justify-between gap-3 rounded-xl border border-status-pendingBorder bg-status-pendingBg p-4 text-sm font-semibold text-status-pendingFg"><span>{link.title}</span><span className="tabular-nums">{pendencias[link.to]} →</span></Link>)}</div>
+              {!visibleLinks.some(link => pendencias[link.to] > 0) && <p className="mt-2 text-sm text-content-secondary">Consulte as filas abaixo para verificar a situação de cada área.</p>}
+            </section>
 
             <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Filtrar ferramentas por área">
               {GRUPOS.map((item) => (

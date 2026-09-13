@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { showAppError } from '@/lib/appError';
 import { supabase } from '@/lib/customSupabaseClient';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -35,12 +36,13 @@ export default function CouncilorPhotoUploader({ value, onChange, onUploadingCha
 
     setUploading(true);
     onUploadingChange?.(true);
+    const uploadFile = await optimizeImageFile(file, { maxDimension: 1200, quality: 0.84 });
     const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
     const safeCouncilorId = String(councilorId || 'novo').replace(/[^a-zA-Z0-9_-]/g, '');
-    const path = `${user?.id || 'admin'}/councilors/${safeCouncilorId}-${uniqueId}.${extensionFor(file)}`;
-    const { error } = await supabase.storage.from('profile-avatars').upload(path, file, {
+    const path = `${user?.id || 'admin'}/councilors/${safeCouncilorId}-${uniqueId}.${extensionFor(uploadFile)}`;
+    const { error } = await supabase.storage.from('profile-avatars').upload(path, uploadFile, {
       cacheControl: '31536000',
-      contentType: file.type,
+      contentType: uploadFile.type,
       upsert: false,
     });
     if (error) {

@@ -3,6 +3,7 @@ import { arquivosDe } from '@/lib/offlineQueue';
 // A classificação da falha vive à parte, sem supabase nem IndexedDB, porque é
 // a regra mais frágil da fila e precisa de teste. Ver offlineErros.js.
 import { ehErroDeRede, ehRecusaDefinitiva, motivoDoDescarte } from '@/lib/offlineErros';
+import { optimizeImageFile } from './optimizeImage.js';
 
 export { ehErroDeRede };
 
@@ -35,13 +36,14 @@ const enviarMidia = async (reportId, userId, arquivos) => {
 
   const linhas = await Promise.all(
     arquivos.map(async (arquivo) => {
-      const caminho = `${userId}/${reportId}/${Date.now()}-${arquivo.name}`;
+      const uploadFile = await optimizeImageFile(arquivo);
+      const caminho = `${userId}/${reportId}/${Date.now()}-${uploadFile.name}`;
       const { error } = await supabase.storage
         .from('reports-media')
-        .upload(caminho, arquivo, { upsert: true });
+        .upload(caminho, uploadFile, { upsert: true });
       if (error) throw new Error(error.message);
       const { data } = supabase.storage.from('reports-media').getPublicUrl(caminho);
-      return { report_id: reportId, url: data.publicUrl, type: 'photo', name: arquivo.name };
+      return { report_id: reportId, url: data.publicUrl, type: 'photo', name: uploadFile.name };
     })
   );
 

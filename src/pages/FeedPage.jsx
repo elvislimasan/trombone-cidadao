@@ -1,13 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, BarChart2, Briefcase, Building, Compass, Construction, Download,
-  FileSignature, MapPin, Megaphone, Newspaper, Radio,
-  Route as RouteIcon, ShieldCheck, Smartphone,
+  ArrowRight, Briefcase, Compass, Download, MapPin, Megaphone, Radio,
+  ShieldCheck, Smartphone,
 } from 'lucide-react';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -28,8 +26,6 @@ import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
 import CityEventCard from '@/components/agora/CityEventCard';
 import { useCityEvents } from '@/hooks/useCityEvents';
-import { showAppError } from '@/lib/appError';
-import SuggestedProfiles from '@/components/SuggestedProfiles';
 
 // Lazy: carrega html-to-image e qrcode, peso que so faz sentido quando o
 // usuario abre o card. Um unico modal serve a lista inteira.
@@ -37,50 +33,13 @@ const ReportStoryModal = React.lazy(
   () => import('@/components/report/ReportStoryModal')
 );
 
-const getInviteUrl = () => {
-  const envUrl = import.meta.env.VITE_APP_URL;
-  if (envUrl) return String(envUrl).replace(/\/$/, '');
-
-  const origin =
-    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
-  if (origin && origin.includes('localhost')) return origin;
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev')
-    ? 'https://trombone-cidadao.vercel.app'
-    : 'https://trombonecidadao.com.br';
-
-  return prodUrl;
-};
-
-// OS ATALHOS DA COLUNA DA ESQUERDA
-//
-// Em 1920px o feed vivia num miolo de 78rem com ~330px de vazio de cada lado, e
-// o app inteiro — obras, ruas, imóveis, serviços — só existia atrás do "Mais" do
-// header. A terceira coluna usa esse espaço para o que já é o assunto da página:
-// para onde ir depois de ler o feed.
-//
-// ELES NÃO REPETEM A COLUNA DA DIREITA: lá ficam as duas telas DESTA cidade
-// (mapa de broncas e radar) e o que está acontecendo nela agora; aqui fica o
-// resto do app. Um mesmo link nas duas colunas faria a página parecer dois menus
-// discordando entre si.
-const MODULOS = [
-  { nome: 'Obras públicas', path: '/obras-publicas', Icone: Construction },
-  { nome: 'Ruas e pavimentação', path: '/mapa-pavimentacao', Icone: RouteIcon },
-  { nome: 'Imóveis alugados', path: '/imoveis-alugados', Icone: Building },
-  { nome: 'Serviços', path: '/servicos', Icone: Briefcase },
-  { nome: 'Abaixo-assinados', path: '/abaixo-assinados', Icone: FileSignature },
-  { nome: 'Notícias', path: '/noticias', Icone: Newspaper },
-  { nome: 'Estatísticas', path: '/estatisticas', Icone: BarChart2 },
-];
-
 export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeCityId, activeCityName } = useCity();
+  const { activeCityId, activeCityName, activeCity } = useCity();
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('recent');
+  const [activeTab, setActiveTab] = useState(() => { const tab = new URLSearchParams(location.search).get('aba'); return FEED_TABS.some(item => item.key === tab) ? tab : 'recent'; });
   const [showReportModal, setShowReportModal] = useState(false);
   // O modal de atualizacao vive AQUI, nao no card: um so para a lista inteira, e
   // fora da arvore do card — que tem transform (tc-animate-in) e prenderia o
@@ -171,9 +130,12 @@ export default function FeedPage() {
       setTabDirection(to >= from ? 'forward' : 'back');
     }
     setActiveTab(tabKey);
+    const params = new URLSearchParams(location.search);
+    params.set('aba', tabKey);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
     resetNewCount();
     setRecentCreatedId(null);
-  }, [activeTab, resetNewCount]);
+  }, [activeTab, resetNewCount, location.pathname, location.search, navigate]);
 
   const swipeHandlers = useSwipeTabs({
     tabs: FEED_TABS,
@@ -204,29 +166,6 @@ export default function FeedPage() {
       navigate(`${location.pathname || '/'}${next ? `?${next}` : ''}`, { replace: true });
     } catch {}
   }, [location.pathname, location.search, navigate]);
-
-  const handleInvite = useCallback(async () => {
-    const url = getInviteUrl();
-    const title = 'Trombone Cidadão';
-    const text = 'Vem ajudar a melhorar a cidade: cadastre uma bronca e apoie as causas.';
-    try {
-      if (Capacitor.isNativePlatform()) {
-        await Share.share({ title, text, url, dialogTitle: 'Convidar' });
-        return;
-      }
-      if (navigator.share) {
-        await navigator.share({ title, text, url });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-    } catch {
-      try {
-        await navigator.clipboard.writeText(url);
-      } catch {
-        showAppError({ title: 'Não foi possível compartilhar', variant: 'destructive' });
-      }
-    }
-  }, []);
 
   const hasReports = reports.length > 0;
   const cityLabel = activeCityName || 'todas as cidades';
@@ -282,7 +221,9 @@ export default function FeedPage() {
       user
         ? { nome: 'Missões', path: '/missoes', Icone: Compass }
         : { nome: 'Seja embaixador', path: '/seja-embaixador', Icone: ShieldCheck },
-      ...MODULOS,
+      { nome: 'Explorar', path: '/explorar', Icone: Compass },
+      { nome: 'Acompanhando', path: '/seguindo', Icone: Briefcase },
+      ...(user?.is_admin || user?.is_master ? [{ nome: 'Área de trabalho', path: '/admin', Icone: ShieldCheck }] : user?.is_ambassador ? [{ nome: 'Área de trabalho', path: '/embaixador', Icone: ShieldCheck }] : []),
     ],
     [user]
   );
@@ -294,7 +235,7 @@ export default function FeedPage() {
           "Nova denuncia" sairam — as abas ja identificam a secao, e criar bronca
           continua no FAB do bottom nav e no atalho abaixo. */}
       <div className="lg:hidden">
-        <FeedWelcomeCard onCreateReport={handleOpenCreate} onInvite={handleInvite} />
+        <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
       </div>
 
       {/* Em notebooks, conteúdo e contexto dividem a tela em duas colunas.
@@ -310,7 +251,7 @@ export default function FeedPage() {
           <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
             <h2 className="px-1 text-sm font-extrabold text-content-primary">Explorar o app</h2>
             <p className="mt-1 px-1 text-xs leading-5 text-content-secondary">
-              O que existe além do feed.
+              Seus caminhos pela cidade.
             </p>
 
             <ul className="mt-3 space-y-0.5">
@@ -382,7 +323,7 @@ export default function FeedPage() {
           </section>
 
           {/* ── Sticky Tab Bar ── */}
-          <div className="sticky top-0 z-10 border-b border-edge-subtle bg-surface-base/90 backdrop-blur-md lg:static lg:mt-5 lg:overflow-hidden lg:rounded-2xl lg:border lg:bg-surface-raised lg:shadow-sm">
+          <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md lg:static lg:mt-5 lg:overflow-hidden lg:rounded-2xl lg:border lg:bg-surface-raised lg:shadow-sm">
             <div className="container mx-auto max-w-2xl px-3 lg:max-w-none lg:px-5">
               <FeedTabs tabs={FEED_TABS} activeTab={activeTab} onChange={handleTabChange} />
             </div>
@@ -394,7 +335,7 @@ export default function FeedPage() {
           {/* ── Feed Content ── */}
           {/* Arrastar na horizontal troca de aba. Fica neste container, e nao na
               pagina toda, para nao capturar arrasto do header nem do bottom nav. */}
-          <div className="container mx-auto max-w-2xl px-3 py-4 lg:max-w-none lg:px-0 lg:py-5" {...swipeHandlers}>
+          <div className="container mx-auto max-w-2xl px-3 py-4 lg:max-w-[45rem] lg:px-0 lg:py-5" {...swipeHandlers}>
         {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
             ou erro de rede ao lado do gate confundiria a causa real. */}
         {!awaitingLocation && (
@@ -443,7 +384,6 @@ export default function FeedPage() {
                   isNew={report.id === recentCreatedId}
                   index={index}
                 />
-                {index === 0 && <SuggestedProfiles cityId={activeCityId} limit={4} />}
               </React.Fragment>
             ))}
 

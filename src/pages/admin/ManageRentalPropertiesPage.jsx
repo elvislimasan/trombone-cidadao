@@ -18,6 +18,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const emptyContractForm = {
   owner_name: '',
@@ -345,9 +346,10 @@ const RentalMediaManager = ({ propertyId }) => {
     setUploadingPhotos(true);
     try {
       for (const file of files) {
-        const ext = file.name.split('.').pop();
+        const uploadFile = await optimizeImageFile(file);
+        const ext = uploadFile.name.split('.').pop();
         const path = `properties/${propertyId}/photos/${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('rental-property-media').upload(path, file);
+        const { error: uploadError } = await supabase.storage.from('rental-property-media').upload(path, uploadFile);
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('rental-property-media').getPublicUrl(path);
         const { error: dbError } = await supabase.from('rental_property_media').insert({ property_id: propertyId, url: publicUrl });

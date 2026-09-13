@@ -17,7 +17,7 @@ import CityThumbnailManager from '@/components/CityThumbnailManager';
 const AmbassadorPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
-  const [managementTab, setManagementTab] = useState('cities');
+  const [managementTab, setManagementTab] = useState('reports');
 
   // Menu "Gerenciar": só os módulos que o usuário pode alterar. Sem nenhum,
   // o menu inteiro some.
@@ -41,6 +41,7 @@ const AmbassadorPage = () => {
   // State for "Broncas pendentes"
   const [pendingReports, setPendingReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [queueErrors, setQueueErrors] = useState({});
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // State for "Atualizações pendentes"
@@ -82,6 +83,7 @@ const AmbassadorPage = () => {
       return;
     }
     setLoadingReports(true);
+    setQueueErrors(current => ({ ...current, 'reports': false }));
     const { data, error } = await supabase
       .from('reports')
       .select('id, title, category_id, created_at, moderation_status, city_id, category:category_id(name)')
@@ -99,6 +101,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      setQueueErrors(current => ({ ...current, 'reports': true }));
       showAppError({ title: 'Erro ao buscar broncas', description: error.message, variant: 'destructive' });
     } else {
       setPendingReports(data || []);
@@ -113,6 +116,7 @@ const AmbassadorPage = () => {
       return;
     }
     setLoadingUpdates(true);
+    setQueueErrors(current => ({ ...current, 'updates': false }));
     // Get report_updates where the parent report is in my cities
     const { data, error } = await supabase
       .from('report_updates')
@@ -125,6 +129,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      setQueueErrors(current => ({ ...current, 'updates': true }));
       showAppError({ title: 'Erro ao buscar atualizações', description: error.message, variant: 'destructive' });
     } else {
       // Filter client-side by city
@@ -142,6 +147,7 @@ const AmbassadorPage = () => {
       return;
     }
     setLoadingWorkMedia(true);
+    setQueueErrors(current => ({ ...current, 'work-media': false }));
     // Get public_work_media where the parent work is in my cities
     const { data, error } = await supabase
       .from('public_work_media')
@@ -154,6 +160,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      setQueueErrors(current => ({ ...current, 'work-media': true }));
       showAppError({ title: 'Erro ao buscar mídias de obra', description: error.message, variant: 'destructive' });
     } else {
       // Filter client-side by city
@@ -337,7 +344,7 @@ const AmbassadorPage = () => {
           <div className="flex flex-wrap items-center gap-3">
             {totalPending > 0 ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-status-pendingBg px-3 py-2 text-xs font-bold text-status-pendingFg"><Inbox className="h-4 w-4" /> {totalPending} {totalPending === 1 ? 'item aguardando' : 'itens aguardando'} moderação</span>
-            ) : !loadingReports && !loadingUpdates && !loadingWorkMedia ? (
+            ) : !loadingReports && !loadingUpdates && !loadingWorkMedia && !Object.values(queueErrors).some(Boolean) ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-success-bg px-3 py-2 text-xs font-bold text-success-fg"><PartyPopper className="h-4 w-4" /> Tudo em dia</span>
             ) : null}
 
@@ -360,28 +367,19 @@ const AmbassadorPage = () => {
           </div>
         </div>
 
-        <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Resumo da operação">
-          {[
-            { value: 'cities', label: 'Cidades ativas', total: loadingCities ? '—' : myCities.length, Icon: MapPin, tone: 'bg-brand-subtleBg text-brand' },
-            { value: 'reports', label: 'Broncas pendentes', total: loadingReports ? '—' : pendingReports.length, Icon: FileText, tone: 'bg-status-pendingBg text-status-pendingFg' },
-            { value: 'updates', label: 'Atualizações', total: loadingUpdates ? '—' : pendingUpdates.length, Icon: Megaphone, tone: 'bg-blue-50 text-blue-700' },
-            { value: 'work-media', label: 'Mídias de obras', total: loadingWorkMedia ? '—' : pendingWorkMedia.length, Icon: ImageIcon, tone: 'bg-violet-50 text-violet-700' },
-          ].map(({ value, label, total, Icon, tone }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setManagementTab(value)}
-              aria-pressed={managementTab === value}
-              className={`flex min-w-0 items-center gap-3 rounded-2xl border bg-surface-raised p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${managementTab === value ? 'border-brand ring-1 ring-brand/20' : 'border-edge-subtle hover:border-brand/30'}`}
-            >
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span>
-              <span className="min-w-0">
-                <strong className="block text-xl font-black leading-none tabular-nums text-content-primary">{total}</strong>
-                <span className="mt-1 block truncate text-xs font-semibold text-content-secondary">{label}</span>
-              </span>
-              <ArrowRight className="ml-auto hidden h-4 w-4 shrink-0 text-content-tertiary xl:block" />
-            </button>
-          ))}
+        <section className="mb-6 rounded-2xl border border-edge-subtle bg-surface-raised p-5" aria-labelledby="attention-title">
+          <h2 id="attention-title" className="text-lg font-bold text-content-primary">Precisa de atenção</h2>
+          <p className="mt-1 text-sm text-content-secondary">Comece pelas contribuições que aguardam há mais tempo.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { tab: 'reports', label: 'Revisar broncas', items: pendingReports, loading: loadingReports },
+              { tab: 'updates', label: 'Revisar atualizações', items: pendingUpdates, loading: loadingUpdates },
+              { tab: 'work-media', label: 'Revisar mídias de obras', items: pendingWorkMedia, loading: loadingWorkMedia },
+            ].map(({ tab, label, items, loading }) => <button key={tab} type="button" onClick={() => { setManagementTab(tab); requestAnimationFrame(() => document.getElementById('management-queues')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }} className="rounded-xl border border-edge-subtle p-4 text-left hover:border-brand/40">
+              <strong className="block text-sm text-content-primary">{label}</strong><span className="mt-1 block text-sm text-content-secondary">{loading ? 'Carregando…' : queueErrors[tab] ? 'Não foi possível carregar' : `${items.length} aguardando`}</span>
+              {!loading && !queueErrors[tab] && items[0]?.created_at && <span className="mt-2 block text-xs text-content-tertiary">Mais antiga: {new Date(items[0].created_at).toLocaleDateString('pt-BR')}</span>}
+            </button>)}
+          </div>
         </section>
 
         {showOnboardingBanner && (
@@ -406,7 +404,7 @@ const AmbassadorPage = () => {
           </Card>
         )}
 
-        <Tabs value={managementTab} onValueChange={setManagementTab} className="w-full lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <Tabs id="management-queues" style={{ scrollMarginTop: '6rem' }} value={managementTab} onValueChange={setManagementTab} className="w-full lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start lg:gap-6">
           <aside className="mb-5 min-w-0 lg:sticky lg:top-24 lg:mb-0">
             <div className="hidden px-1 pb-3 lg:block">
               <p className="text-xs font-extrabold uppercase tracking-wider text-content-tertiary">Área de trabalho</p>

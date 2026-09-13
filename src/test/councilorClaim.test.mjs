@@ -7,7 +7,7 @@ const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8
 test('página sem titular oferece solicitação e preserva o retorno após cadastro', async () => {
   const page = await read('src/pages/CouncilorProfilePage.jsx');
 
-  assert.match(page, /Solicitar vínculo/);
+  assert.match(page, /Reivindicar perfil/);
   assert.match(page, /navigate\('\/cadastro'/);
   assert.match(page, /tc_post_login_redirect/);
   assert.match(page, /\.rpc\('request_councilor_link'/);

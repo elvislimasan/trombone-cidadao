@@ -4,7 +4,6 @@ import { ChevronLeft, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import Notifications from '@/components/Notifications';
-import FeedCitySelector from '@/components/feed/FeedCitySelector';
 import { Capacitor } from '@capacitor/core';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
@@ -19,7 +18,7 @@ const MobileHeader = () => {
   const [pageTitle, setPageTitle] = useState('');
 
   // Rotas que são consideradas "raízes" (mostram logo em vez de botão voltar)
-  const rootRoutes = ['/', '/estatisticas', '/favoritos', '/perfil', '/buscar'];
+  const rootRoutes = ['/', '/feed', '/explorar', '/seguindo', '/estatisticas', '/favoritos', '/perfil', '/buscar'];
   const isRoot = rootRoutes.includes(location.pathname);
   const authRoutes = ['/login', '/cadastro', '/recuperar-senha'];
   const isAuthRoute = authRoutes.includes(location.pathname);
@@ -29,11 +28,12 @@ const MobileHeader = () => {
   // exploracao — obras, estatisticas, servicos — tem filtro proprio, local, e
   // mostrar os dois juntos daria dois controles com escopos diferentes e
   // aparencia parecida na mesma tela.
-  const showCitySelector = location.pathname === '/';
 
   const headerTitle = (() => {
     const path = location.pathname;
-    if (path === '/') return siteName;
+    if (path === '/' || path === '/feed') return siteName;
+    if (path === '/explorar') return 'Explorar';
+    if (path === '/seguindo') return 'Acompanhando';
 
     if (path === '/agora') return 'Radar da cidade';
     if (path.startsWith('/agora/')) return 'Acontecimento';
@@ -154,7 +154,7 @@ const MobileHeader = () => {
               <img src={logoUrl} alt="Logo" className="h-7 w-auto" />
             </Link>
           )}
-          <span className="font-bold text-base truncate max-w-[56vw]">
+          <span className="shrink-0 whitespace-nowrap text-sm font-bold sm:text-base">
             {headerTitle}
           </span>
         </div>
@@ -163,7 +163,6 @@ const MobileHeader = () => {
           {/* A cidade ativa virou um pin no lado direito: o nome dela competia
               com o titulo da tela pelo mesmo espaco. Segue so no feed, onde o
               filtro define o conteudo. */}
-          {showCitySelector && <FeedCitySelector iconOnly />}
           {isRoot && location.pathname !== '/buscar' && (!ctxActions || ctxActions.length === 0) && (
             <Button variant="ghost" size="icon" onClick={() => navigate('/buscar')} className="rounded-full">
               <Search size={22} />

@@ -23,6 +23,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -518,13 +519,14 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
 
     if (thumbnailFile) {
       try {
-        const fileExt = thumbnailFile.name.split('.').pop();
+        const uploadFile = await optimizeImageFile(thumbnailFile, { maxDimension: 1600, quality: 0.84 });
+        const fileExt = uploadFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `thumbnails/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('work-media')
-          .upload(filePath, thumbnailFile);
+          .upload(filePath, uploadFile);
 
         if (uploadError) throw uploadError;
 

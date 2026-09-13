@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle2, Clock3, ExternalLink, Landmark, Loader2, Penci
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import CityCombobox from '@/components/CityCombobox';
 import { Combobox } from '@/components/ui/combobox';
 import { Dialog, FormDialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -34,7 +35,6 @@ const nullable = (value) => String(value || '').trim() || null;
 export default function ManageCouncilorsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [councilors, setCouncilors] = useState([]);
-  const [cities, setCities] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -50,9 +50,8 @@ export default function ManageCouncilorsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [councilorsResult, citiesResult, streetsResult, profilesResult, requestsResult] = await Promise.all([
+    const [councilorsResult, streetsResult, profilesResult, requestsResult] = await Promise.all([
       supabase.from('councilors').select('*, city:cities(name, states(uf))').order('name'),
-      supabase.from('cities').select('id, name, states(uf)').order('name'),
       supabase.from('pavement_streets').select('id, city_id, historical_documents'),
       supabase.from('profiles').select('id, name, username, avatar_url, city_id').order('name'),
       supabase.from('councilor_link_requests').select('id, councilor_id, requester_id, status, created_at').eq('status', 'pending').order('created_at'),
@@ -81,12 +80,6 @@ export default function ManageCouncilorsPage() {
       })));
     }
 
-    if (citiesResult.error) {
-      showAppError({ title: 'Não foi possível carregar as cidades', description: citiesResult.error.message, variant: 'destructive' });
-      setCities([]);
-    } else {
-      setCities(citiesResult.data || []);
-    }
     if (profilesResult.error) {
       showAppError({ title: 'Não foi possível carregar as contas', description: profilesResult.error.message, variant: 'destructive' });
       setProfiles([]);
@@ -109,11 +102,6 @@ export default function ManageCouncilorsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  const cityOptions = useMemo(() => cities.map((city) => ({
-    value: String(city.id),
-    label: `${city.name}${city.states?.uf ? ` - ${city.states.uf}` : ''}`,
-  })), [cities]);
 
   const linkableProfiles = useMemo(() => {
     const linkedElsewhere = new Set(councilors
@@ -191,6 +179,21 @@ export default function ManageCouncilorsPage() {
       return;
     }
     setSaving(true);
+    if (editing?.id && name !== editing.name) {
+      const { error: renameError } = await supabase.rpc('rename_councilor_profile', {
+        p_councilor_id: editing.id,
+        p_new_name: name,
+      });
+      if (renameError) {
+        setSaving(false);
+        showAppError({
+          title: 'Não foi possível alterar o nome',
+          description: `${renameError.message}. Confira se a migration 253 foi aplicada.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     const details = {
       photo_url: nullable(form.photo_url),
       party: nullable(form.party),
@@ -313,7 +316,7 @@ export default function ManageCouncilorsPage() {
             <CardDescription>{councilors.length} vereador{councilors.length === 1 ? '' : 'es'} na base.</CardDescription>
             <div className="grid gap-3 pt-3 sm:grid-cols-[minmax(0,1fr)_18rem]">
               <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome, partido ou cidade" className="pl-9" /></div>
-              <Combobox options={[{ value: 'all', label: 'Todas as cidades' }, ...cityOptions]} value={cityFilter} onChange={setCityFilter} placeholder="Filtrar cidade" searchPlaceholder="Buscar cidade..." />
+              <CityCombobox value={cityFilter} onChange={(value) => setCityFilter(String(value))} includeAll placeholder="Filtrar cidade" />
             </div>
           </CardHeader>
           <CardContent>
@@ -352,11 +355,21 @@ export default function ManageCouncilorsPage() {
       </div>
 
       <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
-        <FormDialogContent className="sm:max-w-2xl">
-          <DialogHeader><DialogTitle>{editing?.id ? 'Editar vereador' : 'Cadastrar vereador'}</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-2 sm:grid-cols-2">
-            <label className="grid gap-1.5"><Label>Cidade</Label><Combobox options={cityOptions} value={String(form.city_id || '')} onChange={(value) => setForm((current) => ({ ...current, city_id: value }))} disabled={Boolean(editing?.id)} placeholder="Selecione a cidade" searchPlaceholder="Buscar cidade..." /></label>
-            <label className="grid gap-1.5"><Label htmlFor="councilor-name">Nome</Label><Input id="councilor-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} disabled={Boolean(editing?.id)} placeholder="Nome completo" /></label>
+        <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:h-[90vh] sm:max-w-2xl">
+          <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
+            <DialogTitle className="text-xl font-bold text-content-primary">{editing?.id ? 'Editar vereador' : 'Cadastrar vereador'}</DialogTitle>
+            <p className="text-sm text-content-tertiary">Dados públicos, conta responsável e identificação da página.</p>
+          </DialogHeader>
+          <form
+            className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+          <div className="grid min-h-0 content-start gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-6">
+            <label className="grid gap-1.5"><Label>Cidade</Label><CityCombobox value={form.city_id || ''} onChange={(value) => setForm((current) => ({ ...current, city_id: value }))} disabled={Boolean(editing?.id)} modal /></label>
+            <label className="grid gap-1.5"><Label htmlFor="councilor-name">Nome</Label><Input id="councilor-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nome completo" /></label>
             <label className="grid gap-1.5"><Label htmlFor="councilor-party">Partido</Label><Input id="councilor-party" value={form.party} onChange={(event) => setForm((current) => ({ ...current, party: event.target.value }))} /></label>
             <div className="sm:col-span-2"><CouncilorPhotoUploader value={form.photo_url || ''} onChange={(photo_url) => setForm((current) => ({ ...current, photo_url }))} onUploadingChange={setUploadingPhoto} councilorId={editing?.id || 'novo'} name={form.name || 'vereador'} disabled={saving} /></div>
             <label className="grid gap-1.5"><Label htmlFor="councilor-phone">Telefone</Label><Input id="councilor-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
@@ -377,6 +390,7 @@ export default function ManageCouncilorsPage() {
                 onChange={(value) => setForm((current) => ({ ...current, user_id: value === 'none' ? '' : value, verified: value === 'none' ? false : current.verified }))}
                 placeholder="Buscar uma conta..."
                 searchPlaceholder="Buscar por nome ou @usuário..."
+                modal
               />
               <p className="text-xs text-content-tertiary">A conta vinculada poderá editar apenas foto, apresentação e canais públicos desta página.</p>
             </div>
@@ -384,19 +398,23 @@ export default function ManageCouncilorsPage() {
               <div><Label htmlFor="councilor-verified">Identidade confirmada</Label><p className="mt-0.5 text-xs text-content-tertiary">Exibe o selo de página legislativa verificada.</p></div>
               <Switch id="councilor-verified" checked={Boolean(form.verified)} disabled={!form.user_id} onCheckedChange={(verified) => setForm((current) => ({ ...current, verified }))} />
             </div>
-            {editing?.id && <p className="text-xs text-content-tertiary sm:col-span-2">Nome e cidade ficam protegidos porque identificam os vínculos das ruas.</p>}
+            {editing?.id && <p className="text-xs text-content-tertiary sm:col-span-2">Ao corrigir o nome, a autoria nos projetos das ruas também será atualizada.</p>}
             {editing?.id && mergeTargets.length > 0 && (
               <div className="rounded-2xl border border-status-pendingBorder bg-status-pendingBg/50 p-4 sm:col-span-2">
                 <Label>Cadastro duplicado</Label>
                 <p className="mt-1 text-xs leading-relaxed text-content-secondary">Escolha o cadastro correto que permanecerá. As ruas e as informações disponíveis serão reunidas nele.</p>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  <div className="min-w-0 flex-1"><Combobox options={mergeTargets} value={mergeTargetId} onChange={setMergeTargetId} placeholder="Unificar com..." searchPlaceholder="Buscar vereador da mesma cidade..." /></div>
+                  <div className="min-w-0 flex-1"><Combobox options={mergeTargets} value={mergeTargetId} onChange={setMergeTargetId} placeholder="Unificar com..." searchPlaceholder="Buscar vereador da mesma cidade..." modal /></div>
                   <Button type="button" variant="outline" onClick={mergeProfile} disabled={!mergeTargetId || merging}>{merging ? 'Unificando...' : 'Unificar cadastros'}</Button>
                 </div>
               </div>
             )}
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button><Button onClick={save} disabled={saving || uploadingPhoto}>{uploadingPhoto ? 'Enviando foto...' : saving ? 'Salvando...' : 'Salvar'}</Button></DialogFooter>
+          <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-4 sm:px-6">
+            <Button type="button" variant="outline" className="h-11 rounded-xl sm:min-w-28" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button type="submit" className="h-11 rounded-xl sm:min-w-32" disabled={saving || uploadingPhoto}>{uploadingPhoto ? 'Enviando foto...' : saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+          </form>
         </FormDialogContent>
       </Dialog>
     </>

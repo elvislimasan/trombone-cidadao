@@ -17,8 +17,6 @@ import {
   Plus,
   Radio,
   Search,
-  Share2,
-  ShieldCheck,
   SlidersHorizontal,
   TrafficCone,
   Users,
@@ -49,8 +47,6 @@ import {
   previsaoLegivel,
   rotuloDasAreas,
 } from '@/lib/cityEvents';
-import { compartilharLink } from '@/lib/shareLink';
-import { getBaseAppUrl } from '@/lib/shareUtils';
 
 const FILTROS_RADAR = [
   { id: 'todos', rotulo: 'Todos', tipos: null, Icone: GaugeCircle },
@@ -67,20 +63,6 @@ const normalizar = (valor) => String(valor || '')
   .normalize('NFD')
   .replace(/\p{Mn}/gu, '')
   .toLowerCase();
-
-const CardResumo = ({ Icone, valor, rotulo, detalhe, tom }) => (
-  <article className="group flex min-w-0 items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-4 shadow-elevation-1 transition-colors hover:border-edge-default">
-    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tom}`}>
-      <Icone className="h-5 w-5" aria-hidden="true" />
-    </span>
-    <div className="min-w-0 flex-1">
-      <p className="font-display text-2xl font-extrabold leading-none tabular-nums text-content-primary">{valor}</p>
-      <p className="mt-1 truncate text-xs font-bold text-content-primary">{rotulo}</p>
-      <p className="truncate text-[10px] text-content-tertiary">{detalhe}</p>
-    </div>
-    <ChevronRight className="h-4 w-4 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5" />
-  </article>
-);
 
 const CabecalhoPainel = ({ Icone, titulo, descricao, acao }) => (
   <div className="flex items-start justify-between gap-3 border-b border-edge-subtle px-4 py-3.5">
@@ -118,14 +100,14 @@ const EventoLateral = ({ evento, agora, programado = false }) => {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <p className="min-w-0 flex-1 truncate text-[11px] font-extrabold text-content-primary">
+          <p className="min-w-0 flex-1 line-clamp-2 text-[11px] font-extrabold leading-tight text-content-primary">
             {evento.title || rotuloDoTipo(evento.type)}
           </p>
           {!programado && <SeloDeStatus status={evento.status} className="!px-1.5 !py-0.5 !text-[7px]" />}
         </div>
-        <p className="mt-0.5 truncate text-[9px] text-content-tertiary">{onde || 'Toda a cidade'}</p>
+        <p className="mt-0.5 line-clamp-2 text-[9px] leading-tight text-content-tertiary">{onde || 'Toda a cidade'}</p>
         {horario && (
-          <p className={`mt-0.5 truncate text-[9px] font-semibold ${previsao.vencida ? 'text-brand' : 'text-amber-400/80'}`}>
+          <p className={`mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight ${previsao.vencida ? 'text-brand' : 'text-amber-400/80'}`}>
             {programado ? horario : previsao.tem ? `Até ${horario}` : horario}
           </p>
         )}
@@ -158,28 +140,31 @@ const ListaLateral = ({ titulo, Icone, eventos, agora, programado, carregando, v
   </section>
 );
 
-const ChamadaParaOcorrencia = ({ podeGerir, nomeDaCidade, aoCriar }) => (
-  <section className="relative mt-5 overflow-hidden rounded-2xl border border-brand/25 bg-surface-subtle px-5 py-5 shadow-elevation-1 sm:px-7">
+const BotaoNovaOcorrencia = ({ podeGerir, aoCriar }) => {
+  const className = 'relative h-9 shrink-0 rounded-full border-brand/30 px-3 text-xs text-brand hover:bg-brand-subtleBg';
+  const conteudo = <><Plus className="mr-1 h-3.5 w-3.5" /> Nova ocorrência</>;
+
+  return podeGerir ? (
+    <Button variant="outline" size="sm" className={className} onClick={aoCriar}>{conteudo}</Button>
+  ) : (
+    <Button asChild variant="outline" size="sm" className={className}>
+      <Link to="/mapa?criar_bronca=1">{conteudo}</Link>
+    </Button>
+  );
+};
+
+const ChamadaParaOcorrencia = ({ podeGerir, aoCriar, compact = false }) => (
+  <section className={compact ? 'relative mt-4 border-t border-edge-subtle pt-4' : 'relative mt-5 overflow-hidden rounded-2xl border border-brand/25 bg-surface-subtle px-5 py-5 shadow-elevation-1 sm:px-7'}>
     <div className="absolute inset-y-0 right-0 w-1/2 opacity-30 [background-image:linear-gradient(120deg,transparent_35%,rgba(255,255,255,.08)_35%,rgba(255,255,255,.08)_36%,transparent_36%)]" />
-    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand">
-          <Megaphone className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="font-display text-base font-extrabold">Informe um problema na sua cidade</h2>
-          <p className="mt-0.5 text-[10px] text-content-tertiary">Ajude a melhorar a sua rua, bairro e toda {nomeDaCidade}.</p>
+    <div className="relative flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Megaphone className="h-4 w-4 shrink-0 text-brand" />
+        <div className="min-w-0">
+          <h2 className="text-xs font-extrabold leading-tight">Viu algo acontecendo?</h2>
+          <p className="mt-0.5 truncate text-[10px] leading-tight text-content-tertiary">Informe a comunidade.</p>
         </div>
       </div>
-      {podeGerir ? (
-        <Button size="sm" className="relative rounded-full" onClick={aoCriar}>
-          Nova ocorrência <Plus className="ml-1.5 h-4 w-4" />
-        </Button>
-      ) : (
-        <Button asChild size="sm" className="relative rounded-full">
-          <Link to="/mapa?criar_bronca=1">Registrar ocorrência <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
-        </Button>
-      )}
+      <BotaoNovaOcorrencia podeGerir={podeGerir} aoCriar={aoCriar} />
     </div>
   </section>
 );
@@ -193,13 +178,12 @@ function AgoraPage() {
   const { podeGerir, papel, bairrosDesignados, restritoABairros } = useCanManageCityEvents(cityId);
 
   const abertos = useCityEvents(cityId, { filtro: 'todos', escopo: 'abertos' });
-  const resolvidos = useCityEvents(cityId, { filtro: 'todos', escopo: 'resolvidos', limite: 24 });
   useSweepCityEvents(podeGerir && Boolean(cityId));
 
   const acoes = useCityEventActions({
     aoConcluir: async () => {
       setCriando(false);
-      await Promise.all([abertos.recarregar(), resolvidos.recarregar()]);
+      await abertos.recarregar();
     },
   });
 
@@ -223,8 +207,6 @@ function AgoraPage() {
   const todosAbertos = useMemo(() => abertos.eventos || [], [abertos.eventos]);
   const emAndamento = eventosVisiveis.filter((evento) => evento.status !== 'scheduled');
   const programados = eventosVisiveis.filter((evento) => evento.status === 'scheduled');
-  const todosEmAndamento = todosAbertos.filter((evento) => evento.status !== 'scheduled');
-  const todosProgramados = todosAbertos.filter((evento) => evento.status === 'scheduled');
   const agora = new Date();
 
   const resumoDasAreas = useMemo(() => {
@@ -242,9 +224,6 @@ function AgoraPage() {
   }, [todosAbertos]);
 
   const areasEmFoco = resumoDasAreas.slice(0, 5);
-  // A identidade visual da cidade tem prioridade: evento é efêmero, a imagem
-  // institucional mantém o Radar reconhecível mesmo quando não há alertas.
-  const imagemHero = city?.civic_thumbnail_url || city?.cover_url || city?.image_url || todosAbertos.find((evento) => evento.image_url)?.image_url;
   const nomeDaCidade = city?.name || String(cityName || '').split(' · ')[0] || 'sua cidade';
   const ufDaCidade = city?.state?.uf;
 
@@ -278,117 +257,40 @@ function AgoraPage() {
       <main className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-5 lg:px-6 lg:py-8">
         <section className="relative overflow-hidden rounded-[1.75rem] border border-edge-subtle bg-surface-raised shadow-elevation-2">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/90 to-surface-raised/55" />
-          <div className="relative grid min-h-[16rem] gap-8 p-6 md:p-8 lg:grid-cols-[minmax(0,1.22fr)_minmax(26rem,.78fr)] lg:items-center lg:p-10">
+          <div className="relative p-5 sm:p-6 lg:p-7">
             <div className="min-w-0">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-content-tertiary">
-                Acompanhe os acontecimentos da sua cidade
-              </p>
-              <h1 className="mt-3 font-display text-4xl font-black leading-[.92] tracking-[-0.045em] text-brand sm:text-5xl lg:text-6xl">
-                Radar da cidade
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-content-secondary lg:text-base">
-                Alertas, interrupções e eventos para você saber o que está acontecendo agora em {nomeDaCidade}.
-              </p>
-
-              <div className="mt-6 grid max-w-2xl grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
-                {[
-                  [Radio, 'Mais informação', 'para o cidadão'],
-                  [ShieldCheck, 'Mais transparência', 'na gestão pública'],
-                  [Users, 'Mais participação', 'da comunidade'],
-                  [CheckCircle2, 'Uma cidade melhor', 'para todos'],
-                ].map(([Icone, titulo, texto]) => (
-                  <div key={titulo} className="flex items-start gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand">
-                      <Icone className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="text-[9px] leading-tight text-content-tertiary">
-                      <strong className="block text-[10px] text-content-primary">{titulo}</strong>{texto}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative hidden min-h-[13rem] lg:block">
-              <div className="absolute inset-y-0 left-0 right-24 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-sunken">
-                {imagemHero ? (
-                  <img src={imagemHero} alt="" className="h-full w-full object-cover opacity-75" />
-                ) : (
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_25%,rgba(255,126,75,.28),transparent_24%),linear-gradient(145deg,#1b2d37,#10161d_55%,#33141a)]" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-                <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
-                  <div>
-                    <p className="flex items-center gap-1.5 text-xs font-bold text-white">
-                      <MapPin className="h-3.5 w-3.5 text-brand" /> {nomeDaCidade}{ufDaCidade ? ` - ${ufDaCidade}` : ''}
-                    </p>
-                    <p className="mt-1 text-[9px] text-white/70">Nossa cidade, nosso papel.</p>
-                  </div>
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <h1 className="min-w-0 text-2xl font-black leading-tight tracking-tight text-brand sm:text-3xl">Radar da cidade</h1>
+                <div className="flex shrink-0 items-center gap-2">
+                  {cityId && <div className="hidden lg:block"><FollowAreaButton areaType="city" cityId={cityId} nome={nomeDaCidade} tamanho="sm" compacto /></div>}
                   <CitySelector />
                 </div>
               </div>
-
+              <p className="mt-1 max-w-2xl text-sm leading-snug text-content-secondary">
+                Veja o que está acontecendo agora em {nomeDaCidade}.
+              </p>
             </div>
-
-            <div className="flex flex-wrap gap-2 lg:hidden">
-                <CitySelector />
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full border-edge-default bg-surface-subtle text-content-primary hover:bg-surface-sunken hover:text-content-primary"
-                onClick={() => compartilharLink({
-                  title: `Radar da cidade em ${nomeDaCidade}`,
-                  text: 'Veja o que está acontecendo agora na cidade.',
-                  url: `${getBaseAppUrl()}/agora`,
-                })}
-              >
-                <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar
-              </Button>
-            </div>
+            {cityId && <div className="mt-3 w-full lg:hidden"><FollowAreaButton areaType="city" cityId={cityId} nome={nomeDaCidade} tamanho="sm" className="w-full [&>button:first-child]:flex-1" /></div>}
+            {cityId && (
+              <ChamadaParaOcorrencia
+                podeGerir={podeGerir}
+                aoCriar={() => setCriando(true)}
+                compact
+              />
+            )}
           </div>
         </section>
-
-        {cityId && (
-          <>
-            <ChamadaParaOcorrencia
-              podeGerir={podeGerir}
-              nomeDaCidade={nomeDaCidade}
-              aoCriar={() => setCriando(true)}
-            />
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1">
-              <FollowAreaButton areaType="city" cityId={cityId} nome={nomeDaCidade} tamanho="sm" />
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-content-tertiary hover:text-content-primary"
-                onClick={() => compartilharLink({
-                  title: `Radar da cidade em ${nomeDaCidade}`,
-                  text: 'Veja o que está acontecendo agora na cidade.',
-                  url: `${getBaseAppUrl()}/agora`,
-                })}
-              >
-                <Share2 className="h-3.5 w-3.5" /> Compartilhar Radar
-              </button>
-            </div>
-          </>
-        )}
 
         {!cityId && !loadingCities ? (
           <section className="mt-5 rounded-2xl border border-dashed border-edge-default bg-surface-subtle px-6 py-14 text-center">
             <MapPin className="mx-auto h-8 w-8 text-content-tertiary" />
-            <h2 className="mt-3 font-display text-lg font-extrabold">Escolha uma cidade</h2>
+            <h2 className="mt-3 text-lg font-extrabold">Escolha uma cidade</h2>
             <p className="mx-auto mt-1 max-w-md text-sm text-content-tertiary">
               O Radar mostra os acontecimentos de uma cidade por vez. Use o seletor acima para começar.
             </p>
           </section>
         ) : cityId ? (
           <>
-            <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <CardResumo Icone={Megaphone} valor={abertos.carregando ? '—' : todosEmAndamento.length} rotulo="Alertas ativos" detalhe="Acontecendo agora" tom="bg-brand/15 text-brand" />
-              <CardResumo Icone={CalendarClock} valor={abertos.carregando ? '—' : todosProgramados.length} rotulo="Eventos programados" detalhe="Próximos na agenda" tom="bg-sky-500/15 text-sky-400" />
-              <CardResumo Icone={CheckCircle2} valor={resolvidos.carregando ? '—' : resolvidos.eventos.length} rotulo="Resolvidos este mês" detalhe="Situações normalizadas" tom="bg-emerald-500/15 text-emerald-400" />
-              <CardResumo Icone={Users} valor={abertos.carregando ? '—' : resumoDasAreas.length} rotulo="Áreas monitoradas" detalhe="Com ocorrências" tom="bg-fuchsia-500/15 text-fuchsia-400" />
-            </section>
-
             <section className="mt-4 flex items-center gap-2 overflow-x-auto rounded-2xl border border-edge-subtle bg-surface-raised p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {FILTROS_RADAR.map(({ id, rotulo, Icone }) => (
                 <button
@@ -481,7 +383,7 @@ function AgoraPage() {
               </section>
             )}
 
-            <section className="mt-4 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised">
+            <section id="areas-em-foco" className="mt-4 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised">
               <CabecalhoPainel
                 Icone={Users}
                 titulo="Áreas mais afetadas"
@@ -495,7 +397,7 @@ function AgoraPage() {
                         <MapPin className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-[10px] font-extrabold text-content-primary">{area.label}</p>
+                        <p className="line-clamp-2 text-[10px] font-extrabold leading-tight text-content-primary">{area.label}</p>
                         <p className="text-[9px] text-content-tertiary">{area.ocorrencias} {area.ocorrencias === 1 ? 'ocorrência' : 'ocorrências'}</p>
                       </div>
                     </article>

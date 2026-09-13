@@ -55,6 +55,7 @@ const FollowAreaButton = ({
   nome,
   tamanho = 'default',
   className = '',
+  compacto = false,
 }) => {
   const { user } = useAuth();
   const [abrirPreferencias, setAbrirPreferencias] = useState(false);
@@ -66,7 +67,7 @@ const FollowAreaButton = ({
 
   if (!user) {
     return (
-      <Button asChild variant="outline" size={tamanho} className={`gap-1.5 rounded-full ${className}`}>
+      <Button asChild variant="outline" size={tamanho} className={`gap-1.5 rounded-full ${compacto ? 'h-8 px-2.5 text-[11px]' : ''} ${className}`}>
         <Link to="/login">
           <Bell className="h-4 w-4" /> Acompanhar
         </Link>
@@ -76,7 +77,7 @@ const FollowAreaButton = ({
 
   if (carregando) {
     return (
-      <Button variant="outline" size={tamanho} disabled className={`gap-1.5 rounded-full ${className}`}>
+      <Button variant="outline" size={tamanho} disabled className={`gap-1.5 rounded-full ${compacto ? 'h-8 px-2.5 text-[11px]' : ''} ${className}`}>
         <Loader2 className="h-4 w-4 animate-spin" />
       </Button>
     );
@@ -92,7 +93,7 @@ const FollowAreaButton = ({
           variant={acompanhando ? 'default' : 'outline'}
           size={tamanho}
           disabled={salvando}
-          className="gap-1.5 rounded-full"
+          className={`gap-1.5 rounded-full ${compacto ? 'h-8 px-2.5 text-[11px]' : ''}`}
           onClick={() => (acompanhando ? deixarDeAcompanhar() : acompanhar())}
         >
           {salvando
@@ -105,7 +106,7 @@ const FollowAreaButton = ({
           <Button
             variant="outline"
             size="icon"
-            className="relative h-9 w-9 shrink-0 rounded-full"
+            className={`relative shrink-0 rounded-full ${compacto ? 'h-8 w-8' : 'h-9 w-9'}`}
             aria-label="Escolher quais avisos receber"
             onClick={() => setAbrirPreferencias(true)}
           >

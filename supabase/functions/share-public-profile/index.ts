@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     const { data: city } = await supabase.from('cities').select('civic_thumbnail_url').eq('id', profile.city_id).maybeSingle()
     cityImage = String(city?.civic_thumbnail_url || '')
   }
-  const rawImage = String(cityImage || profile.avatar_url || `${supabaseUrl}/storage/v1/object/public/site-media/shared/thumbnail.jpg`)
+  const rawImage = String(profile.avatar_url || cityImage || `${supabaseUrl}/storage/v1/object/public/site-media/shared/thumbnail.jpg`)
   const image = /^https?:\/\//i.test(rawImage) ? `https://wsrv.nl/?url=${encodeURIComponent(rawImage.split('?')[0])}&w=1200&h=630&fit=cover&q=84&output=jpg` : rawImage
   const title = `${profile.name} (@${profile.username}) | Trombone Cidadão`
   const description = String(profile.public_bio || `Acompanhe as broncas e conquistas de ${profile.name} no Trombone Cidadão.`).replace(/[\r\n]+/g, ' ').slice(0, 240)

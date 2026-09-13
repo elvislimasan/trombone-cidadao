@@ -51,30 +51,30 @@ test('conta e página legislativa possuem navegação nos dois sentidos', async 
     read('src/pages/CouncilorProfilePage.jsx'),
   ]);
 
-  assert.match(myProfile, /Ver página legislativa/);
-  assert.match(myProfile, /rotaDoVereador\(page\.city_id, page\.slug\)/);
+  assert.match(myProfile, /Gerenciar página legislativa/);
+  assert.match(myProfile, /\/perfil\/pagina-legislativa\/\$\{page\.id\}/);
+  const management = await read('src/pages/ManageMyCouncilorPage.jsx');
+  assert.match(management, /to=\{publicPath\}>Ver página pública/);
   assert.match(publicProfile, /Atuação pública verificada/);
   assert.match(councilorPage, /accountIdentity\?\.profile\?\.username && <Link to=\{`\/u\//);
 });
 
-test('gestão sai da página pública e respeita admin sem vínculo ou o próprio titular', async () => {
+test('admin e titular encontram a edição do perfil legislativo', async () => {
   const councilorPage = await read('src/pages/CouncilorProfilePage.jsx');
 
-  assert.match(councilorPage, /const canEditAsAdmin = isAdmin && !hasLinkedOwner/);
-  assert.match(councilorPage, /const canEditPage = hasLinkedOwner \? isOwner : canEditAsAdmin/);
+  assert.match(councilorPage, /const canEditPage = Boolean\(councilor\?\.id && \(isAdmin \|\| isOwner\)\)/);
   assert.match(councilorPage, /\/perfil\/pagina-legislativa\/\$\{councilor\?\.id\}/);
-  assert.match(councilorPage, /\/admin\/vereadores\?editar=\$\{councilor\.id\}/);
-  assert.match(councilorPage, /Gerenciar página/);
+  assert.match(councilorPage, /\/admin\/vereadores\?editar=\$\{councilor\?\.id\}/);
+  assert.match(councilorPage, /Editar perfil/);
   assert.doesNotMatch(councilorPage, /Editar página legislativa/);
 });
 
-test('ações públicas são úteis para visitantes e não tratam o titular como visitante', async () => {
+test('perfil mostra contatos públicos e vínculo discreto no fim da página', async () => {
   const councilorPage = await read('src/pages/CouncilorProfilePage.jsx');
 
   assert.match(councilorPage, /const hasActiveLink = Boolean/);
-  assert.match(councilorPage, /const showParticipation = hasActiveLink && !isOwner/);
-  assert.match(councilorPage, /contactHref && !isOwner/);
   assert.match(councilorPage, /\{hasPublicContacts && <section/);
+  assert.match(councilorPage, /Reivindicar perfil/);
   assert.doesNotMatch(councilorPage, /<nav className=.*Seções da página/);
 });
 

@@ -17,27 +17,8 @@ import { useNotifications } from '../contexts/NotificationContext';
 // Entre `lg` e `4xl` não há largura para marca, dez destinos e ações da conta.
 // Estes são os caminhos de uso mais frequente; os demais continuam acessíveis
 // em "Mais". A ordem visual continua vindo da configuração administrativa.
-const COMPACT_PRIMARY_PATHS = new Set([
-  '/',
-  '/admin',
-  '/embaixador',
-  '/feed',
-  '/mapa',
-  '/agora',
-  '/obras-publicas',
-  '/mapa-pavimentacao',
-]);
-
-const PRIORIDADE_DESKTOP = new Map([
-  ['/feed', 0],
-  ['/', 1],
-  ['/admin', 1],
-  ['/embaixador', 1],
-  ['/mapa', 2],
-  ['/agora', 3],
-  ['/obras-publicas', 4],
-  ['/mapa-pavimentacao', 5],
-]);
+const COMPACT_PRIMARY_PATHS = new Set(['/', '/feed', '/explorar', '/seguindo']);
+const PRIORIDADE_DESKTOP = new Map([['/', 0], ['/feed', 0], ['/explorar', 1], ['/seguindo', 2]]);
 
 
 const Header = () => {
@@ -133,11 +114,11 @@ const Header = () => {
   // Visitantes veem a Home como "Início". Para quem já entrou, o feed vira a
   // primeira navegação e o antigo item de início vira o painel do seu papel.
   const visibleMenuItems = menuSettings.items
-    .filter(item => item.isVisible && (!item.authOnly || user))
+    .filter(item => item.isVisible && (!item.authOnly || user) && !['/explorar', '/seguindo'].includes(item.path))
     .map((item) => {
       // Os nomes públicos são produto, não conteúdo administrativo antigo.
       // Isso também atualiza instalações que ainda têm "Pavimentação" salvo.
-      const normalizado = item.path === '/mapa-pavimentacao'
+      const normalizado = item.path === '/feed' ? { ...item, name: 'Início' } : item.path === '/mapa-pavimentacao'
         ? { ...item, name: 'Ruas' }
         : item.path === '/mapa'
           ? { ...item, name: 'Broncas', icon: 'Megaphone' }
@@ -151,7 +132,7 @@ const Header = () => {
         return null;
       }
       if (user.is_ambassador) {
-        return { ...normalizado, name: 'Painel Embaixador', path: '/embaixador', icon: 'ShieldCheck' };
+        return null;
       }
       // A conta pessoal já está no menu do avatar e na barra inferior móvel.
       // Repeti-la entre as áreas da cidade mistura navegação de conteúdo com
@@ -247,7 +228,7 @@ const Header = () => {
                 }
               }}
             />
-            <span className="max-w-[8rem] truncate text-base font-extrabold tracking-tight xl:max-w-[10rem] 2xl:max-w-none 2xl:text-lg">
+            <span className="whitespace-nowrap text-base font-extrabold tracking-tight 2xl:text-lg">
               {siteName}
             </span>
           </Link>
@@ -316,7 +297,7 @@ const Header = () => {
         <div className="flex shrink-0 items-center gap-2 2xl:gap-4">
           {/* Pin da cidade ativa: substitui o chip com o nome da cidade. Abre a
               lista como sheet centralizado, que nao corta na borda da tela. */}
-          <FeedCitySelector iconOnly />
+          {!['/', '/explorar'].includes(location.pathname) && <div className={location.pathname === '/feed' ? 'hidden lg:block' : ''}><FeedCitySelector iconOnly /></div>}
           {user ? (
             <>
               <Notifications />

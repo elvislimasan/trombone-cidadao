@@ -21,11 +21,12 @@ test('qualquer conta pode criar um perfil social sem virar uma identidade instit
 });
 
 test('seguir perfis impede auto vínculo e alimenta acompanhamento e notificações', async () => {
-  const [migration, profilePage, followingPage, app] = await Promise.all([
+  const [migration, profilePage, followingPage, app, people] = await Promise.all([
     read('supabase/migrations/249_public_profile_follows.sql'),
     read('src/pages/PublicProfilePage.jsx'),
     read('src/pages/FollowingActivityPage.jsx'),
     read('src/App.jsx'),
+    read('src/components/FollowingPeople.jsx'),
   ]);
 
   assert.match(migration, /constraint profile_follows_no_self check \(follower_id <> followed_id\)/);
@@ -33,8 +34,10 @@ test('seguir perfis impede auto vínculo e alimenta acompanhamento e notificaç�
   assert.match(migration, /get_following_activity/);
   assert.match(migration, /notify_profile_followers_new_report/);
   assert.match(profilePage, /followState\.is_following \? 'Seguindo' : 'Seguir'/);
-  assert.match(followingPage, /Publicações recentes/);
-  assert.match(app, /path="\/seguindo"[\s\S]+?<PrivateRoute>/);
+  assert.match(people, /Publicações recentes/);
+  assert.match(followingPage, /!user \?/);
+  assert.match(followingPage, /<FollowingPeople/);
+  assert.match(app, /path="\/seguindo" element=\{<FollowingActivityPage/);
 });
 
 test('página legislativa continua separada do perfil social', async () => {
@@ -44,7 +47,7 @@ test('página legislativa continua separada do perfil social', async () => {
   ]);
 
   assert.match(publicPage, /Atuação pública verificada/);
-  assert.match(profilePage, /Ver página legislativa/);
+  assert.match(profilePage, /Gerenciar página legislativa/);
   assert.match(profilePage, /Criar meu perfil público/);
 });
 

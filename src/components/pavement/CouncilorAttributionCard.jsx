@@ -28,7 +28,7 @@ export default function CouncilorAttributionCard({ street }) {
   return (
     <section className="overflow-hidden rounded-3xl border border-brand/20 bg-gradient-to-br from-brand-subtleBg to-surface-raised shadow-elevation-1">
       <div className="flex items-center gap-2 px-4 pt-4 text-[11px] font-extrabold uppercase tracking-wider text-brand sm:px-5 sm:pt-5">
-        <Landmark className="h-4 w-4" /> Projeto de denominação da rua
+        <Landmark className="h-4 w-4" /> Quem deu nome a esta rua?
       </div>
       <div className="grid gap-3 p-4 sm:p-5">
         {authors.map((author) => {

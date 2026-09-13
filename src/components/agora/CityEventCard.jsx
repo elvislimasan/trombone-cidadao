@@ -136,8 +136,8 @@ const CityEventCard = ({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide text-content-primary">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-extrabold leading-tight uppercase tracking-wide text-content-primary">
             {tipo.rotulo}
           </h3>
           {mostrarSelo && (
@@ -148,7 +148,7 @@ const CityEventCard = ({
           )}
         </div>
 
-        {onde && <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} truncate text-content-secondary`}>{onde}</p>}
+        {onde && <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} line-clamp-2 leading-tight text-content-secondary`}>{onde}</p>}
 
         {/* Uma linha de tempo, e só uma.
             Resolvido responde "quando acabou"; aberto responde "até quando".

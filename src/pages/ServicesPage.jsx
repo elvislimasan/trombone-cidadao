@@ -69,9 +69,7 @@ const ServicesPage = () => {
       });
     }
 
-    let categoriesQuery = supabase.from('directory_categories').select('*').eq('active', true).order('sort_order').order('name');
-    if (activeCityId) categoriesQuery = categoriesQuery.eq('city_id', activeCityId);
-    const { data: categoriesData } = await categoriesQuery;
+    const { data: categoriesData } = await supabase.from('directory_categories').select('*').eq('active', true).order('sort_order').order('name');
     setDirectoryCategories(categoriesData || []);
 
   }, [activeCityId]);

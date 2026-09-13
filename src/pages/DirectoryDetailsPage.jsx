@@ -5,15 +5,19 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart, Pencil } from 'lucide-react';
 import { whatsappNumber } from '@/lib/utils';
 import ServicesRankingSidebar from '@/components/ServicesRankingSidebar';
 import { showAppError } from '@/lib/appError';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
 const DirectoryDetailsPage = () => {
   const { id } = useParams();
+  const { user } = useAuth();
+  const { canWrite } = usePermissions();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -64,6 +68,7 @@ const DirectoryDetailsPage = () => {
   const waNumber = whatsappNumber(item.phone);
   const phoneLink = waNumber ? `https://wa.me/${waNumber}` : `tel:${item.phone || ''}`;
   const initialPosition = item.location ? { lat: item.location.coordinates[1], lng: item.location.coordinates[0] } : null;
+  const canEdit = Boolean(user && (user.is_admin || user.is_master || user.is_ambassador) && canWrite('services'));
 
   return (
     <>
@@ -77,13 +82,18 @@ const DirectoryDetailsPage = () => {
         transition={{ duration: 0.5 }}
         className="container mx-auto px-4 py-12"
       >
-        <div className="mb-8">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <Link to="/servicos">
             <Button variant="outline" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
               Voltar ao Guia da Cidade
             </Button>
           </Link>
+          {canEdit && (
+            <Button asChild className="gap-2">
+              <Link to={`/admin/servicos?edit=${item.id}&type=directory`}><Pencil className="h-4 w-4" /> Editar local</Link>
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

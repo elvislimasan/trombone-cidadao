@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import Avatar from 'react-nice-avatar';
 import {
   Bell,
-  Bookmark,
   Edit,
   ExternalLink,
   FileText,
@@ -27,7 +26,6 @@ import { placar } from '@/lib/scoring';
 import { normalizarContadoresDeMissao } from '@/lib/missionCounters';
 import { showAppError } from '@/lib/appError';
 import Icon from '@/design-system/icons';
-import { rotaDoVereador } from '@/lib/pavementStreetHistory';
 import SuggestedProfiles from '@/components/SuggestedProfiles';
 
 function ProfileAvatar({ profile }) {
@@ -123,7 +121,7 @@ const ProfilePage = () => {
 
   const quickLinks = useMemo(() => [
     { to: '/seguindo', label: 'Acompanhando', description: 'Novidades de quem você segue', Icon: Users },
-    { to: '/favoritos', label: 'Salvas', description: 'Broncas para rever', Icon: Bookmark },
+    { to: '/missoes', label: 'Missões', description: 'Participe e veja suas conquistas', Icon: Trophy },
     { to: '/minhas-peticoes', label: 'Petições', description: 'Abaixo-assinados criados', Icon: FileText },
     { to: '/minhas-patrulhas', label: 'Patrulhas', description: 'Histórico de fiscalização', Icon: Radar },
   ], []);
@@ -166,7 +164,7 @@ const ProfilePage = () => {
 
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-content-secondary lg:justify-center lg:gap-x-3">
                     <span><strong className="text-content-primary tabular-nums">{followState.followers_count}</strong> seguidores</span>
-                    <Link to="/seguindo" className="hover:text-brand"><strong className="text-content-primary tabular-nums">{followState.following_count}</strong> seguindo</Link>
+                    <Link to="/seguindo?aba=pessoas" className="hover:text-brand"><strong className="text-content-primary tabular-nums">{followState.following_count}</strong> seguindo</Link>
                     <Link to="/missoes#conquistas" className="inline-flex items-center gap-1 font-bold text-brand hover:underline">
                       <Trophy className="h-3.5 w-3.5" />
                       Minhas conquistas{userLevel ? ` · Nível ${userLevel.level}` : ''}
@@ -175,27 +173,24 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-1 lg:justify-center">
-                <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary">
-                  <Edit className="h-3.5 w-3.5" />Editar perfil
-                </Button>
-                {hasPublicProfile ? (
-                  <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary">
-                    <Link to={`/u/${user.username}`}>Ver como público<ExternalLink className="h-3.5 w-3.5" /></Link>
-                  </Button>
-                ) : (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-8 rounded-lg px-2.5 text-xs font-semibold text-content-secondary hover:bg-surface-subtleHover hover:text-content-primary">
-                    Criar meu perfil público
-                  </Button>
-                )}
-              </div>
             </div>
 
-            {(managedCouncilorPages.length > 0 || user.is_admin || user.is_ambassador || user.is_master) && (
-              <div className="grid gap-2 border-t border-edge-subtle p-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-2 border-t border-edge-subtle p-3 sm:grid-cols-2 lg:grid-cols-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-auto min-h-10 justify-start gap-2 rounded-xl border border-edge-subtle px-3 py-2.5 text-left text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover">
+                <Edit className="h-4 w-4 text-brand" />Editar perfil
+              </Button>
+              {hasPublicProfile ? (
+                <Button asChild variant="ghost" size="sm" className="h-auto min-h-10 justify-start gap-2 rounded-xl border border-edge-subtle px-3 py-2.5 text-left text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover">
+                  <Link to={`/u/${user.username}`}><ExternalLink className="h-4 w-4 text-brand" />Ver como público</Link>
+                </Button>
+              ) : (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-auto min-h-10 justify-start gap-2 rounded-xl border border-edge-subtle px-3 py-2.5 text-left text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover">
+                  <ExternalLink className="h-4 w-4 text-brand" />Criar meu perfil público
+                </Button>
+              )}
                 {managedCouncilorPages.map((page) => (
-                  <Link key={page.id} to={rotaDoVereador(page.city_id, page.slug)} className="flex items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand-subtleBg px-3 py-2.5 hover:border-brand/40">
-                    <span className="flex min-w-0 items-center gap-2"><Landmark className="h-4 w-4 shrink-0 text-brand" /><span className="min-w-0"><span className="block truncate text-xs font-extrabold text-content-primary">Ver página legislativa</span><span className="block truncate text-2xs text-content-secondary">{page.name}{page.party ? ` · ${page.party}` : ''}</span></span></span>
+                  <Link key={page.id} to={`/perfil/pagina-legislativa/${page.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand-subtleBg px-3 py-2.5 hover:border-brand/40">
+                    <span className="flex min-w-0 items-center gap-2"><Landmark className="h-4 w-4 shrink-0 text-brand" /><span className="min-w-0"><span className="block truncate text-xs font-extrabold text-content-primary">Gerenciar página legislativa</span><span className="block truncate text-2xs text-content-secondary">{page.name}{page.party ? ` · ${page.party}` : ''}</span></span></span>
                     <Icon name="chevronright" size={15} />
                   </Link>
                 ))}
@@ -205,8 +200,7 @@ const ProfilePage = () => {
                 {(user.is_ambassador || user.is_master) && (
                   <Link to="/embaixador" className="flex items-center justify-between rounded-xl border border-edge-subtle px-3 py-2.5 text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover"><span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" />Área do embaixador</span><Icon name="chevronright" size={15} /></Link>
                 )}
-              </div>
-            )}
+            </div>
           </motion.section>
 
           <section aria-label="Atalhos do perfil">

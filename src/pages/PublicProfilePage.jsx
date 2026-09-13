@@ -393,7 +393,7 @@ export default function PublicProfilePage() {
                 )}
                 {isOwnProfile && (
                   <DropdownMenuItem asChild className="gap-2 cursor-pointer">
-                    <Link to="/seguindo">
+                    <Link to="/seguindo?aba=pessoas">
                       <Users className="w-4 h-4" />
                       Acompanhar quem sigo
                     </Link>
@@ -596,7 +596,7 @@ export default function PublicProfilePage() {
                 )}
                 {isOwnProfile && followState.following_count > 0 && (
                   <Button asChild type="button" variant="outline" className="h-9 gap-2 rounded-xl px-5 font-bold">
-                    <Link to="/seguindo"><Users className="h-4 w-4" /> Acompanhando</Link>
+                    <Link to="/seguindo?aba=pessoas"><Users className="h-4 w-4" /> Acompanhando</Link>
                   </Button>
                 )}
               </div>

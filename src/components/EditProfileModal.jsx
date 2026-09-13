@@ -23,6 +23,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { useCity } from '@/contexts/CityContext';
 import { showAppError } from '@/lib/appError';
 import { validateUsername, normalizeUsername } from '@/lib/username';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => {
   const { cities, loadingCities } = useCity();
@@ -193,13 +194,15 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
         ? crypto.randomUUID()
         : String(Date.now());
 
-    const filePath = `${user.id}/avatar-${rnd}.${ext}`;
+    const uploadFile = await optimizeImageFile(file, { maxDimension: 1200, quality: 0.84 });
+    const optimizedExt = uploadFile.name.split('.').pop()?.toLowerCase() || ext;
+    const filePath = `${user.id}/avatar-${rnd}.${optimizedExt}`;
     const { error: uploadError } = await supabase.storage
       .from('profile-avatars')
-      .upload(filePath, file, {
+      .upload(filePath, uploadFile, {
         cacheControl: '31536000',
         upsert: true,
-        contentType: file.type || undefined,
+        contentType: uploadFile.type || undefined,
       });
 
     if (uploadError) throw uploadError;

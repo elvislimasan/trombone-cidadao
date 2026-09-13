@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { optimizeImageFile } from './optimizeImage.js';
 
 export const PAVEMENT_HISTORY_BUCKET = 'pavement-history';
 
@@ -117,16 +118,17 @@ export const uploadPavementMedia = async ({ supabase, file, cityId, streetId, ki
   const validationError = validatePavementMediaFile(file, kind);
   if (validationError) throw new Error(validationError);
 
+  const uploadFile = kind === 'photo' ? await optimizeImageFile(file) : file;
   const path = buildPavementMediaPath({
     cityId,
     streetId,
     kind,
-    fileName: file.name,
+    fileName: uploadFile.name,
   });
-  const contentType = pavementMediaMimeType(file);
+  const contentType = pavementMediaMimeType(uploadFile);
   const { error } = await supabase.storage
     .from(PAVEMENT_HISTORY_BUCKET)
-    .upload(path, file, { cacheControl: '3600', contentType, upsert: false });
+    .upload(path, uploadFile, { cacheControl: '3600', contentType, upsert: false });
 
   if (error) throw error;
 

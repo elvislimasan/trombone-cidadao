@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Building2, CheckCircle2, FileText, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, Settings, ShieldCheck, User, UserPlus, Users } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, ShieldCheck, User, UserPlus } from 'lucide-react';
 
 import BackButton from '@/components/BackButton';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
-import { autoresDaRua, autoresDoProjeto, chaveDeAutor, rotaDoVereador, slugDeVereador } from '@/lib/pavementStreetHistory';
+import { autoresDaRua, autoresDoProjeto, chaveDeAutor, normalizarFotos, rotaDoVereador, slugDeVereador, tituloVisivelDoDocumento } from '@/lib/pavementStreetHistory';
 import { streetPath } from '@/lib/shareUtils';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -30,7 +30,7 @@ export default function CouncilorProfilePage() {
     setLoading(true);
     const [profileResult, streetsResult, cityResult] = await Promise.all([
       supabase.from('councilors').select('*').eq('city_id', cityId).eq('slug', slug).maybeSingle(),
-      supabase.from('pavement_streets').select('id, slug, name, city_id, historical_documents, bairro:bairros!pavement_streets_bairro_id_fkey(name)').eq('city_id', cityId),
+      supabase.from('pavement_streets').select('id, slug, name, city_id, historical_documents, historical_photos, bairro:bairros!pavement_streets_bairro_id_fkey(name)').eq('city_id', cityId),
       supabase.from('cities').select('name, states(uf)').eq('id', cityId).maybeSingle(),
     ]);
 
@@ -85,10 +85,6 @@ export default function CouncilorProfilePage() {
   useEffect(() => { load(); }, [load]);
 
   const isAdmin = Boolean(user?.is_admin || user?.is_master);
-  const hasLinkedOwner = Boolean(
-    councilor?.user_id
-    && ['linked', 'verified', 'suspended'].includes(councilor?.claim_status)
-  );
   const hasActiveLink = Boolean(
     councilor?.user_id
     && ['linked', 'verified'].includes(councilor?.claim_status)
@@ -98,12 +94,11 @@ export default function CouncilorProfilePage() {
     && councilor?.user_id === user.id
     && ['linked', 'verified'].includes(councilor?.claim_status)
   );
-  const canEditAsAdmin = isAdmin && !hasLinkedOwner;
-  const canEditPage = hasLinkedOwner ? isOwner : canEditAsAdmin;
-  const managePageHref = isOwner
-    ? `/perfil/pagina-legislativa/${councilor?.id}`
-    : canEditAsAdmin && councilor?.id
-      ? `/admin/vereadores?editar=${councilor.id}`
+  const canEditPage = Boolean(councilor?.id && (isAdmin || isOwner));
+  const managePageHref = isAdmin
+    ? `/admin/vereadores?editar=${councilor?.id}`
+    : isOwner
+      ? `/perfil/pagina-legislativa/${councilor?.id}`
       : null;
 
   const requestLink = useCallback(async () => {
@@ -152,27 +147,18 @@ export default function CouncilorProfilePage() {
     return raw && !/^https?:\/\//i.test(raw) ? `https://instagram.com/${raw.replace(/^@/, '')}` : raw;
   }, [councilor?.instagram_url]);
 
-  const neighborhoodCount = useMemo(() => new Set(
-    streets.map((street) => street.bairro?.name).filter(Boolean)
-  ).size, [streets]);
-
-  const projectsCount = useMemo(() => {
-    const councilorKey = chaveDeAutor(councilor?.name);
-    if (!councilorKey) return 0;
-    return streets.reduce((total, street) => total + (street.historical_documents || []).filter((document) =>
-      autoresDoProjeto(document).some((author) => chaveDeAutor(author) === councilorKey)
-    ).length, 0);
-  }, [streets, councilor?.name]);
-
   const streetActivities = useMemo(() => {
     const councilorKey = chaveDeAutor(councilor?.name);
     return streets.map((street) => {
       const project = (street.historical_documents || []).find((document) =>
         autoresDoProjeto(document).some((author) => chaveDeAutor(author) === councilorKey)
       );
-      return { ...street, projectTitle: project?.title || 'Projeto de denominação' };
+      const honoreePhoto = normalizarFotos(street).find((photo) => photo.subject === 'honoree');
+      return { ...street, honoreePhoto, projectTitle: project ? tituloVisivelDoDocumento(project) : 'Projeto de denominação' };
     });
   }, [streets, councilor?.name]);
+
+  const councilorFirstName = String(councilor?.name || '').trim().split(/\s+/)[0] || 'vereador';
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-brand" /></div>;
   if (!councilor) return (
@@ -212,7 +198,7 @@ export default function CouncilorProfilePage() {
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand">Perfil legislativo</p>
                 {councilor.claim_status === 'verified' && <span className="inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-0.5 text-[10px] font-bold text-success-fg"><ShieldCheck className="h-3 w-3" /> Verificado</span>}
               </div>
-              <h1 className="mt-1 truncate text-2xl font-black tracking-tight text-content-primary sm:text-3xl">{councilor.name}</h1>
+              <h1 className="mt-1 break-words text-2xl font-black leading-tight tracking-tight text-content-primary sm:text-3xl">{councilor.name}</h1>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-content-secondary sm:text-sm">
                 <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-brand" /> {cityName}</span>
                 {councilor.party && <><span>•</span><strong className="text-content-primary">{councilor.party}</strong></>}
@@ -221,34 +207,39 @@ export default function CouncilorProfilePage() {
             </div>
 
             <div className="col-span-2 flex flex-wrap gap-2 lg:col-span-1 lg:max-w-[17rem] lg:justify-end">
-              {canEditPage && managePageHref && <Button asChild variant="outline" size="sm" className="flex-1 gap-2 rounded-full bg-surface-raised lg:flex-none"><Link to={managePageHref}>{isOwner ? <Settings className="h-4 w-4" /> : <Pencil className="h-4 w-4" />} {isOwner ? 'Gerenciar página' : 'Editar no painel'}</Link></Button>}
+              {canEditPage && managePageHref && <Button asChild variant="outline" size="sm" className="flex-1 gap-2 rounded-full bg-surface-raised lg:flex-none"><Link to={managePageHref}><Pencil className="h-4 w-4" /> Editar perfil</Link></Button>}
               {councilor.id && councilor.claim_status === 'unclaimed' && !isAdmin && managedPage && <Button asChild variant="outline" size="sm" className="h-auto flex-1 gap-2 rounded-full border-success-border bg-success-bg py-2 text-success-fg"><Link to={rotaDoVereador(managedPage.city_id, managedPage.slug)}><ShieldCheck className="h-4 w-4" /> Você já gerencia uma página</Link></Button>}
-              {councilor.id && councilor.claim_status === 'unclaimed' && !isAdmin && !managedPage && (
-                <Button size="sm" className={`h-9 flex-1 gap-2 rounded-full lg:flex-none ${requestStatus === 'pending' ? 'border border-success-border bg-success-bg text-success-fg hover:bg-success-bg' : ''}`} variant={requestStatus === 'pending' ? 'outline' : 'default'} disabled={requestStatus === 'pending' || requestingLink} onClick={requestLink}>
-                  {requestingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : requestStatus === 'pending' ? <CheckCircle2 className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-                  {requestingLink ? 'Enviando...' : requestStatus === 'pending' ? 'Solicitação enviada' : requestStatus === 'rejected' ? 'Solicitar nova análise' : 'Solicitar vínculo'}
-                </Button>
-              )}
             </div>
           </div>
 
-          <div className="relative grid grid-cols-3 divide-x divide-edge-subtle border-t border-edge-subtle bg-surface-base/75">
-            <div className="px-2 py-3 text-center sm:px-4"><FileText className="mx-auto h-4 w-4 text-brand" /><strong className="mt-1 block text-lg font-black text-content-primary">{projectsCount}</strong><span className="block text-[9px] font-bold uppercase tracking-wide text-content-secondary sm:text-[10px]">Projetos de lei</span></div>
-            <div className="px-2 py-3 text-center sm:px-4"><Navigation className="mx-auto h-4 w-4 text-success-fg" /><strong className="mt-1 block text-lg font-black text-content-primary">{streets.length}</strong><span className="block text-[9px] font-bold uppercase tracking-wide text-content-secondary sm:text-[10px]">Ruas nomeadas</span></div>
-            <div className="px-2 py-3 text-center sm:px-4"><Users className="mx-auto h-4 w-4 text-status-pendingFg" /><strong className="mt-1 block text-lg font-black text-content-primary">{neighborhoodCount}</strong><span className="block text-[9px] font-bold uppercase tracking-wide text-content-secondary sm:text-[10px]">Bairros</span></div>
+          <div className="relative border-t border-edge-subtle bg-surface-base/75 px-4 py-3 text-center sm:px-6">
+            <Navigation className="mx-auto h-4 w-4 text-success-fg" />
+            <strong className="mt-1 block text-lg font-black text-content-primary">{streets.length}</strong>
+            <span className="block text-[9px] font-bold uppercase tracking-wide text-content-secondary sm:text-[10px]">Ruas nomeadas</span>
           </div>
         </section>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-12">
           <section id="ruas-nomeadas" className="rounded-3xl border border-edge-subtle bg-surface-raised shadow-sm lg:col-span-8">
             <div className="flex items-center justify-between gap-3 border-b border-edge-subtle px-4 py-4 sm:px-6">
-              <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><Building2 className="h-[18px] w-[18px]" /></span><div className="min-w-0"><h2 className="text-sm font-extrabold text-content-primary sm:text-base">Atuação registrada</h2><p className="truncate text-xs text-content-secondary">Ruas e projetos de denominação</p></div></div>
+              <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><Building2 className="h-[18px] w-[18px]" /></span><div className="min-w-0"><h2 className="text-sm font-extrabold text-content-primary sm:text-base">Confira as ruas nomeadas por {councilorFirstName}</h2><p className="truncate text-xs text-content-secondary">Projetos de denominação registrados</p></div></div>
               <Button asChild variant="ghost" size="sm" className="shrink-0 gap-1 text-xs text-brand"><Link to="/mapa-pavimentacao">Ver mapa <ArrowRight className="h-3.5 w-3.5" /></Link></Button>
             </div>
             <div className="divide-y divide-edge-subtle px-3 sm:px-5">
               {streetActivities.map((street) => (
                 <Link key={street.id} to={streetPath(street)} className="group flex min-w-0 items-center gap-3 px-1 py-3.5 sm:px-2">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-subtle text-brand"><Navigation className="h-5 w-5" /></span>
+                  <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-subtle text-brand">
+                    <Navigation className="h-5 w-5" />
+                    {street.honoreePhoto?.url && (
+                      <img
+                        src={street.honoreePhoto.url}
+                        alt={street.honoreePhoto.caption || `Foto do homenageado de ${street.name}`}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        loading="lazy"
+                        onError={(event) => event.currentTarget.remove()}
+                      />
+                    )}
+                  </span>
                   <span className="min-w-0 flex-1"><span className="block truncate text-sm font-extrabold text-content-primary">{street.name}</span><span className="mt-0.5 block truncate text-xs text-content-secondary">{street.projectTitle} · {street.bairro?.name || cityName}</span></span>
                   <ArrowRight className="h-4 w-4 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
                 </Link>
@@ -258,6 +249,14 @@ export default function CouncilorProfilePage() {
           </section>
 
           <aside className="grid content-start gap-4 lg:col-span-4">
+            <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6">
+              <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><User className="h-[18px] w-[18px]" /></span><h2 className="text-base font-extrabold text-content-primary">Sobre</h2></div>
+              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-content-secondary">{councilor.biography || 'Este perfil foi criado automaticamente a partir dos projetos de lei cadastrados no mapa de ruas. As informações biográficas ainda podem ser complementadas.'}</p>
+              {councilor.claim_status === 'unclaimed' && <div className="mt-5 border-t border-edge-subtle pt-4">
+                {councilor.claim_status === 'unclaimed' && <p className="rounded-xl bg-surface-subtle px-3 py-2.5 text-xs leading-relaxed text-content-secondary">Página criada a partir do acervo. Nenhuma conta responsável foi vinculada.</p>}
+              </div>}
+            </section>
+
             {hasActiveLink && (
               <section className="rounded-3xl border border-success-border/70 bg-surface-raised p-5 shadow-sm sm:p-6">
                 <div className="flex items-start justify-between gap-3">
@@ -298,14 +297,6 @@ export default function CouncilorProfilePage() {
               </section>
             )}
 
-            <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6">
-              <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><User className="h-[18px] w-[18px]" /></span><h2 className="text-base font-extrabold text-content-primary">Sobre</h2></div>
-              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-content-secondary">{councilor.biography || 'Este perfil foi criado automaticamente a partir dos projetos de lei cadastrados no mapa de ruas. As informações biográficas ainda podem ser complementadas.'}</p>
-              {councilor.claim_status === 'unclaimed' && <div className="mt-5 border-t border-edge-subtle pt-4">
-                {councilor.claim_status === 'unclaimed' && <p className="rounded-xl bg-surface-subtle px-3 py-2.5 text-xs leading-relaxed text-content-secondary">Página criada a partir do acervo. Nenhuma conta responsável foi vinculada.</p>}
-              </div>}
-            </section>
-
             {hasPublicContacts && <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6">
               <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-status-pendingBg text-status-pendingFg"><MessageCircle className="h-[18px] w-[18px]" /></span><div><h2 className="text-base font-extrabold text-content-primary">Canais públicos</h2><p className="text-xs text-content-secondary">Informados pelo responsável</p></div></div>
               <div className="mt-4 grid gap-2 text-sm">
@@ -314,6 +305,16 @@ export default function CouncilorProfilePage() {
                 {socialUrl && <a className="flex items-center gap-3 rounded-xl border border-edge-subtle px-3 py-3 text-content-secondary hover:border-brand/30 hover:text-brand" href={socialUrl} target="_blank" rel="noreferrer"><Instagram className="h-4 w-4" /> Instagram <ArrowRight className="ml-auto h-4 w-4" /></a>}
               </div>
             </section>}
+
+            {councilor.id && councilor.claim_status === 'unclaimed' && !isAdmin && !managedPage && (
+              <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-4 text-center shadow-sm sm:p-5">
+                <p className="text-xs leading-relaxed text-content-secondary">Você é este vereador ou representa o gabinete?</p>
+                <Button size="sm" variant="ghost" className="mt-2 gap-2 rounded-full text-brand" disabled={requestStatus === 'pending' || requestingLink} onClick={requestLink}>
+                  {requestingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : requestStatus === 'pending' ? <CheckCircle2 className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                  {requestingLink ? 'Enviando...' : requestStatus === 'pending' ? 'Reivindicação enviada' : requestStatus === 'rejected' ? 'Reenviar reivindicação' : 'Reivindicar perfil'}
+                </Button>
+              </section>
+            )}
           </aside>
         </div>
       </main>

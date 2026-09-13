@@ -11,6 +11,8 @@ import { FileOpener } from '@capacitor-community/file-opener';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
+import ExplorePage from '@/pages/ExplorePage';
+import ReportSubmissionNotice from '@/components/ReportSubmissionNotice';
 import AppDownloadBanner from '@/components/AppDownloadBanner';
 import HomePage from '@/pages/HomePage';
 import AboutPage from '@/pages/AboutPage';
@@ -842,11 +844,13 @@ function AppShell() {
 
               <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
               <Route path="/configuracoes" element={<PrivateRoute><ProfileSettingsPage /></PrivateRoute>} />
-              <Route path="/seguindo" element={<PrivateRoute><FollowingActivityPage /></PrivateRoute>} />
+              <Route path="/explorar" element={<ExplorePage />} />
+              <Route path="/seguindo" element={<FollowingActivityPage />} />
               <Route path="/perfil/pagina-legislativa/:councilorId" element={<PrivateRoute><ManageMyCouncilorPage /></PrivateRoute>} />
               <Route path="/perfil/preferencias" element={<PrivateRoute><NativePreferencesPage /></PrivateRoute>} />
               <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
-              <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
+              <Route path="/favoritos" element={<Navigate to="/seguindo?aba=broncas" replace />} />
+              <Route path="/salvos-outros" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
               <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
               <Route path="/painel-usuario" element={<PrivateRoute><LegacyUserDashboardRedirect /></PrivateRoute>} />
               <Route path="/alterar-senha" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
@@ -912,6 +916,7 @@ function AppShell() {
               via à frente e oferece destinos que ninguém deve tocar dirigindo.
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
           {!patrulhaAtiva && <BottomNav />}
+          <ReportSubmissionNotice />
           <WebUploadIndicator />
           <UploadStatusBar />
         </div>

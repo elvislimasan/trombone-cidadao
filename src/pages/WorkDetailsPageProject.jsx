@@ -6,6 +6,7 @@ import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { optimizeImageFile } from "@/lib/optimizeImage";
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
 import { ObraCurrentPhase } from "@/components/project/obra/ObraCurrentPhase";
 import { ObraProgress } from "@/components/project/obra/ObraProgress";
@@ -901,12 +902,13 @@ export default function WorkDetailsPageProject() {
     try {
       if (contribFiles.length > 0) {
         for (const file of contribFiles) {
+          const uploadFile = await optimizeImageFile(file);
           const path = `measurements/${currentMeasurement.id}/${Date.now()}-${
-            file.name
+            uploadFile.name
           }`;
           const { error: uploadError } = await supabase.storage
             .from("work-media")
-            .upload(path, file);
+            .upload(path, uploadFile);
           if (uploadError) throw uploadError;
 
           const {
@@ -1220,7 +1222,8 @@ export default function WorkDetailsPageProject() {
 
       try {
         for (const file of images) {
-          const fileExt = file.name.split(".").pop();
+          const uploadFile = await optimizeImageFile(file);
+          const fileExt = uploadFile.name.split(".").pop();
           const fileName = `${Date.now()}-${Math.random()
             .toString(36)
             .substring(2, 10)}.${fileExt}`;
@@ -1228,7 +1231,7 @@ export default function WorkDetailsPageProject() {
 
           const { error: uploadError } = await supabase.storage
             .from("work-media")
-            .upload(path, file);
+            .upload(path, uploadFile);
           if (uploadError) throw uploadError;
 
           const {

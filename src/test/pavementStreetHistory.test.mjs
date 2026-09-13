@@ -276,6 +276,24 @@ test('valor estranho em `kind` cai em "outro"', () => {
   assert.equal(docs[0].kind, 'outro');
 });
 
+test('nome técnico do PDF não aparece como título público', () => {
+  const docs = normalizarDocumentos({
+    historical_documents: [{
+      url: 'https://exemplo.com/relatorio_broncas_iluminacao_2026-09-11.pdf',
+      title: 'relatorio_broncas_iluminacao_2026-09-11',
+      kind: 'projeto_lei',
+    }],
+  });
+  assert.equal(docs[0].title, 'Projeto de lei');
+});
+
+test('identificação legível do projeto continua aparecendo', () => {
+  const docs = normalizarDocumentos({
+    historical_documents: [{ url: 'arquivo.pdf', title: 'PL-06-2015', kind: 'projeto_lei' }],
+  });
+  assert.equal(docs[0].title, 'PL-06-2015');
+});
+
 test('projeto de lei preserva o vereador autor', () => {
   const docs = normalizarDocumentos({
     historical_documents: [{ url: 'projeto.pdf', kind: 'projeto_lei', councilor_author: '  Maria Souza  ' }],

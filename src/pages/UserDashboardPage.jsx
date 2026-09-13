@@ -78,7 +78,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
   useEffect(() => {
     if (!activeCityId) { setGuideCategories([]); return; }
-    supabase.from('directory_categories').select('*').eq('city_id', activeCityId).eq('active', true).order('name')
+    supabase.from('directory_categories').select('*').eq('active', true).order('name')
       .then(({ data }) => setGuideCategories(data || []));
   }, [activeCityId]);
 

@@ -18,6 +18,7 @@ import RichTextEditor from '@/components/petition/RichTextEditor';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { showAppError, showAppInfo } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 export const NewsEditModal = ({ newsItem, onSave, onClose }) => {
   const [formData, setFormData] = useState(null);
@@ -937,29 +938,7 @@ const ManageNewsPage = () => {
     if (savedNewsId && galleryFiles.length > 0) {
       try {
         const uploadPromises = galleryFiles.map(async ({ file }) => {
-          let uploadFile = file;
-          if (file.type && file.type.startsWith('image')) {
-            try {
-              const dataUrl = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(file);
-              });
-              const img = await new Promise((resolve, reject) => {
-                const image = new Image();
-                image.onload = () => resolve(image);
-                image.onerror = reject;
-                image.src = dataUrl;
-              });
-              const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0);
-              const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
-              uploadFile = new File([blob], file.name.replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
-            } catch (_) {}
-          }
+          const uploadFile = await optimizeImageFile(file);
           const filePath = `news/${savedNewsId}/${Date.now()}-${uploadFile.name}`;
           
           // Upload para storage

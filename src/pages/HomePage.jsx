@@ -14,6 +14,7 @@ import RankingSidebar from '@/components/RankingSidebar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { linkDuplicateReport } from '@/lib/linkReport';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 import { Progress } from '@/components/ui/progress';
 import { getNextSignatureGoal, uniqueChannelTopic } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -659,10 +660,11 @@ function HomePage() {
 
       if (mediaToUpload.length > 0) {
         const uploadPromises = mediaToUpload.map(async (media) => {
-          const filePath = `${user.id}/${id}/${Date.now()}-${media.name}`;
+          const uploadFile = await optimizeImageFile(media.file);
+          const filePath = `${user.id}/${id}/${Date.now()}-${uploadFile.name}`;
           const { error: uploadError } = await supabase.storage
             .from('reports-media')
-            .upload(filePath, media.file);
+            .upload(filePath, uploadFile);
           
           if (uploadError) throw uploadError;
           

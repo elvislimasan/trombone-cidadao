@@ -4,6 +4,8 @@ export const defaultMenuSettings = {
     text: '#FFFFFF',
   },
   items: [
+    { name: 'Explorar', path: '/explorar', icon: 'Compass', isVisible: true },
+    { name: 'Acompanhando', path: '/seguindo', icon: 'Bookmark', isVisible: true },
     { name: 'Início', path: '/', icon: 'LayoutDashboard', isVisible: true },
     // Área recorrente de quem já entrou. Visitantes continuam com a Home como
     // porta de entrada e não recebem mais um item no header.

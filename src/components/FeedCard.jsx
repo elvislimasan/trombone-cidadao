@@ -232,13 +232,15 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
     setLocalFav(!eraFavorito);
     try {
       if (eraFavorito) {
-        await supabase.from('favorite_reports').delete()
+        const { error } = await supabase.from('favorite_reports').delete()
           .eq('user_id', user.id).eq('report_id', report.id);
+        if (error) throw error;
       } else {
-        await supabase.from('favorite_reports').upsert(
+        const { error } = await supabase.from('favorite_reports').upsert(
           { user_id: user.id, report_id: report.id },
           { onConflict: 'user_id,report_id' }
         );
+        if (error) throw error;
       }
     } catch {
       setLocalFav(eraFavorito);
@@ -429,15 +431,15 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             <button
               type="button"
               onClick={handleBookmark}
-              aria-label={localFav ? 'Deixar de acompanhar' : 'Acompanhar bronca'}
+              aria-label={localFav ? 'Remover das salvas' : 'Salvar bronca'}
               aria-pressed={localFav}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`inline-flex min-h-11 items-center gap-1.5 px-2 rounded-lg text-xs font-semibold transition-colors ${
                 localFav
                   ? 'text-brand'
                   : 'text-content-secondary hover:text-content-primary'
               }`}
             >
-              <Icon name="save" size={19} />
+              <Icon name="save" size={19} /><span>{localFav ? 'Salva' : 'Salvar'}</span>
             </button>
           </div>
 

@@ -74,6 +74,7 @@ import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
 import { showAppError } from '@/lib/appError';
 import { linkDuplicateReport } from '@/lib/linkReport';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -118,6 +119,7 @@ const ReportPage = () => {
   const [moderating, setModerating] = useState(false);
   const {
     isAdmin,
+    isMaster,
     isPublicOfficial,
     isAuthorOrAdmin,
     canModerate,
@@ -703,34 +705,7 @@ const ReportPage = () => {
     const { photoFile } = resolutionData;
     let publicURLData = { publicUrl: null };
     if (photoFile) {
-      let uploadFile = photoFile;
-      try {
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(photoFile);
-        });
-        const img = await new Promise((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve(image);
-          image.onerror = reject;
-          image.src = dataUrl;
-        });
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-        const blob = await canvas.convertToBlob({
-          type: "image/webp",
-          quality: 0.9,
-        });
-        uploadFile = new File(
-          [blob],
-          (photoFile.name || "resolution").replace(/\.(jpe?g|png)$/i, ".webp"),
-          { type: "image/webp" }
-        );
-      } catch (_) {}
+      const uploadFile = await optimizeImageFile(photoFile);
       const filePath = `${user.id}/${report.id}/resolution-${Date.now()}`;
       const { error: uploadError } = await supabase.storage
         .from("reports-media")
@@ -870,10 +845,11 @@ const ReportPage = () => {
         try {
           const mediaRecords = await Promise.all(
             photos.map(async (photo) => {
-              const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
+              const uploadFile = await optimizeImageFile(photo);
+              const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${uploadFile.name}`;
               const { error: uploadError } = await supabase.storage
                 .from("reports-media")
-                .upload(filePath, photo);
+                .upload(filePath, uploadFile);
               if (uploadError) throw uploadError;
               const {
                 data: { publicUrl },
@@ -1271,6 +1247,7 @@ const ReportPage = () => {
       resolution_submission,
       moderation_status,
       is_from_water_utility,
+      issue_type,
       pole_number,
       pole_id,
       reported_post_identifier,
@@ -1293,6 +1270,9 @@ const ReportPage = () => {
         category_id === "buracos" ? !!is_from_water_utility : null;
     if (typeof category_id !== "undefined") {
       if (category_id === "iluminacao") {
+        if (typeof issue_type !== "undefined") {
+          reportUpdates.issue_type = issue_type ? String(issue_type).trim() : null;
+        }
         if (typeof pole_number !== "undefined") {
           reportUpdates.pole_number = pole_number
             ? String(pole_number).trim()
@@ -1320,13 +1300,17 @@ const ReportPage = () => {
           }
         }
       } else {
+        reportUpdates.issue_type = null;
         reportUpdates.pole_number = null;
         reportUpdates.pole_id = null;
         reportUpdates.reported_post_identifier = null;
         reportUpdates.reported_plate = null;
         reportUpdates.reported_pole_distance_m = null;
       }
-    } else if (typeof pole_number !== "undefined") {
+    } else if (typeof pole_number !== "undefined" || typeof issue_type !== "undefined") {
+      if (typeof issue_type !== "undefined") {
+        reportUpdates.issue_type = issue_type ? String(issue_type).trim() : null;
+      }
       reportUpdates.pole_number = pole_number ? String(pole_number).trim() : null;
       if (typeof pole_id !== "undefined") {
         reportUpdates.pole_id = pole_id || null;
@@ -1375,10 +1359,11 @@ const ReportPage = () => {
       try {
         const uploaded = await Promise.all(
           mediaToUpload.map(async (media) => {
-            const filePath = `${user.id}/${id}/${Date.now()}-${media.name}`;
+            const uploadFile = await optimizeImageFile(media.file);
+            const filePath = `${user.id}/${id}/${Date.now()}-${uploadFile.name}`;
             const { error: ue } = await supabase.storage
               .from("reports-media")
-              .upload(filePath, media.file);
+              .upload(filePath, uploadFile);
             if (ue) throw new Error(ue.message);
             const {
               data: { publicUrl },
@@ -1495,7 +1480,7 @@ const ReportPage = () => {
         icon: Star,
         onPress: () => handleFavoriteToggle(report.id, report.is_favorited),
         isActive: !!report.is_favorited,
-        ariaLabel: report.is_favorited ? "Remover dos favoritos" : "Favoritar",
+        ariaLabel: report.is_favorited ? "Remover das salvas" : "Salvar",
       },
       {
         key: "share",
@@ -1558,7 +1543,8 @@ const ReportPage = () => {
             <>
               <ReportHeader
                 onBack={() => navigate(-1)}
-                showAdminActions={isAdmin || isPublicOfficial}
+                showAdminActions={isAdmin || isMaster || isPublicOfficial}
+                canLinkReports={isAdmin || isMaster}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
                 handleEditClick={handleEditClick}
                 handleWhatsAppShare={handleWhatsAppShare}
@@ -1741,7 +1727,7 @@ const ReportPage = () => {
                         }`}
                         strokeWidth={1.5}
                       />
-                      {report.is_favorited ? "Favoritada" : "Favoritar"}
+                      {report.is_favorited ? "Salva" : "Salvar"}
                     </Button>
                     {report.petitionId && (
                       <Button
@@ -1919,7 +1905,7 @@ const ReportPage = () => {
                       }`}
                       strokeWidth={1.5}
                     />
-                    {report.is_favorited ? "Favoritada" : "Favoritar"}
+                    {report.is_favorited ? "Salva" : "Salvar"}
                   </Button>
                   {report.petitionId && (
                     <Button

@@ -7,6 +7,7 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import { Input } from "@/components/ui/input";
 import { Check, FileText, Pencil, Trash2, Upload, X } from "lucide-react";
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 export function WorkGalleryManager({
   workId,
@@ -326,11 +327,12 @@ export function WorkGalleryManager({
 
       try {
         for (const file of images) {
-          const fileExt = file.name.split(".").pop();
+          const uploadFile = await optimizeImageFile(file);
+          const fileExt = uploadFile.name.split(".").pop();
           const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
           const path = `${targetFolder}/${fileName}`;
 
-          const { error: uploadError } = await supabase.storage.from("work-media").upload(path, file);
+          const { error: uploadError } = await supabase.storage.from("work-media").upload(path, uploadFile);
           if (uploadError) throw uploadError;
 
           const {
