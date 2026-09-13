@@ -334,7 +334,7 @@ export default function PublicProfilePage() {
             <ChevronLeft className="w-5 h-5 text-content-primary" />
           </Button>
 
-          <div className="min-w-0 text-center flex-1">
+          <div className="hidden min-w-0 flex-1 text-center lg:block">
             <h1 className="text-sm font-bold text-content-primary truncate">
               {profile.name}
             </h1>
@@ -1020,4 +1020,3 @@ export default function PublicProfilePage() {
     </div>
   );
 }
-

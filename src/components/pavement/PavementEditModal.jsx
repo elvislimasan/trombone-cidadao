@@ -977,6 +977,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 placeholder="Selecione o status"
                 searchPlaceholder="Buscar status..."
                 notFoundText="Status não encontrado"
+                modal
               />
             </div>
           </div>
@@ -997,6 +998,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   searchPlaceholder="Buscar tipo..."
                   notFoundText="Tipo não encontrado"
                   disabled={!pavementFieldsEnabled}
+                  modal
                 />
               </div>
             </div>

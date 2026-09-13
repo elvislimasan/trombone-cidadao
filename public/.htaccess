@@ -34,6 +34,16 @@
   # Redirect /share/radar/ID to the social preview for city events
   RewriteRule ^share/radar/([^?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-event?id=$1 [R=302,L]
 
+  # Redirect /share/perfil/USERNAME to the social preview with the profile photo
+  RewriteRule ^share/perfil/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
+  # Serve the same preview when a social crawler receives the canonical profile URL
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^u/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^@([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
 
   
   RewriteCond %{REQUEST_FILENAME} !-f

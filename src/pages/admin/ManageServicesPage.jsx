@@ -289,7 +289,7 @@ const ManageServicesPage = () => {
   const [touristSpots, setTouristSpots] = useState([]);
   const [directoryData, setDirectoryData] = useState({ public: [], commerce: [], all: [] });
   const [directoryCategories, setDirectoryCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState({ name: '', city_id: null, parent_id: null });
+  const [newCategory, setNewCategory] = useState({ name: '', parent_id: null });
   const [savingCategory, setSavingCategory] = useState(false);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
@@ -358,12 +358,6 @@ const ManageServicesPage = () => {
     }
   }, [isScopedAmbassador, myActiveCityIds]);
 
-  useEffect(() => {
-    if (!newCategory.city_id && myActiveCityIds.length === 1) {
-      setNewCategory((current) => ({ ...current, city_id: myActiveCityIds[0] }));
-    }
-  }, [myActiveCityIds, newCategory.city_id]);
-
   const handleCreateCategory = async () => {
     if (!newCategory.name.trim()) {
       showAppError({ title: 'Informe o nome da categoria', variant: 'destructive' });
@@ -372,15 +366,19 @@ const ManageServicesPage = () => {
     setSavingCategory(true);
     const { error } = await supabase.from('directory_categories').insert({
       name: newCategory.name.trim(),
-      city_id: isScopedAmbassador ? (newCategory.city_id || myActiveCityIds[0] || null) : null,
+      city_id: null,
       parent_id: newCategory.parent_id || null,
     });
     setSavingCategory(false);
     if (error) {
-      showAppError({ title: 'Não foi possível criar a categoria', description: error.message, variant: 'destructive' });
+      showAppError({
+        title: 'Não foi possível criar a categoria',
+        description: error.code === '23505' ? 'Já existe uma categoria com esse nome.' : error.message,
+        variant: 'destructive',
+      });
       return;
     }
-    setNewCategory((current) => ({ ...current, name: '', parent_id: null }));
+    setNewCategory({ name: '', parent_id: null });
     await fetchData();
   };
 
@@ -609,14 +607,6 @@ const ManageServicesPage = () => {
                 <CardDescription>Crie categorias reutilizáveis em todas as cidades, como “Igrejas · Católicas”.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3">
-                {isScopedAmbassador && (
-                  <CityCombobox
-                    value={newCategory.city_id || ''}
-                    onChange={(value) => setNewCategory((current) => ({ ...current, city_id: value, parent_id: null }))}
-                    allowedCityIds={myActiveCityIds}
-                    placeholder="Cidade da categoria"
-                  />
-                )}
                 <Input placeholder="Nome da categoria" value={newCategory.name} onChange={(event) => setNewCategory((current) => ({ ...current, name: event.target.value }))} />
                 <Combobox
                   options={directoryCategories

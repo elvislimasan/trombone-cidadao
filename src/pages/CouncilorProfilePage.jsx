@@ -6,7 +6,7 @@ import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail
 import BackButton from '@/components/BackButton';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
-import { autoresDaRua, autoresDoProjeto, chaveDeAutor, normalizarFotos, rotaDoVereador, slugDeVereador, tituloVisivelDoDocumento } from '@/lib/pavementStreetHistory';
+import { autoresDaRua, chaveDeAutor, normalizarFotos, rotaDoVereador, slugDeVereador } from '@/lib/pavementStreetHistory';
 import { streetPath } from '@/lib/shareUtils';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -148,15 +148,11 @@ export default function CouncilorProfilePage() {
   }, [councilor?.instagram_url]);
 
   const streetActivities = useMemo(() => {
-    const councilorKey = chaveDeAutor(councilor?.name);
     return streets.map((street) => {
-      const project = (street.historical_documents || []).find((document) =>
-        autoresDoProjeto(document).some((author) => chaveDeAutor(author) === councilorKey)
-      );
       const honoreePhoto = normalizarFotos(street).find((photo) => photo.subject === 'honoree');
-      return { ...street, honoreePhoto, projectTitle: project ? tituloVisivelDoDocumento(project) : 'Projeto de denominação' };
+      return { ...street, honoreePhoto };
     });
-  }, [streets, councilor?.name]);
+  }, [streets]);
 
   const councilorFirstName = String(councilor?.name || '').trim().split(/\s+/)[0] || 'vereador';
 
@@ -240,7 +236,7 @@ export default function CouncilorProfilePage() {
                       />
                     )}
                   </span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-extrabold text-content-primary">{street.name}</span><span className="mt-0.5 block truncate text-xs text-content-secondary">{street.projectTitle} · {street.bairro?.name || cityName}</span></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-extrabold text-content-primary">{street.name}</span><span className="mt-0.5 block truncate text-xs text-content-secondary">{street.bairro?.name || cityName}</span></span>
                   <ArrowRight className="h-4 w-4 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
                 </Link>
               ))}

@@ -4,6 +4,7 @@ import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import ImageCropper from '@/components/ui/ImageCropper';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -92,12 +93,17 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
 
   const handleCropComplete = async (croppedBlob) => {
     try {
-        const fileExt = 'jpg'; // Cropped image is usually jpeg/png
-        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const sourceFile = new File(
+          [croppedBlob],
+          `${Math.random().toString(36).substring(2)}_${Date.now()}.jpg`,
+          { type: croppedBlob.type || 'image/jpeg', lastModified: Date.now() }
+        );
+        const uploadFile = await optimizeImageFile(sourceFile);
+        const fileName = uploadFile.name;
         
         const { error: uploadError } = await supabase.storage
           .from('petition-images')
-          .upload(fileName, croppedBlob);
+          .upload(fileName, uploadFile);
 
         if (uploadError) throw uploadError;
 

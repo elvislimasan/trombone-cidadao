@@ -1504,6 +1504,7 @@ const ReportDetails = ({
                       ]}
                       placeholder="Selecione o status"
                       searchPlaceholder="Buscar status..."
+                      modal
                     />
                   </div>
                   {user?.is_admin && (
@@ -1515,6 +1516,7 @@ const ReportDetails = ({
                         options={Object.entries(categories).map(([key, value]) => ({ value: key, label: value }))}
                         placeholder="Selecione a categoria"
                         searchPlaceholder="Buscar categoria..."
+                        modal
                       />
                     </div>
                   )}
@@ -1650,6 +1652,7 @@ const ReportDetails = ({
                     options={TIPOS_DE_PROBLEMA_ILUMINACAO.map((item) => ({ value: item.value, label: item.label }))}
                     placeholder="Selecione o problema"
                     searchPlaceholder="Buscar tipo..."
+                    modal
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-foreground">
