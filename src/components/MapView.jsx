@@ -325,16 +325,51 @@ const MapInstanceBinder = ({ onReady, onBoundsChange }) => {
       try { onBoundsChange(map.getBounds(), map.getZoom()); } catch {}
     };
     map.on('moveend', emit);
-    map.on('zoomend', emit);
     // emit initial bounds after map is ready
     map.whenReady?.(emit);
     return () => {
       map.off('moveend', emit);
-      map.off('zoomend', emit);
     };
   }, [map, onBoundsChange]);
 
   return null;
+};
+
+const clusterIconCache = new Map();
+
+const createClusterIcon = (count) => {
+  if (clusterIconCache.has(count)) return clusterIconCache.get(count);
+  const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
+  const level = count >= 50 ? "high" : count >= 10 ? "mid" : "low";
+  // O no do divIcon fica sob documentElement, que carrega a classe .dark,
+  // entao var(--...) herda e acompanha a troca de tema sozinho - sem precisar
+  // do readToken nem de chave de cache por tema.
+  const html = `
+    <div style="
+      background: rgb(var(--pin-cluster-${level}-bg));
+      width: ${size}px;
+      height: ${size}px;
+      border-radius: 999px;
+      border: 2px solid rgb(var(--pin-ring));
+      color: rgb(var(--pin-cluster-${level}-fg));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.18);
+    ">${count}</div>
+  `;
+  const icon = L.divIcon({
+    html,
+    className: "cluster-leaflet-icon",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+    popupAnchor: [0, -size],
+  });
+  if (clusterIconCache.size >= 256) clusterIconCache.clear();
+  clusterIconCache.set(count, icon);
+  return icon;
 };
 
 const MapView = ({
@@ -390,6 +425,7 @@ const MapView = ({
   const navigate = useNavigate();
   const { user } = useAuth();
   const mapRef = useRef(null);
+  const bindMap = useCallback((map) => { mapRef.current = map; }, []);
   // Ja montado no ponto certo quando initialCenter veio: marcar aqui evita que
   // o efeito de centralizacao repita o movimento assim que o watchPosition
   // devolver a primeira leitura.
@@ -534,36 +570,6 @@ const MapView = ({
     return null;
   };
 
-  const createClusterIcon = (count) => {
-    const size = count >= 50 ? 46 : count >= 10 ? 42 : 38;
-    const level = count >= 50 ? "high" : count >= 10 ? "mid" : "low";
-    // O no do divIcon fica sob documentElement, que carrega a classe .dark,
-    // entao var(--...) herda e acompanha a troca de tema sozinho - sem precisar
-    // do readToken nem de chave de cache por tema.
-    const html = `
-      <div style="
-        background: rgb(var(--pin-cluster-${level}-bg));
-        width: ${size}px;
-        height: ${size}px;
-        border-radius: 999px;
-        border: 2px solid rgb(var(--pin-ring));
-        color: rgb(var(--pin-cluster-${level}-fg));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-size: 14px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.18);
-      ">${count}</div>
-    `;
-    return L.divIcon({
-      html,
-      className: "cluster-leaflet-icon",
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size],
-      popupAnchor: [0, -size],
-    });
-  };
 
   const anguloContinuo = useAnguloContinuo(navPosition?.heading);
 
@@ -650,7 +656,7 @@ const MapView = ({
               liga — duas copias dela divergiriam no primeiro ajuste de zoom. */}
           <MapBaseLayer layer={camadaDoMapa} />
           <MapInstanceBinder
-            onReady={(map) => { mapRef.current = map; }}
+            onReady={bindMap}
             onBoundsChange={onBoundsChange}
           />
           <MapScrollLock />

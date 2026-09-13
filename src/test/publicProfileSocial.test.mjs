@@ -51,6 +51,19 @@ test('página legislativa continua separada do perfil social', async () => {
   assert.match(profilePage, /Criar meu perfil público/);
 });
 
+test('Apache encaminha o perfil compartilhado para a prévia com foto', async () => {
+  const [htaccess, shareFunction] = await Promise.all([
+    read('public/.htaccess'),
+    read('supabase/functions/share-public-profile/index.ts'),
+  ]);
+
+  assert.ok(htaccess.includes('RewriteRule ^share/perfil/([^/?]+)$'));
+  assert.match(htaccess, /functions\/v1\/share-public-profile\?username=\$1/);
+  assert.ok(htaccess.includes('RewriteRule ^u/([^/?]+)$'));
+  assert.match(shareFunction, /profile\.avatar_url \|\| cityImage/);
+  assert.match(shareFunction, /og:image/);
+});
+
 test('perfil autenticado reúne identidade social e gestão das contribuições', async () => {
   const [profilePage, dashboard, settings, app, header] = await Promise.all([
     read('src/pages/ProfilePage.jsx'),

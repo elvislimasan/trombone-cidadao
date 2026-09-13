@@ -236,6 +236,9 @@ export default function MapPage() {
   const [mapBounds,   setMapBounds]   = useState(null); // { minLat, maxLat, minLng, maxLng }
   const [mapZoom,     setMapZoom]     = useState(13);
   const cancelRef = useRef(false);
+  const clusterRequestRef = useRef(0);
+  const clusterAbortRef = useRef(null);
+  const hasLoadedClustersRef = useRef(false);
 
   // ── Atualização de bronca direto no mapa (sem sair da tela) ──
   const [updatingReport, setUpdatingReport] = useState(null);
@@ -422,8 +425,12 @@ export default function MapPage() {
 
   const fetchClusters = useCallback(async (bounds, zoom) => {
     if (!bounds) return;
+    const requestId = ++clusterRequestRef.current;
+    clusterAbortRef.current?.abort();
+    const controller = new AbortController();
+    clusterAbortRef.current = controller;
     cancelRef.current = false;
-    setLoading(true);
+    if (!hasLoadedClustersRef.current) setLoading(true);
     try {
       const respostas = await Promise.all(statusDaConsulta(statusFilter).map((status) =>
         supabase.rpc('reports_map_clusters', {
@@ -434,12 +441,12 @@ export default function MapPage() {
           zoom: Math.round(zoom),
           status_filter: status,
           category_filter: categoryFilter === 'all' ? null : categoryFilter,
-        })
+        }).abortSignal(controller.signal)
       ));
       const erro = respostas.find((resposta) => resposta.error)?.error;
       if (erro) throw erro;
       const data = respostas.flatMap((resposta) => resposta.data || []);
-      if (cancelRef.current) return;
+      if (cancelRef.current || requestId !== clusterRequestRef.current) return;
 
       const mapped = (data || []).map(row => (
         row.is_cluster
@@ -482,10 +489,13 @@ export default function MapPage() {
       ));
 
       setMapClusters(mapped);
+      hasLoadedClustersRef.current = true;
     } catch (err) {
-      console.error('[MapPage] fetch clusters error:', err);
+      if (!controller.signal.aborted) console.error('[MapPage] fetch clusters error:', err);
     } finally {
-      if (!cancelRef.current) setLoading(false);
+      if (!cancelRef.current && requestId === clusterRequestRef.current) {
+        setLoading(false);
+      }
     }
   }, [statusFilter, categoryFilter]);
 
@@ -494,13 +504,17 @@ export default function MapPage() {
   // alimenta os alertas é o useNavCorridor, que busca um raio de 2 km e só
   // repete depois de 1 km percorrido.
   useEffect(() => {
-    if (!mapBounds) return;
+    if (!mapBounds || modo !== 'mapa') return;
     clearTimeout(fetchClustersTimerRef.current);
     fetchClustersTimerRef.current = setTimeout(() => {
       fetchClusters(mapBounds, mapZoom);
     }, 300);
-    return () => clearTimeout(fetchClustersTimerRef.current);
-  }, [mapBounds, mapZoom, fetchClusters]);
+    return () => {
+      clearTimeout(fetchClustersTimerRef.current);
+      clusterRequestRef.current += 1;
+      clusterAbortRef.current?.abort();
+    };
+  }, [mapBounds, mapZoom, fetchClusters, modo]);
 
   // Abre o modal de atualização sobre o mapa. Busca as atualizações já
   // existentes da bronca porque o rate limit (1 envio por tipo a cada 7 dias)

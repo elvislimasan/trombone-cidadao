@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/customSupabaseClient';
 import ImageCropper from '@/components/ui/ImageCropper';
 import { showAppError } from '@/lib/appError';
@@ -17,7 +17,12 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
   const [currentFileIndex, setCurrentFileIndex] = useState(-1);
   const [currentImageSrc, setCurrentImageSrc] = useState(null);
   const [cropperOpen, setCropperOpen] = useState(false);
-  const [processedUrls, setProcessedUrls] = useState([]);
+  const processedUrlsRef = useRef([]);
+  const onUploadCompleteRef = useRef(onUploadComplete);
+
+  useEffect(() => {
+    onUploadCompleteRef.current = onUploadComplete;
+  }, [onUploadComplete]);
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -70,7 +75,7 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
     }
 
     setFilesToProcess(validFiles);
-    setProcessedUrls([]);
+    processedUrlsRef.current = [];
     setCurrentFileIndex(0);
     setUploading(true);
     setProgress(0);
@@ -87,7 +92,13 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
       reader.readAsDataURL(file);
     } else if (currentFileIndex !== -1 && currentFileIndex >= filesToProcess.length) {
       // All done
-      finishUpload();
+      if (processedUrlsRef.current.length > 0) {
+        onUploadCompleteRef.current(processedUrlsRef.current);
+      }
+      processedUrlsRef.current = [];
+      setUploading(false);
+      setCurrentFileIndex(-1);
+      setFilesToProcess([]);
     }
   }, [currentFileIndex, filesToProcess]);
 
@@ -111,7 +122,7 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
           .from('petition-images')
           .getPublicUrl(fileName);
 
-        setProcessedUrls(prev => [...prev, publicUrl]);
+        processedUrlsRef.current = [...processedUrlsRef.current, publicUrl];
         
     } catch (error) {
         console.error('Upload error:', error);
@@ -132,15 +143,6 @@ const ImageUploader = ({ onUploadComplete, maxFiles = 5 }) => {
     // Skip this file
     setCropperOpen(false);
     setCurrentFileIndex(prev => prev + 1);
-  };
-
-  const finishUpload = () => {
-    if (processedUrls.length > 0) {
-      onUploadComplete(processedUrls);
-    }
-    setUploading(false);
-    setCurrentFileIndex(-1);
-    setFilesToProcess([]);
   };
 
   return (
