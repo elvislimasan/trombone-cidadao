@@ -16,6 +16,10 @@ test('qualquer conta pode criar um perfil social sem virar uma identidade instit
   assert.match(editor, /public_profile_enabled: Boolean\(username\)/);
   assert.match(editor, /trombonecidadao\.com\.br\/\{username\}/);
   assert.match(publicPage, /profile\.verification_status === 'verified' && profile\.public_profile_type !== 'citizen'/);
+  assert.doesNotMatch(publicPage, /sticky top-0/);
+  assert.match(publicPage, /absolute right-3 top-3/);
+  assert.match(publicPage, /aria-label=\{copiedLink \? 'Link copiado' : 'Compartilhar perfil'\}/);
+  assert.match(publicPage, /aria-label="Opções do perfil"/);
   assert.match(usernameMigration, /set public_profile_enabled = true/);
   assert.match(usernameMigration, /profiles_sync_public_profile_trigger/);
 });

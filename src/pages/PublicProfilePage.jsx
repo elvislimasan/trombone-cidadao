@@ -9,7 +9,6 @@ import {
   ExternalLink,
   ShieldCheck,
   Flag,
-  ChevronLeft,
   Copy,
   Check,
   Loader2,
@@ -321,37 +320,24 @@ export default function PublicProfilePage() {
         {profile.avatar_url && <meta property="og:image" content={profile.avatar_url} />}
       </Helmet>
 
-      {/* Barra superior de navegação */}
-      <div className="sticky top-0 z-20 bg-surface-raised/90 backdrop-blur-md border-b border-edge-subtle">
-        <div className="mx-auto h-14 w-full max-w-[100rem] px-3 sm:px-5 lg:px-6 flex items-center justify-between gap-3">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-9 w-9 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover"
-            onClick={() => navigate(-1)}
-            aria-label="Voltar"
-          >
-            <ChevronLeft className="w-5 h-5 text-content-primary" />
-          </Button>
-
-          <div className="hidden min-w-0 flex-1 text-center lg:block">
-            <h1 className="text-sm font-bold text-content-primary truncate">
-              {profile.name}
-            </h1>
-            <p className="text-2xs font-mono text-content-secondary truncate">
-              @{profile.username}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-1.5">
+      <div className="mx-auto w-full max-w-[100rem] space-y-6 px-3 pt-5 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5 lg:space-y-0 lg:px-6 xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <div className="min-w-0 space-y-6">
+        {/* Cartão de Cabeçalho do Perfil */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1 sm:p-5 lg:flex lg:h-60 lg:items-center lg:p-6"
+        >
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 sm:right-4 sm:top-4">
             <Button
-              size="sm"
+              size="icon"
               variant="outline"
               onClick={handleShare}
-              className="gap-1.5 rounded-full border-edge-default text-xs font-semibold text-content-primary hover:bg-surface-subtle"
+              className="h-9 w-9 rounded-full border-edge-default bg-surface-raised text-content-primary shadow-sm hover:bg-surface-subtle"
+              aria-label={copiedLink ? 'Link copiado' : 'Compartilhar perfil'}
+              title={copiedLink ? 'Link copiado' : 'Compartilhar perfil'}
             >
-              {copiedLink ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Share2 className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{copiedLink ? 'Copiado!' : 'Compartilhar'}</span>
+              {copiedLink ? <Check className="h-4 w-4 text-green-500" /> : <Share2 className="h-4 w-4" />}
             </Button>
 
             <DropdownMenu>
@@ -359,10 +345,10 @@ export default function PublicProfilePage() {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-9 w-9 rounded-xl hover:bg-surface-subtle"
+                  className="h-9 w-9 rounded-full text-content-primary hover:bg-surface-subtle"
                   aria-label="Opções do perfil"
                 >
-                  <MoreVertical className="w-4 h-4 text-content-primary" />
+                  <MoreVertical className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -402,19 +388,9 @@ export default function PublicProfilePage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-      </div>
 
-      <div className="mx-auto w-full max-w-[100rem] space-y-6 px-3 pt-5 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5 lg:space-y-0 lg:px-6 xl:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="min-w-0 space-y-6">
-        {/* Cartão de Cabeçalho do Perfil */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1 sm:p-5 lg:flex lg:h-60 lg:items-center lg:p-6"
-        >
           <div className="w-full lg:hidden">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-4 pr-[4.75rem]">
               <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-3 border-brand bg-surface-subtle shadow-elevation-1">
                 {renderAvatar()}
               </div>
@@ -493,7 +469,7 @@ export default function PublicProfilePage() {
             </div>
           </div>
 
-          <div className="hidden w-full items-center gap-6 lg:flex">
+          <div className="hidden w-full items-center gap-6 pr-20 lg:flex">
             <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-3 border-brand bg-surface-subtle shadow-elevation-1">
               {renderAvatar()}
             </div>
