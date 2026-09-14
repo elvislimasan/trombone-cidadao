@@ -182,7 +182,7 @@ export default function PublicProfilePage() {
 
   const handleFollow = async () => {
     if (!currentUser) {
-      navigate('/login', { state: { from: { pathname: `/u/${cleanUsername}` } } });
+      navigate('/login', { state: { from: { pathname: `/${cleanUsername}` } } });
       return;
     }
 
@@ -199,7 +199,7 @@ export default function PublicProfilePage() {
 
   const handleSubmitReport = async () => {
     if (!currentUser) {
-      navigate('/login', { state: { from: { pathname: `/u/${cleanUsername}` } } });
+      navigate('/login', { state: { from: { pathname: `/${cleanUsername}` } } });
       return;
     }
 
@@ -438,7 +438,7 @@ export default function PublicProfilePage() {
                 </div>
 
                 {profile.public_bio && (
-                  <p className="line-clamp-2 whitespace-pre-line text-xs leading-relaxed text-content-primary">{profile.public_bio}</p>
+                  <p className="whitespace-pre-line break-words text-xs leading-relaxed text-content-primary">{profile.public_bio}</p>
                 )}
 
                 {memberSince && (

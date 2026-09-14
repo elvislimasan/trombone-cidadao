@@ -74,7 +74,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
       setAvatarUrl(user.avatar_url || '');
       setAvatarConfig(initialAvatarConfig);
       setUsername(user.username || '');
-      setPublicBio(user.public_bio || '');
+      setPublicBio(String(user.public_bio || '').slice(0, 150));
       setPublicWebsite(user.public_website || '');
       setPublicCityVisible(user.public_city_visible ?? true);
       setUsernameCheck({ checking: false, available: Boolean(user.username), reason: null });
@@ -424,7 +424,7 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
               )}
               {usernameCheck.available === true && username && (
                 <p className="text-xs text-muted-foreground">
-                  Seu perfil será: <span className="font-mono font-medium text-foreground">trombonecidadao.com.br/u/{username}</span>
+                  Seu perfil será: <span className="font-mono font-medium text-foreground">trombonecidadao.com.br/{username}</span>
                 </p>
               )}
             </div>
@@ -437,13 +437,14 @@ const EditProfileModal = ({ user, onClose, onSave, isAdminEditing = false }) => 
                       Biografia
                     </Label>
                     <span className="text-2xs text-muted-foreground">
-                      {publicBio.length}/280
+                      {publicBio.length}/150
                     </span>
                   </div>
                   <Textarea
                     id="publicBio"
                     value={publicBio}
-                    onChange={(e) => setPublicBio(e.target.value.slice(0, 280))}
+                    onChange={(e) => setPublicBio(e.target.value.slice(0, 150))}
+                    maxLength={150}
                     placeholder="Conte quem você é e quais causas acompanha na cidade."
                     rows={2}
                     className="bg-background border-input text-xs resize-none"

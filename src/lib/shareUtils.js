@@ -121,8 +121,15 @@ export const getStreetShareUrl = (street) => {
 export const streetPath = (street) =>
   `/mapa-pavimentacao/rua/${street?.slug || street?.id || ''}`;
 
-/** O endereço público canônico de um perfil cívico (/u/:username). */
+/** O endereço público curto e canônico de um perfil cívico (/:username). */
 export const getPublicProfileShareUrl = (username) => {
   const clean = String(username || '').trim().toLowerCase().replace(/^@/, '');
-  return `${getBaseAppUrl()}/share/perfil/${encodeURIComponent(clean)}`;
+  return `${getBaseAppUrl()}/${encodeURIComponent(clean)}`;
+};
+
+/** URL com prévia social rica de uma página legislativa. */
+export const getCouncilorShareUrl = (councilor) => {
+  const cityId = councilor?.city_id || '';
+  const slug = councilor?.slug || '';
+  return `${getBaseAppUrl()}/share/vereador/${encodeURIComponent(cityId)}/${encodeURIComponent(slug)}`;
 };

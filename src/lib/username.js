@@ -55,6 +55,25 @@ export const RESERVED_USERNAMES = new Set([
   'ouvidoria',
   'denuncia',
   'relatorio',
+  'vereadores',
+  'noticia',
+  'abaixo-assinados',
+  'mapa-pavimentacao',
+  'salvos-outros',
+  'obras-favoritas',
+  'configuracoes',
+  'explorar',
+  'seguindo',
+  'buscar',
+  'app',
+  'convite',
+  'imoveis-alugados',
+  'meta',
+  'embaixador',
+  'painel-usuario',
+  'alterar-senha',
+  'excluir-conta',
+  'minhas-peticoes',
 ]);
 
 export const PROFILE_TYPE_INFO = {
@@ -147,11 +166,11 @@ export function validateUsername(value) {
 }
 
 /**
- * Retorna o caminho canônico interno do perfil público: /u/:username
+ * Retorna o caminho canônico curto do perfil público: /:username
  */
 export function getPublicProfilePath(username) {
   const norm = normalizeUsername(username);
-  return norm ? `/u/${norm}` : '/perfil';
+  return norm ? `/${norm}` : '/perfil';
 }
 
 /**

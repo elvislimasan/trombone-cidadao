@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Avatar from 'react-nice-avatar';
-import { Loader2, Search, UserPlus, Users, X } from 'lucide-react';
+import { Loader2, Search, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/design-system/primitives/EmptyState';
 import StatusBadge from '@/design-system/primitives/StatusBadge';
@@ -152,7 +152,7 @@ export default function FollowingPeople() {
               </label>
               {searchLoading ? <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div> : showSearchResults && searchResults.length === 0 ? <p className="py-3 text-center text-xs text-content-secondary">Nenhum perfil público encontrado.</p> : <div className="flex gap-4 overflow-x-auto pb-1">
                 {visibleProfiles.map((profile) => (
-                  <Link key={profile.id} to={`/u/${profile.username}`} className="flex w-20 shrink-0 flex-col items-center gap-1.5 text-center">
+                  <Link key={profile.id} to={`/${profile.username}`} className="flex w-20 shrink-0 flex-col items-center gap-1.5 text-center">
                     <span className="rounded-full border-2 border-brand p-0.5"><ProfileAvatar profile={profile} /></span>
                     <span className="w-full truncate text-xs font-bold text-content-primary">{profile.name}</span>
                     <span className="w-full truncate text-xs text-content-tertiary">@{profile.username}</span>
@@ -171,7 +171,7 @@ export default function FollowingPeople() {
                 <EmptyState icon="trombone" title="Nenhuma novidade ainda" description="As próximas broncas publicadas por quem você segue aparecerão aqui." />
               ) : items.map((item) => (
                 <article key={item.id} className="overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-elevation-1">
-                  <Link to={`/u/${item.author.username}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-subtleHover">
+                  <Link to={`/${item.author.username}`} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-subtleHover">
                     <ProfileAvatar profile={item.author} className="h-10 w-10" />
                     <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-content-primary">{item.author.name}</p><p className="truncate text-xs text-content-secondary">@{item.author.username}</p></div>
                     <TimeAgo date={item.created_at} className="shrink-0 text-xs text-content-tertiary" />

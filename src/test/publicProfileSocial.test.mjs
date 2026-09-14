@@ -14,7 +14,7 @@ test('qualquer conta pode criar um perfil social sem virar uma identidade instit
   assert.match(editor, /Perfil público/);
   assert.match(editor, /Escolha um @username para compartilhar/);
   assert.match(editor, /public_profile_enabled: Boolean\(username\)/);
-  assert.match(editor, /trombonecidadao\.com\.br\/u\/\{username\}/);
+  assert.match(editor, /trombonecidadao\.com\.br\/\{username\}/);
   assert.match(publicPage, /profile\.verification_status === 'verified' && profile\.public_profile_type !== 'citizen'/);
   assert.match(usernameMigration, /set public_profile_enabled = true/);
   assert.match(usernameMigration, /profiles_sync_public_profile_trigger/);
@@ -60,8 +60,24 @@ test('Apache encaminha o perfil compartilhado para a prévia com foto', async ()
   assert.ok(htaccess.includes('RewriteRule ^share/perfil/([^/?]+)$'));
   assert.match(htaccess, /functions\/v1\/share-public-profile\?username=\$1/);
   assert.ok(htaccess.includes('RewriteRule ^u/([^/?]+)$'));
+  assert.match(htaccess, /\(\[a-z0-9\]\[a-z0-9\._\]\{1,28\}\[a-z0-9\]\)/i);
   assert.match(shareFunction, /profile\.avatar_url \|\| cityImage/);
   assert.match(shareFunction, /og:image/);
+});
+
+test('perfil usa URL curta e biografia pública de até 150 caracteres', async () => {
+  const [app, editor, helper, migration] = await Promise.all([
+    read('src/App.jsx'),
+    read('src/components/EditProfileModal.jsx'),
+    read('src/lib/username.js'),
+    read('supabase/migrations/260_short_profiles_councilor_status.sql'),
+  ]);
+
+  assert.match(app, /path="\/:username"/);
+  assert.match(editor, /publicBio\.length\}\/150/);
+  assert.match(editor, /maxLength=\{150\}/);
+  assert.match(helper, /return norm \? `\/\$\{norm\}`/);
+  assert.match(migration, /length\(public_bio\) <= 150/);
 });
 
 test('perfil autenticado reúne identidade social e gestão das contribuições', async () => {

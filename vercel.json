@@ -33,6 +33,10 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-public-profile?username=:username"
     },
     {
+      "source": "/share/vereador/:city/:slug",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-councilor?city=:city&slug=:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

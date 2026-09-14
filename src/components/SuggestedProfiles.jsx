@@ -76,8 +76,8 @@ export default function SuggestedProfiles({ cityId = null, limit = 5, className 
         <div className="mt-3 divide-y divide-edge-subtle">
           {profiles.map((profile) => (
             <div key={profile.id} className="flex items-center gap-2.5 py-3 first:pt-1 last:pb-0">
-              <Link to={`/u/${profile.username}`} className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-edge-subtle"><SuggestedAvatar profile={profile} /></Link>
-              <Link to={`/u/${profile.username}`} className="min-w-0 flex-1">
+              <Link to={`/${profile.username}`} className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-edge-subtle"><SuggestedAvatar profile={profile} /></Link>
+              <Link to={`/${profile.username}`} className="min-w-0 flex-1">
                 <p className="truncate text-xs font-extrabold text-content-primary">{profile.name}</p>
                 <p className="truncate text-[10px] text-content-tertiary">@{profile.username}{profile.city_name ? ` · ${profile.city_name}` : ''}</p>
                 <p className="mt-0.5 text-[9px] text-content-secondary">{profile.reports_count || 0} broncas · {profile.followers_count || 0} seguidores</p>

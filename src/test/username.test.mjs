@@ -74,9 +74,9 @@ test('validação rejeita nomes de rotas e termos reservados', () => {
   }
 });
 
-test('getPublicProfilePath devolve rota canônica /u/:username', () => {
-  assert.equal(getPublicProfilePath('mariana'), '/u/mariana');
-  assert.equal(getPublicProfilePath('@mariana'), '/u/mariana');
+test('getPublicProfilePath devolve rota canônica curta /:username', () => {
+  assert.equal(getPublicProfilePath('mariana'), '/mariana');
+  assert.equal(getPublicProfilePath('@mariana'), '/mariana');
   assert.equal(getPublicProfilePath(''), '/perfil');
 });
 

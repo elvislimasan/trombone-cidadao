@@ -56,6 +56,39 @@ const decodeHtmlEntities = (value: string) => {
   return out
 }
 
+const decodeHtmlAttribute = (value: string) => decodeHtmlEntities(String(value || "").replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code))))
+
+const extractInputValues = (html: string) => {
+  const values = new Map<string, string>()
+  for (const match of String(html || "").matchAll(/<input\b[^>]*>/gi)) {
+    const input = String(match[0] || "")
+    const name = input.match(/\bname\s*=\s*["']([^"']+)["']/i)?.[1]
+    if (!name) continue
+    const value = input.match(/\bvalue\s*=\s*["']([^"']*)["']/i)?.[1] || ""
+    values.set(name, decodeHtmlAttribute(value))
+  }
+  return values
+}
+
+const extractSupplierCommitments = (html: string, origin: string) => {
+  const commitments: Array<{ portal_link: string; commitment_number: string; commitment_year: string | null; commitment_date: string | null }> = []
+  const uniqueLinks = new Set<string>()
+  for (const match of String(html || "").matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']*DetalhesDoFornecedor!detalhesEmpenhosMunicipaisEstaduais[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = decodeHtmlAttribute(String(match[1] || ""))
+    const link = new URL(href, origin).toString()
+    if (uniqueLinks.has(link)) continue
+    uniqueLinks.add(link)
+    const detailUrl = new URL(link)
+    commitments.push({
+      portal_link: link,
+      commitment_number: stripCellToText(String(match[2] || "")) || detailUrl.searchParams.get("despesas.numeroEmpenho") || "",
+      commitment_year: detailUrl.searchParams.get("despesas.anoRef"),
+      commitment_date: detailUrl.searchParams.get("despesas.dataEmpenhoFormatada"),
+    })
+  }
+  return commitments
+}
+
 const stripCellToText = (html: string) => {
   let out = String(html || "")
   out = out.replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -555,6 +588,62 @@ serve(async (req) => {
       })
     }
 
+    const userAgent =
+      Deno.env.get("APP_USER_AGENT") ||
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    const client = getTomeContaHttpClient()
+    const isSupplierPage = parsedUrl.pathname.replace(/\/+$/, "") === "/fornecedor"
+    if (isSupplierPage) {
+      const personUrl = new URL("/dados/Pessoa!principal", parsedUrl.origin)
+      personUrl.search = parsedUrl.search
+      const personRes = await fetch(personUrl.toString(), {
+        ...(client ? { client } : {}),
+        headers: {
+          "User-Agent": userAgent,
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+      })
+      const personDecoded = await decodeHtmlFromResponse(personRes)
+      if (!personRes.ok) {
+        return new Response(JSON.stringify({ error: `portal_request_failed_${personRes.status}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
+        })
+      }
+      const fields = extractInputValues(personDecoded.html)
+      const cpfCnpj = fields.get("pessoa.cpfcnpj") || ""
+      if (!cpfCnpj) {
+        return new Response(JSON.stringify({ error: "supplier_not_found" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
+        })
+      }
+      const form = new URLSearchParams()
+      for (const [name, value] of fields) if (name.startsWith("pessoa.") || name === "tela") form.set(name, value)
+      const getSetCookie = (personRes.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
+      const cookies = getSetCookie ? getSetCookie.call(personRes.headers).map((cookie) => cookie.split(";", 1)[0]).join("; ") : ""
+      const listRes = await fetch(new URL("/dados/EmpenhosMunicipais!principal", parsedUrl.origin).toString(), {
+        ...(client ? { client } : {}), method: "POST", body: form,
+        headers: {
+          "User-Agent": userAgent,
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          ...(cookies ? { Cookie: cookies } : {}),
+        },
+      })
+      const listDecoded = await decodeHtmlFromResponse(listRes)
+      if (!listRes.ok) {
+        return new Response(JSON.stringify({ error: `portal_request_failed_${listRes.status}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400,
+        })
+      }
+      const commitments = extractSupplierCommitments(listDecoded.html, parsedUrl.origin)
+      return new Response(JSON.stringify({
+        parser_version: "tomeconta_supplier_v1", portal_link: parsedUrl.toString(),
+        creditor_name: fields.get("pessoa.nome") || "", commitments, commitments_count: commitments.length,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 })
+    }
+
     const allowedPath = parsedUrl.pathname.startsWith("/dados/") && parsedUrl.pathname.toLowerCase().includes("detalhesempenhos")
     if (!allowedPath) {
       return new Response(JSON.stringify({ error: "path_not_allowed" }), {
@@ -563,10 +652,6 @@ serve(async (req) => {
       })
     }
 
-    const userAgent =
-      Deno.env.get("APP_USER_AGENT") ||
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    const client = getTomeContaHttpClient()
     const pageRes = await fetch(parsedUrl.toString(), {
       ...(client ? { client } : {}),
       headers: {

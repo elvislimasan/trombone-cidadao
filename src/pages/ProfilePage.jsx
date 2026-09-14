@@ -181,7 +181,7 @@ const ProfilePage = () => {
               </Button>
               {hasPublicProfile ? (
                 <Button asChild variant="ghost" size="sm" className="h-auto min-h-10 justify-start gap-2 rounded-xl border border-edge-subtle px-3 py-2.5 text-left text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover">
-                  <Link to={`/u/${user.username}`}><ExternalLink className="h-4 w-4 text-brand" />Ver como público</Link>
+                  <Link to={`/${user.username}`}><ExternalLink className="h-4 w-4 text-brand" />Ver como público</Link>
                 </Button>
               ) : (
                 <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="h-auto min-h-10 justify-start gap-2 rounded-xl border border-edge-subtle px-3 py-2.5 text-left text-xs font-extrabold text-content-primary hover:bg-surface-subtleHover">

@@ -309,7 +309,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
           {(report.authorName || report.authorAvatar) && (
             report.authorUsername ? (
               <Link
-                to={`/u/${report.authorUsername}`}
+                to={`/${report.authorUsername}`}
                 onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-2 mt-3 py-0.5 min-w-0 hover:opacity-80 transition cursor-pointer group"
               >

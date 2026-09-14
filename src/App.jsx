@@ -73,6 +73,7 @@ import MyPetitionsPage from '@/pages/MyPetitionsPage';
 import NotificationPreferences from './pages/NotificationPreferences';
 import DeleteAccountPage from './pages/DeleteAccountPage';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
+import { isReservedUsername } from '@/lib/username';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
@@ -162,7 +163,11 @@ const SEO = () => {
 
   // IMPORTANTE: Se estiver em uma página de bronca ou perfil público, não definir og:image aqui
   // Deixa o SEO próprio da página definir a imagem e metadados corretos
-  const isCustomMetaPage = location.pathname.startsWith('/bronca/') || location.pathname.startsWith('/u/') || location.pathname.startsWith('/@');
+  const shortUsername = location.pathname.match(/^\/([a-z0-9][a-z0-9._]{1,28}[a-z0-9])\/?$/i)?.[1] || '';
+  const isCustomMetaPage = location.pathname.startsWith('/bronca/')
+    || location.pathname.startsWith('/u/')
+    || location.pathname.startsWith('/@')
+    || Boolean(shortUsername && !isReservedUsername(shortUsername));
 
   // Customize titles and descriptions per route
   switch (location.pathname) {
@@ -830,6 +835,7 @@ function AppShell() {
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
+              <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/servicos" element={<ServicesPage />} />
               <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
               <Route path="/servicos/ponto-turistico/:id" element={<TouristSpotDetailsPage />} />
@@ -838,7 +844,7 @@ function AppShell() {
               <Route path="/noticias/:newsId" element={<NewsDetailsPage />} />
               <Route path="/contato" element={<ContactPage />} />
   
-              {/* Perfil público cívico: /u/:username e rota alternativa /@:username */}
+              {/* Rotas legadas do perfil público; a canônica curta fica antes do fallback. */}
               <Route path="/u/:username" element={<PublicProfilePage />} />
               <Route path="/@:username" element={<PublicProfilePage />} />
 
@@ -906,6 +912,9 @@ function AppShell() {
               <Route path="/admin/embaixador/:id" element={<AdminRoute><AmbassadorProfilePage /></AdminRoute>} />
               <Route path="/embaixador" element={<PrivateRoute><AmbassadorPage /></PrivateRoute>} />
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
+              {/* Deve permanecer depois das rotas de uma parte e antes do 404.
+                  Nomes de rotas são bloqueados pela validação de username. */}
+              <Route path="/:username" element={<PublicProfilePage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
               </ErrorBoundary>

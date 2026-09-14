@@ -28,7 +28,7 @@ export default function ManageMyCouncilorPage() {
     let active = true;
     supabase
       .from('councilors')
-      .select('id, user_id, claim_status, name, slug, city_id, photo_url, party, biography, phone, email, instagram_url, city:cities(name, states(uf))')
+      .select('id, user_id, claim_status, name, slug, city_id, photo_url, party, biography, phone, email, instagram_url, is_in_office, city:cities(name, states(uf))')
       .eq('id', councilorId)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -102,6 +102,7 @@ export default function ManageMyCouncilorPage() {
               <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-brand">Gestão da página legislativa</p>
               <h1 className="mt-1 text-2xl font-black text-content-primary sm:text-3xl">{councilor.name}</h1>
               <p className="mt-1 text-sm text-content-secondary">{cityName}{councilor.party ? ` · ${councilor.party}` : ''}</p>
+              {councilor.is_in_office !== null && <p className="mt-2 text-xs font-bold text-content-secondary">Situação: {councilor.is_in_office ? 'Em exercício' : 'Fora do exercício'}</p>}
             </div>
           </div>
 

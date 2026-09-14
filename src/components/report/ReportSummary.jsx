@@ -61,7 +61,7 @@ const ReportSummary = ({
           {showAuthor ? (
             authorUsername ? (
               <Link
-                to={`/u/${authorUsername}`}
+                to={`/${authorUsername}`}
                 className="flex items-center gap-2 min-w-0 hover:opacity-85 transition group"
               >
                 <AuthorAvatar name={authorName} avatarUrl={authorAvatar} />

@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, ShieldCheck, User, UserPlus } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, Share2, ShieldCheck, User, UserPlus } from 'lucide-react';
 
 import BackButton from '@/components/BackButton';
 import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
+import CouncilorStoryModal from '@/components/councilor/CouncilorStoryModal';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { autoresDaRua, chaveDeAutor, normalizarFotos, rotaDoVereador, slugDeVereador } from '@/lib/pavementStreetHistory';
-import { streetPath } from '@/lib/shareUtils';
+import { getCouncilorShareUrl, streetPath } from '@/lib/shareUtils';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -27,6 +28,8 @@ export default function CouncilorProfilePage() {
   const [managedPage, setManagedPage] = useState(null);
   const [requestingLink, setRequestingLink] = useState(false);
   const [autoRequestAttempted, setAutoRequestAttempted] = useState(false);
+  const [reportCount, setReportCount] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +55,18 @@ export default function CouncilorProfilePage() {
     setStreets(matchingStreets);
     setCityStreets(streetsResult.data || []);
     setCityName(cityResult.data ? `${cityResult.data.name}${cityResult.data.states?.uf ? ` - ${cityResult.data.states.uf}` : ''}` : '');
+    if (profile?.user_id) {
+      const { count } = await supabase
+        .from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('author_id', profile.user_id)
+        .eq('is_anonymous', false)
+        .eq('moderation_status', 'approved')
+        .neq('status', 'rejected');
+      setReportCount(count || 0);
+    } else {
+      setReportCount(0);
+    }
     if (profile?.id) {
       const { data } = await supabase.rpc('get_councilor_account_identity', { p_councilor_id: profile.id });
       setAccountIdentity(data || null);
@@ -196,6 +211,8 @@ export default function CouncilorProfilePage() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand">Perfil legislativo</p>
                 {councilor.claim_status === 'verified' && <span className="inline-flex items-center gap-1 rounded-full bg-success-bg px-2 py-0.5 text-[10px] font-bold text-success-fg"><ShieldCheck className="h-3 w-3" /> Verificado</span>}
+                {councilor.is_in_office === true && <span className="rounded-full bg-success-bg px-2 py-0.5 text-[10px] font-bold text-success-fg">Em exercício</span>}
+                {councilor.is_in_office === false && <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-bold text-content-secondary">Fora do exercício</span>}
               </div>
               <h1 className="mt-1 break-words text-2xl font-black leading-tight tracking-tight text-content-primary sm:text-3xl">{councilor.name}</h1>
               {councilor.nickname && <p className="mt-1 text-sm font-bold text-brand sm:text-base">Conhecido como {councilor.nickname}</p>}
@@ -203,10 +220,11 @@ export default function CouncilorProfilePage() {
                 <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-brand" /> {cityName}</span>
                 {councilor.party && <><span>•</span><strong className="text-content-primary">{councilor.party}</strong></>}
               </div>
-              {accountIdentity?.profile?.username && <Link to={`/u/${accountIdentity.profile.username}`} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline">@{accountIdentity.profile.username} <ArrowRight className="h-3 w-3" /></Link>}
+              {accountIdentity?.profile?.username && <Link to={`/${accountIdentity.profile.username}`} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline">@{accountIdentity.profile.username} <ArrowRight className="h-3 w-3" /></Link>}
             </div>
 
             <div className="col-span-2 flex flex-wrap gap-2 lg:col-span-1 lg:max-w-[17rem] lg:justify-end">
+              <Button type="button" variant="outline" size="sm" className="flex-1 gap-2 rounded-full bg-surface-raised lg:flex-none" onClick={() => setShareOpen(true)}><Share2 className="h-4 w-4" /> Compartilhar</Button>
               {canEditPage && managePageHref && <Button asChild variant="outline" size="sm" className="flex-1 gap-2 rounded-full bg-surface-raised lg:flex-none"><Link to={managePageHref}><Pencil className="h-4 w-4" /> Editar perfil</Link></Button>}
               {councilor.id && councilor.claim_status === 'unclaimed' && !isAdmin && managedPage && <Button asChild variant="outline" size="sm" className="h-auto flex-1 gap-2 rounded-full border-success-border bg-success-bg py-2 text-success-fg"><Link to={rotaDoVereador(managedPage.city_id, managedPage.slug)}><ShieldCheck className="h-4 w-4" /> Você já gerencia uma página</Link></Button>}
             </div>
@@ -286,7 +304,7 @@ export default function CouncilorProfilePage() {
                       </div>
                     </div>
                     <Button asChild variant="outline" size="sm" className="mt-3 w-full gap-2 rounded-xl bg-surface-raised">
-                      <Link to={`/u/${linkedProfile.username}`}>Ver perfil público <ArrowRight className="h-3.5 w-3.5" /></Link>
+                      <Link to={`/${linkedProfile.username}`}>Ver perfil público <ArrowRight className="h-3.5 w-3.5" /></Link>
                     </Button>
                   </div>
                 ) : (
@@ -322,6 +340,8 @@ export default function CouncilorProfilePage() {
           <CouncilorRankingCard streets={cityStreets} cityId={cityId} cityName={cityName} />
         </div>
       </main>
+
+      {shareOpen && <CouncilorStoryModal councilor={{ ...councilor, photo_url: profilePhoto }} cityName={cityName} streetCount={streets.length} reportCount={reportCount} streetNames={streets.slice(0, 2).map((street) => street.name).filter(Boolean)} shareUrl={getCouncilorShareUrl(councilor)} onClose={() => setShareOpen(false)} />}
     </div>
   );
 }

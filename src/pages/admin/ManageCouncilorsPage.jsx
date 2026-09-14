@@ -27,6 +27,7 @@ const EMPTY_FORM = {
   phone: '',
   email: '',
   instagram_url: '',
+  is_in_office: '',
   user_id: '',
   verified: false,
 };
@@ -134,6 +135,7 @@ export default function ManageCouncilorsPage() {
       ...Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, councilor[key] || ''])),
       user_id: councilor.user_id || '',
       verified: councilor.claim_status === 'verified',
+      is_in_office: councilor.is_in_office === true ? 'yes' : councilor.is_in_office === false ? 'no' : '',
     });
     setMergeTargetId('');
     setUploadingPhoto(false);
@@ -203,6 +205,7 @@ export default function ManageCouncilorsPage() {
       phone: nullable(form.phone),
       email: nullable(form.email),
       instagram_url: nullable(form.instagram_url),
+      is_in_office: form.is_in_office === 'yes' ? true : form.is_in_office === 'no' ? false : null,
     };
     const query = editing?.id
       ? supabase.from('councilors').update(details).eq('id', editing.id).select('id').single()
@@ -375,6 +378,7 @@ export default function ManageCouncilorsPage() {
             <label className="grid gap-1.5"><Label htmlFor="councilor-name">Nome</Label><Input id="councilor-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nome completo" /></label>
             <label className="grid gap-1.5"><Label htmlFor="councilor-nickname">Apelido <span className="font-normal text-content-tertiary">(opcional)</span></Label><Input id="councilor-nickname" value={form.nickname} onChange={(event) => setForm((current) => ({ ...current, nickname: event.target.value }))} placeholder="Como é conhecido" /></label>
             <label className="grid gap-1.5"><Label htmlFor="councilor-party">Partido</Label><Input id="councilor-party" value={form.party} onChange={(event) => setForm((current) => ({ ...current, party: event.target.value }))} /></label>
+            <label className="grid gap-1.5"><Label htmlFor="councilor-office-status">Situação do mandato</Label><select id="councilor-office-status" value={form.is_in_office} onChange={(event) => setForm((current) => ({ ...current, is_in_office: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 text-sm"><option value="">Não informado</option><option value="yes">Em exercício</option><option value="no">Fora do exercício</option></select></label>
             <div className="sm:col-span-2"><CouncilorPhotoUploader value={form.photo_url || ''} onChange={(photo_url) => setForm((current) => ({ ...current, photo_url }))} onUploadingChange={setUploadingPhoto} councilorId={editing?.id || 'novo'} name={form.name || 'vereador'} disabled={saving} /></div>
             <label className="grid gap-1.5"><Label htmlFor="councilor-phone">Telefone</Label><Input id="councilor-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
             <label className="grid gap-1.5"><Label htmlFor="councilor-email">E-mail</Label><Input id="councilor-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
