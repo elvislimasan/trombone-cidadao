@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Bus, Landmark, Save, X, Upload, Check, Hourglass, Tags, Church } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Upload, Check, Hourglass, Tags, Church } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CityCombobox from '@/components/CityCombobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,17 +14,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Combobox } from '@/components/ui/combobox';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { TIPOS_TRANSPORTE } from '@/lib/transportTypes';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { showAppError } from '@/lib/appError';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import LocationPickerMap from '@/components/LocationPickerMap';
+import { useCity } from '@/contexts/CityContext';
+import { normalizarInstagram } from '@/lib/externalLinks';
 
-// Uma aba do guia: transportes, pontos turísticos, órgãos públicos, comércios.
-// As quatro têm a mesma linha e o mesmo par de botões — e agora o mesmo
-// recorte, que no celular rola e no desktop pagina.
-const ListaServicos = ({ data, type, onEdit, onDelete }) => {
+// Lista unificada do Guia, com o mesmo recorte no celular e no desktop.
+const ListaServicos = ({ data, onEdit, onDelete }) => {
   const { visiveis, propsPaginacao } = useListaPaginada(data || [], { porPagina: 20 });
 
   if (!data || data.length === 0) {
@@ -49,15 +48,27 @@ const ListaServicos = ({ data, type, onEdit, onDelete }) => {
   );
 };
 
-const EditModal = ({ item, type, onSave, onClose, allowedCityIds, directoryCategories }) => {
+const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories }) => {
+  const { cities } = useCity();
   const [formData, setFormData] = useState(null);
+  const [mapLocation, setMapLocation] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (item) {
       setFormData({ ...item });
+      const point = item.location;
+      if (point?.coordinates?.length >= 2) {
+        setMapLocation({ lat: Number(point.coordinates[1]), lng: Number(point.coordinates[0]) });
+      } else if (typeof point === 'string') {
+        const match = point.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
+        setMapLocation(match ? { lat: Number(match[2]), lng: Number(match[1]) } : null);
+      } else {
+        setMapLocation(null);
+      }
     } else {
       setFormData(null);
+      setMapLocation(null);
     }
   }, [item]);
 
@@ -79,7 +90,11 @@ const EditModal = ({ item, type, onSave, onClose, allowedCityIds, directoryCateg
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData, type);
+    onSave({
+      ...formData,
+      instagram_url: normalizarInstagram(formData.instagram_url) || null,
+      location: mapLocation ? `POINT(${mapLocation.lng} ${mapLocation.lat})` : null,
+    });
   };
 
   if (!formData) return null;
@@ -91,118 +106,20 @@ const EditModal = ({ item, type, onSave, onClose, allowedCityIds, directoryCateg
       value: category.id,
       label: `${category.parent_id ? `${categoryById.get(String(category.parent_id))?.name || 'Categoria'} · ` : ''}${category.name}`,
     }));
+  const selectedCity = (cities || []).find((city) => String(city.id) === String(formData.city_id));
+  const fallbackCityCenter = selectedCity
+    ? { name: selectedCity.name, uf: selectedCity.state?.uf }
+    : null;
 
-  const renderFields = () => {
-    switch (type) {
-      case 'transport':
-        return (
-          <>
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="destination">Destino</Label>
-              <Input id="destination" name="destination" value={formData.destination} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="vehicle_type">Tipo de transporte</Label>
-              <Combobox
-                options={TIPOS_TRANSPORTE.map((t) => ({ value: t.id, label: t.name }))}
-                value={formData.vehicle_type || ''}
-                onChange={(value) => setFormData((prev) => ({ ...prev, vehicle_type: value }))}
-                placeholder="Selecione o tipo (moto, tuk tuk, carro...)"
-                searchPlaceholder="Buscar tipo..."
-                notFoundText="Nenhum tipo encontrado."
-                modal
-              />
-              <p className="text-xs text-muted-foreground">
-                Define o ícone e a imagem ilustrativa do serviço, e alimenta o filtro por tipo no guia.
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="instagram">Instagram (URL completa)</Label>
-              <Input id="instagram" name="instagram" value={formData.instagram} onChange={handleChange} placeholder="https://instagram.com/usuario" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="schedule">Horários</Label>
-              <Textarea id="schedule" name="schedule" value={formData.schedule} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="details">Ponto de Partida / Detalhes</Label>
-              <Textarea id="details" name="details" value={formData.details} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Imagem Principal</Label>
-              <div className="flex items-center gap-4">
-                <img src={formData.image_url} alt={formData.name} className="w-20 h-20 object-cover rounded-md border" />
-                <Button type="button" variant="outline" onClick={() => fileInputRef.current.click()}><Upload className="w-4 h-4 mr-2" />Trocar Imagem</Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="city_id">Cidade</Label>
-              <CityCombobox
-                value={formData.city_id}
-                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
-                allowedCityIds={allowedCityIds}
-                modal
-              />
-            </div>
-          </>
-        );
-      case 'tourist_spots':
-        return (
-          <>
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input id="name" name="name" value={formData.name} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="short_description">Descrição Curta</Label>
-              <Textarea id="short_description" name="short_description" value={formData.short_description} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="long_description">Descrição Longa</Label>
-              <Textarea id="long_description" name="long_description" value={formData.long_description} onChange={handleChange} rows={5} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="address">Endereço</Label>
-              <Input id="address" name="address" value={formData.address} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Imagem Principal</Label>
-              <div className="flex items-center gap-4">
-                <img src={formData.image_url} alt={formData.name} className="w-20 h-20 object-cover rounded-md border" />
-                <Button type="button" variant="outline" onClick={() => fileInputRef.current.click()}><Upload className="w-4 h-4 mr-2" />Trocar Imagem</Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="city_id">Cidade</Label>
-              <CityCombobox
-                value={formData.city_id}
-                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
-                allowedCityIds={allowedCityIds}
-                modal
-              />
-            </div>
-          </>
-        );
-      case 'directory':
-        return (
+  const renderFields = () => (
           <>
             <div className="grid gap-2">
               <Label htmlFor="name">Nome do Local</Label>
               <Input id="name" name="name" value={formData.name} onChange={handleChange} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Descrição</Label>
+              <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={4} />
             </div>
             <div className="grid gap-2">
               <Label>Categoria ou subcategoria</Label>
@@ -217,12 +134,48 @@ const EditModal = ({ item, type, onSave, onClose, allowedCityIds, directoryCateg
               />
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="city_id">Cidade</Label>
+              <CityCombobox
+                value={formData.city_id}
+                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
+                allowedCityIds={allowedCityIds}
+                modal
+              />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="address">Endereço</Label>
               <Input id="address" name="address" value={formData.address} onChange={handleChange} />
             </div>
             <div className="grid gap-2">
+              <Label>Localização no mapa</Label>
+              <div className="h-64 overflow-hidden rounded-xl border border-input">
+                <LocationPickerMap
+                  key={formData.city_id || 'no-city'}
+                  initialPosition={mapLocation}
+                  onLocationChange={setMapLocation}
+                  fallbackCityCenter={fallbackCityCenter}
+                  showLocateButton
+                  showMarker={Boolean(mapLocation)}
+                  initialZoom={16}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Toque no mapa ou use sua localização para marcar o ponto exato.</p>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="phone">Telefone</Label>
               <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="instagram_url">Instagram da empresa</Label>
+              <Input
+                id="instagram_url"
+                name="instagram_url"
+                value={formData.instagram_url || ''}
+                onChange={handleChange}
+                placeholder="@empresa ou https://instagram.com/empresa"
+                inputMode="url"
+                autoCapitalize="none"
+              />
             </div>
             <div className="grid gap-2">
               <Label>Imagem</Label>
@@ -232,34 +185,15 @@ const EditModal = ({ item, type, onSave, onClose, allowedCityIds, directoryCateg
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="city_id">Cidade</Label>
-              <CityCombobox
-                value={formData.city_id}
-                onChange={(value) => setFormData((prev) => ({ ...prev, city_id: value }))}
-                allowedCityIds={allowedCityIds}
-                modal
-              />
-            </div>
           </>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const itemTypeLabel = {
-    transport: 'transporte',
-    tourist_spots: 'ponto turístico',
-    directory: 'local do Guia',
-  }[type] || 'item';
+  );
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
       <FormDialogContent className="h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:h-[90vh] sm:max-w-2xl">
         <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
           <DialogTitle className="text-xl font-bold text-content-primary">
-            {formData.id ? `Editar ${itemTypeLabel}` : `Adicionar ${itemTypeLabel}`}
+            {formData.id ? 'Editar local do Guia' : 'Adicionar local ao Guia'}
           </DialogTitle>
           <p className="text-sm text-content-tertiary">Preencha as informações exibidas no Guia da Cidade.</p>
         </DialogHeader>
@@ -285,8 +219,6 @@ const ManageServicesPage = () => {
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
-  const [transport, setTransport] = useState([]);
-  const [touristSpots, setTouristSpots] = useState([]);
   const [directoryData, setDirectoryData] = useState({ public: [], commerce: [], all: [] });
   const [directoryCategories, setDirectoryCategories] = useState([]);
   const [newCategory, setNewCategory] = useState({ name: '', parent_id: null });
@@ -315,34 +247,23 @@ const ManageServicesPage = () => {
 
   const fetchData = useCallback(async () => {
     if (isScopedAmbassador && myActiveCityIds.length === 0) {
-      setTransport([]);
-      setTouristSpots([]);
       setDirectoryData({ public: [], commerce: [], all: [] });
       setDirectoryCategories([]);
       setPendingEntries([]);
       return;
     }
 
-    const scopedTables = ['transport', 'tourist_spots', 'directory'];
-    const setters = {
-      transport: setTransport,
-      tourist_spots: setTouristSpots,
-      directory: (data) => setDirectoryData({
-        public: data.filter(d => d.type === 'public' && d.status === 'approved'),
-        commerce: data.filter(d => d.type === 'commerce' && d.status === 'approved'),
-        all: data.filter(d => d.status === 'approved'),
-      }),
-    };
-
-    for (const table of scopedTables) {
-      let query = supabase.from(table).select('*');
-      if (isScopedAmbassador) query = query.in('city_id', myActiveCityIds);
-      const { data, error } = await query;
-      if (error) {
-        showAppError({ title: `Erro ao buscar ${table}`, description: error.message, variant: "destructive" });
-      } else {
-        setters[table](data);
-      }
+    let directoryQuery = supabase.from('directory').select('*');
+    if (isScopedAmbassador) directoryQuery = directoryQuery.in('city_id', myActiveCityIds);
+    const { data: guideEntries, error: directoryError } = await directoryQuery;
+    if (directoryError) {
+      showAppError({ title: 'Erro ao buscar o Guia da Cidade', description: directoryError.message, variant: 'destructive' });
+    } else {
+      setDirectoryData({
+        public: guideEntries.filter(d => d.type === 'public' && d.status === 'approved'),
+        commerce: guideEntries.filter(d => d.type === 'commerce' && d.status === 'approved'),
+        all: guideEntries.filter(d => d.status === 'approved'),
+      });
     }
 
     const { data: categories, error: categoriesError } = await supabase.from('directory_categories').select('*').order('sort_order').order('name');
@@ -386,24 +307,22 @@ const ManageServicesPage = () => {
     fetchData();
   }, [fetchData]);
 
-  // Abre a edição automaticamente quando chega via ?edit=ID&type=transport
-  // (botão "Editar" nas páginas de detalhes de serviço). Limpa os params
-  // depois para não reabrir o modal ao atualizar a página.
+  // Links antigos de transporte e ponto turistico encontram a copia migrada no
+  // Guia; novos cadastros e edicoes acontecem somente em directory.
   useEffect(() => {
     const editId = searchParams.get('edit');
     const editType = searchParams.get('type');
     if (!editId || !editType) return;
 
-    const source = editType === 'transport' ? transport
-      : editType === 'tourist_spots' ? touristSpots
-      : editType === 'directory' ? directoryData.all
+    const legacySource = editType === 'transport' ? 'transport'
+      : editType === 'tourist_spots' ? 'tourist_spots'
       : null;
-    if (!source || source.length === 0) return;
-
-    const target = source.find((i) => String(i.id) === String(editId));
+    const target = editType === 'directory'
+      ? directoryData.all.find((item) => String(item.id) === String(editId))
+      : directoryData.all.find((item) => item.legacy_source === legacySource && String(item.legacy_source_id) === String(editId));
     if (target) {
-      setActiveTab(editType);
-      setEditingItem({ item: target, type: editType });
+      setActiveTab('directory');
+      setEditingItem({ item: target, type: 'directory' });
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete('edit');
@@ -411,27 +330,23 @@ const ManageServicesPage = () => {
         return next;
       }, { replace: true });
     }
-  }, [searchParams, transport, touristSpots, directoryData.all, setSearchParams]);
+  }, [searchParams, directoryData.all, setSearchParams]);
 
-  const handleSave = async (itemToSave, type) => {
+  const handleSave = async (itemToSave) => {
     const { image_file, ...dbData } = itemToSave;
-    let tableName = type;
-    if (type.startsWith('directory')) tableName = 'directory';
+    const tableName = 'directory';
 
-    // O Combobox devolve '' quando nada foi escolhido, e '' nao e "sem tipo":
-    // o filtro do guia compara por id e a coluna e nullable de proposito.
-    if (tableName === 'transport' && !dbData.vehicle_type) dbData.vehicle_type = null;
-
-    const isScopedTable = tableName === 'transport' || tableName === 'tourist_spots' || tableName === 'directory';
-    if (isScopedTable) {
-      if (!dbData.city_id) {
-        showAppError({ title: "Selecione uma cidade", variant: "destructive" });
-        return;
-      }
-      if (isScopedAmbassador && !myActiveCityIds.includes(dbData.city_id)) {
-        showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar itens nas suas cidades.", variant: "destructive" });
-        return;
-      }
+    if (!dbData.city_id) {
+      showAppError({ title: "Selecione uma cidade", variant: "destructive" });
+      return;
+    }
+    if (!dbData.category_id) {
+      showAppError({ title: 'Selecione uma categoria', description: 'Todo local do Guia precisa pertencer a uma categoria.', variant: 'destructive' });
+      return;
+    }
+    if (isScopedAmbassador && !myActiveCityIds.some((id) => String(id) === String(dbData.city_id))) {
+      showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar itens nas suas cidades.", variant: "destructive" });
+      return;
     }
 
     if (image_file) {
@@ -460,11 +375,9 @@ const ManageServicesPage = () => {
 
   const handleDelete = async () => {
     if (!deletingItem) return;
-    const { item, type } = deletingItem;
-    let tableName = type;
-    if (type.startsWith('directory')) tableName = 'directory';
+    const { item } = deletingItem;
 
-    const { error } = await supabase.from(tableName).delete().eq('id', item.id);
+    const { error } = await supabase.from('directory').delete().eq('id', item.id);
     if (error) {
       showAppError({ title: "Erro ao remover", description: error.message, variant: "destructive" });
     } else {
@@ -473,22 +386,16 @@ const ManageServicesPage = () => {
     setDeletingItem(null);
   };
 
-  // Aceita um tipo explícito (usado pelo menu "Adicionar Novo" quando a aba
-  // ativa é "Moderação", que não tem um tipo de conteúdo próprio) ou usa a
-  // aba ativa quando ela já é um tipo de conteúdo (transport, tourist_spots, etc).
-  const handleAddNew = (explicitTab) => {
-    const targetTab = explicitTab || activeTab;
-    let newItem, type;
-    switch (targetTab) {
-      case 'transport': newItem = { name: '', destination: '', vehicle_type: '', phone: '', instagram: '', schedule: '', details: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'transport'; break;
-      case 'tourist_spots': newItem = { name: '', short_description: '', long_description: '', address: '', phone: '', image_url: '', city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'tourist_spots'; break;
-      case 'directory':
-      case 'directory_public':
-      case 'directory_commerce': newItem = { name: '', address: '', phone: '', image_url: '', type: targetTab === 'directory_public' ? 'public' : 'commerce', status: 'approved', category_id: null, city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null }; type = 'directory'; break;
-      default: return;
-    }
-    if (explicitTab) setActiveTab(explicitTab);
-    setEditingItem({ item: newItem, type });
+  const handleAddNew = () => {
+    setActiveTab('directory');
+    setEditingItem({
+      type: 'directory',
+      item: {
+        name: '', description: '', address: '', phone: '', instagram_url: '', location: null,
+        image_url: '', type: 'commerce', status: 'approved', category_id: null,
+        city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null,
+      },
+    });
   };
 
   const handleModeration = async (entry, status) => {
@@ -508,7 +415,6 @@ const ManageServicesPage = () => {
   const renderList = (data, type) => (
     <ListaServicos
       data={data}
-      type={type}
       onEdit={(item) => setEditingItem({ item, type })}
       onDelete={(item) => setDeletingItem({ item, type })}
     />
@@ -529,37 +435,14 @@ const ManageServicesPage = () => {
               <p className="mt-2 text-lg text-muted-foreground">Cadastre comércios, igrejas, órgãos e outros locais da cidade.</p>
             </div>
           </div>
-          {activeTab === 'moderation' ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="gap-2">
-                  <PlusCircle className="w-4 h-4" /> Adicionar Novo
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('transport')}>
-                  <Bus className="w-4 h-4" /> Transporte
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('tourist_spots')}>
-                  <Landmark className="w-4 h-4" /> Ponto Turístico
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleAddNew('directory')}>
-                  <Church className="w-4 h-4" /> Local do Guia da Cidade
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button onClick={() => handleAddNew()} className="gap-2">
-              <PlusCircle className="w-4 h-4" /> Adicionar Novo
-            </Button>
-          )}
+          <Button onClick={handleAddNew} className="gap-2">
+            <PlusCircle className="w-4 h-4" /> Adicionar local
+          </Button>
         </motion.div>
 
         <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 bg-muted/50 rounded-lg h-auto">
+          <TabsList className="grid w-full grid-cols-2 bg-muted/50 rounded-lg h-auto">
             <TabsTrigger value="moderation" className="gap-2 py-2"><Hourglass className="w-4 h-4" /> Moderação ({pendingEntries.length})</TabsTrigger>
-            <TabsTrigger value="transport" className="gap-2 py-2"><Bus className="w-4 h-4" /> Transportes</TabsTrigger>
-            <TabsTrigger value="tourist_spots" className="gap-2 py-2"><Landmark className="w-4 h-4" /> Pontos Turísticos</TabsTrigger>
             <TabsTrigger value="directory" className="gap-2 py-2"><Church className="w-4 h-4" /> Guia da Cidade</TabsTrigger>
           </TabsList>
 
@@ -592,14 +475,6 @@ const ManageServicesPage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="transport" className="mt-8">
-            <Card><CardHeader><CardTitle>Gerenciar Transportes</CardTitle></CardHeader><CardContent>{renderList(transport, 'transport')}</CardContent></Card>
-          </TabsContent>
-          
-          <TabsContent value="tourist_spots" className="mt-8">
-            <Card><CardHeader><CardTitle>Gerenciar Pontos Turísticos</CardTitle></CardHeader><CardContent>{renderList(touristSpots, 'tourist_spots')}</CardContent></Card>
-          </TabsContent>
-
           <TabsContent value="directory" className="mt-8 grid gap-8 lg:grid-cols-[22rem_minmax(0,1fr)]">
             <Card className="h-fit">
               <CardHeader>
@@ -629,7 +504,7 @@ const ManageServicesPage = () => {
             <Card>
               <CardHeader className="flex-row items-center justify-between gap-3">
                 <div><CardTitle>Locais cadastrados</CardTitle><CardDescription>Comércios, igrejas, órgãos e serviços.</CardDescription></div>
-                <Button size="sm" variant="outline" className="gap-2" onClick={() => handleAddNew('directory')}><PlusCircle className="h-4 w-4" /> Adicionar local</Button>
+                <Button size="sm" variant="outline" className="gap-2" onClick={handleAddNew}><PlusCircle className="h-4 w-4" /> Adicionar local</Button>
               </CardHeader>
               <CardContent>{renderList(directoryData.all, 'directory')}</CardContent>
             </Card>
@@ -637,7 +512,7 @@ const ManageServicesPage = () => {
         </Tabs>
       </div>
 
-      {editingItem && <EditModal item={editingItem.item} type={editingItem.type} onSave={handleSave} onClose={() => setEditingItem(null)} allowedCityIds={isScopedAmbassador ? myActiveCityIds : undefined} directoryCategories={directoryCategories} />}
+      {editingItem && <EditModal item={editingItem.item} onSave={handleSave} onClose={() => setEditingItem(null)} allowedCityIds={isScopedAmbassador ? myActiveCityIds : undefined} directoryCategories={directoryCategories} />}
 
       <Dialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
         <DialogContent className="sm:max-w-md bg-card border-border">

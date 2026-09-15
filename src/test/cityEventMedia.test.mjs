@@ -9,6 +9,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   CITY_EVENT_BUCKET,
@@ -101,4 +102,11 @@ test('dois envios do mesmo arquivo não colidem', () => {
 
 test('o bucket é o que a migração 209 cria', () => {
   assert.equal(CITY_EVENT_BUCKET, 'city-events');
+});
+
+test('comunicado usa a coluna lateral para a imagem no desktop', async () => {
+  const pagina = await readFile(new URL('../pages/CityEventPage.jsx', import.meta.url), 'utf8');
+
+  assert.match(pagina, /ehComunicado \? 'lg:hidden' : ''/);
+  assert.match(pagina, /ehComunicado && evento\.image_url && \([\s\S]*?lg:block[\s\S]*?max-h-\[32rem\]/);
 });

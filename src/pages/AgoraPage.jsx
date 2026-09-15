@@ -2,9 +2,7 @@ import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight,
   CalendarClock,
-  CheckCircle2,
   ChevronRight,
   GaugeCircle,
   Construction,
@@ -56,7 +54,8 @@ const FILTROS_RADAR = [
   { id: 'transito', rotulo: 'Trânsito', tipos: ['road_block', 'traffic', 'public_transport'], Icone: TrafficCone },
   { id: 'saude', rotulo: 'Saúde', tipos: ['health'], Icone: HeartPulse },
   { id: 'eventos', rotulo: 'Eventos', tipos: ['event'], Icone: CalendarClock },
-  { id: 'outros', rotulo: 'Outros', tipos: ['weather', 'public_notice', 'other'], Icone: SlidersHorizontal },
+  { id: 'comunicados', rotulo: 'Comunicados', tipos: ['public_notice'], Icone: Megaphone },
+  { id: 'outros', rotulo: 'Outros', tipos: ['weather', 'other'], Icone: SlidersHorizontal },
 ];
 
 const normalizar = (valor) => String(valor || '')
@@ -81,15 +80,40 @@ const CabecalhoPainel = ({ Icone, titulo, descricao, acao }) => (
 
 const EventoLateral = ({ evento, agora, programado = false }) => {
   const previsao = estadoDaPrevisao(evento, agora);
+  const ehComunicado = evento.type === 'public_notice';
   const onde = evento.location_label || rotuloDasAreas(evento.areas, { maximo: 1 });
   const horario = programado
     ? previsaoLegivel(evento.started_at, agora)
     : previsao.tem ? previsao.texto : evento.started_at ? `Há ${horaCurta(evento.started_at)}` : '';
 
+  if (ehComunicado && evento.image_url) {
+    return (
+      <Link
+        to={`/agora/${evento.id}`}
+        className="group block overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm transition-colors hover:border-brand/30 hover:bg-surface-subtle"
+      >
+        <div className="overflow-hidden rounded-xl border border-edge-subtle bg-surface-sunken">
+          <img src={evento.image_url} alt="" className="block h-auto w-full object-contain" />
+        </div>
+        <div className="mt-2.5 flex items-center gap-2.5">
+          <IconeDoAcontecimento type={evento.type} severity={evento.severity} tamanho="sm" className="!h-8 !w-8 !rounded-lg" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="min-w-0 flex-1 line-clamp-2 text-[11px] font-extrabold leading-tight text-content-primary">{evento.title || 'Comunicado'}</p>
+              <SeloDeStatus status={evento.status} className="!px-1.5 !py-0.5 !text-[7px]" />
+            </div>
+            <p className="mt-0.5 line-clamp-2 text-[9px] text-content-tertiary">{onde || 'Toda a cidade'}</p>
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5" />
+        </div>
+      </Link>
+    );
+  }
+
   return (
     <Link
       to={`/agora/${evento.id}`}
-      className="group flex items-center gap-2.5 px-3.5 py-3 transition-colors hover:bg-surface-subtle"
+      className="group flex items-center gap-2.5 rounded-2xl border border-edge-subtle bg-surface-raised px-3.5 py-3 shadow-sm transition-colors hover:border-brand/30 hover:bg-surface-subtle"
     >
       <IconeDoAcontecimento
         type={evento.type}
@@ -106,7 +130,7 @@ const EventoLateral = ({ evento, agora, programado = false }) => {
           {!programado && <SeloDeStatus status={evento.status} className="!px-1.5 !py-0.5 !text-[7px]" />}
         </div>
         <p className="mt-0.5 line-clamp-2 text-[9px] leading-tight text-content-tertiary">{onde || 'Toda a cidade'}</p>
-        {horario && (
+        {!ehComunicado && horario && (
           <p className={`mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight ${previsao.vencida ? 'text-brand' : 'text-amber-400/80'}`}>
             {programado ? horario : previsao.tem ? `Até ${horario}` : horario}
           </p>
@@ -129,7 +153,7 @@ const ListaLateral = ({ titulo, Icone, eventos, agora, programado, carregando, v
     {carregando ? (
       <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>
     ) : eventos.length ? (
-      <div className="divide-y divide-edge-subtle">
+      <div className="grid gap-3 border-t border-edge-subtle bg-surface-base p-3">
         {eventos.slice(0, 5).map((evento) => (
           <EventoLateral key={evento.id} evento={evento} agora={agora} programado={programado} />
         ))}
@@ -235,6 +259,7 @@ function AgoraPage() {
           <CityEventForm
             cityId={cityId}
             cityName={cityName}
+            cityUf={ufDaCidade}
             papel={papel}
             bairrosDesignados={bairrosDesignados}
             restritoABairros={restritoABairros}

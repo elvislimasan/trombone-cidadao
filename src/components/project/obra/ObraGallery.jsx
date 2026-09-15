@@ -10,6 +10,7 @@ import {
   MoreVertical,
   Pencil,
   Plus,
+  Scaling,
   Trash2,
   Upload,
   Video,
@@ -222,6 +223,7 @@ export function ObraGallery({
   onRenameGallery,
   onDeleteGallery,
   onUpdateMediaItem,
+  onOptimizeMediaItem,
   onDeleteMediaItem,
   onUploadFiles,
   onBulkUpdateMediaItems,
@@ -235,7 +237,7 @@ export function ObraGallery({
     ? "p-4 sm:p-6"
     : "bg-card rounded-xl border border-edge-subtle shadow-sm p-4 sm:p-6";
 
-  const groups = Array.isArray(galleries) ? galleries : [];
+  const groups = useMemo(() => (Array.isArray(galleries) ? galleries : []), [galleries]);
   const galleryNames = useMemo(() => groups.map((g) => g.name).filter(Boolean), [groups]);
 
   // ── Dialog state ────────────────────────────────────────────────────────────
@@ -258,6 +260,11 @@ export function ObraGallery({
   const [moveToNewGalleryName, setMoveToNewGalleryName] = useState("");
   const [renamingMediaId, setRenamingMediaId] = useState(null);
   const [renamingMediaValue, setRenamingMediaValue] = useState("");
+  const [mediaContextMenu, setMediaContextMenu] = useState(null);
+  const [resizeDialog, setResizeDialog] = useState(null);
+  const [resizeDimension, setResizeDimension] = useState("1600");
+  const [resizingMediaId, setResizingMediaId] = useState(null);
+  const [pendingDeleteMedia, setPendingDeleteMedia] = useState(null);
 
   // ── Pending folder delete ────────────────────────────────────────────────────
   const [pendingDeleteGallery, setPendingDeleteGallery] = useState(null); // { name, items }
@@ -284,6 +291,10 @@ export function ObraGallery({
       setPendingDeleteGallery(null);
       setRenamingMediaId(null);
       setRenamingMediaValue("");
+      setMediaContextMenu(null);
+      setResizeDialog(null);
+      setResizingMediaId(null);
+      setPendingDeleteMedia(null);
     }
   }, [isEditOpen]);
 
@@ -292,6 +303,20 @@ export function ObraGallery({
     const exists = groups.some((g) => g?.name === overviewGalleryName);
     if (!exists) setOverviewGalleryName(null);
   }, [groups, overviewGalleryName]);
+
+  useEffect(() => {
+    if (!mediaContextMenu) return undefined;
+    const close = () => setMediaContextMenu(null);
+    const closeWithEscape = (event) => event.key === "Escape" && close();
+    window.addEventListener("click", close);
+    window.addEventListener("blur", close);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("blur", close);
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [mediaContextMenu]);
 
   const cancelLongPress = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -339,7 +364,10 @@ export function ObraGallery({
     () => (selectedGallery ? groups.find((g) => g.name === selectedGallery) || null : null),
     [groups, selectedGallery]
   );
-  const selectedItems = Array.isArray(selectedGroup?.items) ? selectedGroup.items : [];
+  const selectedItems = useMemo(
+    () => (Array.isArray(selectedGroup?.items) ? selectedGroup.items : []),
+    [selectedGroup]
+  );
 
   const selectedItemsCount = selectedItemIds.size;
   const allSelected = selectedItems.length > 0 && selectedItemsCount === selectedItems.length;
@@ -465,6 +493,28 @@ export function ObraGallery({
     setRenamingMediaId(null);
     setRenamingMediaValue("");
   }, [onUpdateMediaItem, renamingMediaId, renamingMediaValue]);
+
+  const canResizeMedia = useCallback(
+    (item) => Boolean(onOptimizeMediaItem) && ["image", "photo"].includes(item?.type),
+    [onOptimizeMediaItem]
+  );
+
+  const requestResizeMedia = useCallback((item) => {
+    setMediaContextMenu(null);
+    setResizeDimension("1600");
+    setResizeDialog(item);
+  }, []);
+
+  const resizeMedia = useCallback(async () => {
+    if (!resizeDialog?.id || !onOptimizeMediaItem) return;
+    setResizingMediaId(resizeDialog.id);
+    try {
+      const completed = await onOptimizeMediaItem(resizeDialog, { maxDimension: Number(resizeDimension) || 1600 });
+      if (completed !== false) setResizeDialog(null);
+    } finally {
+      setResizingMediaId(null);
+    }
+  }, [onOptimizeMediaItem, resizeDialog, resizeDimension]);
 
   const triggerFileInput = () => {
     if (!selectedGallery) return;
@@ -991,7 +1041,10 @@ export function ObraGallery({
                       if (e.pointerType === "touch") cancelLongPress();
                     }}
                     onContextMenu={(e) => {
-                      if (!isSelecting) e.preventDefault();
+                      if (!canEdit || isSelecting) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMediaContextMenu({ item, x: e.clientX, y: e.clientY });
                     }}
                   >
                     <div className="relative aspect-square bg-muted overflow-hidden">
@@ -1040,18 +1093,19 @@ export function ObraGallery({
                             {item.name || "Sem nome"}
                           </div>
                           {canEdit ? (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8 shrink-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startRenameMedia(item);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu modal={false}>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0" aria-label={`Opções de ${item.name || "imagem"}`} onClick={(e) => e.stopPropagation()}>
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuItem onClick={() => startRenameMedia(item)}><Pencil className="mr-2 h-4 w-4" /> Renomear</DropdownMenuItem>
+                                {canResizeMedia(item) && <DropdownMenuItem onClick={() => requestResizeMedia(item)}><Scaling className="mr-2 h-4 w-4" /> Redimensionar</DropdownMenuItem>}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => setPendingDeleteMedia(item)}><Trash2 className="mr-2 h-4 w-4" /> Excluir</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           ) : null}
                         </div>
                       )}
@@ -1072,29 +1126,11 @@ export function ObraGallery({
                       </div>
                     ) : null}
 
-                    {/* Quick delete — visible on hover when not selecting */}
-                    {!isSelecting ? (
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <ConfirmPopover
-                          trigger={
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="secondary"
-                              className="h-7 w-7 rounded-full bg-background/90 border border-border shadow-sm hover:bg-destructive hover:text-white hover:border-destructive transition-colors"
-                              aria-label="Remover mídia"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          }
-                          title="Remover esta mídia?"
-                          description="Essa ação não pode ser desfeita."
-                          confirmLabel="Remover"
-                          onConfirm={() => onDeleteMediaItem?.(item.id, item.url)}
-                        />
+                    {resizingMediaId === item.id && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/75 backdrop-blur-sm">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 ))}
 
@@ -1222,6 +1258,12 @@ export function ObraGallery({
                       key={item.id}
                       className="group cursor-pointer rounded-2xl border border-border bg-background overflow-hidden shadow-sm hover:shadow-md hover:border-muted-foreground/30 transition"
                       onClick={() => onOpenViewer?.(items, idx)}
+                      onContextMenu={(event) => {
+                        if (!canEdit || !canResizeMedia(item)) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setMediaContextMenu({ item, x: event.clientX, y: event.clientY, resizeOnly: true });
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
@@ -1334,6 +1376,12 @@ export function ObraGallery({
                       key={item.id}
                       className="group cursor-pointer"
                       onClick={() => onOpenViewer?.(items, idx)}
+                      onContextMenu={(event) => {
+                        if (!canEdit || !canResizeMedia(item)) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setMediaContextMenu({ item, x: event.clientX, y: event.clientY, resizeOnly: true });
+                      }}
                     >
                       <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-2 relative bg-muted shadow-sm border border-border">
                         <MediaThumb item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -1366,6 +1414,58 @@ export function ObraGallery({
 
         </div>
       ) : null}
+
+      {mediaContextMenu && canEdit ? (
+        <div
+          role="menu"
+          aria-label={`Ações de ${mediaContextMenu.item?.name || "imagem"}`}
+          className="fixed z-[10002] w-52 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-xl"
+          style={{ left: `min(${mediaContextMenu.x}px, calc(100vw - 13.5rem))`, top: `min(${mediaContextMenu.y}px, calc(100vh - 11rem))` }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {!mediaContextMenu.resizeOnly && <button type="button" role="menuitem" onClick={() => { startRenameMedia(mediaContextMenu.item); setMediaContextMenu(null); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-muted"><Pencil className="h-4 w-4" /> Renomear</button>}
+          {canResizeMedia(mediaContextMenu.item) && (
+            <button type="button" role="menuitem" onClick={() => requestResizeMedia(mediaContextMenu.item)} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-muted"><Scaling className="h-4 w-4" /> Redimensionar</button>
+          )}
+          {!mediaContextMenu.resizeOnly && <div className="my-1 h-px bg-border" />}
+          {!mediaContextMenu.resizeOnly && <button type="button" role="menuitem" onClick={() => { setPendingDeleteMedia(mediaContextMenu.item); setMediaContextMenu(null); }} className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /> Excluir</button>}
+        </div>
+      ) : null}
+
+      <Dialog open={Boolean(resizeDialog)} onOpenChange={(open) => !open && !resizingMediaId && setResizeDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Redimensionar imagem</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            A foto será convertida para WebP. O maior lado ficará limitado ao tamanho escolhido, mantendo a proporção.
+          </p>
+          <label className="grid gap-2 text-sm font-medium">
+            Tamanho máximo
+            <select value={resizeDimension} onChange={(event) => setResizeDimension(event.target.value)} disabled={Boolean(resizingMediaId)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+              <option value="1600">1600 px — qualidade alta</option>
+              <option value="1200">1200 px — equilibrado</option>
+              <option value="800">800 px — arquivo menor</option>
+            </select>
+          </label>
+          <p className="text-xs text-muted-foreground">O original só será removido depois que a nova imagem for salva com sucesso.</p>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={Boolean(resizingMediaId)} onClick={() => setResizeDialog(null)}>Cancelar</Button>
+            <Button type="button" disabled={Boolean(resizingMediaId)} onClick={resizeMedia}>
+              {resizingMediaId ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redimensionando...</> : <><Scaling className="mr-2 h-4 w-4" /> Redimensionar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(pendingDeleteMedia)} onOpenChange={(open) => !open && setPendingDeleteMedia(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Excluir imagem?</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">A imagem “{pendingDeleteMedia?.name || "Sem nome"}” será removida permanentemente.</p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPendingDeleteMedia(null)}>Cancelar</Button>
+            <Button type="button" variant="destructive" onClick={() => { const item = pendingDeleteMedia; setPendingDeleteMedia(null); if (item) onDeleteMediaItem?.(item.id, item.url); }}>Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {managerInline ? ManagementPanel : null}
 

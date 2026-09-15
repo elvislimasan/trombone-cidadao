@@ -31,3 +31,14 @@ test('a migration importa autores antigos e sincroniza as próximas edições', 
   assert.match(migration, /councilor_author/);
   assert.match(migration, /create trigger pavement_street_councilors_sync/);
 });
+
+test('renomear vereador atualiza o perfil antes de disparar a sincronização das ruas', async () => {
+  const migration = await read('supabase/migrations/263_fix_councilor_rename_sync_conflict.sql');
+  const profileUpdate = migration.indexOf('update public.councilors\n  set name = v_new_name');
+  const streetLoop = migration.indexOf('for v_street in');
+
+  assert.ok(profileUpdate >= 0, 'a migration deve atualizar a identidade do perfil');
+  assert.ok(streetLoop >= 0, 'a migration deve atualizar as autorias das ruas');
+  assert.ok(profileUpdate < streetLoop, 'o perfil deve assumir a nova chave antes dos triggers das ruas');
+  assert.match(migration, /public\.normalized_councilor_name\(v_author_name\) = v_councilor\.normalized_name/);
+});

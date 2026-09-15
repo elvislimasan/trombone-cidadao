@@ -5,12 +5,13 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart, Pencil } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart, Pencil, Navigation, Clock, Info } from 'lucide-react';
 import { whatsappNumber } from '@/lib/utils';
 import ServicesRankingSidebar from '@/components/ServicesRankingSidebar';
 import { showAppError } from '@/lib/appError';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { normalizarInstagram } from '@/lib/externalLinks';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -67,7 +68,16 @@ const DirectoryDetailsPage = () => {
 
   const waNumber = whatsappNumber(item.phone);
   const phoneLink = waNumber ? `https://wa.me/${waNumber}` : `tel:${item.phone || ''}`;
-  const initialPosition = item.location ? { lat: item.location.coordinates[1], lng: item.location.coordinates[0] } : null;
+  const initialPosition = item.location?.coordinates?.length >= 2
+    ? { lat: Number(item.location.coordinates[1]), lng: Number(item.location.coordinates[0]) }
+    : null;
+  const instagramUrl = normalizarInstagram(item.instagram_url);
+  const guideMetadata = item.guide_metadata || {};
+  const directionsUrl = initialPosition
+    ? `https://www.google.com/maps/dir/?api=1&destination=${initialPosition.lat},${initialPosition.lng}`
+    : item.address
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.address)}`
+      : null;
   const canEdit = Boolean(user && (user.is_admin || user.is_master || user.is_ambassador) && canWrite('services'));
 
   return (
@@ -106,8 +116,15 @@ const DirectoryDetailsPage = () => {
                   {item.name}
                 </CardTitle>
                 {item.category?.name && <p className="mt-2 text-sm font-semibold text-primary">{item.category.name}</p>}
+                {guideMetadata.destination && <p className="mt-1 text-lg text-muted-foreground">Destino: {guideMetadata.destination}</p>}
               </CardHeader>
               <CardContent className="space-y-4">
+                {item.description && (
+                  <div className="flex items-start gap-3 text-base">
+                    <Info className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                    <p className="whitespace-pre-wrap">{item.description}</p>
+                  </div>
+                )}
                 <div className="flex items-start gap-3 text-lg">
                   <MapPin className="w-6 h-6 text-muted-foreground mt-1 flex-shrink-0" />
                   <span>{item.address}</span>
@@ -118,11 +135,17 @@ const DirectoryDetailsPage = () => {
                     <span>{item.phone}</span>
                   </a>
                 )}
-                {item.instagram_url && (
-                  <a href={item.instagram_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-lg hover:text-primary transition-colors">
+                {instagramUrl && (
+                  <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-lg hover:text-primary transition-colors">
                     <Instagram className="w-6 h-6 text-muted-foreground" />
                     <span>Ver no Instagram</span>
                   </a>
+                )}
+                {guideMetadata.schedule && (
+                  <div className="flex items-start gap-3 text-base">
+                    <Clock className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                    <div><p className="font-semibold">Horários</p><p className="whitespace-pre-wrap text-muted-foreground">{guideMetadata.schedule}</p></div>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -131,10 +154,17 @@ const DirectoryDetailsPage = () => {
                 <CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5" /> Localização</CardTitle>
               </CardHeader>
               <CardContent>
+                {directionsUrl && (
+                  <Button asChild className="mb-4 w-full gap-2 sm:w-auto">
+                    <a href={directionsUrl} target="_blank" rel="noopener noreferrer">
+                      <Navigation className="h-4 w-4" /> Traçar rota
+                    </a>
+                  </Button>
+                )}
                 {initialPosition ? (
                   <div className="h-80 w-full rounded-lg overflow-hidden border">
                     <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
-                      <LocationPickerMap initialPosition={initialPosition} readOnly={true} />
+                      <LocationPickerMap initialPosition={initialPosition} readOnly />
                     </Suspense>
                   </div>
                 ) : (
@@ -145,7 +175,7 @@ const DirectoryDetailsPage = () => {
           </div>
 
           <div className="hidden lg:block">
-            <ServicesRankingSidebar currentServiceType="directory" currentServiceId={id} />
+            <ServicesRankingSidebar currentServiceId={id} />
           </div>
         </div>
       </motion.div>

@@ -191,7 +191,9 @@ export default function ManageCouncilorsPage() {
         setSaving(false);
         showAppError({
           title: 'Não foi possível alterar o nome',
-          description: `${renameError.message}. Confira se a migration 253 foi aplicada.`,
+          description: renameError.code === '23505'
+            ? 'Já existe um vereador com esse nome nesta cidade.'
+            : renameError.message,
           variant: 'destructive',
         });
         return;

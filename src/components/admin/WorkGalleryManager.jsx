@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ObraGallery } from "@/components/project/obra/ObraGallery";
+import WorkDocumentOrganizer from "@/components/project/obra/WorkDocumentOrganizer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Check, FileText, Pencil, Trash2, Upload, X } from "lucide-react";
-import { showAppError } from '@/lib/appError';
+import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { optimizeStoredWorkImage } from '@/lib/optimizeStoredWorkImage';
 
 export function WorkGalleryManager({
   workId,
@@ -25,11 +26,11 @@ export function WorkGalleryManager({
   const [activeMeasurementId, setActiveMeasurementId] = useState(measurementId);
   const [hasLegacyMedia, setHasLegacyMedia] = useState(false);
   const [scope, setScope] = useState("phase"); // phase | legacy
+  const [documentFolders, setDocumentFolders] = useState([]);
   const [pendingDeleteDocument, setPendingDeleteDocument] = useState(null);
   const [isUploadingDocuments, setIsUploadingDocuments] = useState(false);
+  const [uploadDocumentFolderId, setUploadDocumentFolderId] = useState(null);
   const documentFileInputRef = useRef(null);
-  const [renamingDocumentId, setRenamingDocumentId] = useState(null);
-  const [renamingDocumentValue, setRenamingDocumentValue] = useState("");
 
   const loadMedia = useCallback(async () => {
     if (!workId) return;
@@ -43,13 +44,29 @@ export function WorkGalleryManager({
         if (mid) q = q.eq("measurement_id", mid);
         else if (!allowAll) {
           setMedia([]);
+          setDocumentFolders([]);
           setLoading(false);
           return;
         }
       }
-      const { data, error } = await q;
-      if (error) throw error;
+      let folderQuery = supabase
+        .from("public_work_document_folders")
+        .select("*")
+        .eq("work_id", workId)
+        .order("sort_order", { ascending: true });
+      if (!isFixedMeasurement && scope === "legacy") {
+        folderQuery = folderQuery.is("measurement_id", null);
+      } else {
+        const mid = isFixedMeasurement ? measurementId : activeMeasurementId;
+        if (mid) folderQuery = folderQuery.eq("measurement_id", mid);
+      }
+
+      const [mediaResult, folderResult] = await Promise.all([q, folderQuery]);
+      if (mediaResult.error) throw mediaResult.error;
+      if (folderResult.error) throw folderResult.error;
+      const data = mediaResult.data;
       setMedia(data || []);
+      setDocumentFolders(folderResult.data || []);
     } catch (e) {
       showAppError({ title: "Erro ao carregar mídias", description: e?.message || "Tente novamente.", variant: "destructive" });
     } finally {
@@ -159,6 +176,10 @@ export function WorkGalleryManager({
       .map((m) => ({ ...m, title: m.name }));
   }, [media]);
 
+  const selectedMeasurementId = isFixedMeasurement
+    ? measurementId
+    : scope === "legacy" ? null : activeMeasurementId;
+
   const deleteFromStorageIfPossible = useCallback(async (url) => {
     try {
       const filePath = new URL(url).pathname.split("/work-media/")[1];
@@ -239,6 +260,73 @@ export function WorkGalleryManager({
     [loadMedia, user?.is_admin]
   );
 
+  const handleCreateDocumentFolder = useCallback(async (parentId, name) => {
+    if (!user?.is_admin || !workId) return null;
+    const siblings = documentFolders.filter((folder) => (
+      String(folder.measurement_id || '') === String(selectedMeasurementId || '')
+      && String(folder.parent_id || '') === String(parentId || '')
+    ));
+    try {
+      const { data, error } = await supabase
+        .from('public_work_document_folders')
+        .insert({
+          work_id: workId,
+          measurement_id: selectedMeasurementId || null,
+          parent_id: parentId || null,
+          name,
+          sort_order: siblings.length,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      await loadMedia();
+      return data;
+    } catch (e) {
+      showAppError({ title: 'Erro ao criar pasta', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+      return null;
+    }
+  }, [documentFolders, loadMedia, selectedMeasurementId, user?.is_admin, workId]);
+
+  const handleRenameDocumentFolder = useCallback(async (folderId, name) => {
+    if (!user?.is_admin) return;
+    try {
+      const { error } = await supabase
+        .from('public_work_document_folders')
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq('id', folderId);
+      if (error) throw error;
+      await loadMedia();
+    } catch (e) {
+      showAppError({ title: 'Erro ao renomear pasta', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+    }
+  }, [loadMedia, user?.is_admin]);
+
+  const handleMoveDocumentFolder = useCallback(async (folderId, parentId) => {
+    if (!user?.is_admin) return;
+    try {
+      const { error } = await supabase
+        .from('public_work_document_folders')
+        .update({ parent_id: parentId || null, updated_at: new Date().toISOString() })
+        .eq('id', folderId);
+      if (error) throw error;
+      await loadMedia();
+    } catch (e) {
+      showAppError({ title: 'Erro ao mover pasta', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+    }
+  }, [loadMedia, user?.is_admin]);
+
+  const handleDeleteDocumentFolder = useCallback(async (folder) => {
+    if (!user?.is_admin || !folder?.id) return;
+    if (!window.confirm(`Excluir a pasta “${folder.name}” e suas subpastas? Os arquivos serão mantidos na raiz.`)) return;
+    try {
+      const { error } = await supabase.from('public_work_document_folders').delete().eq('id', folder.id);
+      if (error) throw error;
+      await loadMedia();
+    } catch (e) {
+      showAppError({ title: 'Erro ao excluir pasta', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+    }
+  }, [loadMedia, user?.is_admin]);
+
   const handleDeleteMediaItem = useCallback(
     async (mediaId, url) => {
       if (!user?.is_admin) return;
@@ -255,6 +343,26 @@ export function WorkGalleryManager({
     },
     [deleteFromStorageIfPossible, loadMedia, user?.is_admin]
   );
+
+  const handleOptimizeMediaItem = useCallback(async (item, options) => {
+    if (!user?.is_admin) return false;
+    try {
+      const result = await optimizeStoredWorkImage(item, options);
+      if (!result.changed) {
+        showAppInfo({ title: 'Imagem já está otimizada', description: 'O arquivo atual já é menor ou não ultrapassa o limite escolhido.' });
+      } else {
+        const savedPercent = result.originalBytes
+          ? Math.max(0, Math.round((1 - result.optimizedBytes / result.originalBytes) * 100))
+          : 0;
+        showAppNotice({ title: 'Imagem redimensionada', description: savedPercent ? `O arquivo ficou ${savedPercent}% menor.` : 'A resolução foi reduzida com sucesso.' });
+      }
+      await loadMedia();
+      return true;
+    } catch (e) {
+      showAppError({ title: 'Erro ao redimensionar imagem', description: e?.message || 'Tente novamente.', variant: 'destructive' });
+      return false;
+    }
+  }, [loadMedia, user?.is_admin]);
 
   const handleBulkUpdateMediaItems = useCallback(
     async (mediaIds, patch) => {
@@ -364,7 +472,7 @@ export function WorkGalleryManager({
   );
 
   const handleUploadDocuments = useCallback(
-    async (files) => {
+    async (files, folderId = null) => {
       if (!user?.is_admin) return;
       if (!workId) return;
       const list = Array.isArray(files) ? files : [];
@@ -389,6 +497,10 @@ export function WorkGalleryManager({
 
           const type = file.type === "application/pdf" ? "pdf" : "file";
 
+          const documentOrder = documents.filter((document) => (
+            String(document.document_folder_id || '') === String(folderId || '')
+          )).length;
+
           const { error: dbError } = await supabase.from("public_work_media").insert({
             work_id: workId,
             measurement_id: mid || null,
@@ -397,6 +509,8 @@ export function WorkGalleryManager({
             name: file.name,
             status: "approved",
             gallery_name: null,
+            document_folder_id: folderId || null,
+            document_order: documentOrder,
             contributor_id: user?.id || null,
           });
           if (dbError) throw dbError;
@@ -410,7 +524,7 @@ export function WorkGalleryManager({
         setIsUploadingDocuments(false);
       }
     },
-    [activeMeasurementId, isFixedMeasurement, loadMedia, measurementId, scope, user?.id, user?.is_admin, workId]
+    [activeMeasurementId, documents, isFixedMeasurement, loadMedia, measurementId, scope, user?.id, user?.is_admin, workId]
   );
 
   return (
@@ -473,6 +587,7 @@ export function WorkGalleryManager({
         onRenameGallery={handleRenameGallery}
         onDeleteGallery={handleDeleteGallery}
         onUpdateMediaItem={handleUpdateMediaItem}
+        onOptimizeMediaItem={handleOptimizeMediaItem}
         onDeleteMediaItem={handleDeleteMediaItem}
         onUploadFiles={handleUploadFiles}
         onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
@@ -482,124 +597,23 @@ export function WorkGalleryManager({
         allowMoveToLegacy={scope === "phase"}
       />
 
-      <div className="border-t mt-4 pt-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-muted/40 border border-border">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-            </span>
-            <div>
-              <div className="text-sm font-semibold text-foreground">Documentos</div>
-              <div className="text-xs text-muted-foreground">{documents.length} arquivo{documents.length === 1 ? "" : "s"}</div>
-            </div>
-          </div>
-
-          {user?.is_admin ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => documentFileInputRef.current?.click()}
-              disabled={isUploadingDocuments}
-              className="w-full sm:w-auto"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Adicionar documento
-            </Button>
-          ) : null}
-        </div>
-
-        {documents.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {documents.map((doc) => (
-              <div key={doc.id} className="flex items-center gap-2 p-3 rounded-2xl border border-border hover:border-muted-foreground/30 hover:bg-muted/20 transition-all">
-                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border flex items-center justify-center text-muted-foreground mr-3 shrink-0">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    {renamingDocumentId === doc.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={renamingDocumentValue}
-                          onChange={(e) => setRenamingDocumentValue(e.target.value)}
-                          className="h-9"
-                          onClick={(e) => e.preventDefault()}
-                        />
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          className="h-9 w-9"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setRenamingDocumentId(null);
-                            setRenamingDocumentValue("");
-                          }}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="default"
-                          className="h-9 w-9"
-                          disabled={!String(renamingDocumentValue || "").trim()}
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            const nextName = String(renamingDocumentValue || "").trim();
-                            if (!nextName) return;
-                            await handleUpdateMediaItem(doc.id, { name: nextName });
-                            setRenamingDocumentId(null);
-                            setRenamingDocumentValue("");
-                          }}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="text-sm font-medium text-foreground truncate">{doc.title || doc.name || "Documento"}</p>
-                    )}
-                  </div>
-                </a>
-
-                {user?.is_admin ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      className="h-9 w-9"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRenamingDocumentId(doc.id);
-                        setRenamingDocumentValue(String(doc.title || doc.name || "").trim());
-                      }}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="destructive"
-                      className="h-9 w-9"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setPendingDeleteDocument({ id: doc.id, name: doc.title || doc.name || "Documento", url: doc.url });
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-2xl bg-muted/10">
-            Nenhum documento anexado.
-          </div>
-        )}
+      <div className="mt-4 border-t pt-4">
+        <WorkDocumentOrganizer
+          documents={documents}
+          folders={documentFolders}
+          canEdit={Boolean(user?.is_admin)}
+          busy={isUploadingDocuments}
+          onUpload={(folderId) => {
+            setUploadDocumentFolderId(folderId || null);
+            documentFileInputRef.current?.click();
+          }}
+          onCreateFolder={handleCreateDocumentFolder}
+          onRenameFolder={handleRenameDocumentFolder}
+          onMoveFolder={handleMoveDocumentFolder}
+          onDeleteFolder={handleDeleteDocumentFolder}
+          onUpdateDocument={handleUpdateMediaItem}
+          onDeleteDocument={setPendingDeleteDocument}
+        />
 
         {user?.is_admin ? (
           <Input
@@ -611,7 +625,8 @@ export function WorkGalleryManager({
             onChange={(e) => {
               const files = Array.from(e.target.files || []);
               e.target.value = "";
-              handleUploadDocuments(files);
+              handleUploadDocuments(files, uploadDocumentFolderId);
+              setUploadDocumentFolderId(null);
             }}
           />
         ) : null}

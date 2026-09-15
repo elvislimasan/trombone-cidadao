@@ -30,7 +30,7 @@ const canvasBlob = (canvas, type, quality) => new Promise((resolve, reject) => {
  * Redimensiona fotos antes do upload no navegador e no WebView do app.
  * O limite padrão acompanha o fluxo principal de broncas no mobile nativo.
  */
-export async function optimizeImageFile(file, { maxDimension = 1600, quality = 0.8 } = {}) {
+export async function optimizeImageFile(file, { maxDimension = 1600, quality = 0.8, forceResize = false } = {}) {
   if (!file?.type?.startsWith('image/') || /image\/(gif|svg\+xml)/i.test(file.type)) return file;
   if (typeof Image === 'undefined' || typeof document === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return file;
 
@@ -51,7 +51,8 @@ export async function optimizeImageFile(file, { maxDimension = 1600, quality = 0
       // pico de memória ao selecionar várias fotos no celular.
       canvas.width = 1;
       canvas.height = 1;
-      if (blob.size >= file.size) return file;
+      const dimensionsChanged = scale < 1;
+      if (blob.size >= file.size && !(forceResize && dimensionsChanged)) return file;
       const name = String(file.name || 'imagem').replace(/\.[^.]+$/, '') + '.webp';
       return new File([blob], name, { type: 'image/webp', lastModified: Date.now() });
     } finally {

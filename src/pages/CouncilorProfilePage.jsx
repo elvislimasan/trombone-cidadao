@@ -245,7 +245,7 @@ export default function CouncilorProfilePage() {
             </div>
             <div className="divide-y divide-edge-subtle px-3 sm:px-5">
               {streetActivities.map((street) => (
-                <Link key={street.id} to={streetPath(street)} className="group flex min-w-0 items-center gap-3 px-1 py-3.5 sm:px-2">
+                <Link key={street.id} to={streetPath(street)} className="group flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-1 py-3.5 sm:px-2">
                   <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-subtle text-brand">
                     <Navigation className="h-5 w-5" />
                     {street.honoreePhoto?.url && (
@@ -258,7 +258,7 @@ export default function CouncilorProfilePage() {
                       />
                     )}
                   </span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-extrabold text-content-primary">{street.name}</span><span className="mt-0.5 block truncate text-xs text-content-secondary">{street.bairro?.name || cityName}</span></span>
+                  <span className="min-w-0 flex-1"><span className="block break-words text-sm font-extrabold leading-snug text-content-primary">{street.name}</span><span className="mt-0.5 block truncate text-xs text-content-secondary">{street.bairro?.name || cityName}</span></span>
                   <ArrowRight className="h-4 w-4 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
                 </Link>
               ))}

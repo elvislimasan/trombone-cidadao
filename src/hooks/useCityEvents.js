@@ -298,6 +298,12 @@ export function useCityEventActions({ aoConcluir } = {}) {
         latitude: dados.locationLat ?? null,
         longitude: dados.locationLng ?? null,
         location_label: dados.locationLabel || null,
+        // A RPC de edição preserva previsão quando recebe null. Para
+        // comunicado, null significa apagar de propósito: este tipo não tem
+        // janela de normalização nem deve entrar na varredura de vencidos.
+        ...(dados.type === 'public_notice'
+          ? { estimated_end_at: null, estimated_end_day_only: false }
+          : {}),
       }).eq('id', eventId);
 
       showAppNotice({ title: 'Acontecimento atualizado.' });

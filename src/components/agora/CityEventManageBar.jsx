@@ -50,7 +50,8 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
   const previsao = estadoDaPrevisao(evento);
   const aberto = estaAberto(evento);
   const ehEvento = evento.type === 'event';
-  const precisaVerificar = !ehEvento && aberto && (previsao.vencida || evento.status === 'awaiting_confirmation');
+  const ehComunicado = evento.type === 'public_notice';
+  const precisaVerificar = !ehEvento && !ehComunicado && aberto && (previsao.vencida || evento.status === 'awaiting_confirmation');
 
   const fechar = () => { setModal(null); setMensagem(''); setAvisar(false); };
 
@@ -83,10 +84,12 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
       exemplo: 'O reparo exigiu intervenção adicional.',
     },
     resolver: {
-      titulo: 'Sim, normalizou',
-      descricao: 'O acontecimento é encerrado e a comunidade passa a poder confirmar se voltou na rua dela.',
-      acao: 'Marcar como normalizado',
-      exemplo: 'Abastecimento restabelecido em toda a área afetada.',
+      titulo: ehComunicado ? 'Encerrar comunicado' : 'Sim, normalizou',
+      descricao: ehComunicado
+        ? 'O comunicado deixa de aparecer entre os avisos ativos e permanece no histórico.'
+        : 'O acontecimento é encerrado e a comunidade passa a poder confirmar se voltou na rua dela.',
+      acao: ehComunicado ? 'Encerrar comunicado' : 'Marcar como normalizado',
+      exemplo: ehComunicado ? 'Comunicado encerrado.' : 'Abastecimento restabelecido em toda a área afetada.',
     },
     atualizar: {
       titulo: 'Nova atualização',
@@ -143,11 +146,11 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
           {aberto && !ehEvento && !precisaVerificar && (
             <>
               <Button size="sm" className="gap-1.5" onClick={() => setModal('resolver')}>
-                <CheckCircle2 className="h-4 w-4" /> Marcar normalizado
+                <CheckCircle2 className="h-4 w-4" /> {ehComunicado ? 'Encerrar comunicado' : 'Marcar normalizado'}
               </Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setModal('prorrogar')}>
+              {!ehComunicado && <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setModal('prorrogar')}>
                 <Clock className="h-4 w-4" /> Nova previsão
-              </Button>
+              </Button>}
             </>
           )}
 
@@ -157,7 +160,7 @@ const CityEventManageBar = ({ evento, acoes, aoEditar, aoRemover }) => {
             </Button>
           )}
 
-          {!ehEvento && evento.status === 'resolved' && (
+          {!ehEvento && !ehComunicado && evento.status === 'resolved' && (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setModal('reabrir')}>
               <RotateCcw className="h-4 w-4" /> Reabrir
             </Button>

@@ -100,6 +100,7 @@ export default function CityEventPage() {
   const podeEditar = podeGerir || evento.can_manage;
   const linkExterno = normalizarLinkExterno(evento.source_url);
   const linkDoYoutube = linkEhDoYoutube(linkExterno);
+  const ehComunicado = evento.type === 'public_notice';
 
   if (editando) {
     return (
@@ -108,6 +109,7 @@ export default function CityEventPage() {
           <CityEventForm
             cityId={evento.city_id}
             cityName={evento.city_name}
+            cityUf={evento.city_uf}
             papel={papel}
             bairrosDesignados={bairrosDesignados}
             restritoABairros={restritoABairros}
@@ -174,11 +176,13 @@ export default function CityEventPage() {
             acima do botão de voltar tiraria a saída da tela do alcance do
             polegar em telefone alto. */}
         {evento.image_url && (
-          <div className="mt-3 overflow-hidden rounded-3xl bg-surface-sunken">
+          <div className={`mt-3 overflow-hidden rounded-3xl bg-surface-sunken ${ehComunicado ? 'lg:hidden' : ''}`}>
             <img
               src={evento.image_url}
               alt=""
-              className="block max-h-56 w-full object-cover"
+              className={ehComunicado
+                ? 'block h-auto w-full object-contain'
+                : 'block max-h-56 w-full object-cover'}
               onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
             />
           </div>
@@ -216,7 +220,7 @@ export default function CityEventPage() {
             o que faz valer a pena reabrir a tela durante o dia.
             Ela some quando não há janela (sem previsão, ou já resolvido):
             desenhar uma proporção sem denominador seria inventar um número. */}
-        {evento.type === 'event' ? (
+        {ehComunicado ? null : evento.type === 'event' ? (
           <div className="mt-4 rounded-3xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1 sm:p-5">
             <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-brand">
               <CalendarDays className="h-3.5 w-3.5" /> Data e horário
@@ -387,7 +391,18 @@ export default function CityEventPage() {
               tela que só a pessoa pode responder, e ela ficava no fim de uma
               página que quase ninguém rola até o fim. */}
           <aside className="grid gap-4 lg:sticky lg:top-4">
-            {evento.type !== 'event' && (
+            {ehComunicado && evento.image_url && (
+              <div className="hidden overflow-hidden rounded-3xl border border-edge-subtle bg-surface-sunken shadow-elevation-1 lg:block">
+                <img
+                  src={evento.image_url}
+                  alt=""
+                  className="block max-h-[32rem] w-full object-contain"
+                  onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
+                />
+              </div>
+            )}
+
+            {evento.type !== 'event' && evento.type !== 'public_notice' && (
               <CommunityConfirmation
                 evento={evento}
                 salvando={acoes.salvando}
