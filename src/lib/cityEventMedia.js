@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { optimizeImageFile } from './optimizeImage.js';
 
 // A foto do acontecimento.
 //
@@ -83,12 +84,13 @@ export const uploadImagemDeAcontecimento = async ({ supabase, file, cityId }) =>
   const erro = validarImagemDeAcontecimento(file);
   if (erro) throw new Error(erro);
 
-  const path = caminhoDaImagem({ cityId, fileName: file.name });
-  const contentType = cityEventMimeType(file);
+  const uploadFile = await optimizeImageFile(file);
+  const path = caminhoDaImagem({ cityId, fileName: uploadFile.name });
+  const contentType = cityEventMimeType(uploadFile);
 
   const { error } = await supabase.storage
     .from(CITY_EVENT_BUCKET)
-    .upload(path, file, { cacheControl: '3600', contentType, upsert: false });
+    .upload(path, uploadFile, { cacheControl: '3600', contentType, upsert: false });
   if (error) throw error;
 
   const { data } = supabase.storage.from(CITY_EVENT_BUCKET).getPublicUrl(path);

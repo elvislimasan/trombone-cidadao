@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { linkEhDoYoutube, normalizarLinkExterno, textoDoBotaoExterno } from '../lib/externalLinks.js';
+import { linkEhDoYoutube, normalizarInstagram, normalizarLinkExterno, textoDoBotaoExterno } from '../lib/externalLinks.js';
 
 test('acrescenta https a um endereço digitado sem protocolo', () => {
   assert.equal(
@@ -26,4 +26,10 @@ test('usa texto personalizado e mantém um padrão quando ele está vazio', () =
   assert.equal(textoDoBotaoExterno('  Assistir à transmissão  ', 'https://youtube.com/live/abc'), 'Assistir à transmissão');
   assert.equal(textoDoBotaoExterno('', 'https://youtube.com/@cidade'), 'Abrir no YouTube');
   assert.equal(textoDoBotaoExterno(null, 'https://prefeitura.gov.br/alerta'), 'Acessar mais informações');
+});
+
+test('Instagram aceita arroba ou URL completa', () => {
+  assert.equal(normalizarInstagram('@empresa'), 'https://www.instagram.com/empresa/');
+  assert.equal(normalizarInstagram('empresa.oficial'), 'https://www.instagram.com/empresa.oficial/');
+  assert.equal(normalizarInstagram('https://instagram.com/empresa'), 'https://instagram.com/empresa');
 });

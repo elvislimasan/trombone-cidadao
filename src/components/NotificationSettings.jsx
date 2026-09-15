@@ -1,7 +1,7 @@
 import React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bell, Smartphone, MessageSquare, Construction, AlertTriangle, Settings } from 'lucide-react';
+import { Bell, Smartphone, MessageSquare, Construction, AlertTriangle, Settings, Users } from 'lucide-react';
 import { useNotifications } from '@/contexts/NotificationContext';
 
 const NotificationSettings = () => {
@@ -109,6 +109,25 @@ const NotificationSettings = () => {
                   checked={notificationPreferences.works}
                   onCheckedChange={(checked) => 
                     updatePreferences({ works: checked })
+                  }
+                  disabled={!notificationsEnabled}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">Perfis que sigo</p>
+                    <p className="text-xs text-muted-foreground">
+                      Novas broncas de quem você acompanha
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={notificationPreferences.following_activity ?? true}
+                  onCheckedChange={(checked) =>
+                    updatePreferences({ following_activity: checked })
                   }
                   disabled={!notificationsEnabled}
                 />

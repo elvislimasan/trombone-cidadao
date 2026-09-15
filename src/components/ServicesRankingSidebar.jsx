@@ -1,34 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { TrendingUp, Bus, Landmark, Phone } from 'lucide-react';
+import { TrendingUp, Building } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from '@/lib/customSupabaseClient';
 
-const ServicesRankingSidebar = ({ currentServiceType, currentServiceId }) => {
-  const [rankings, setRankings] = useState({
-    transport: [],
-    tourist_spots: [],
-    directory: [],
-  });
+const ServicesRankingSidebar = ({ currentServiceId }) => {
+  const [rankings, setRankings] = useState([]);
 
   useEffect(() => {
     const fetchRankings = async () => {
-      const tables = ['transport', 'tourist_spots', 'directory'];
-      const newRankings = {};
+      const { data, error } = await supabase
+        .from('directory')
+        .select('id, name, views')
+        .eq('status', 'approved')
+        .order('views', { ascending: false })
+        .limit(6);
 
-      for (const table of tables) {
-        const { data, error } = await supabase
-          .from(table)
-          .select('id, name, views')
-          .order('views', { ascending: false })
-          .limit(6); // Fetch 6 to have a fallback if current is in top 5
-
-        if (!error) {
-          newRankings[table] = data.filter(item => item.id !== currentServiceId).slice(0, 5);
-        }
-      }
-      setRankings(newRankings);
+      if (!error) setRankings((data || []).filter(item => String(item.id) !== String(currentServiceId)).slice(0, 5));
     };
 
     fetchRankings();
@@ -44,16 +33,7 @@ const ServicesRankingSidebar = ({ currentServiceType, currentServiceId }) => {
     visible: { x: 0, opacity: 1 }
   };
 
-  const getLink = (item, type) => {
-    switch (type) {
-      case 'transport': return `/servicos/transporte/${item.id}`;
-      case 'tourist_spots': return `/servicos/ponto-turistico/${item.id}`;
-      case 'directory': return `/servicos/guia/${item.id}`;
-      default: return '#';
-    }
-  };
-
-  const RankingList = ({ items, type, icon: Icon }) => (
+  const RankingList = ({ items }) => (
     <motion.div
       variants={containerVariants}
       initial="hidden"
@@ -61,15 +41,15 @@ const ServicesRankingSidebar = ({ currentServiceType, currentServiceId }) => {
       className="space-y-3"
     >
       <h3 className="font-semibold text-md flex items-center gap-2 text-muted-foreground mb-2">
-        <Icon className="w-5 h-5" />
-        Top 5 {type === 'transport' ? 'Transportes' : type === 'tourist_spots' ? 'Pontos Turísticos' : 'Guia Comercial'}
+        <Building className="w-5 h-5" />
+        Top 5 do Guia da Cidade
       </h3>
       {items.length > 0 ? items.map((item, index) => (
         <motion.div
           key={item.id}
           variants={itemVariants}
         >
-          <Link to={getLink(item, type)} className="block p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-transparent hover:border-primary/50">
+          <Link to={`/servicos/guia/${item.id}`} className="block p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-transparent hover:border-primary/50">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-foreground truncate pr-4 flex-1">
                 <span className="text-primary font-bold mr-2">#{index + 1}</span>
@@ -97,9 +77,7 @@ const ServicesRankingSidebar = ({ currentServiceType, currentServiceId }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {currentServiceType !== 'transport' && <RankingList items={rankings.transport} type="transport" icon={Bus} />}
-        {currentServiceType !== 'tourist_spots' && <RankingList items={rankings.tourist_spots} type="tourist_spots" icon={Landmark} />}
-        {currentServiceType !== 'directory' && <RankingList items={rankings.directory} type="directory" icon={Phone} />}
+        <RankingList items={rankings} />
       </CardContent>
     </Card>
   );

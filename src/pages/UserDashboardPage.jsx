@@ -36,7 +36,7 @@ const normalizarBusca = (value) => String(value || '')
   .replace(/\p{Mn}/gu, '')
   .toLowerCase();
 
-const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null }) => {
+const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null, profileMode = false }) => {
   const { user } = useAuth();
   const { activeCityId } = useCity();
   const location = useLocation();
@@ -45,7 +45,8 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
+  const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', category_id: null, photo: null, photoPreview: null });
+  const [guideCategories, setGuideCategories] = useState([]);
   const photoInputRef = useRef(null);
   const suppressReportAutoOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -54,6 +55,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const [filtroSituacao, setFiltroSituacao] = useState('all');
   const [filtroModeracao, setFiltroModeracao] = useState('all');
   const [ordemBroncas, setOrdemBroncas] = useState('recentes');
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [paginaBroncas, setPaginaBroncas] = useState(1);
   const navigate = useNavigate();
 
@@ -74,13 +76,19 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   }, [location.search]);
   const { handleUpvote: handleUpvoteHook } = useUpvote();
 
+  useEffect(() => {
+    if (!activeCityId) { setGuideCategories([]); return; }
+    supabase.from('directory_categories').select('*').eq('active', true).order('name')
+      .then(({ data }) => setGuideCategories(data || []));
+  }, [activeCityId]);
+
   const fetchUserContributions = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
     const { data: reportsData, error: reportsError } = await supabase
       .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:upvotes(count), timeline:report_timeline(*)')
+      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:signatures(count), timeline:report_timeline(*)')
       .eq('author_id', user.id)
       .order('created_at', { ascending: false });
     
@@ -316,6 +324,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
         address: newEntry.address,
         phone: newEntry.phone,
         type: newEntry.type,
+        category_id: newEntry.category_id || null,
         city_id: activeCityId,
         submitted_by: user.id,
         status: 'pending'
@@ -324,7 +333,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     if (error) {
       showAppError({ title: "Erro ao enviar colaboração", description: error.message, variant: "destructive" });
     } else {
-      setNewEntry({ name: '', address: '', phone: '', type: 'commerce', photo: null, photoPreview: null });
+      setNewEntry({ name: '', address: '', phone: '', type: 'commerce', category_id: null, photo: null, photoPreview: null });
     }
   };
 
@@ -457,6 +466,9 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const paginaAtualBroncas = Math.min(paginaBroncas, totalPaginasBroncas);
   const inicioDaPagina = (paginaAtualBroncas - 1) * BRONCAS_POR_PAGINA;
   const broncasDaPagina = broncasFiltradas.slice(inicioDaPagina, inicioDaPagina + BRONCAS_POR_PAGINA);
+  const quantidadeFiltrosAtivos = Number(filtroSituacao !== 'all')
+    + Number(filtroModeracao !== 'all')
+    + Number(ordemBroncas !== 'recentes');
 
   const primeiroNome = String(user?.name || 'Cidadão').trim().split(/\s+/)[0];
   const totalDeApoios = reports.reduce((total, report) => total + Number(report.upvotes || 0), 0);
@@ -522,10 +534,19 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
         {impactFirst && impactBanner}
         {impactFirst && navigationAfterImpact && <div className="mb-6">{navigationAfterImpact}</div>}
 
-        <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-content-primary md:text-3xl">Olá, {primeiroNome}! <span aria-hidden="true">👋</span></h1>
-            <p className="mt-1 text-sm text-content-secondary">Acompanhe suas contribuições e o impacto da sua participação.</p>
+            {profileMode ? (
+              <>
+                <h2 className="text-xl font-extrabold text-content-primary md:text-2xl">Minha atividade</h2>
+                <p className="mt-1 text-sm text-content-secondary">Publique e gerencie suas contribuições na cidade.</p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl font-extrabold text-content-primary md:text-3xl">Olá, {primeiroNome}! <span aria-hidden="true">👋</span></h1>
+                <p className="mt-1 text-sm text-content-secondary">Acompanhe suas contribuições e o impacto da sua participação.</p>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <Button
@@ -546,15 +567,15 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
         <section aria-labelledby="resumo-painel" className="mb-6">
           <h2 id="resumo-painel" className="sr-only">Resumo da sua participação</h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
             {metricas.map(({ rotulo, valor, detalhe, Icone, tom }) => (
-              <div key={rotulo} className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tom}`}><Icone className="h-5 w-5" /></span>
+              <div key={rotulo} className="rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm sm:p-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${tom}`}><Icone className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-content-secondary">{rotulo}</p>
-                    <p className="mt-0.5 text-xl font-extrabold text-content-primary tabular-nums">{loading ? '—' : valor}</p>
-                    <p className="text-[11px] text-content-tertiary">{detalhe}</p>
+                    <p className="truncate text-[11px] font-semibold text-content-secondary sm:text-xs">{rotulo}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-content-primary tabular-nums sm:text-xl">{loading ? '—' : valor}</p>
+                    <p className="truncate text-[10px] text-content-tertiary sm:text-[11px]">{detalhe}</p>
                   </div>
                 </div>
               </div>
@@ -562,14 +583,14 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
           </div>
         </section>
 
-        {!impactFirst && impactBanner}
+        {!profileMode && !impactFirst && impactBanner}
 
         <div className="mb-4 flex items-end justify-between gap-4">
-          <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2><p className="text-sm text-content-secondary">Gerencie o que você publicou na plataforma.</p></div>
+          <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2></div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-xl grid-cols-3 bg-muted/50 rounded-lg p-1 gap-1 h-auto">
+          <TabsList className="hidden" aria-hidden="true">
             <TabsTrigger 
               value="reports" 
               className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
@@ -593,10 +614,10 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="reports" className="mt-6 relative min-h-[300px]">
+          <TabsContent value="reports" className="relative min-h-[300px]">
             <div className="mb-5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
-              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
-                <label className="relative min-w-0">
+              <div className="flex items-center gap-2">
+                <label className="relative min-w-0 flex-1">
                   <span className="sr-only">Buscar nas minhas broncas</span>
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
                   <Input
@@ -607,36 +628,68 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                   />
                 </label>
 
-                <label className="relative">
-                  <span className="sr-only">Filtrar por situação</span>
-                  <select value={filtroSituacao} onChange={(event) => setFiltroSituacao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
-                    <option value="all">Todas as situações</option>
-                    <option value="pending">Pendentes</option>
-                    <option value="in-progress">Em andamento</option>
-                    <option value="resolved">Resolvidas</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span className="sr-only">Filtrar por moderação</span>
-                  <select value={filtroModeracao} onChange={(event) => setFiltroModeracao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
-                    <option value="all">Toda moderação</option>
-                    <option value="pending_approval">Aguardando análise</option>
-                    <option value="approved">Aprovadas</option>
-                    <option value="rejected">Rejeitadas</option>
-                  </select>
-                </label>
-
-                <label>
-                  <span className="sr-only">Ordenar broncas</span>
-                  <select value={ordemBroncas} onChange={(event) => setOrdemBroncas(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
-                    <option value="recentes">Mais recentes</option>
-                    <option value="antigas">Mais antigas</option>
-                    <option value="apoios">Mais apoiadas</option>
-                    <option value="visualizacoes">Mais visualizadas</option>
-                  </select>
-                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-expanded={filtrosAbertos}
+                  aria-controls="filtros-das-broncas"
+                  onClick={() => setFiltrosAbertos((abertos) => !abertos)}
+                  className={`h-10 shrink-0 gap-1.5 rounded-lg px-3 ${quantidadeFiltrosAtivos ? 'border-brand/40 text-brand' : 'text-content-secondary'}`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span className="hidden sm:inline">Filtros</span>
+                  {quantidadeFiltrosAtivos > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-extrabold text-content-onBrand">
+                      {quantidadeFiltrosAtivos}
+                    </span>
+                  )}
+                </Button>
               </div>
+
+              <AnimatePresence initial={false}>
+                {filtrosAbertos && (
+                  <motion.div
+                    id="filtros-das-broncas"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid gap-2 pt-3 sm:grid-cols-3">
+                      <label className="relative">
+                        <span className="sr-only">Filtrar por situação</span>
+                        <select value={filtroSituacao} onChange={(event) => setFiltroSituacao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                          <option value="all">Todas as situações</option>
+                          <option value="pending">Pendentes</option>
+                          <option value="in-progress">Em andamento</option>
+                          <option value="resolved">Resolvidas</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span className="sr-only">Filtrar por moderação</span>
+                        <select value={filtroModeracao} onChange={(event) => setFiltroModeracao(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                          <option value="all">Toda moderação</option>
+                          <option value="pending_approval">Aguardando análise</option>
+                          <option value="approved">Aprovadas</option>
+                          <option value="rejected">Rejeitadas</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span className="sr-only">Ordenar broncas</span>
+                        <select value={ordemBroncas} onChange={(event) => setOrdemBroncas(event.target.value)} className="h-10 w-full rounded-md border border-input bg-surface-raised px-3 pr-8 text-xs font-semibold text-content-primary">
+                          <option value="recentes">Mais recentes</option>
+                          <option value="antigas">Mais antigas</option>
+                          <option value="apoios">Mais apoiadas</option>
+                          <option value="visualizacoes">Mais visualizadas</option>
+                        </select>
+                      </label>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-edge-subtle pt-3 text-xs text-content-tertiary">
                 <span className="inline-flex items-center gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" /> {broncasFiltradas.length} {broncasFiltradas.length === 1 ? 'bronca encontrada' : 'broncas encontradas'}</span>
@@ -831,14 +884,14 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
           <TabsContent value="guide" className="mt-8">
             <Card className="max-w-2xl mx-auto">
               <CardHeader>
-                <CardTitle>Adicionar ao Guia Comercial</CardTitle>
-                <CardDescription>Ajude a mapear os serviços e comércios da nossa cidade. Sua colaboração é muito importante!</CardDescription>
+                <CardTitle>Adicionar ao Guia da Cidade</CardTitle>
+                <CardDescription>Ajude a mapear comércios, igrejas, órgãos e outros locais importantes da cidade.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleNewEntrySubmit} className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Nome do Estabelecimento</Label>
-                    <Input id="name" name="name" value={newEntry.name} onChange={handleNewEntryChange} placeholder="Ex: Supermercado Central" />
+                    <Label htmlFor="name">Nome do local</Label>
+                    <Input id="name" name="name" value={newEntry.name} onChange={handleNewEntryChange} placeholder="Ex.: Igreja Matriz ou Mercado Central" />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="address">Endereço</Label>
@@ -849,17 +902,17 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                     <Input id="phone" name="phone" value={newEntry.phone} onChange={handleNewEntryChange} placeholder="(87) 99999-8888" />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Tipo</Label>
+                    <Label>Categoria</Label>
                     <Combobox
-                      options={[
-                        { value: 'commerce', label: 'Comércio Local' },
-                        { value: 'public', label: 'Serviço Público' }
-                      ]}
-                      value={newEntry.type}
-                      onChange={(value) => setNewEntry(prev => ({ ...prev, type: value }))}
-                      placeholder="Selecione o tipo"
-                      searchPlaceholder="Buscar tipo..."
-                      notFoundText="Tipo não encontrado"
+                      options={guideCategories.map((category) => {
+                        const parent = guideCategories.find((item) => String(item.id) === String(category.parent_id));
+                        return { value: category.id, label: `${parent ? `${parent.name} · ` : ''}${category.name}` };
+                      })}
+                      value={newEntry.category_id || ''}
+                      onChange={(value) => setNewEntry(prev => ({ ...prev, category_id: value || null }))}
+                      placeholder="Selecione a categoria"
+                      searchPlaceholder="Buscar categoria..."
+                      notFoundText="Nenhuma categoria cadastrada"
                     />
                   </div>
                   <div className="grid gap-2">

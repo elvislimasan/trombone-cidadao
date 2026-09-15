@@ -24,7 +24,14 @@ export const textoLimpo = (valor) => (typeof valor === 'string' ? valor.trim() :
 export const chaveDeAutor = (valor) => textoLimpo(valor)
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/gi, ' ')
+  .trim()
   .toLocaleLowerCase('pt-BR');
+
+export const slugDeVereador = (valor) => chaveDeAutor(valor).replace(/\s+/g, '-');
+
+export const rotaDoVereador = (cityId, nomeOuSlug) =>
+  `/vereadores/${cityId}/${/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(nomeOuSlug || '')) ? nomeOuSlug : slugDeVereador(nomeOuSlug)}`;
 
 /** Autores de um projeto, incluindo os cadastros antigos de autor unico. */
 export const autoresDoProjeto = (documento) => {
@@ -80,6 +87,22 @@ export const autoresDeProjetos = (streets) => {
     }
   }
   return [...autores.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+};
+
+/** Ranking por número de ruas, sem contar duas vezes coautoria repetida na mesma rua. */
+export const rankingDeAutores = (streets) => {
+  const ranking = new Map();
+  for (const street of Array.isArray(streets) ? streets : []) {
+    for (const name of autoresDaRua(street)) {
+      const key = chaveDeAutor(name);
+      const current = ranking.get(key) || { key, name, streets: 0 };
+      current.streets += 1;
+      ranking.set(key, current);
+    }
+  }
+  return [...ranking.values()].sort((a, b) =>
+    b.streets - a.streets || a.name.localeCompare(b.name, 'pt-BR')
+  );
 };
 
 /**
@@ -153,6 +176,46 @@ export const tipoDoArquivo = (documento) => {
   return extensao ? extensao[1].toUpperCase() : '';
 };
 
+const rotuloDoTipoDeDocumento = (documento) => {
+  if (documento?.kind === 'projeto_lei') return 'Projeto de lei';
+  if (documento?.kind === 'lei') return 'Lei municipal';
+  return 'Documento';
+};
+
+const nomeBaseDoArquivo = (valor) => {
+  const bruto = textoLimpo(valor);
+  if (!bruto) return '';
+  let caminho = bruto;
+  try { caminho = new URL(bruto).pathname; } catch { caminho = bruto.split(/[?#]/)[0]; }
+  const nome = caminho.split(/[\\/]/).filter(Boolean).pop() || '';
+  try { return decodeURIComponent(nome); } catch { return nome; }
+};
+
+const chaveDeTitulo = (valor) => nomeBaseDoArquivo(valor)
+  .replace(/\.[a-z0-9]{2,5}$/i, '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .trim();
+
+/**
+ * Título público do documento. Nomes físicos do arquivo são detalhes de
+ * armazenamento e não devem aparecer como conteúdo na página da rua.
+ */
+export const tituloVisivelDoDocumento = (documento) => {
+  const title = textoLimpo(documento?.title);
+  const fallback = rotuloDoTipoDeDocumento(documento);
+  if (!title) return fallback;
+
+  const titleKey = chaveDeTitulo(title);
+  const matchesStoredFileName = [documento?.original_name, documento?.path, documento?.url]
+    .some((value) => value && chaveDeTitulo(value) === titleKey);
+  const looksLikeTechnicalFileName = /\.[a-z0-9]{2,5}$/i.test(title)
+    || (title.includes('_') && !title.includes(' '));
+
+  return matchesStoredFileName || looksLikeTechnicalFileName ? fallback : title;
+};
+
 /** Fotos com endereço utilizável, já com os campos que a tela lê. */
 export const normalizarFotos = (street) =>
   (Array.isArray(street?.historical_photos) ? street.historical_photos : []).flatMap((item) => {
@@ -176,7 +239,7 @@ export const normalizarDocumentos = (street) =>
     if (!url) return [];
     return [{
       url,
-      title: textoLimpo(item?.title),
+      title: tituloVisivelDoDocumento(item),
       description: textoLimpo(item?.description),
       type: tipoDoArquivo(item),
       size: formatarTamanhoArquivo(item?.size),

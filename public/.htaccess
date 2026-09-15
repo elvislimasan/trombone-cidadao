@@ -31,6 +31,32 @@
   # Redirect /share/rua/SLUG to Supabase Edge Function (rua)
   RewriteRule ^share/rua/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-street?id=$1 [R=302,L]
 
+  # Redirect /share/radar/ID to the social preview for city events
+  RewriteRule ^share/radar/([^?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-event?id=$1 [R=302,L]
+
+  # Redirect /share/perfil/USERNAME to the social preview with the profile photo
+  RewriteRule ^share/perfil/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
+  # Serve the same preview when a social crawler receives the canonical profile URL
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^u/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^@([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
+  # A URL canônica do perfil agora é /username. Rotas do aplicativo ficam fora
+  # desta regra e continuam usando suas próprias páginas/metatags.
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^(?!(?:admin|sobre|estatisticas|feed|mapa|broncas|abaixo-assinados|obras-publicas|imoveis-alugados|agora|servicos|noticias|contato|perfil|configuracoes|explorar|seguindo|favoritos|salvos-outros|obras-favoritas|painel-usuario|alterar-senha|excluir-conta|minhas-peticoes|buscar|missoes|app|login|cadastro)/?$)([a-z0-9][a-z0-9._]{1,28}[a-z0-9])/?$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+
+  # Prévia social rica das páginas legislativas.
+  RewriteRule ^share/vereador/([^/?]+)/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-councilor?city=$1&slug=$2 [R=302,L,NE]
+
+  # Se o endereço canônico for colado diretamente, os crawlers também recebem
+  # o card 1200x630; visitantes continuam abrindo a página React normalmente.
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^vereadores/([^/?]+)/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-councilor?city=$1&slug=$2 [R=302,L,NE]
+
 
   
   RewriteCond %{REQUEST_FILENAME} !-f

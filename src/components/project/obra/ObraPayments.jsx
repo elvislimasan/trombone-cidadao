@@ -143,6 +143,7 @@ export function ObraPayments({
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState("");
   const [importPayload, setImportPayload] = useState(null);
+  const [importCommitments, setImportCommitments] = useState([]);
   const [importSelected, setImportSelected] = useState(() => new Set());
   const [importEdits, setImportEdits] = useState({});
   const [importCommitmentType, setImportCommitmentType] = useState("");
@@ -172,6 +173,7 @@ export function ObraPayments({
   const openImport = useCallback(() => {
     setImportError("");
     setImportPayload(null);
+    setImportCommitments([]);
     setImportSelected(new Set());
     setImportEdits({});
     setImportCommitmentType("");
@@ -202,8 +204,16 @@ export function ObraPayments({
     return status ? `${message} (HTTP ${status})` : message;
   }, []);
 
-  const fetchFromPortal = useCallback(async () => {
-    const url = String(importUrl || "").trim();
+  const fetchFromPortal = useCallback(async (urlOverride = "") => {
+    const rawUrl = String(typeof urlOverride === "string" && urlOverride ? urlOverride : importUrl || "").trim();
+    // Links copied de mensagens/Markdown podem conter quebras de linha, <> ou o escape \\&.
+    const cleanedUrl = rawUrl
+      .replace(/^<|>$/g, "")
+      .replace(/^\[([^\]]+)\]\([^)]*\)$/, "$1")
+      .replace(/\\&/g, "&")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\s+/g, "");
+    const url = cleanedUrl.match(/https?:\/\/[^\s<>"']+/i)?.[0] || cleanedUrl;
     if (!url) {
       setImportError("Cole o link do portal para buscar os pagamentos.");
       return;
@@ -213,7 +223,7 @@ export function ObraPayments({
     try {
       parsed = new URL(url);
     } catch {
-      setImportError("Link inválido. Cole a URL completa do portal (incluindo https://).");
+      setImportError("Link inválido. Cole somente a URL completa do portal (incluindo https://), sem texto antes ou depois.");
       return;
     }
 
@@ -230,12 +240,17 @@ export function ObraPayments({
     setImportLoading(true);
     setImportError("");
     setImportPayload(null);
+    setImportCommitments([]);
     setImportSelected(new Set());
     try {
       const fnName = importPortal === "tomeconta" ? "scrape-tomeconta-empenho" : "scrape-floresta-empenho";
       const { data, error } = await supabase.functions.invoke(fnName, { body: { url } });
       if (error) {
         setImportError(getInvokeErrorMessage(error, "Falha ao buscar dados do portal."));
+        return;
+      }
+      if (Array.isArray(data?.commitments)) {
+        setImportCommitments(data.commitments);
         return;
       }
       const paymentsRaw = Array.isArray(data?.payments) ? data.payments : [];
@@ -1693,7 +1708,7 @@ export function ObraPayments({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col gap-3 pb-4">
               <div className="text-sm text-muted-foreground">
-                Cole o link do portal de transparência (empenho) e confirme quais pagamentos deseja salvar nesta fase.
+                Cole o link do portal de transparência (empenho ou fornecedor) e confirme quais pagamentos deseja salvar nesta fase.
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
@@ -1710,17 +1725,40 @@ export function ObraPayments({
                   onChange={(e) => setImportUrl(e.target.value)}
                   placeholder={
                     importPortal === "tomeconta"
-                      ? "https://tomeconta.tcepe.tc.br/dados/DetalhesDoFornecedor!detalhesEmpenhosMunicipaisEstaduais?despesas.idUG=..."
+                      ? "https://tomeconta.tcepe.tc.br/fornecedor/?codigo=... ou link de empenho"
                       : "https://floresta.pe.gov.br/transparencia/despesas/detalhes/empenho-n-..."
                   }
                   className="bg-muted/20 rounded-xl"
                 />
-                <Button type="button" onClick={fetchFromPortal} disabled={importLoading} className="bg-red-500 hover:bg-red-600 text-white rounded-xl">
+                <Button type="button" onClick={() => fetchFromPortal()} disabled={importLoading} className="bg-red-500 hover:bg-red-600 text-white rounded-xl">
                   {importLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buscar"}
                 </Button>
               </div>
 
               {importError ? <div className="text-sm text-red-600">{importError}</div> : null}
+
+              {importCommitments.length ? (
+                <div className="rounded-2xl border border-border overflow-hidden">
+                  <div className="px-4 py-3 bg-muted/20 border-b border-border text-sm">
+                    <div className="font-semibold text-foreground">Selecione o empenho a importar</div>
+                    <div className="mt-1 text-xs text-muted-foreground">Encontramos {importCommitments.length} empenho(s) neste fornecedor. Os pagamentos serão buscados somente após sua escolha.</div>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-border">
+                    {importCommitments.map((commitment, idx) => (
+                      <button
+                        key={commitment.portal_link || idx}
+                        type="button"
+                        onClick={() => fetchFromPortal(commitment.portal_link)}
+                        disabled={importLoading}
+                        className="w-full px-4 py-3 text-left hover:bg-muted/30 disabled:opacity-60 flex items-center justify-between gap-3"
+                      >
+                        <span className="text-sm font-medium text-foreground">Empenho {commitment.commitment_number || "—"}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{commitment.commitment_date || commitment.commitment_year || "Sem data"}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {importPayload ? (
                 <div className="rounded-2xl border border-border overflow-hidden flex flex-col">

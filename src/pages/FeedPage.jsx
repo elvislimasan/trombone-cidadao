@@ -1,13 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, BarChart2, Briefcase, Building, Compass, Construction, Download,
-  FileSignature, LayoutDashboard, MapPin, Megaphone, Newspaper, Radio,
-  Route as RouteIcon, ShieldCheck, Smartphone, UserPlus,
+  ArrowRight, Briefcase, Compass, Download, MapPin, Megaphone, Radio,
+  ShieldCheck, Smartphone,
 } from 'lucide-react';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
 import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -28,7 +26,6 @@ import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
 import CityEventCard from '@/components/agora/CityEventCard';
 import { useCityEvents } from '@/hooks/useCityEvents';
-import { showAppError } from '@/lib/appError';
 
 // Lazy: carrega html-to-image e qrcode, peso que so faz sentido quando o
 // usuario abre o card. Um unico modal serve a lista inteira.
@@ -36,50 +33,13 @@ const ReportStoryModal = React.lazy(
   () => import('@/components/report/ReportStoryModal')
 );
 
-const getInviteUrl = () => {
-  const envUrl = import.meta.env.VITE_APP_URL;
-  if (envUrl) return String(envUrl).replace(/\/$/, '');
-
-  const origin =
-    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
-  if (origin && origin.includes('localhost')) return origin;
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const prodUrl = supabaseUrl.includes('xxdletrjyjajtrmhwzev')
-    ? 'https://trombone-cidadao.vercel.app'
-    : 'https://trombonecidadao.com.br';
-
-  return prodUrl;
-};
-
-// OS ATALHOS DA COLUNA DA ESQUERDA
-//
-// Em 1920px o feed vivia num miolo de 78rem com ~330px de vazio de cada lado, e
-// o app inteiro — obras, ruas, imóveis, serviços — só existia atrás do "Mais" do
-// header. A terceira coluna usa esse espaço para o que já é o assunto da página:
-// para onde ir depois de ler o feed.
-//
-// ELES NÃO REPETEM A COLUNA DA DIREITA: lá ficam as duas telas DESTA cidade
-// (mapa de broncas e radar) e o que está acontecendo nela agora; aqui fica o
-// resto do app. Um mesmo link nas duas colunas faria a página parecer dois menus
-// discordando entre si.
-const MODULOS = [
-  { nome: 'Obras públicas', path: '/obras-publicas', Icone: Construction },
-  { nome: 'Ruas e pavimentação', path: '/mapa-pavimentacao', Icone: RouteIcon },
-  { nome: 'Imóveis alugados', path: '/imoveis-alugados', Icone: Building },
-  { nome: 'Serviços', path: '/servicos', Icone: Briefcase },
-  { nome: 'Abaixo-assinados', path: '/abaixo-assinados', Icone: FileSignature },
-  { nome: 'Notícias', path: '/noticias', Icone: Newspaper },
-  { nome: 'Estatísticas', path: '/estatisticas', Icone: BarChart2 },
-];
-
 export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeCityId, activeCityName } = useCity();
+  const { activeCityId, activeCityName, activeCity } = useCity();
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('recent');
+  const [activeTab, setActiveTab] = useState(() => { const tab = new URLSearchParams(location.search).get('aba'); return FEED_TABS.some(item => item.key === tab) ? tab : 'recent'; });
   const [showReportModal, setShowReportModal] = useState(false);
   // O modal de atualizacao vive AQUI, nao no card: um so para a lista inteira, e
   // fora da arvore do card — que tem transform (tc-animate-in) e prenderia o
@@ -89,6 +49,9 @@ export default function FeedPage() {
   const [recentCreatedId, setRecentCreatedId] = useState(null);
   const recentCreatedTimerRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
+  const leftSidebarRef = useRef(null);
+  const rightSidebarRef = useRef(null);
+  const [sidebarShift, setSidebarShift] = useState({ left: 0, right: 0 });
 
   const { createReport } = useCreateReport({ onCreated: () => setShowReportModal(false) });
 
@@ -167,9 +130,12 @@ export default function FeedPage() {
       setTabDirection(to >= from ? 'forward' : 'back');
     }
     setActiveTab(tabKey);
+    const params = new URLSearchParams(location.search);
+    params.set('aba', tabKey);
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
     resetNewCount();
     setRecentCreatedId(null);
-  }, [activeTab, resetNewCount]);
+  }, [activeTab, resetNewCount, location.pathname, location.search, navigate]);
 
   const swipeHandlers = useSwipeTabs({
     tabs: FEED_TABS,
@@ -201,37 +167,8 @@ export default function FeedPage() {
     } catch {}
   }, [location.pathname, location.search, navigate]);
 
-  const handleInvite = useCallback(async () => {
-    const url = getInviteUrl();
-    const title = 'Trombone Cidadão';
-    const text = 'Vem ajudar a melhorar a cidade: cadastre uma bronca e apoie as causas.';
-    try {
-      if (Capacitor.isNativePlatform()) {
-        await Share.share({ title, text, url, dialogTitle: 'Convidar' });
-        return;
-      }
-      if (navigator.share) {
-        await navigator.share({ title, text, url });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-    } catch {
-      try {
-        await navigator.clipboard.writeText(url);
-      } catch {
-        showAppError({ title: 'Não foi possível compartilhar', variant: 'destructive' });
-      }
-    }
-  }, []);
-
   const hasReports = reports.length > 0;
   const cityLabel = activeCityName || 'todas as cidades';
-  const dashboardPath = user?.is_admin || user?.is_master
-    ? '/admin'
-    : user?.is_ambassador
-      ? '/embaixador'
-      : '/painel-usuario';
-
   // O RADAR ENTRA COM CONTEÚDO, E NÃO COMO MAIS UM LINK
   //
   // A lateral tinha só o botão "Radar da cidade" — e um botão não dá motivo
@@ -243,6 +180,39 @@ export default function FeedPage() {
   const eventosDoRadar = radar.eventos || [];
   const agora = useMemo(() => new Date(), []);
 
+  useEffect(() => {
+    let frame = 0;
+
+    const updateSidebarShift = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const footer = document.querySelector('[data-site-footer]');
+        const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
+        const availableBottom = Math.min(window.innerHeight - 16, footerTop - 16);
+        const shiftFor = (element) => element
+          ? Math.max(0, Math.ceil(80 + element.offsetHeight - availableBottom))
+          : 0;
+        const next = {
+          left: shiftFor(leftSidebarRef.current),
+          right: shiftFor(rightSidebarRef.current),
+        };
+
+        setSidebarShift((current) => (
+          current.left === next.left && current.right === next.right ? current : next
+        ));
+      });
+    };
+
+    updateSidebarShift();
+    window.addEventListener('scroll', updateSidebarShift, { passive: true });
+    window.addEventListener('resize', updateSidebarShift);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', updateSidebarShift);
+      window.removeEventListener('resize', updateSidebarShift);
+    };
+  }, [eventosDoRadar.length]);
+
   // Missões só para quem tem conta: a central é toda sobre progresso pessoal e
   // abre vazia para visitante — a mesma regra que o cartão do topo do celular já
   // aplica. No lugar dela, o convite para virar embaixador.
@@ -251,7 +221,9 @@ export default function FeedPage() {
       user
         ? { nome: 'Missões', path: '/missoes', Icone: Compass }
         : { nome: 'Seja embaixador', path: '/seja-embaixador', Icone: ShieldCheck },
-      ...MODULOS,
+      { nome: 'Explorar', path: '/explorar', Icone: Compass },
+      { nome: 'Acompanhando', path: '/seguindo', Icone: Briefcase },
+      ...(user?.is_admin || user?.is_master ? [{ nome: 'Área de trabalho', path: '/admin', Icone: ShieldCheck }] : user?.is_ambassador ? [{ nome: 'Área de trabalho', path: '/embaixador', Icone: ShieldCheck }] : []),
     ],
     [user]
   );
@@ -263,26 +235,23 @@ export default function FeedPage() {
           "Nova denuncia" sairam — as abas ja identificam a secao, e criar bronca
           continua no FAB do bottom nav e no atalho abaixo. */}
       <div className="lg:hidden">
-        <FeedWelcomeCard onCreateReport={handleOpenCreate} onInvite={handleInvite} />
+        <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
       </div>
 
-      {/* DUAS COLUNAS ATÉ 1520px, TRÊS DEPOIS
-          78rem é a largura certa enquanto há duas colunas: o feed fica em ~52rem,
-          que é largura de leitura. Num monitor de 1920 essa mesma medida deixa
-          330px de vazio de cada lado — daí a terceira coluna e os 104rem. O
-          miolo cresce pouco (de ~830 para ~900px) porque o que sobrava não era
-          falta de espaço para o cartão: era falta do que pôr em volta dele. */}
-      <div className="lg:mx-auto lg:grid lg:w-full lg:max-w-[78rem] lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-6 lg:px-8 lg:py-8 min-[1520px]:max-w-[104rem] min-[1520px]:grid-cols-[16rem_minmax(0,1fr)_21rem]">
-        {/* Esta coluna cabe na janela (oito links e um cartão), então ela gruda
-            pelo topo e fica parada logo abaixo do cabeçalho. */}
+      {/* Em notebooks, conteúdo e contexto dividem a tela em duas colunas.
+          A navegação exploratória ganha uma terceira coluna apenas em telas largas. */}
+      <div className="lg:mx-auto lg:grid lg:w-full lg:max-w-[100rem] lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-5 lg:px-6 lg:py-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6 xl:py-7 2xl:grid-cols-[17rem_minmax(0,1fr)_21rem]">
+        {/* Em telas largas, esta coluna fica ancorada abaixo do cabeçalho. */}
         <nav
-          className="sticky top-24 hidden min-[1520px]:block"
+          ref={leftSidebarRef}
+          className="hidden 2xl:fixed 2xl:top-20 2xl:z-10 2xl:block 2xl:max-h-[calc(100dvh-6rem)] 2xl:w-[17rem] 2xl:overflow-y-auto 2xl:overscroll-contain 2xl:pb-2 2xl:scrollbar-none"
+          style={{ left: 'max(1.5rem, calc((100vw - 100rem) / 2 + 1.5rem))', transform: `translateY(-${sidebarShift.left}px)` }}
           aria-label="Outras seções do Trombone"
         >
           <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
             <h2 className="px-1 text-sm font-extrabold text-content-primary">Explorar o app</h2>
             <p className="mt-1 px-1 text-xs leading-5 text-content-secondary">
-              O que existe além do feed.
+              Seus caminhos pela cidade.
             </p>
 
             <ul className="mt-3 space-y-0.5">
@@ -326,9 +295,10 @@ export default function FeedPage() {
               </Link>
             </section>
           )}
+
         </nav>
 
-        <main className="min-w-0">
+        <main className="min-w-0 lg:col-start-1 2xl:col-start-2">
           <section className="hidden overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised p-7 shadow-sm lg:flex lg:items-center lg:justify-between lg:gap-8">
             <div className="min-w-0">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/5 px-3 py-1 text-xs font-bold text-brand">
@@ -353,7 +323,7 @@ export default function FeedPage() {
           </section>
 
           {/* ── Sticky Tab Bar ── */}
-          <div className="sticky top-0 z-10 border-b border-edge-subtle bg-surface-base/90 backdrop-blur-md lg:static lg:mt-5 lg:overflow-hidden lg:rounded-2xl lg:border lg:bg-surface-raised lg:shadow-sm">
+          <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md lg:static lg:mt-5 lg:overflow-hidden lg:rounded-2xl lg:border lg:bg-surface-raised lg:shadow-sm">
             <div className="container mx-auto max-w-2xl px-3 lg:max-w-none lg:px-5">
               <FeedTabs tabs={FEED_TABS} activeTab={activeTab} onChange={handleTabChange} />
             </div>
@@ -365,7 +335,7 @@ export default function FeedPage() {
           {/* ── Feed Content ── */}
           {/* Arrastar na horizontal troca de aba. Fica neste container, e nao na
               pagina toda, para nao capturar arrasto do header nem do bottom nav. */}
-          <div className="container mx-auto max-w-2xl px-3 py-4 lg:max-w-none lg:px-0 lg:py-5" {...swipeHandlers}>
+          <div className="container mx-auto max-w-2xl px-3 py-4 lg:max-w-[45rem] lg:px-0 lg:py-5" {...swipeHandlers}>
         {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
             ou erro de rede ao lado do gate confundiria a causa real. */}
         {!awaitingLocation && (
@@ -405,15 +375,16 @@ export default function FeedPage() {
             )}
 
             {reports.map((report, index) => (
-              <FeedCard
-                key={report.id}
-                report={report}
-                onToggleUpvote={toggleUpvote}
-                onRequestUpdate={setUpdateTarget}
-                onRequestStory={setStoryTarget}
-                isNew={report.id === recentCreatedId}
-                index={index}
-              />
+              <React.Fragment key={report.id}>
+                <FeedCard
+                  report={report}
+                  onToggleUpvote={toggleUpvote}
+                  onRequestUpdate={setUpdateTarget}
+                  onRequestStory={setStoryTarget}
+                  isNew={report.id === recentCreatedId}
+                  index={index}
+                />
+              </React.Fragment>
             ))}
 
             <div ref={sentinelRef} className="h-4" />
@@ -443,19 +414,17 @@ export default function FeedPage() {
           </div>
         </main>
 
-        {/* ESTA COLUNA GRUDA PELA BORDA DE BAIXO, E NÃO PELO TOPO
-            Com os três cartões ela passa de 1000px — mais que a janela. Grudada
-            pelo topo (`top-24`), os últimos centímetros ficam fora de alcance:
-            a coluna para de subir e o botão de convidar nunca aparece. A saída
-            anterior foi dar rolagem própria a ela, e aí a página ficava com duas
-            barras de rolagem, uma dentro da outra.
-            `bottom-4` resolve as duas coisas: a coluna sobe junto com a página
-            até o fim dela aparecer, e ali fica parada enquanto o feed continua
-            rolando. Nada é cortado, e não há barra nenhuma. */}
+        {/* Somente os dois cards de contexto ficam fixos. O restante da lateral
+            continua no fluxo normal, para que um bloco alto não desative o sticky. */}
         <aside
-          className="hidden space-y-4 lg:sticky lg:bottom-4 lg:block"
+          className="hidden lg:col-start-2 lg:block lg:self-stretch 2xl:col-start-3"
           aria-label="Atalhos do feed"
         >
+          <div
+            ref={rightSidebarRef}
+            className="space-y-4 lg:fixed lg:top-20 lg:z-10 lg:max-h-[calc(100dvh-6rem)] lg:w-[19rem] lg:overflow-y-auto lg:overscroll-contain lg:pb-2 lg:scrollbar-none xl:w-[20rem] 2xl:w-[21rem]"
+            style={{ right: 'max(1.5rem, calc((100vw - 100rem) / 2 + 1.5rem))', transform: `translateY(-${sidebarShift.right}px)` }}
+          >
           <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
               <MapPin className="h-5 w-5" aria-hidden="true" />
@@ -525,37 +494,8 @@ export default function FeedPage() {
               </Link>
             </section>
           )}
+          </div>
 
-          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
-            <h2 className="text-sm font-extrabold text-content-primary">Encontre o que importa</h2>
-            <ul className="mt-3 space-y-3 text-xs leading-5 text-content-secondary">
-              <li><strong className="text-content-primary">Recentes</strong> reúne os últimos relatos publicados.</li>
-              <li><strong className="text-content-primary">Em alta</strong> mostra o que mobiliza mais pessoas.</li>
-              <li><strong className="text-content-primary">Perto de mim</strong> usa sua localização somente quando você pedir.</li>
-            </ul>
-
-            <Link
-              to={user ? dashboardPath : '/login'}
-              state={user ? undefined : { from: { pathname: '/feed' } }}
-              className="mt-5 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-surface-sunken px-4 text-sm font-bold text-content-primary transition hover:bg-edge-subtle"
-            >
-              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-              {user ? 'Abrir meu painel' : 'Entrar para participar'}
-            </Link>
-
-            {/* Convidar só existia no cartão do topo do celular (`lg:hidden`):
-                no desktop, a ação que mais faz o app crescer não tinha lugar
-                nenhum. O handler é o mesmo — Web Share onde existe, cópia do
-                link onde não. */}
-            <button
-              type="button"
-              onClick={handleInvite}
-              className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-edge-subtle px-4 text-sm font-bold text-content-primary transition hover:bg-surface-subtle"
-            >
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
-              Convidar vizinhos
-            </button>
-          </section>
         </aside>
       </div>
 

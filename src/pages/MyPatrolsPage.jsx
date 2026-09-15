@@ -477,6 +477,16 @@ export default function MyPatrolsPage() {
         paraOnde="/perfil"
       />
 
+      <div className="mb-5 flex justify-end">
+        <Link
+          to="/patrulhar"
+          className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-content-onBrand shadow-sm transition-transform active:scale-[0.97]"
+        >
+          <Radar size={16} />
+          Iniciar nova patrulha
+        </Link>
+      </div>
+
       {carregando ? (
         <div className="flex justify-center py-16">
           <Loader2 size={28} className="animate-spin text-brand" />
@@ -510,11 +520,11 @@ export default function MyPatrolsPage() {
                 bronca que precisa ser conferida.
               </p>
               <Link
-                to="/missoes"
+                to="/patrulhar"
                 className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand text-content-onBrand font-bold text-sm px-5 py-2.5 active:scale-[0.97] transition-transform"
               >
                 <Radar size={16} />
-                Começar uma
+                Iniciar patrulha
               </Link>
             </div>
           ) : (

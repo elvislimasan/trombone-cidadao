@@ -47,13 +47,19 @@ export const CityEventHighlightCard = ({ evento, agora = new Date() }) => {
   const previsao = estadoDaPrevisao(evento, agora);
   const onde = rotuloDasAreas(evento.areas);
   const temFoto = Boolean(evento.image_url);
+  const ehComunicado = evento.type === 'public_notice';
 
   return (
     <Link
       to={`/agora/${evento.id}`}
       className="relative block overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised shadow-elevation-1 transition-opacity hover:opacity-95"
     >
-      {temFoto && (
+      {temFoto && ehComunicado && (
+        <div className="relative w-full border-b border-edge-subtle bg-surface-sunken">
+          <img src={evento.image_url} alt="" className="block h-auto w-full object-contain" />
+        </div>
+      )}
+      {temFoto && !ehComunicado && (
         <>
           <img src={evento.image_url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
           {/* O degradê termina opaco embaixo: sem ele o texto branco cai sobre
@@ -73,7 +79,7 @@ export const CityEventHighlightCard = ({ evento, agora = new Date() }) => {
 
         {onde && <p className="mt-2 truncate text-sm font-semibold text-content-secondary">{onde}</p>}
 
-        <p className="mt-1 text-sm text-content-tertiary">
+        {!ehComunicado && <p className="mt-1 text-sm text-content-tertiary">
           {previsao.tem ? (
             <span className={previsao.vencida ? 'font-bold text-danger' : ''}>
               {previsao.vencida ? 'Previsão vencida' : `Previsão: ${previsao.texto}`}
@@ -81,9 +87,9 @@ export const CityEventHighlightCard = ({ evento, agora = new Date() }) => {
           ) : (
             'Sem previsão de término'
           )}
-        </p>
+        </p>}
         {evento.started_at && (
-          <p className="text-xs text-content-tertiary">Iniciado às {horaCurta(evento.started_at)}</p>
+          <p className="text-xs text-content-tertiary">{ehComunicado ? 'Publicado' : 'Iniciado'} às {horaCurta(evento.started_at)}</p>
         )}
 
         <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-surface-subtle px-3 py-1.5 text-xs font-bold text-brand">
@@ -115,6 +121,7 @@ const CityEventCard = ({
   const tipo = tipoDe(evento.type);
   const previsao = estadoDaPrevisao(evento, agora);
   const onde = rotuloDasAreas(evento.areas);
+  const ehComunicado = evento.type === 'public_notice';
 
   return (
     <Link
@@ -136,8 +143,8 @@ const CityEventCard = ({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide text-content-primary">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-extrabold leading-tight uppercase tracking-wide text-content-primary">
             {tipo.rotulo}
           </h3>
           {mostrarSelo && (
@@ -148,7 +155,7 @@ const CityEventCard = ({
           )}
         </div>
 
-        {onde && <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} truncate text-content-secondary`}>{onde}</p>}
+        {onde && <p className={`${compact ? 'mt-0.5 text-xs' : 'mt-1 text-sm'} line-clamp-2 leading-tight text-content-secondary`}>{onde}</p>}
 
         {/* Uma linha de tempo, e só uma.
             Resolvido responde "quando acabou"; aberto responde "até quando".
@@ -158,6 +165,10 @@ const CityEventCard = ({
           <p className="mt-0.5 text-xs font-semibold text-status-resolvedFg">
             Normalizado {tempoDesde(evento.resolved_at, agora)}
           </p>
+        ) : ehComunicado ? (
+          evento.started_at ? (
+            <p className="mt-0.5 text-xs text-content-tertiary">Publicado às {horaCurta(evento.started_at)}</p>
+          ) : null
         ) : (
           <p className="mt-0.5 text-xs text-content-tertiary">
             {previsao.tem ? (

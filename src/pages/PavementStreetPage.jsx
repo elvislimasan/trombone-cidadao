@@ -45,6 +45,7 @@ import FollowAreaButton from '@/components/agora/FollowAreaButton';
 import StreetSummary from '@/components/pavement/StreetSummary';
 import RecentReportsCarousel from '@/components/report/RecentReportsCarousel';
 import SugerirClassificacao from '@/components/pavement/SugerirClassificacao';
+import CouncilorAttributionCard from '@/components/pavement/CouncilorAttributionCard';
 import { useStreetCityEvents } from '@/hooks/useCityEvents';
 import {
   capaDaRua,
@@ -552,7 +553,7 @@ export default function PavementStreetPage() {
   const temReferenciaGeografica = Boolean(street.is_unnamed && extremos);
   const temFicha = Boolean(
     local || pavementStatus || street.paving_date || street.work_id ||
-    ceps.length > 0 || temReferenciaGeografica || atualizadoEm
+    ceps.length > 0 || temReferenciaGeografica || atualizadoEm || documentos.length > 0
   );
   const temHistoria = Boolean(honoreeName || biography || fotoDoHomenageado);
   const temConsulta = Boolean(mapCenter) || temFicha;
@@ -729,6 +730,22 @@ export default function PavementStreetPage() {
               <LinhaDaFicha rotulo="Atualizada em">{atualizadoEm}</LinhaDaFicha>
             )}
           </dl>
+
+          {documentos.length > 0 && (
+            <div className="border-t border-edge-subtle px-4 pb-5 pt-4 sm:px-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-extrabold text-content-primary">Documentos da rua</h3>
+                {documentos.length > DOCUMENTOS_VISIVEIS && (
+                  <BotaoVerTodas aberto={todosOsDocumentos} onClick={() => setTodosOsDocumentos((valor) => !valor)} />
+                )}
+              </div>
+              <div className="grid gap-2">
+                {documentosVisiveis.map((documento, indice) => (
+                  <LinhaDocumento key={`${documento.url}-${indice}`} documento={documento} />
+                ))}
+              </div>
+            </div>
+          )}
         </Cartao>
       )}
     </>
@@ -805,22 +822,6 @@ export default function PavementStreetPage() {
           {todasAsFotos
             ? <GradeFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />
             : <CarrosselFotos fotos={fotosDaRua} nomeDaRua={street.name} onAbrir={(i) => setVisor({ fotos: fotosDaRua, indice: i })} />}
-        </Cartao>
-      )}
-
-      {documentos.length > 0 && (
-        <Cartao
-          icone={FileText}
-          titulo="Documentos"
-          acao={documentos.length > DOCUMENTOS_VISIVEIS && (
-            <BotaoVerTodas aberto={todosOsDocumentos} onClick={() => setTodosOsDocumentos((valor) => !valor)} />
-          )}
-        >
-          <div className="grid gap-2 px-4 pb-5 sm:px-5">
-            {documentosVisiveis.map((documento, indice) => (
-              <LinhaDocumento key={`${documento.url}-${indice}`} documento={documento} />
-            ))}
-          </div>
         </Cartao>
       )}
 
@@ -980,6 +981,7 @@ export default function PavementStreetPage() {
         )}
 
         <RecentReportsCarousel streetId={street.id} streetName={street.name} />
+        <CouncilorAttributionCard street={street} />
       </main>
 
       <PavementEditModal

@@ -4,7 +4,9 @@ const BUCKET = 'card-instagram';
 
 export function getCardInstagramPublicUrl(path) {
   try {
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    const normalizedPath = String(path || '').trim();
+    if (!normalizedPath) return '';
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(normalizedPath);
     return data?.publicUrl || '';
   } catch {
     return '';

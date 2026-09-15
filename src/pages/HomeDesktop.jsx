@@ -9,7 +9,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import CitySelector from '@/components/CitySelector';
-import { CityViewProvider, useCityView } from '@/contexts/CityContext';
+import { useCity } from '@/contexts/CityContext';
 import CityEventCard from '@/components/agora/CityEventCard';
 import { useCityEvents } from '@/hooks/useCityEvents';
 import { FILTROS } from '@/lib/cityEvents';
@@ -153,13 +153,14 @@ const VerTodos = ({ para, children }) => (
 );
 
 function HomeDesktop() {
-  const { cityId, cityName } = useCityView();
+  const { activeCityId: cityId, activeCityName: cityName, activeCity: city } = useCity();
   const [filtro, setFiltro] = useState('todos');
   const [numeros, setNumeros] = useState(null);
   const [broncas, setBroncas] = useState([]);
   const [peticoes, setPeticoes] = useState([]);
   const [casoResolvido, setCasoResolvido] = useState(null);
   const [carregando, setCarregando] = useState(true);
+  const requisicaoAtual = useRef(0);
 
   const alertas = useCityEvents(cityId, { filtro, escopo: 'abertos' });
   const emAndamento = alertas.eventos || [];
@@ -183,8 +184,17 @@ function HomeDesktop() {
     trilho.scrollBy({ left: direcao * (cartao.offsetWidth + 12), behavior: 'smooth' });
   };
 
+  const [erroAoCarregar, setErroAoCarregar] = useState(false);
   const carregar = useCallback(async () => {
+    setErroAoCarregar(false);
+    const numeroDaRequisicao = ++requisicaoAtual.current;
     setCarregando(true);
+    // Nao mantenha na tela os numeros e cartoes da cidade anterior enquanto o
+    // novo recorte esta sendo consultado.
+    setNumeros(null);
+    setBroncas([]);
+    setPeticoes([]);
+    setCasoResolvido(null);
     const porCidade = (q) => (cityId ? q.eq('city_id', cityId) : q);
     const esteMes = inicioDoMes(0);
     const mesPassado = inicioDoMes(-1);
@@ -227,8 +237,10 @@ function HomeDesktop() {
       // de broncas com foto. E o limite sobe de 3 para 8 — num carrossel, o que
       // não cabe na primeira tela continua existindo; numa pilha, não.
       supabase.from('petitions')
-        .select('id, title, goal, status, image_url, signatures(count)')
+        .select('id, title, goal, status, image_url, is_featured, featured_order, signatures(count)')
         .eq('status', 'open')
+        .eq('is_featured', true)
+        .order('featured_order', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(8),
       // Um caso real para a faixa de impacto. Ele e consultado separadamente
@@ -244,6 +256,15 @@ function HomeDesktop() {
       ),
     ]);
 
+    // Se a pessoa trocar de cidade antes desta consulta terminar, descarte a
+    // resposta antiga para ela nao sobrescrever o recorte mais recente.
+    if (numeroDaRequisicao !== requisicaoAtual.current) return;
+
+    if ([cidadaos, totalBroncas, resolvidas, broncasEsteMes, broncasMesPassado, resolvidasEsteMes, resolvidasMesPassado, ultimas, ativas, ultimoCasoResolvido].some(result => result.error)) {
+      setCarregando(false);
+      setErroAoCarregar(true);
+      return;
+    }
     const total = totalBroncas.count || 0;
     const feitas = resolvidas.count || 0;
 
@@ -306,6 +327,7 @@ function HomeDesktop() {
           pior, não melhor. */}
       <div ref={areaRevelada} className="mx-auto w-full max-w-[100rem] px-5 py-10 md:px-8 lg:px-12">
 
+        {erroAoCarregar && <div role="alert" className="mb-5 rounded-xl border border-edge-subtle p-4 text-sm text-content-secondary">Não foi possível atualizar os dados da cidade. <button type="button" onClick={carregar} className="min-h-11 font-bold text-brand">Tentar novamente</button></div>}
         {/* ── Abertura ──────────────────────────────────────────────────── */}
         <section className="grid items-center gap-10 lg:grid-cols-2">
           <div>
@@ -325,7 +347,7 @@ function HomeDesktop() {
             </p>
 
             <div className="reveal reveal-delay-2 mt-5 flex flex-wrap items-center gap-3">
-              <CitySelector align="left" />
+              <CitySelector align="left" scope="global" />
               <span className="text-xs text-content-tertiary">
                 {temCidadeSelecionada ? `Exibindo dados de ${nomeDoRecorte}` : 'Exibindo o panorama nacional'}
               </span>
@@ -336,22 +358,28 @@ function HomeDesktop() {
                 o rótulo abaixo. Os cartões tingidos que estavam aqui competiam
                 com os seis cartões de módulo logo em seguida — duas grades de
                 caixinhas seguidas, e a abertura perdia a hierarquia. */}
-            <div className="reveal reveal-delay-3 mt-8 flex flex-wrap gap-10">
-              {[
-                // "Cadastrados", e não "ativos": `profiles` não guarda último
-                // acesso, então "ativos" seria um critério que a base não
-                // confirma.
-                { valor: numeros?.cidadaos, rotulo: 'Cidadãos cadastrados' },
-                { valor: numeros?.broncas, rotulo: 'Broncas registradas' },
-                { valor: numeros?.resolvidas, rotulo: 'Problemas resolvidos' },
-              ].map(({ valor, rotulo }) => (
-                <div key={rotulo}>
-                  <p className="text-3xl font-extrabold leading-none text-brand tabular-nums">
-                    <Contador valor={valor} />
-                  </p>
-                  <p className="mt-1.5 text-xs text-content-secondary">{rotulo}</p>
-                </div>
-              ))}
+            <div className="reveal reveal-delay-3 mt-8">
+              <p className="mb-4 flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-content-tertiary">
+                {temCidadeSelecionada ? <MapPin className="h-3.5 w-3.5 text-brand" /> : <Globe2 className="h-3.5 w-3.5 text-brand" />}
+                {temCidadeSelecionada ? `Dados de ${nomeDoRecorte}` : 'Dados do Brasil'}
+              </p>
+              <div className="flex flex-wrap gap-x-10 gap-y-5">
+                {[
+                  // "Cadastrados", e não "ativos": `profiles` não guarda último
+                  // acesso, então "ativos" seria um critério que a base não
+                  // confirma.
+                  { valor: numeros?.cidadaos, rotulo: 'Cidadãos cadastrados' },
+                  { valor: numeros?.broncas, rotulo: 'Broncas registradas' },
+                  { valor: numeros?.resolvidas, rotulo: 'Problemas resolvidos' },
+                ].map(({ valor, rotulo }) => (
+                  <div key={rotulo}>
+                    <p className="text-3xl font-extrabold leading-none text-brand tabular-nums">
+                      <Contador valor={valor} />
+                    </p>
+                    <p className="mt-1.5 text-xs text-content-secondary">{rotulo}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="reveal reveal-delay-3 mt-7 flex flex-wrap gap-3">
@@ -359,7 +387,7 @@ function HomeDesktop() {
                 <Link to="/mapa?criar_bronca=1"><Megaphone className="h-4 w-4" /> Registrar uma bronca</Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="gap-2 rounded-xl">
-                <Link to="/agora"><Radio className="h-4 w-4" /> Explorar o Radar</Link>
+                <Link to="/explorar"><MapPin className="h-4 w-4" /> Ver minha cidade</Link>
               </Button>
             </div>
           </div>
@@ -369,16 +397,16 @@ function HomeDesktop() {
           <div className="relative">
             <div className="relative aspect-[16/10] overflow-hidden rounded-3xl bg-[#7F1220] text-white shadow-elevation-3">
               <img
-                src={`${HOME_IMAGE_BASE_URL}/hero-img.webp`}
-                alt="Cidadã usando o Trombone Cidadão em uma rua brasileira"
+                src={city?.civic_thumbnail_url || `${HOME_IMAGE_BASE_URL}/hero-img.webp`}
+                alt={city?.civic_thumbnail_url ? `Imagem de ${city.name}` : 'Cidadã usando o Trombone Cidadão em uma rua brasileira'}
                 fetchPriority="high"
                 className="absolute inset-0 h-full w-full object-cover object-center saturate-[0.9]"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-brand/10" />
 
               <div className="absolute left-4 top-4 rounded-xl border border-white/25 bg-black/45 px-3 py-2 shadow-lg backdrop-blur-md sm:left-6 sm:top-6">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Ocorrência registrada</p>
-                <p className="mt-0.5 text-xs font-bold">A comunidade já pode acompanhar</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Sua cidade em movimento</p>
+                <p className="mt-0.5 text-xs font-bold">Registre, apoie e acompanhe</p>
               </div>
 
               <div className="absolute bottom-5 left-5 right-5 flex items-end justify-end gap-3 sm:bottom-7 sm:left-7 sm:right-7">
@@ -402,65 +430,6 @@ function HomeDesktop() {
                     : 'Cada participação fortalece o país'}
                 </p>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Módulos ───────────────────────────────────────────────────── */}
-        <Secao titulo="Explore os módulos" descricao="Ferramentas para agir localmente e acompanhar o Brasil.">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {MODULOS.map(({ nome, path, Icone, descricao, tom, destaque }, i) => (
-              <Link
-                key={path}
-                to={path}
-                className={`reveal ${i ? `reveal-delay-${Math.min(i, 5)}` : ''} group relative overflow-hidden rounded-2xl border p-4 text-center transition-[colors,transform,box-shadow] hover:-translate-y-1 hover:border-brand/40 ${
-                  destaque
-                    ? `${destaque} shadow-elevation-1 hover:shadow-elevation-2`
-                    : 'border-edge-subtle bg-surface-raised/80 shadow-sm hover:bg-surface-subtle'
-                }`}
-              >
-                {destaque && <span className="absolute inset-x-0 top-0 h-0.5 bg-brand/45" aria-hidden="true" />}
-                <span className={`mx-auto flex items-center justify-center ${destaque ? 'h-12 w-12 rounded-2xl shadow-sm' : 'h-10 w-10 rounded-xl opacity-85'} ${tom}`}>
-                  <Icone className={destaque ? 'h-5 w-5' : 'h-4 w-4'} />
-                </span>
-                <p className="mt-3 text-sm font-bold text-content-primary">{nome}</p>
-                <p className="mt-1 text-xs leading-snug text-content-tertiary">{descricao}</p>
-              </Link>
-            ))}
-          </div>
-        </Secao>
-
-        {/* O programa merece uma entrada própria: os embaixadores são quem leva
-            a plataforma nacional para a rotina de cada município. */}
-        <section className="reveal relative mt-10 min-h-[20rem] overflow-hidden rounded-3xl border border-brand/20 bg-[#390b12] text-white shadow-elevation-2">
-          <img
-            src={`${HOME_IMAGE_BASE_URL}/embaixador-desktop.webp`}
-            alt="Grupo de embaixadores do Trombone Cidadão"
-            loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover object-[68%_center] saturate-[0.88]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#27070d]/95 via-[#4b0b15]/85 to-black/25" />
-          <div className="relative flex min-h-[20rem] max-w-2xl flex-col justify-center p-8 lg:p-10">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm">
-                <ShieldCheck className="h-6 w-6 text-amber-300" aria-hidden="true" />
-              </span>
-              <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.18em] text-amber-300">Programa nacional de embaixadores</p>
-              <h2 className="mt-2 text-2xl font-extrabold">Leve o Trombone Cidadão para sua cidade</h2>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">
-                Embaixadores aproximam moradores, acompanham demandas e ajudam informações locais confiáveis a ganhar força em todo o país.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-white/85">
-                <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-amber-300" /> Mobilize sua comunidade</span>
-                <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-amber-300" /> Represente seu município</span>
-                <span className="inline-flex items-center gap-1.5"><Megaphone className="h-4 w-4 text-amber-300" /> Dê voz às demandas locais</span>
-              </div>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="rounded-xl bg-amber-400 text-[#3b0a12] hover:bg-amber-300">
-                <Link to="/seja-embaixador">Quero ser embaixador</Link>
-              </Button>
-              <Button asChild variant="outline" className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white">
-                <Link to="/embaixador">Acessar meu painel</Link>
-              </Button>
             </div>
           </div>
         </section>
@@ -765,6 +734,66 @@ function HomeDesktop() {
           </section>
         </div>
 
+        {/* ── Módulos ───────────────────────────────────────────────────── */}
+        <Secao titulo="Como você quer participar?" descricao="Escolha um caminho para contribuir com sua cidade.">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {MODULOS.map(({ nome, path, Icone, descricao, tom, destaque }, i) => (
+              <Link
+                key={path}
+                to={path}
+                className={`reveal ${i ? `reveal-delay-${Math.min(i, 5)}` : ''} group relative overflow-hidden rounded-2xl border p-4 text-center transition-[colors,transform,box-shadow] hover:-translate-y-1 hover:border-brand/40 ${
+                  destaque
+                    ? `${destaque} shadow-elevation-1 hover:shadow-elevation-2`
+                    : 'border-edge-subtle bg-surface-raised/80 shadow-sm hover:bg-surface-subtle'
+                }`}
+              >
+                {destaque && <span className="absolute inset-x-0 top-0 h-0.5 bg-brand/45" aria-hidden="true" />}
+                <span className={`mx-auto flex items-center justify-center ${destaque ? 'h-12 w-12 rounded-2xl shadow-sm' : 'h-10 w-10 rounded-xl opacity-85'} ${tom}`}>
+                  <Icone className={destaque ? 'h-5 w-5' : 'h-4 w-4'} />
+                </span>
+                <p className="mt-3 text-sm font-bold text-content-primary">{nome}</p>
+                <p className="mt-1 text-xs leading-snug text-content-tertiary">{descricao}</p>
+              </Link>
+            ))}
+          </div>
+        </Secao>
+
+        {/* O programa merece uma entrada própria: os embaixadores são quem leva
+            a plataforma nacional para a rotina de cada município. */}
+        <section className="reveal relative mt-10 min-h-[20rem] overflow-hidden rounded-3xl border border-brand/20 bg-[#390b12] text-white shadow-elevation-2">
+          <img
+            src={`${HOME_IMAGE_BASE_URL}/embaixador-desktop.webp`}
+            alt="Grupo de embaixadores do Trombone Cidadão"
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover object-[68%_center] saturate-[0.88]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#27070d]/95 via-[#4b0b15]/85 to-black/25" />
+          <div className="relative flex min-h-[20rem] max-w-2xl flex-col justify-center p-8 lg:p-10">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm">
+                <ShieldCheck className="h-6 w-6 text-amber-300" aria-hidden="true" />
+              </span>
+              <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.18em] text-amber-300">Programa nacional de embaixadores</p>
+              <h2 className="mt-2 text-2xl font-extrabold">Leve o Trombone Cidadão para sua cidade</h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75">
+                Embaixadores aproximam moradores, acompanham demandas e ajudam informações locais confiáveis a ganhar força em todo o país.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-white/85">
+                <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-amber-300" /> Mobilize sua comunidade</span>
+                <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-amber-300" /> Represente seu município</span>
+                <span className="inline-flex items-center gap-1.5"><Megaphone className="h-4 w-4 text-amber-300" /> Dê voz às demandas locais</span>
+              </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="rounded-xl bg-amber-400 text-[#3b0a12] hover:bg-amber-300">
+                <Link to="/seja-embaixador">Quero ser embaixador</Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+                <Link to="/embaixador">Acessar meu painel</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+
+
         {/* ── Mapa ──────────────────────────────────────────────────────── */}
         <section className="reveal mt-10 grid items-center gap-7 rounded-3xl border border-edge-subtle bg-surface-raised p-6 shadow-sm lg:grid-cols-[minmax(15rem,0.7fr)_minmax(0,1.3fr)] lg:p-8">
           <div>
@@ -865,10 +894,4 @@ function HomeDesktop() {
   );
 }
 
-export default function HomeDesktopWithCityView() {
-  return (
-    <CityViewProvider>
-      <HomeDesktop />
-    </CityViewProvider>
-  );
-}
+export default HomeDesktop;

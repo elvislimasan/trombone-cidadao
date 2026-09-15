@@ -23,6 +23,7 @@ import Icon from "@/design-system/icons";
 const ReportHeader = ({
   onBack,
   showAdminActions,
+  canLinkReports,
   handleOpenLinkModal,
   handleEditClick,
   handleWhatsAppShare,
@@ -85,7 +86,7 @@ const ReportHeader = ({
                 Compartilhar
               </DropdownMenuItem>
 
-              {showAdminActions && (
+              {canLinkReports && (
                 <DropdownMenuItem
                   className="gap-2 cursor-pointer"
                   onClick={handleOpenLinkModal}

@@ -20,6 +20,7 @@ import CityEventImageField from '@/components/agora/CityEventImageField';
 import LocationPickerMap from '@/components/LocationPickerMap';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
 import { normalizarLinkExterno, textoDoBotaoExterno } from '@/lib/externalLinks';
+import { useCity } from '@/contexts/CityContext';
 
 // "Nova ocorrência" — a tela de criar e editar um acontecimento.
 //
@@ -230,6 +231,7 @@ const SeletorDeAreas = ({ aberto, aoFechar, cityId, bairrosPermitidos, aoEscolhe
 const CityEventForm = ({
   cityId,
   cityName,
+  cityUf,
   papel,
   bairrosDesignados = [],
   restritoABairros = false,
@@ -238,7 +240,10 @@ const CityEventForm = ({
   aoSalvar,
   aoCancelar,
 }) => {
+  const { cities } = useCity();
   const editando = Boolean(evento?.id);
+  const cidadeDoEvento = (cities || []).find((city) => String(city.id) === String(cityId));
+  const ufDoEvento = cityUf || cidadeDoEvento?.state?.uf;
 
   const inicioInicial = dividirInstante(evento?.started_at) ;
   const previsaoInicial = dividirInstante(evento?.estimated_end_at);
@@ -346,7 +351,9 @@ const CityEventForm = ({
     // memória para uma imagem que a pessoa ainda pode trocar — e no Android o
     // caminho nativo pode nem estar pronto logo após a câmera fechar.
     const [arquivo] = await cam.resolveForUpload();
-    const previsao = type === 'event'
+    const previsao = type === 'public_notice'
+      ? { instante: null, soDia: false }
+      : type === 'event'
       ? { instante: paraInstante(dataPrevisao, horaPrevisao), soDia: false }
       : instanteDaPrevisao({ precisao: precisaoPrevisao, data: dataPrevisao, hora: horaPrevisao });
 
@@ -531,7 +538,12 @@ const CityEventForm = ({
           <LocationPickerMap
             initialPosition={location}
             onLocationChange={(ponto) => definirLocation(ponto, false)}
-            fallbackCityCenter={{ name: String(cityName || '').split(' · ')[0] }}
+            fallbackCityCenter={{
+              name: String(cityName || '').split(' · ')[0],
+              // Cidades homônimas precisam da UF. Sem ela, o Nominatim pode
+              // escolher Floresta-PR mesmo quando o city_id é de Floresta-PE.
+              uf: ufDoEvento || String(cityName || '').split(' · ')[1]?.trim() || undefined,
+            }}
             showLocateButton
             showMarker={Boolean(location)}
             initialZoom={16}
@@ -579,7 +591,11 @@ const CityEventForm = ({
           </div>
         </Campo>
 
-        {type === 'event' ? (
+        {type === 'public_notice' ? (
+          <div className="flex items-center rounded-2xl border border-edge-subtle bg-surface-subtle px-4 py-3 text-sm text-content-secondary">
+            Comunicados permanecem publicados até serem encerrados manualmente e não usam previsão.
+          </div>
+        ) : type === 'event' ? (
           <Campo label="Término do evento (opcional)" dica="Ao terminar, o evento sai da agenda sem emitir notificação.">
             <div className="flex gap-2">
               <Input type="date" value={dataPrevisao} onChange={(e) => setDataPrevisao(e.target.value)} className="flex-1" />

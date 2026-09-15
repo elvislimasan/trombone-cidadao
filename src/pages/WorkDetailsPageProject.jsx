@@ -6,6 +6,8 @@ import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { optimizeImageFile } from "@/lib/optimizeImage";
+import { optimizeStoredWorkImage } from "@/lib/optimizeStoredWorkImage";
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
 import { ObraCurrentPhase } from "@/components/project/obra/ObraCurrentPhase";
 import { ObraProgress } from "@/components/project/obra/ObraProgress";
@@ -22,6 +24,7 @@ import { ObraContribution } from "@/components/project/obra/ObraContribution";
 import { ObraLocation } from "@/components/project/obra/ObraLocation";
 import { ObraRelatedLinks } from "@/components/project/obra/ObraRelatedLinks";
 import { ObraHero } from "@/components/project/obra/ObraHero";
+import WorkDocumentOrganizer from "@/components/project/obra/WorkDocumentOrganizer";
 import {
   Dialog,
   DialogClose,
@@ -42,14 +45,11 @@ import {
   AlertTriangle,
   Briefcase,
   Calendar,
-  Check,
   DollarSign,
   Download,
   FileText,
   Image as ImageIcon,
   Pencil,
-  Trash2,
-  Upload,
   Video,
   X,
   Heart,
@@ -59,7 +59,7 @@ import MediaViewer from "@/components/MediaViewer";
 import { WorkEditModal } from "@/pages/admin/ManageWorksPage";
 import { useMobileHeader } from "@/contexts/MobileHeaderContext";
 import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
-import { showAppError, showAppInfo } from '@/lib/appError';
+import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 
 function formatDateDisplay(dateString) {
   if (!dateString) return "-";
@@ -310,6 +310,7 @@ export default function WorkDetailsPageProject() {
   }, [user?.id, user?.is_ambassador, user?.is_admin, user?.is_master, work?.city_id]);
   const [measurements, setMeasurements] = useState([]);
   const [media, setMedia] = useState([]);
+  const [documentFolders, setDocumentFolders] = useState([]);
   const [isFavorited, setIsFavorited] = useState(false);
   const [selectedMeasurement, setSelectedMeasurement] = useState(null);
   const [mediaViewer, setMediaViewer] = useState({
@@ -361,8 +362,7 @@ export default function WorkDetailsPageProject() {
   const documentFileInputRef = useRef(null);
   const [pendingDeleteDocument, setPendingDeleteDocument] = useState(null);
   const [isUploadingDocuments, setIsUploadingDocuments] = useState(false);
-  const [renamingDocumentId, setRenamingDocumentId] = useState(null);
-  const [renamingDocumentValue, setRenamingDocumentValue] = useState("");
+  const [uploadDocumentFolderId, setUploadDocumentFolderId] = useState(null);
   const [pageUpdatedAt, setPageUpdatedAt] = useState(null);
   const [currentPhaseSelection, setCurrentPhaseSelection] = useState("");
   const [isSavingCurrentPhaseSelection, setIsSavingCurrentPhaseSelection] =
@@ -608,8 +608,18 @@ export default function WorkDetailsPageProject() {
         name: d.title || d.name || "Documento",
         url: d.url,
         date: d.created_at ? formatDateDisplay(d.created_at) : "",
-      }));
+        document_folder_id: d.document_folder_id || null,
+        document_order: Number(d.document_order) || 0,
+      }))
+      .sort((a, b) => a.document_order - b.document_order || a.name.localeCompare(b.name, 'pt-BR'));
   }, [media, currentMeasurement?.id]);
+
+  const currentDocumentFolders = useMemo(() => {
+    if (!currentMeasurement?.id) return [];
+    return (documentFolders || [])
+      .filter((folder) => folder.measurement_id === currentMeasurement.id)
+      .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0) || a.name.localeCompare(b.name, 'pt-BR'));
+  }, [documentFolders, currentMeasurement?.id]);
 
   const paymentsForComponent = useMemo(() => {
     const targetMeasurementId =
@@ -680,7 +690,7 @@ export default function WorkDetailsPageProject() {
         showAppError("Erro ao compartilhar", { variant: "destructive" });
       }
     }
-  }, [work, workId]);
+  }, [work]);
 
   const openViewer = useCallback((items, startIndex = 0) => {
     setMediaViewer({
@@ -733,9 +743,18 @@ export default function WorkDetailsPageProject() {
         .order("created_at", { ascending: false });
       if (mediaError) throw mediaError;
 
+      const { data: folderData, error: folderError } = await supabase
+        .from("public_work_document_folders")
+        .select("*")
+        .eq("work_id", workId)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (folderError && folderError.code !== '42P01') throw folderError;
+
       setWork(workData);
       setMeasurements(measurementsData || []);
       setMedia(mediaData || []);
+      setDocumentFolders(folderData || []);
     } catch (e) {
       showAppError("Erro ao carregar obra", {
         description: e?.message || "Tente novamente.",
@@ -901,12 +920,13 @@ export default function WorkDetailsPageProject() {
     try {
       if (contribFiles.length > 0) {
         for (const file of contribFiles) {
+          const uploadFile = await optimizeImageFile(file);
           const path = `measurements/${currentMeasurement.id}/${Date.now()}-${
-            file.name
+            uploadFile.name
           }`;
           const { error: uploadError } = await supabase.storage
             .from("work-media")
-            .upload(path, file);
+            .upload(path, uploadFile);
           if (uploadError) throw uploadError;
 
           const {
@@ -1041,6 +1061,29 @@ export default function WorkDetailsPageProject() {
     [touchPageUpdatedAt, canManageWork]
   );
 
+  const handleOptimizeMediaItem = useCallback(async (item, options) => {
+    if (!canManageWork) return false;
+    try {
+      const result = await optimizeStoredWorkImage(item, options);
+      if (!result.changed) {
+        showAppInfo({ title: 'Imagem já está otimizada', description: 'O arquivo atual já é menor ou não ultrapassa o limite escolhido.' });
+      } else {
+        const savedPercent = result.originalBytes
+          ? Math.max(0, Math.round((1 - result.optimizedBytes / result.originalBytes) * 100))
+          : 0;
+        showAppNotice({ title: 'Imagem redimensionada', description: savedPercent ? `O arquivo ficou ${savedPercent}% menor.` : 'A resolução foi reduzida com sucesso.' });
+        setMedia((current) => current.map((mediaItem) => (
+          mediaItem.id === item.id ? { ...mediaItem, url: result.url } : mediaItem
+        )));
+        touchPageUpdatedAt();
+      }
+      return true;
+    } catch (error) {
+      showAppError('Erro ao redimensionar imagem', { description: error?.message || 'Tente novamente.', variant: 'destructive' });
+      return false;
+    }
+  }, [canManageWork, touchPageUpdatedAt]);
+
   const handleDeleteMediaItem = useCallback(
     async (mediaId, mediaUrl) => {
       if (!canManageWork) return;
@@ -1075,6 +1118,99 @@ export default function WorkDetailsPageProject() {
     },
     [touchPageUpdatedAt, canManageWork]
   );
+
+  const handleCreateDocumentFolder = useCallback(async (parentId, name) => {
+    if (!canManageWork || !work?.id || !currentMeasurement?.id) return null;
+    const siblings = documentFolders.filter((folder) =>
+      folder.measurement_id === currentMeasurement.id
+      && (folder.parent_id || null) === (parentId || null)
+    );
+    const { data, error } = await supabase
+      .from('public_work_document_folders')
+      .insert({
+        work_id: work.id,
+        measurement_id: currentMeasurement.id,
+        parent_id: parentId || null,
+        name,
+        sort_order: siblings.length,
+      })
+      .select('*')
+      .single();
+    if (error) {
+      showAppError('Erro ao criar pasta', { description: error.message, variant: 'destructive' });
+      return null;
+    }
+    setDocumentFolders((current) => [...current, data]);
+    touchPageUpdatedAt();
+    return data;
+  }, [canManageWork, currentMeasurement?.id, documentFolders, touchPageUpdatedAt, work?.id]);
+
+  const handleRenameDocumentFolder = useCallback(async (folderId, name) => {
+    if (!canManageWork) return;
+    const { error } = await supabase.from('public_work_document_folders').update({ name, updated_at: new Date().toISOString() }).eq('id', folderId);
+    if (error) {
+      showAppError('Erro ao renomear pasta', { description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocumentFolders((current) => current.map((folder) => folder.id === folderId ? { ...folder, name } : folder));
+    touchPageUpdatedAt();
+  }, [canManageWork, touchPageUpdatedAt]);
+
+  const handleMoveDocumentFolder = useCallback(async (folderId, parentId) => {
+    if (!canManageWork) return;
+    const { error } = await supabase
+      .from('public_work_document_folders')
+      .update({ parent_id: parentId || null, updated_at: new Date().toISOString() })
+      .eq('id', folderId);
+    if (error) {
+      showAppError('Erro ao mover pasta', { description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocumentFolders((current) => current.map((folder) => (
+      folder.id === folderId ? { ...folder, parent_id: parentId || null } : folder
+    )));
+    touchPageUpdatedAt();
+  }, [canManageWork, touchPageUpdatedAt]);
+
+  const handleDeleteDocumentFolder = useCallback(async (folder) => {
+    if (!canManageWork || !folder?.id) return;
+    if (!window.confirm(`Excluir a pasta “${folder.name}” e suas subpastas? Os arquivos serão mantidos em “Sem pasta”.`)) return;
+    const descendants = new Set([folder.id]);
+    let foundDescendant = true;
+    while (foundDescendant) {
+      foundDescendant = false;
+      for (const candidate of documentFolders) {
+        if (candidate.parent_id && descendants.has(candidate.parent_id) && !descendants.has(candidate.id)) {
+          descendants.add(candidate.id);
+          foundDescendant = true;
+        }
+      }
+    }
+    const { error } = await supabase.from('public_work_document_folders').delete().eq('id', folder.id);
+    if (error) {
+      showAppError('Erro ao excluir pasta', { description: error.message, variant: 'destructive' });
+      return;
+    }
+    setDocumentFolders((current) => current.filter((item) => !descendants.has(item.id)));
+    setMedia((current) => current.map((item) => descendants.has(item.document_folder_id) ? { ...item, document_folder_id: null } : item));
+    touchPageUpdatedAt();
+  }, [canManageWork, documentFolders, touchPageUpdatedAt]);
+
+  const handleReorderDocuments = useCallback(async (orderedDocuments) => {
+    if (!canManageWork) return;
+    const updates = orderedDocuments.map((document, index) => ({ id: document.id, document_order: index }));
+    const results = await Promise.all(updates.map((item) =>
+      supabase.from('public_work_media').update({ document_order: item.document_order }).eq('id', item.id)
+    ));
+    const failed = results.find((result) => result.error);
+    if (failed) {
+      showAppError('Erro ao reordenar documentos', { description: failed.error.message, variant: 'destructive' });
+      return;
+    }
+    const orderById = new Map(updates.map((item) => [item.id, item.document_order]));
+    setMedia((current) => current.map((item) => orderById.has(item.id) ? { ...item, document_order: orderById.get(item.id) } : item));
+    touchPageUpdatedAt();
+  }, [canManageWork, touchPageUpdatedAt]);
 
   const handleBulkUpdateMediaItems = useCallback(
     async (mediaIds, patch) => {
@@ -1220,7 +1356,8 @@ export default function WorkDetailsPageProject() {
 
       try {
         for (const file of images) {
-          const fileExt = file.name.split(".").pop();
+          const uploadFile = await optimizeImageFile(file);
+          const fileExt = uploadFile.name.split(".").pop();
           const fileName = `${Date.now()}-${Math.random()
             .toString(36)
             .substring(2, 10)}.${fileExt}`;
@@ -1228,7 +1365,7 @@ export default function WorkDetailsPageProject() {
 
           const { error: uploadError } = await supabase.storage
             .from("work-media")
-            .upload(path, file);
+            .upload(path, uploadFile);
           if (uploadError) throw uploadError;
 
           const {
@@ -1278,7 +1415,7 @@ export default function WorkDetailsPageProject() {
   );
 
   const handleUploadDocuments = useCallback(
-    async (files) => {
+    async (files, folderId = null) => {
       if (!canManageWork) return;
       if (!work?.id || !currentMeasurement?.id) return;
       const list = Array.isArray(files) ? files : [];
@@ -1314,6 +1451,8 @@ export default function WorkDetailsPageProject() {
               name: file.name,
               status: "approved",
               gallery_name: null,
+              document_folder_id: folderId || null,
+              document_order: currentDocuments.filter((document) => (document.document_folder_id || null) === (folderId || null)).length,
               contributor_id: user.id,
             })
             .select("*")
@@ -1342,6 +1481,7 @@ export default function WorkDetailsPageProject() {
       user?.id,
       canManageWork,
       work?.id,
+      currentDocuments,
     ]
   );
 
@@ -1946,7 +2086,6 @@ export default function WorkDetailsPageProject() {
     paymentForm,
     touchPageUpdatedAt,
     canManageWork,
-    workId,
     allPayments,
   ]);
 
@@ -2396,6 +2535,7 @@ export default function WorkDetailsPageProject() {
                         onRenameGallery={handleRenameGallery}
                         onDeleteGallery={handleDeleteGallery}
                         onUpdateMediaItem={handleUpdateMediaItem}
+                        onOptimizeMediaItem={handleOptimizeMediaItem}
                         onDeleteMediaItem={handleDeleteMediaItem}
                         onUploadFiles={handleUploadGalleryFiles}
                         onBulkUpdateMediaItems={handleBulkUpdateMediaItems}
@@ -2405,154 +2545,23 @@ export default function WorkDetailsPageProject() {
 
                     <div className="h-4 bg-surface-base" />
                     <div className="bg-background px-4 sm:px-6 py-6 sm:py-8">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-muted/40 border border-border">
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                          </span>
-                          <div>
-                            <div className="text-sm font-semibold text-foreground">
-                              Documentos
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {currentDocuments.length} arquivo
-                              {currentDocuments.length === 1 ? "" : "s"}
-                            </div>
-                          </div>
-                        </div>
-
-                        {canManageWork ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              documentFileInputRef.current?.click()
-                            }
-                            disabled={isUploadingDocuments}
-                            className="w-full sm:w-auto"
-                          >
-                            <Upload className="w-4 h-4 mr-2" />
-                            Adicionar documento
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      {currentDocuments.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {currentDocuments.map((doc) => (
-                            <div
-                              key={doc.id}
-                              className="flex items-center gap-2 p-3 rounded-2xl border border-border hover:border-muted-foreground/30 hover:bg-muted/20 transition-all"
-                            >
-                              <a
-                                href={doc.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center min-w-0 flex-1"
-                              >
-                                <div className="w-10 h-10 rounded-xl bg-muted/30 border border-border flex items-center justify-center text-muted-foreground mr-3 shrink-0">
-                                  <FileText className="w-5 h-5" />
-                                </div>
-                                <div className="min-w-0">
-                                  {renamingDocumentId === doc.id ? (
-                                    <div className="flex items-center gap-2">
-                                      <Input
-                                        value={renamingDocumentValue}
-                                        onChange={(e) =>
-                                          setRenamingDocumentValue(
-                                            e.target.value
-                                          )
-                                        }
-                                        className="h-9"
-                                        onClick={(e) => e.preventDefault()}
-                                      />
-                                      <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="outline"
-                                        className="h-9 w-9"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          setRenamingDocumentId(null);
-                                          setRenamingDocumentValue("");
-                                        }}
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="default"
-                                        className="h-9 w-9"
-                                        disabled={
-                                          !String(
-                                            renamingDocumentValue || ""
-                                          ).trim()
-                                        }
-                                        onClick={async (e) => {
-                                          e.preventDefault();
-                                          const nextName = String(
-                                            renamingDocumentValue || ""
-                                          ).trim();
-                                          if (!nextName) return;
-                                          await handleUpdateMediaItem(doc.id, {
-                                            name: nextName,
-                                          });
-                                          setRenamingDocumentId(null);
-                                          setRenamingDocumentValue("");
-                                        }}
-                                      >
-                                        <Check className="w-4 h-4" />
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm font-medium text-foreground truncate">
-                                      {doc.name}
-                                    </p>
-                                  )}
-                                </div>
-                              </a>
-
-                              {canManageWork ? (
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="outline"
-                                    className="h-9 w-9"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setRenamingDocumentId(doc.id);
-                                      setRenamingDocumentValue(
-                                        String(doc.name || "").trim()
-                                      );
-                                    }}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="destructive"
-                                    className="h-9 w-9"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setPendingDeleteDocument(doc);
-                                    }}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-2xl bg-muted/10">
-                          Nenhum documento anexado.
-                        </div>
-                      )}
+                      <WorkDocumentOrganizer
+                        documents={currentDocuments}
+                        folders={currentDocumentFolders}
+                        canEdit={Boolean(canManageWork)}
+                        busy={isUploadingDocuments}
+                        onUpload={(folderId) => {
+                          setUploadDocumentFolderId(folderId || null);
+                          documentFileInputRef.current?.click();
+                        }}
+                        onCreateFolder={handleCreateDocumentFolder}
+                        onRenameFolder={handleRenameDocumentFolder}
+                        onMoveFolder={handleMoveDocumentFolder}
+                        onDeleteFolder={handleDeleteDocumentFolder}
+                        onUpdateDocument={handleUpdateMediaItem}
+                        onDeleteDocument={setPendingDeleteDocument}
+                        onReorderDocuments={handleReorderDocuments}
+                      />
 
                       <input
                         ref={documentFileInputRef}
@@ -2563,7 +2572,8 @@ export default function WorkDetailsPageProject() {
                         onChange={(e) => {
                           const files = Array.from(e.target.files || []);
                           e.target.value = "";
-                          handleUploadDocuments(files);
+                          handleUploadDocuments(files, uploadDocumentFolderId);
+                          setUploadDocumentFolderId(null);
                         }}
                       />
 

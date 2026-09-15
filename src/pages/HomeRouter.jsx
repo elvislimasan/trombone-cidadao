@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import FeedPage from './FeedPage';
@@ -10,6 +10,7 @@ import { resolveHomeEntry } from '@/lib/homeEntry';
 // Na web, a raiz é a Home para visitantes e encaminha quem entrou ao feed.
 // No aplicativo nativo, a raiz continua sendo o próprio feed.
 export default function HomeRouter() {
+  const location = useLocation();
   const { user, loading } = useAuth();
   const destination = resolveHomeEntry({
     isNative: Capacitor.isNativePlatform(),
@@ -29,6 +30,6 @@ export default function HomeRouter() {
     );
   }
 
-  if (destination.type === 'redirect') return <Navigate to={destination.to} replace />;
+  if (destination.type === 'redirect') return <Navigate to={`${destination.to}${location.search}${location.hash}`} replace />;
   return <HomeDesktop />;
 }

@@ -365,6 +365,15 @@ deno_version = 2
 [functions.share-street]
 verify_jwt = false
 
+[functions.share-city-event]
+verify_jwt = false
+
+[functions.share-public-profile]
+verify_jwt = false
+
+[functions.share-councilor]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

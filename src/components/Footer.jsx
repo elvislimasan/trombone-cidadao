@@ -67,7 +67,7 @@ const Footer = () => {
   };
 
   return (
-    <footer style={footerStyle} className="py-12 hidden lg:block">
+    <footer data-site-footer style={footerStyle} className="py-12 hidden lg:block">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-1 space-y-4">

@@ -23,9 +23,24 @@ import { validateVideoFile } from '@/utils/videoProcessor';
 import { ShareModal } from './PetitionComponents';
 import { mascarar } from '@/lib/profanity';
 import { showAppError, showAppInfo } from '@/lib/appError';
+import { TIPOS_DE_PROBLEMA_ILUMINACAO } from '@/lib/reportCategoryFields';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+
+const shouldRetryWithoutRejectionFields = (err) => {
+  const msg = String(err?.message || '');
+  return err?.code === 'PGRST204'
+    || (msg.includes('schema cache') && msg.includes('reports'))
+    || msg.includes("Could not find the 'rejection_")
+    || msg.includes("Could not find the 'rejected_at'");
+};
+
+const stripRejectionFields = (obj) => {
+  const { rejection_title, rejection_description, rejected_at, ...rest } = obj || {};
+  return rest;
+};
 
 // Componente para gerar thumbnail de vídeo
 const VideoThumbnail = React.memo(({ videoUrl, alt, className, hidePlaceholder = false }) => {
@@ -322,28 +337,7 @@ const ReportDetails = ({
     let publicURLData = { publicUrl: null };
 
     if (photoFile) {
-      // Converter para WEBP para reduzir tamanho mantendo qualidade
-      let uploadFile = photoFile;
-      try {
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(photoFile);
-        });
-        const img = await new Promise((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve(image);
-          image.onerror = reject;
-          image.src = dataUrl;
-        });
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.9 });
-        uploadFile = new File([blob], (photoFile.name || 'resolution') .replace(/\.(jpe?g|png)$/i, '.webp'), { type: 'image/webp' });
-      } catch (_) {}
+      const uploadFile = await optimizeImageFile(photoFile);
       const filePath = `${user.id}/${report.id}/resolution-${Date.now()}`;
       const { error: uploadError } = await supabase.storage.from('reports-media').upload(filePath, uploadFile);
 
@@ -926,20 +920,6 @@ const ReportDetails = ({
       rejected_at: null
     };
 
-    const shouldRetryWithoutRejectionFields = (err) => {
-      const msg = String(err?.message || '');
-      if (err?.code === 'PGRST204') return true;
-      if (msg.includes('schema cache') && msg.includes('reports')) return true;
-      if (msg.includes("Could not find the 'rejection_")) return true;
-      if (msg.includes("Could not find the 'rejected_at'")) return true;
-      return false;
-    };
-
-    const stripRejectionFields = (obj) => {
-      const { rejection_title, rejection_description, rejected_at, ...rest } = obj || {};
-      return rest;
-    };
-    
     try {
       setIsModerationSaving(true);
       if (typeof onUpdate === 'function') {
@@ -1020,7 +1000,7 @@ const ReportDetails = ({
             rejectionTitle: rejectionTitle.trim(),
             rejectionDescription: rejectionDescription.trim(),
             reportTitle: report.title,
-            reportUrl: `${window.location.origin}/painel-usuario?tab=reports&report=${report.id}`
+            reportUrl: `${window.location.origin}/perfil?tab=reports&report=${report.id}`
           }
         });
       } catch (emailError) {
@@ -1524,6 +1504,7 @@ const ReportDetails = ({
                       ]}
                       placeholder="Selecione o status"
                       searchPlaceholder="Buscar status..."
+                      modal
                     />
                   </div>
                   {user?.is_admin && (
@@ -1535,6 +1516,7 @@ const ReportDetails = ({
                         options={Object.entries(categories).map(([key, value]) => ({ value: key, label: value }))}
                         placeholder="Selecione a categoria"
                         searchPlaceholder="Buscar categoria..."
+                        modal
                       />
                     </div>
                   )}
@@ -1661,7 +1643,20 @@ const ReportDetails = ({
 
             {isEditing && (editData?.category_id === 'iluminacao' || report?.category === 'iluminacao') && (
               <div className="space-y-2">
-                <h3 className="font-semibold text-foreground mb-2">Poste</h3>
+                <h3 className="font-semibold text-foreground mb-2">Iluminação pública</h3>
+                <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                  Tipo do problema
+                  <Combobox
+                    value={editData?.issue_type || ''}
+                    onChange={(issue_type) => setEditData((current) => ({ ...current, issue_type }))}
+                    options={TIPOS_DE_PROBLEMA_ILUMINACAO.map((item) => ({ value: item.value, label: item.label }))}
+                    placeholder="Selecione o problema"
+                    searchPlaceholder="Buscar tipo..."
+                    modal
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                  Poste
                 <input
                   type="text"
                   name="pole_number"
@@ -1670,6 +1665,7 @@ const ReportDetails = ({
                   className="w-full bg-background px-4 py-3 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="N°/plaqueta do poste"
                 />
+                </label>
                 {user?.is_admin && (
                   <Button
                     type="button"
@@ -1921,7 +1917,7 @@ const ReportDetails = ({
                   size="sm"
                 >
                   <Star className={`w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${report.is_favorited ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                  <span className="truncate">{report.is_favorited ? 'Favoritado' : 'Favoritar'}</span>
+                  <span className="truncate">{report.is_favorited ? 'Salva' : 'Salvar'}</span>
                 </Button>
           
                 <Button 
@@ -2023,7 +2019,7 @@ const ReportDetails = ({
                         </Button>
                       )}
                       
-                      {report.status !== 'duplicate' && user?.is_admin && (
+                      {report.status !== 'duplicate' && (user?.is_admin || user?.is_master) && (
                         <Button onClick={() => onLink(report)} variant="outline" className="gap-2 text-xs sm:text-sm">
                           <LinkIcon className="w-4 h-4" />
                           <span className="hidden sm:inline">Vincular</span>

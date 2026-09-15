@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Search, FileSignature, Plus, Eye, MoreHorizontal, Filter, Calendar, Users, CheckCircle2, XCircle, AlertCircle, Trophy, Trash2, FileDown } from 'lucide-react';
+import { ArrowLeft, Search, FileSignature, Plus, Eye, MoreHorizontal, Filter, Calendar, Users, CheckCircle2, XCircle, AlertCircle, Trophy, Trash2, FileDown, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { exportPetitionPDF } from '@/utils/pdfExport';
@@ -111,6 +111,27 @@ const ManagePetitionsPage = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleFeaturedChange = async (petition) => {
+    const next = !petition.is_featured;
+    const { data, error } = await supabase
+      .from('petitions')
+      .update({ is_featured: next, featured_order: next ? 100 : null })
+      .eq('id', petition.id)
+      .select('id, is_featured, featured_order')
+      .maybeSingle();
+    if (error || !data) {
+      showAppError({
+        title: 'Não foi possível alterar o destaque',
+        description: error?.message || 'A petição não foi alterada. Confira sua permissão.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setPetitions((current) => current.map((item) =>
+      item.id === petition.id ? { ...item, ...data } : item
+    ));
   };
 
   const handleDelete = async (id) => {
@@ -325,6 +346,7 @@ const ManagePetitionsPage = () => {
                             <div className="space-y-1 md:space-y-2 min-w-0 flex-1 w-full">
                               <div className="flex items-center gap-1.5 md:gap-3 flex-wrap">
                                 {getStatusBadge(petition.status)}
+                                {petition.is_featured && <Badge className="h-5 gap-1 border-amber-200 bg-amber-50 py-0 text-[9px] text-amber-700 hover:bg-amber-50 md:h-6 md:text-xs"><Star className="h-3 w-3 fill-current" /> Destaque</Badge>}
                                 <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-1">
                                   <Calendar className="w-3 h-3 md:w-3.5 md:h-3.5" />
                                   {new Date(petition.created_at).toLocaleDateString('pt-BR')}
@@ -370,6 +392,15 @@ const ManagePetitionsPage = () => {
                                 <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl border-2">
                                   <DropdownMenuLabel>Ações de Status</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
+                                  {petition.status === 'open' && (
+                                    <DropdownMenuItem
+                                      className="rounded-lg gap-2 cursor-pointer"
+                                      onClick={() => handleFeaturedChange(petition)}
+                                    >
+                                      <Star className={`w-4 h-4 ${petition.is_featured ? 'fill-amber-500 text-amber-500' : 'text-amber-600'}`} />
+                                      {petition.is_featured ? 'Remover dos destaques' : 'Colocar em destaque'}
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem 
                                     className="rounded-lg gap-2 cursor-pointer"
                                     onClick={() => handleStatusChange(petition.id, 'open')}

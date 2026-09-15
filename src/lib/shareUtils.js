@@ -1,4 +1,20 @@
+import { Capacitor } from '@capacitor/core';
+
+const getConfiguredPublicUrl = () => {
+  const configured = String(import.meta.env.VITE_APP_URL || '').trim().replace(/\/$/, '');
+  if (configured && !configured.includes('localhost')) return configured;
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  return supabaseUrl.includes('xxdletrjyjajtrmhwzev')
+    ? 'https://trombone-cidadao.vercel.app'
+    : 'https://trombonecidadao.com.br';
+};
+
 export const getBaseAppUrl = () => {
+  // Capacitor serve o bundle Android/iOS por uma origem local. Essa origem só
+  // existe dentro do WebView e nunca pode sair numa mensagem compartilhada.
+  if (Capacitor.isNativePlatform()) return getConfiguredPublicUrl();
+
   if (typeof window !== 'undefined') {
     const origin = window.location.origin;
     if (origin.includes('localhost')) {
@@ -77,8 +93,13 @@ export const getNewsShareUrl = (id) => {
   return `${prodUrl}/share/noticia/${id}`;
 };
 
-/** O endereco publico de um acontecimento do Trombone Agora. */
-export const getCityEventShareUrl = (id) => `${getBaseAppUrl()}/agora/${id}`;
+/** O endereco publico de um acontecimento do Radar, com previa social. */
+export const getCityEventShareUrl = (event) => {
+  const id = typeof event === 'object' ? event?.id : event;
+  const updatedAt = typeof event === 'object' ? event?.updated_at : null;
+  const version = updatedAt ? `?v=${encodeURIComponent(updatedAt)}` : '';
+  return `${getBaseAppUrl()}/share/radar/${id}${version}`;
+};
 
 /**
  * O endereco publico da pagina de uma rua.
@@ -99,3 +120,16 @@ export const getStreetShareUrl = (street) => {
 /** O caminho interno, para `<Link to>`. Mesma regra do endereco publico. */
 export const streetPath = (street) =>
   `/mapa-pavimentacao/rua/${street?.slug || street?.id || ''}`;
+
+/** O endereço público curto e canônico de um perfil cívico (/:username). */
+export const getPublicProfileShareUrl = (username) => {
+  const clean = String(username || '').trim().toLowerCase().replace(/^@/, '');
+  return `${getBaseAppUrl()}/${encodeURIComponent(clean)}`;
+};
+
+/** URL com prévia social rica de uma página legislativa. */
+export const getCouncilorShareUrl = (councilor) => {
+  const cityId = councilor?.city_id || '';
+  const slug = councilor?.slug || '';
+  return `${getBaseAppUrl()}/share/vereador/${encodeURIComponent(cityId)}/${encodeURIComponent(slug)}`;
+};

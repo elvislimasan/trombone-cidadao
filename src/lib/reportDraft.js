@@ -220,19 +220,27 @@ export const saveReportDraft = ({ formData, wizardStep }) => {
   }
 };
 
-export const saveReportDraftMedia = async ({ photos }) => {
-  if (!canUseIndexedDb()) return false;
-  const list = Array.isArray(photos) ? photos : [];
-  const photoPayload = list
-    .map((p) => {
-      const file = p?.file;
-      if (!file || !(file instanceof Blob)) return null;
-      const name = String(p?.name || file.name || 'foto.jpg');
-      const type = String(file.type || 'image/jpeg');
-      const lastModified = Number.isFinite(file.lastModified) ? file.lastModified : Date.now();
-      return { name, type, lastModified, blob: file };
-    })
-    .filter(Boolean);
+export const serializeDraftMedia = (item, kind) => {
+  const file = item?.file;
+  const name = String(item?.name || file?.name || (kind === 'video' ? 'video.mp4' : 'foto.jpg'));
+  if (item?.nativePath) return { name, nativePath: item.nativePath, type: file?.type || (kind === 'video' ? 'video/mp4' : 'image/jpeg') };
+  if (!(file instanceof Blob)) return null;
+  return { name, type: file.type, lastModified: file.lastModified || Date.now(), blob: file };
+};
+
+export const restoreDraftMedia = (item) => {
+  if (item?.nativePath) return { name: item.name, nativePath: item.nativePath, type: item.type, isProcessing: false };
+  if (!(item?.blob instanceof Blob)) return null;
+  const file = new File([item.blob], item.name, { type: item.type, lastModified: item.lastModified });
+  return { file, name: item.name, isProcessing: false };
+};
+
+export const saveReportDraftMedia = async ({ photos = [], videos = [] }) => {
+  const photoPayload = photos.map(item => serializeDraftMedia(item, 'photo'));
+  const videoPayload = videos.map(item => serializeDraftMedia(item, 'video'));
+  // Do not navigate away if an attachment cannot be restored afterwards.
+  if ([...photoPayload, ...videoPayload].some(item => !item)) return false;
+  if (!canUseIndexedDb()) return photos.length + videos.length === 0;
 
   try {
     await cleanupOldMedia();
@@ -240,7 +248,7 @@ export const saveReportDraftMedia = async ({ photos }) => {
 
   try {
     const key = getMediaKey();
-    if (photoPayload.length === 0) {
+    if (photoPayload.length + videoPayload.length === 0) {
       await txDelete(key);
       return true;
     }
@@ -248,6 +256,7 @@ export const saveReportDraftMedia = async ({ photos }) => {
       key,
       savedAt: new Date().toISOString(),
       photos: photoPayload,
+      videos: videoPayload,
     });
     return true;
   } catch {
@@ -263,23 +272,10 @@ export const loadReportDraftMedia = async () => {
   try {
     const key = getMediaKey();
     const record = await txGet(key);
-    const photos = Array.isArray(record?.photos) ? record.photos : [];
-    const restored = photos
-      .map((p) => {
-        const blob = p?.blob;
-        if (!blob || !(blob instanceof Blob)) return null;
-        const name = String(p?.name || 'foto.jpg');
-        const type = String(p?.type || blob.type || 'image/jpeg');
-        const lastModified = Number.isFinite(p?.lastModified) ? p.lastModified : Date.now();
-        try {
-          const file = new File([blob], name, { type, lastModified });
-          return { file, name };
-        } catch {
-          return { file: blob, name };
-        }
-      })
-      .filter(Boolean);
-    return { photos: restored };
+    return {
+      photos: (record?.photos || []).map(restoreDraftMedia).filter(Boolean),
+      videos: (record?.videos || []).map(restoreDraftMedia).filter(Boolean),
+    };
   } catch {
     return null;
   }

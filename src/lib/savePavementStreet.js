@@ -218,9 +218,10 @@ export const savePavementStreet = async ({
     }
   } catch (uploadError) {
     try { await removePavementMedia(supabase, uploadedPaths); } catch {}
+    console.error('Erro ao enviar anexos da rua:', uploadError);
     showAppError({
       title: 'Erro ao enviar anexos',
-      description: uploadError.message || 'Não foi possível enviar os arquivos ao Supabase.',
+      description: 'Não foi possível enviar os arquivos. Tente novamente.',
       variant: 'destructive',
     });
     return false;
@@ -299,7 +300,8 @@ export const savePavementStreet = async ({
 
   if (error) {
     try { await removePavementMedia(supabase, uploadedPaths); } catch {}
-    showAppError({ title: "Erro ao salvar rua", description: error.message, variant: "destructive" });
+    console.error('Erro ao salvar rua:', error);
+    showAppError({ title: 'Erro ao salvar rua', description: 'Não foi possível salvar as alterações. Tente novamente.', variant: 'destructive' });
     return false;
   } else {
     const currentPaths = [
@@ -314,8 +316,7 @@ export const savePavementStreet = async ({
     }
 
     showAppNotice({
-      title: id ? 'Rua atualizada' : 'Rua adicionada',
-      description: uploadedPaths.length > 0 ? 'Os anexos foram enviados ao Supabase.' : '',
+      title: id ? 'Rua atualizada com sucesso' : 'Rua adicionada com sucesso',
     });
     return true;
   }

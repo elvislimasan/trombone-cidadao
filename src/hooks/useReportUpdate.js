@@ -7,6 +7,7 @@ import { ehErroDeRede } from '@/lib/offlineErros';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useNativeCamera } from '@/hooks/useNativeCamera';
 import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -190,10 +191,11 @@ export async function enviarAtualizacaoDeBronca({
       try {
         const mediaRecords = await Promise.all(
           photos.map(async (photo) => {
-            const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${photo.name}`;
+            const uploadFile = await optimizeImageFile(photo);
+            const filePath = `${user.id}/${report.id}/updates/${newUpdate.id}/${Date.now()}-${uploadFile.name}`;
             const { error: uploadError } = await supabase.storage
               .from('reports-media')
-              .upload(filePath, photo);
+              .upload(filePath, uploadFile);
             if (uploadError) throw uploadError;
             const {
               data: { publicUrl },

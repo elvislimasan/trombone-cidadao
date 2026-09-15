@@ -89,9 +89,15 @@ const PetitionsOverviewPage = () => {
 
       const totalSignaturesSum = processedData.reduce((acc, p) => acc + (p.signatureCount || 0), 0);
 
-      // Find featured petition (highest progress but not 100% yet, or just most popular)
-      // Prefer one that is > 50% progress but < 100%
-      const featured = processedData.find(p => p.progress > 50 && p.progress < 100) || processedData.sort((a, b) => b.signatureCount - a.signatureCount)[0];
+      // O destaque é uma decisão editorial do administrador. Assinaturas e
+      // progresso continuam servindo para os filtros, mas não promovem uma
+      // campanha automaticamente.
+      const featured = [...processedData]
+        .filter((petition) => petition.is_featured)
+        .sort((a, b) =>
+          (Number(a.featured_order) || 999) - (Number(b.featured_order) || 999)
+          || new Date(b.created_at) - new Date(a.created_at)
+        )[0] || null;
       setFeaturedPetition(featured);
 
       // Sorting
@@ -186,18 +192,18 @@ const PetitionsOverviewPage = () => {
 
       <Header />
 
-      <main className="flex-1 px-2">
+      <main className="flex-1">
         {/* Hero Section */}
         <section className="relative bg-muted/30 border-b">
           <div className="absolute inset-0 bg-grid-black/[0.02] dark:bg-grid-white/[0.02]" />
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 max-w-7xl relative z-10">
+          <div className="relative z-10 mx-auto w-full max-w-[100rem] px-3 py-16 sm:px-5 md:py-24 lg:px-6">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <motion.div 
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <Badge className="mb-6 bg-primary/70 text-primary text-sm px-4 py-1.5 border border-primary/20 hover:bg-primary/80 transition-colors shadow-sm">
+                <Badge className="mb-6 border border-primary bg-primary px-4 py-1.5 text-sm text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
                   Mobilização Cidadã
                 </Badge>
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 tracking-tight text-foreground leading-tight">
@@ -289,7 +295,7 @@ const PetitionsOverviewPage = () => {
 
         {/* How it Works Section */}
         <section className="py-16 bg-background">
-           <div className="container mx-auto px-4 max-w-7xl">
+           <div className="mx-auto w-full max-w-[100rem] px-3 sm:px-5 lg:px-6">
               <div className="text-center mb-16">
                  <h2 className="text-3xl font-bold mb-4">Como funciona?</h2>
                  <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -336,7 +342,7 @@ const PetitionsOverviewPage = () => {
 
         {/* Main Content: Filters & Grid */}
         <section id="petitions-list" className="py-16 bg-muted/30">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="mx-auto w-full max-w-[100rem] px-3 sm:px-5 lg:px-6">
             <div className="flex flex-col md:flex-row justify-between items-end gap-4 mb-8">
                <div>
                   <h2 className="text-3xl font-bold mb-2">Causas em Aberto</h2>
@@ -468,7 +474,7 @@ const PetitionsOverviewPage = () => {
         {/* Registration CTA for Guests */}
         {!user && (
             <section className="py-16 bg-muted/30 border-y">
-                <div className="container px-4 text-center space-y-6">
+                <div className="mx-auto w-full max-w-[100rem] space-y-6 px-3 text-center sm:px-5 lg:px-6">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
                         <Users className="w-8 h-8 text-primary" />
                     </div>

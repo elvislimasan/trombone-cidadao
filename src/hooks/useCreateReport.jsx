@@ -127,7 +127,7 @@ export function useCreateReport({ onCreated } = {}) {
         } catch {}
       }
       try {
-        confetti({
+        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) confetti({
           particleCount: 90,
           spread: 60,
           origin: { y: 0.25 },
@@ -135,8 +135,10 @@ export function useCreateReport({ onCreated } = {}) {
         });
       } catch {}
 
+      window.dispatchEvent(new CustomEvent('report-submitted', { detail: { id: data.id, published: !!(user.is_admin || user.is_master) } }));
       onCreated?.(data.id);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
+      return { id: data.id, notified: true };
     },
     [submittedCount, user, onCreated, celebrate]
   );

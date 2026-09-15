@@ -29,6 +29,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Combobox } from "@/components/ui/combobox";
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const IconPicker = ({ value, onChange, icons }) => {
   const [open, setOpen] = useState(false);
@@ -138,13 +139,14 @@ const SiteSettingsPage = () => {
 
     setUploadingImage(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      const uploadFile = await optimizeImageFile(file, { maxDimension: 1600, quality: 0.84 });
+      const fileExt = uploadFile.name.split('.').pop();
       const fileName = `promo-modal-${Date.now()}.${fileExt}`;
       const filePath = `modal/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('promo-images')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, uploadFile, { upsert: true });
 
       if (uploadError) {
         throw uploadError;

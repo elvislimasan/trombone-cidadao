@@ -12,6 +12,7 @@ import {
   Search,
 } from 'lucide-react';
 import AdminModuleHero from '@/components/admin/AdminModuleHero';
+import CityCombobox from '@/components/CityCombobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
@@ -246,12 +247,15 @@ const ManageCampaignsPage = () => {
 
             <div className="space-y-4 px-5 py-5">
               <Campo label="Onde será exibida?" ajuda="A campanha local tem prioridade sobre uma campanha nacional.">
-                <select value={cidadeId} onChange={(e) => setCidadeId(e.target.value)} className={entrada}>
-                  <option value="">Nacional</option>
-                  {cidadesDisponiveis.map((c) => (
-                    <option key={c.id} value={c.id}>{c.rotulo}</option>
-                  ))}
-                </select>
+                <CityCombobox
+                  value={cidadeId || 'national'}
+                  onChange={(value) => setCidadeId(value === 'national' ? '' : String(value))}
+                  includeAll
+                  allValue="national"
+                  allLabel="Nacional"
+                  placeholder="Buscar cidade..."
+                  className={entrada}
+                />
               </Campo>
 
               <Campo label="Título">

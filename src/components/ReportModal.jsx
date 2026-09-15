@@ -21,6 +21,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { reportReturnLocation } from '@/lib/reportReturn';
 import ReCAPTCHA from "react-google-recaptcha";
 import { Button } from "@/components/ui/button";
 import { Capacitor } from "@capacitor/core";
@@ -200,18 +201,17 @@ const ReportModal = ({ onClose, onSubmit }) => {
     Promise.resolve()
       .then(loadReportDraftMedia)
       .then((media) => {
-        const restoredPhotos = Array.isArray(media?.photos) ? media.photos : [];
-        if (!restoredPhotos.length) return;
+        const withPreview = (item) => ({ ...item, preview: item.nativePath ? Capacitor.convertFileSrc(item.nativePath) : URL.createObjectURL(item.file) });
+        const restoredPhotos = (media?.photos || []).map(withPreview);
+        const restoredVideos = (media?.videos || []).map(withPreview);
+        if (!restoredPhotos.length && !restoredVideos.length) return;
         setFormData((prev) => ({
           ...prev,
           photos: [
             ...prev.photos,
-            ...restoredPhotos.map(({ file, name }) => ({
-              file,
-              name,
-              preview: URL.createObjectURL(file),
-            })),
+            ...restoredPhotos,
           ],
+          videos: [...prev.videos, ...restoredVideos],
         }));
       })
       .catch(() => {});
@@ -2977,17 +2977,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
         city_id: resolvedCityId,
         neighborhood: getResolvedNeighborhood(),
       };
-      await onSubmit(finalFormData, uploadMediaWrapper, {
+      const submissionResult = await onSubmit(finalFormData, uploadMediaWrapper, {
         signal: submissionController.signal,
       });
       throwIfSubmissionAborted(submissionController.signal);
-      if (!Capacitor.isNativePlatform()) {
-        showAppNotice({
-          title: isPublishedDirectly ? 'Bronca publicada' : 'Bronca enviada',
-          description: isPublishedDirectly
-            ? 'Sua bronca já está disponível no feed.'
-            : 'Sua bronca foi recebida e aguarda moderação antes de aparecer no feed.',
-        });
+      if (!submissionResult?.notified && !Capacitor.isNativePlatform()) {
+        showAppNotice({ title: isPublishedDirectly ? 'Bronca publicada' : 'Enviada para análise', description: isPublishedDirectly ? 'Sua bronca já está disponível no feed.' : 'Sua bronca aguarda aprovação antes de aparecer para a comunidade.' });
       }
       clearReportDraft();
 
@@ -3170,16 +3165,21 @@ const ReportModal = ({ onClose, onSubmit }) => {
       return;
     }
 
-    saveReportDraft({ formData, wizardStep });
-    await saveReportDraftMedia({ photos: formData.photos });
-    const target = "/mapa?criar_bronca=1";
+    const saved = saveReportDraft({ formData, wizardStep });
+    const mediaSaved = await saveReportDraftMedia({ photos: formData.photos, videos: formData.videos });
+    if (!saved || !mediaSaved) {
+      showAppError({ title: 'Não foi possível guardar o rascunho', description: 'Seu formulário continua aberto. Aguarde o processamento dos anexos e tente novamente.' });
+      return;
+    }
+    const from = reportReturnLocation(location);
+    const target = `${from.pathname}${from.search}`;
 
     try {
       sessionStorage.setItem("tc_post_login_redirect", target);
     } catch {}
 
     navigate("/login", {
-      state: { from: { pathname: "/mapa", search: "?criar_bronca=1" } },
+      state: { from },
     });
     suppressDraftCleanupRef.current = true;
     handleClose();

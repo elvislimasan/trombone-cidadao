@@ -11,6 +11,8 @@ import { FileOpener } from '@capacitor-community/file-opener';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
+import ExplorePage from '@/pages/ExplorePage';
+import ReportSubmissionNotice from '@/components/ReportSubmissionNotice';
 import AppDownloadBanner from '@/components/AppDownloadBanner';
 import HomePage from '@/pages/HomePage';
 import AboutPage from '@/pages/AboutPage';
@@ -21,11 +23,14 @@ import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
 import RentalPropertiesPage from '@/pages/RentalPropertiesPage';
 import PavementMapPage from '@/pages/PavementMapPage';
 import PavementStreetPage from '@/pages/PavementStreetPage';
+import CouncilorProfilePage from '@/pages/CouncilorProfilePage';
+import ManageMyCouncilorPage from '@/pages/ManageMyCouncilorPage';
 import ServicesPage from '@/pages/ServicesPage';
+import DirectoryDetailsPage from '@/pages/DirectoryDetailsPage';
 import NewsPage from '@/pages/NewsPage';
 import NewsDetailsPage from '@/pages/NewsDetailsPage';
 import AdminPage from '@/pages/admin/AdminPage';
-import UserDashboardPage from '@/pages/UserDashboardPage';
+import ProfileSettingsPage from '@/pages/ProfileSettingsPage';
 import TransportDetailsPage from '@/pages/TransportDetailsPage';
 import TouristSpotDetailsPage from '@/pages/TouristSpotDetailsPage';
 import ManageServicesPage from '@/pages/admin/ManageServicesPage';
@@ -33,6 +38,7 @@ import ManageNewsPage from '@/pages/admin/ManageNewsPage';
 import ManageWorksPage from '@/pages/admin/ManageWorksPage';
 import ManageRentalPropertiesPage from '@/pages/admin/ManageRentalPropertiesPage';
 import ManagePavementPage from '@/pages/admin/ManagePavementPage';
+import ManageCouncilorsPage from '@/pages/admin/ManageCouncilorsPage';
 import SiteSettingsPage from '@/pages/admin/SiteSettingsPage';
 import ManageUsersPage from '@/pages/admin/ManageUsersPage';
 import ManageCategoriesPage from '@/pages/admin/ManageCategoriesPage';
@@ -67,6 +73,7 @@ import MyPetitionsPage from '@/pages/MyPetitionsPage';
 import NotificationPreferences from './pages/NotificationPreferences';
 import DeleteAccountPage from './pages/DeleteAccountPage';
 import { VideoProcessor } from '@/plugins/VideoProcessor';
+import { isReservedUsername } from '@/lib/username';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
@@ -98,6 +105,7 @@ import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
+import ManageCityIdentityPage from '@/pages/admin/ManageCityIdentityPage';
 import OrgaoRelatorioPage from '@/pages/OrgaoRelatorioPage';
 import { notifyNative } from '@/lib/nativeNotification';
 import AppFeedbackBanner from '@/components/AppFeedbackBanner';
@@ -106,6 +114,8 @@ import CityEventPage from '@/pages/CityEventPage';
 import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
 import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 import AudienceTracker from '@/components/AudienceTracker';
+import PublicProfilePage from '@/pages/PublicProfilePage';
+import FollowingActivityPage from '@/pages/FollowingActivityPage';
 
 const SEO = () => {
   const location = useLocation();
@@ -151,9 +161,13 @@ const SEO = () => {
   let pageImage = defaultImage;
   const canonicalUrl = `${baseUrl}${location.pathname}`;
 
-  // IMPORTANTE: Se estiver em uma página de bronca, não definir og:image aqui
-  // Deixa o DynamicSEO da página de bronca definir a imagem correta
-  const isReportPage = location.pathname.startsWith('/bronca/');
+  // IMPORTANTE: Se estiver em uma página de bronca ou perfil público, não definir og:image aqui
+  // Deixa o SEO próprio da página definir a imagem e metadados corretos
+  const shortUsername = location.pathname.match(/^\/([a-z0-9][a-z0-9._]{1,28}[a-z0-9])\/?$/i)?.[1] || '';
+  const isCustomMetaPage = location.pathname.startsWith('/bronca/')
+    || location.pathname.startsWith('/u/')
+    || location.pathname.startsWith('/@')
+    || Boolean(shortUsername && !isReservedUsername(shortUsername));
 
   // Customize titles and descriptions per route
   switch (location.pathname) {
@@ -217,22 +231,22 @@ const SEO = () => {
       <meta property="og:description" content={pageDescription} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:site_name" content={siteName} />
-      {/* IMPORTANTE: Só definir og:image se NÃO for página de bronca
-          Quando for página de bronca, o DynamicSEO define a imagem correta */}
-      {!isReportPage && <meta property="og:image" content={pageImage} />}
-      {!isReportPage && <meta property="og:image:width" content="1200" />}
-      {!isReportPage && <meta property="og:image:height" content="600" />}
-      {!isReportPage && <meta property="og:image:type" content="image/jpeg" />}
-      {!isReportPage && <meta property="og:image:alt" content={`Imagem do ${siteName}`} />}
+      {/* IMPORTANTE: Só definir og:image se NÃO for página de bronca ou perfil público */}
+      {!isCustomMetaPage && <meta property="og:image" content={pageImage} />}
+      {!isCustomMetaPage && <meta property="og:image:width" content="1200" />}
+      {!isCustomMetaPage && <meta property="og:image:height" content="600" />}
+      {!isCustomMetaPage && <meta property="og:image:type" content="image/jpeg" />}
+      {!isCustomMetaPage && <meta property="og:image:alt" content={`Imagem do ${siteName}`} />}
       <meta property="og:locale" content="pt_BR" />
       
       {/* Twitter Card Meta Tags */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={pageTitle} />
       <meta name="twitter:description" content={pageDescription} />
-      {/* IMPORTANTE: NÃO definir twitter:image aqui se não for página de bronca */}
-      {!isReportPage && <meta name="twitter:image" content={pageImage} />}
-      {!isReportPage && <meta name="twitter:image:alt" content={`Imagem do ${siteName}`} />}
+      {/* IMPORTANTE: NÃO definir twitter:image aqui se for página customizada */}
+      {!isCustomMetaPage && <meta name="twitter:image" content={pageImage} />}
+      {!isCustomMetaPage && <meta name="twitter:image:alt" content={`Imagem do ${siteName}`} />}
+
     </Helmet>
   );
 };
@@ -261,6 +275,13 @@ const PrivateRoute = ({ children }) => {
 const ParaOMapaDeBroncas = () => {
   const { search } = useLocation();
   return <Navigate to={{ pathname: '/mapa', search }} replace />;
+};
+
+// O antigo painel pessoal agora faz parte de /perfil. Preservamos a query para
+// links antigos de notificações que abrem uma bronca específica.
+const LegacyUserDashboardRedirect = () => {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/perfil', search }} replace />;
 };
 
 const AdminRoute = ({ children }) => {
@@ -804,6 +825,8 @@ function AppShell() {
               <Route path="/imoveis-alugados/:id" element={<RentalPropertyDetailsPage />} />
               <Route path="/agora" element={<AgoraPage />} />
               <Route path="/agora/:eventId" element={<CityEventPage />} />
+              <Route path="/share/radar/:eventId" element={<CityEventPage />} />
+              <Route path="/share/perfil/:username" element={<PublicProfilePage />} />
               {/* Fallback para hospedagens que entreguem o SPA antes de aplicar
                   o proxy social. O .htaccess/Vercel normalmente envia esta URL
                   para share-street; se isso nao acontecer, o visitante ainda
@@ -811,19 +834,31 @@ function AppShell() {
               <Route path="/share/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
+              <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
+              <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/servicos" element={<ServicesPage />} />
               <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
               <Route path="/servicos/ponto-turistico/:id" element={<TouristSpotDetailsPage />} />
+              <Route path="/servicos/guia/:id" element={<DirectoryDetailsPage />} />
               <Route path="/noticias" element={<NewsPage />} />
               <Route path="/noticias/:newsId" element={<NewsDetailsPage />} />
               <Route path="/contato" element={<ContactPage />} />
   
+              {/* Rotas legadas do perfil público; a canônica curta fica antes do fallback. */}
+              <Route path="/u/:username" element={<PublicProfilePage />} />
+              <Route path="/@:username" element={<PublicProfilePage />} />
+
               <Route path="/perfil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+              <Route path="/configuracoes" element={<PrivateRoute><ProfileSettingsPage /></PrivateRoute>} />
+              <Route path="/explorar" element={<ExplorePage />} />
+              <Route path="/seguindo" element={<FollowingActivityPage />} />
+              <Route path="/perfil/pagina-legislativa/:councilorId" element={<PrivateRoute><ManageMyCouncilorPage /></PrivateRoute>} />
               <Route path="/perfil/preferencias" element={<PrivateRoute><NativePreferencesPage /></PrivateRoute>} />
               <Route path="/minhas-peticoes" element={<PrivateRoute><MyPetitionsPage /></PrivateRoute>} />
-              <Route path="/favoritos" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
+              <Route path="/favoritos" element={<Navigate to="/seguindo?aba=broncas" replace />} />
+              <Route path="/salvos-outros" element={<PrivateRoute><FavoritesPage /></PrivateRoute>} />
               <Route path="/obras-favoritas" element={<PrivateRoute><FavoriteWorksPage /></PrivateRoute>} />
-              <Route path="/painel-usuario" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
+              <Route path="/painel-usuario" element={<PrivateRoute><LegacyUserDashboardRedirect /></PrivateRoute>} />
               <Route path="/alterar-senha" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
               <Route path="/excluir-conta" element={<PrivateRoute><DeleteAccountPage /></PrivateRoute>} />
               
@@ -861,8 +896,10 @@ function AppShell() {
               <Route path="/imoveis-alugados/gerenciar" element={<ModuleRoute module="rentals"><ManageRentalPropertiesPage /></ModuleRoute>} />
               <Route path="/admin/obras/opcoes" element={<ModuleRoute module="works" adminOnly><ManageWorkOptionsPage /></ModuleRoute>} />
               <Route path="/admin/pavimentacao" element={<ModuleRoute module="pavement" adminOnly><ManagePavementPage /></ModuleRoute>} />
+              <Route path="/admin/vereadores" element={<ModuleRoute module="pavement" adminOnly><ManageCouncilorsPage /></ModuleRoute>} />
               <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="pavement"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
+              <Route path="/admin/identidade-da-cidade" element={<AdminRoute><ManageCityIdentityPage /></AdminRoute>} />
               <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />
               <Route path="/admin/reports" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
               <Route path="/admin/broncas" element={<ModuleRoute module="moderation" adminOnly><ManageReportsPage /></ModuleRoute>} />
@@ -875,6 +912,9 @@ function AppShell() {
               <Route path="/admin/embaixador/:id" element={<AdminRoute><AmbassadorProfilePage /></AdminRoute>} />
               <Route path="/embaixador" element={<PrivateRoute><AmbassadorPage /></PrivateRoute>} />
               <Route path="/settings/notifications" element={<NotificationPreferences />} />
+              {/* Deve permanecer depois das rotas de uma parte e antes do 404.
+                  Nomes de rotas são bloqueados pela validação de username. */}
+              <Route path="/:username" element={<PublicProfilePage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
               </ErrorBoundary>
@@ -885,6 +925,7 @@ function AppShell() {
               via à frente e oferece destinos que ninguém deve tocar dirigindo.
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
           {!patrulhaAtiva && <BottomNav />}
+          <ReportSubmissionNotice />
           <WebUploadIndicator />
           <UploadStatusBar />
         </div>

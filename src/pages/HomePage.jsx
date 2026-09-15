@@ -13,6 +13,8 @@ import LinkReportModal from '@/components/LinkReportModal';
 import RankingSidebar from '@/components/RankingSidebar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { linkDuplicateReport } from '@/lib/linkReport';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 import { Progress } from '@/components/ui/progress';
 import { getNextSignatureGoal, uniqueChannelTopic } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -658,10 +660,11 @@ function HomePage() {
 
       if (mediaToUpload.length > 0) {
         const uploadPromises = mediaToUpload.map(async (media) => {
-          const filePath = `${user.id}/${id}/${Date.now()}-${media.name}`;
+          const uploadFile = await optimizeImageFile(media.file);
+          const filePath = `${user.id}/${id}/${Date.now()}-${uploadFile.name}`;
           const { error: uploadError } = await supabase.storage
             .from('reports-media')
-            .upload(filePath, media.file);
+            .upload(filePath, uploadFile);
           
           if (uploadError) throw uploadError;
           
@@ -719,16 +722,7 @@ function HomePage() {
 
   const handleLinkReport = async (sourceReportId, targetReportId) => {
     try {
-      const { data: linkedReport, error } = await supabase
-        .from('reports')
-        .update({ status: 'duplicate', linked_to: targetReportId })
-        .eq('id', sourceReportId)
-        .select('id')
-        .maybeSingle();
-
-      if (error || !linkedReport) {
-        throw error || new Error('A bronca não foi alterada. Confira sua permissão e tente novamente.');
-      }
+      await linkDuplicateReport(supabase, sourceReportId, targetReportId);
 
       setShowLinkModal(false);
       setReportToLink(null);
@@ -740,7 +734,9 @@ function HomePage() {
       }, 500);
     } catch (error) {
       showAppError({ title: "Erro ao vincular bronca", description: error.message, variant: "destructive" });
+      return false;
     }
+    return true;
   };
 
  // Função para favoritar com atualização IMEDIATA

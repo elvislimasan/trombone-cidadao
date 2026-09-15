@@ -85,7 +85,7 @@ const pinoArrastavelIcon = L.divIcon({
 });
 
 // Draggable marker component
-const DraggableMarker = ({ position, onPositionChange, icon }) => {
+const DraggableMarker = ({ position, onPositionChange, icon, draggable = true }) => {
   const markerRef = useRef(null);
 
   const eventHandlers = {
@@ -99,7 +99,7 @@ const DraggableMarker = ({ position, onPositionChange, icon }) => {
 
   return (
     <Marker
-      draggable={true}
+      draggable={draggable}
       eventHandlers={eventHandlers}
       position={position}
       // Espalhado condicionalmente: `icon={undefined}` nao cai no padrao do
@@ -176,6 +176,7 @@ const LocationPickerMap = ({
   showSatelliteToggle = false,
   showLocateButton = false,
   showMarker = true,
+  readOnly = false,
   fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
   flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
   /**
@@ -261,9 +262,10 @@ const LocationPickerMap = ({
   }, [flyToCity?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePositionChange = (newPosition) => {
+    if (readOnly) return;
     userMovedRef.current = true;
     setPosition(newPosition);
-    onLocationChange(newPosition);
+    onLocationChange?.(newPosition);
   };
 
   const handleLayerToggle = () => {
@@ -327,12 +329,13 @@ const LocationPickerMap = ({
           />
         )}
 
-        <MapClickHandler onMapClick={handlePositionChange} />
+        {!readOnly && <MapClickHandler onMapClick={handlePositionChange} />}
         {showMarker && (
           <DraggableMarker
             position={position}
             onPositionChange={handlePositionChange}
             icon={offline ? pinoArrastavelIcon : undefined}
+            draggable={!readOnly}
           />
         )}
 
@@ -395,7 +398,7 @@ const LocationPickerMap = ({
         )}
       </MapContainer>
 
-      {showLocateButton && (
+      {showLocateButton && !readOnly && (
         <div className="absolute bottom-3 right-3 z-[9999]">
           <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-lg">
             <button

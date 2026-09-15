@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { Instagram } from 'lucide-react';
@@ -232,13 +232,15 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
     setLocalFav(!eraFavorito);
     try {
       if (eraFavorito) {
-        await supabase.from('favorite_reports').delete()
+        const { error } = await supabase.from('favorite_reports').delete()
           .eq('user_id', user.id).eq('report_id', report.id);
+        if (error) throw error;
       } else {
-        await supabase.from('favorite_reports').upsert(
+        const { error } = await supabase.from('favorite_reports').upsert(
           { user_id: user.id, report_id: report.id },
           { onConflict: 'user_id,report_id' }
         );
+        if (error) throw error;
       }
     } catch {
       setLocalFav(eraFavorito);
@@ -305,17 +307,35 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
           {/* py-0.5 dá folga vertical ao avatar: sem isso ele encostava na
               linha de cima, que tem line-clamp e nao reserva descida. */}
           {(report.authorName || report.authorAvatar) && (
-            <div className="flex items-center gap-2 mt-3 py-0.5 min-w-0">
-              <AuthorAvatar
-                name={report.authorName}
-                avatarUrl={report.authorAvatar}
-                sizeClassName="w-6 h-6"
-              />
-              <span className="text-2xs text-content-tertiary truncate">
-                por {report.authorName || 'Cidadão'}
-              </span>
-            </div>
+            report.authorUsername ? (
+              <Link
+                to={`/${report.authorUsername}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-2 mt-3 py-0.5 min-w-0 hover:opacity-80 transition cursor-pointer group"
+              >
+                <AuthorAvatar
+                  name={report.authorName}
+                  avatarUrl={report.authorAvatar}
+                  sizeClassName="w-6 h-6"
+                />
+                <span className="text-2xs text-content-tertiary truncate group-hover:text-content-primary">
+                  por <span className="font-semibold text-content-secondary group-hover:text-brand">{report.authorName || 'Cidadão'}</span>
+                </span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2 mt-3 py-0.5 min-w-0">
+                <AuthorAvatar
+                  name={report.authorName}
+                  avatarUrl={report.authorAvatar}
+                  sizeClassName="w-6 h-6"
+                />
+                <span className="text-2xs text-content-tertiary truncate">
+                  por {report.authorName || 'Cidadão'}
+                </span>
+              </div>
+            )
           )}
+
 
           {/* Barra de acoes so com icone: apoiar, comentar e compartilhar a
               esquerda; salvar isolado a direita, porque e a unica que age sobre
@@ -411,15 +431,15 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             <button
               type="button"
               onClick={handleBookmark}
-              aria-label={localFav ? 'Deixar de acompanhar' : 'Acompanhar bronca'}
+              aria-label={localFav ? 'Remover das salvas' : 'Salvar bronca'}
               aria-pressed={localFav}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`inline-flex min-h-11 items-center gap-1.5 px-2 rounded-lg text-xs font-semibold transition-colors ${
                 localFav
                   ? 'text-brand'
                   : 'text-content-secondary hover:text-content-primary'
               }`}
             >
-              <Icon name="save" size={19} />
+              <Icon name="save" size={19} /><span>{localFav ? 'Salva' : 'Salvar'}</span>
             </button>
           </div>
 

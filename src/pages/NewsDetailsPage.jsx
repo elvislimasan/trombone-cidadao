@@ -21,6 +21,7 @@ import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
 import { mascarar } from '@/lib/profanity';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 const NewsDetailsPage = () => {
   const { newsId } = useParams();
@@ -309,7 +310,7 @@ const NewsDetailsPage = () => {
     // Upload galeria
     if (savedNewsId && galleryFiles?.length > 0) {
       const uploadPromises = galleryFiles.map(async ({ file }) => {
-        let uploadFile = file;
+        const uploadFile = await optimizeImageFile(file);
         const filePath = `news/${savedNewsId}/${Date.now()}-${uploadFile.name}`;
         const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, uploadFile);
         if (uploadError) throw uploadError;

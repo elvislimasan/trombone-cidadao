@@ -25,6 +25,18 @@
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-street?id=:id"
     },
     {
+      "source": "/share/radar/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-city-event?id=:id"
+    },
+    {
+      "source": "/share/perfil/:username",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-public-profile?username=:username"
+    },
+    {
+      "source": "/share/vereador/:city/:slug",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-councilor?city=:city&slug=:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

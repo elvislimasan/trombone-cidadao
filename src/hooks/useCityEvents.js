@@ -39,6 +39,9 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
   const [carregando, setCarregando] = useState(true);
   const [indisponivel, setIndisponivel] = useState(false);
 
+  const [erro, setErro] = useState(false);
+  const requestId = useRef(0);
+
   const statuses = useMemo(
     () => (escopo === 'resolvidos' ? ['resolved'] : ['active', 'awaiting_confirmation', 'scheduled']),
     [escopo]
@@ -47,6 +50,9 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
   const tipos = useMemo(() => tiposDoFiltro(filtro), [filtro]);
 
   const carregar = useCallback(async () => {
+    const currentRequest = ++requestId.current;
+    setErro(false);
+    setEventos([]);
     if (!cityId) {
       setEventos([]);
       setCarregando(false);
@@ -60,9 +66,11 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
       p_types: tipos,
       p_limit: limite,
     });
+    if (currentRequest !== requestId.current) return;
     setCarregando(false);
 
     if (error) {
+      setErro(true);
       // A migração 206 pode não ter rodado ainda no ambiente. Uma tela vazia é
       // melhor que um erro vermelho para quem só abriu o app.
       if (naoEncontrada(error)) {
@@ -81,13 +89,14 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
       .from('city_events')
       .select('id, recurrence, icon_key, latitude, longitude, location_label')
       .in('id', lista.map((evento) => evento.id));
+    if (currentRequest !== requestId.current) return;
     const porId = new Map((recorrencias || []).map((item) => [String(item.id), item]));
     setEventos(lista.map((evento) => ({ ...evento, ...(porId.get(String(evento.id)) || {}) })));
   }, [cityId, statuses, tipos, limite]);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { carregar(); return () => { requestId.current += 1; }; }, [carregar]);
 
-  return { eventos, carregando, indisponivel, recarregar: carregar };
+  return { eventos, carregando, indisponivel, erro, recarregar: carregar };
 }
 
 /** Um acontecimento com áreas, linha do tempo e placar da enquete, numa ida. */
@@ -289,6 +298,12 @@ export function useCityEventActions({ aoConcluir } = {}) {
         latitude: dados.locationLat ?? null,
         longitude: dados.locationLng ?? null,
         location_label: dados.locationLabel || null,
+        // A RPC de edição preserva previsão quando recebe null. Para
+        // comunicado, null significa apagar de propósito: este tipo não tem
+        // janela de normalização nem deve entrar na varredura de vencidos.
+        ...(dados.type === 'public_notice'
+          ? { estimated_end_at: null, estimated_end_day_only: false }
+          : {}),
       }).eq('id', eventId);
 
       showAppNotice({ title: 'Acontecimento atualizado.' });

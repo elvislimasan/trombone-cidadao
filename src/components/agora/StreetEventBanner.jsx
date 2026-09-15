@@ -72,7 +72,7 @@ const StreetEventBanner = ({ eventos, carregando }) => {
             {' · '}
             {statusDe(evento.status).rotulo}
           </p>
-          {previsao?.tem && (
+          {evento.type !== 'public_notice' && previsao?.tem && (
             <p className="text-xs font-semibold text-status-pendingFg/80">
               {previsao.vencida ? 'Previsão vencida — em verificação' : `Previsão: ${previsao.texto}`}
             </p>

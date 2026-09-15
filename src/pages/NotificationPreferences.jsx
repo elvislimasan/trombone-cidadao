@@ -58,6 +58,7 @@ const DEFAULT_PREFERENCES = {
   moderation_required: true,
   resolution_submission: true,
   work_update: true,
+  following_activity: true,
   city_event: true,
   city_event_update: true,
   city_event_resolved: true,
@@ -194,6 +195,13 @@ const NotificationPreferences = () => {
       name: 'Atualização de Obra',
       description: 'Mudanças e progressos em obras públicas',
       icon: Wrench,
+      adminOnly: false
+    },
+    {
+      id: 'following_activity',
+      name: 'Perfis que sigo',
+      description: 'Novas broncas publicadas pelas pessoas que você acompanha',
+      icon: UserCheck,
       adminOnly: false
     },
     {

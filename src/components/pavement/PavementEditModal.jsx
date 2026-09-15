@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, ChevronDown, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine, Sparkles, Quote, Layers3, User, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Dialog, FormDialogContent, DialogHeader, DialogTitle, DialogFooter, Dia
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { showAppError, showAppNotice } from '@/lib/appError';
@@ -43,8 +44,6 @@ const fileTypeLabel = (fileName) => {
   return extension ? extension.toUpperCase() : '';
 };
 
-const fileTitle = (fileName) => String(fileName || '').replace(/\.[^.]+$/, '');
-
 const DocumentField = ({ icon: Icon, label, htmlFor, children }) => (
   <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-2.5 sm:gap-3">
     <span className="flex h-10 items-center justify-center text-content-secondary" aria-hidden="true">
@@ -61,13 +60,22 @@ const DocumentField = ({ icon: Icon, label, htmlFor, children }) => (
 
 const ProjectAuthorsField = ({ id, document, options, onChange }) => {
   const [draft, setDraft] = useState('');
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const inputAnchorRef = useRef(null);
   const authors = autoresDoProjeto(document);
+  const available = (options || [])
+    .filter((option) => !authors.some((author) => chaveDeAutor(author) === chaveDeAutor(option)));
+  const suggestions = draft.trim()
+    ? available.filter((option) => chaveDeAutor(option).includes(chaveDeAutor(draft))).slice(0, 6)
+    : available.slice(0, 6);
+  const draftMatchesOption = available.some((option) => chaveDeAutor(option) === chaveDeAutor(draft));
 
-  const addAuthor = () => {
-    const name = draft.trim();
+  const addAuthor = (value = draft) => {
+    const name = value.trim();
     if (!name || authors.some((author) => chaveDeAutor(author) === chaveDeAutor(name))) return;
     onChange([...authors, name]);
     setDraft('');
+    setSuggestionsOpen(false);
   };
 
   return (
@@ -90,29 +98,75 @@ const ProjectAuthorsField = ({ id, document, options, onChange }) => {
         </div>
       )}
       <div className="flex gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" aria-hidden="true" />
-          <Input
-            id={id}
-            list={`${id}-options`}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              event.preventDefault();
-              addAuthor();
-            }}
-            placeholder="Selecione ou digite um novo nome"
-            autoComplete="off"
-            className="rounded-lg border-edge-default bg-surface-raised pl-9 shadow-sm"
-          />
-          <datalist id={`${id}-options`}>
-            {(options || [])
-              .filter((option) => !authors.some((author) => chaveDeAutor(author) === chaveDeAutor(option)))
-              .map((option) => <option key={chaveDeAutor(option)} value={option} />)}
-          </datalist>
-        </div>
-        <Button type="button" variant="outline" onClick={addAuthor} disabled={!draft.trim()} className="shrink-0 gap-1.5">
+        <Popover
+          open={suggestionsOpen && Boolean(draft.trim())}
+          onOpenChange={setSuggestionsOpen}
+          modal
+        >
+          <PopoverAnchor asChild>
+            <div ref={inputAnchorRef} className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-tertiary" aria-hidden="true" />
+              <Input
+                id={id}
+                value={draft}
+                onFocus={() => draft.trim() && setSuggestionsOpen(true)}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setSuggestionsOpen(Boolean(event.target.value.trim()));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return;
+                  event.preventDefault();
+                  addAuthor();
+                }}
+                placeholder="Selecione ou digite um novo nome"
+                autoComplete="off"
+                className="rounded-lg border-edge-default bg-surface-raised pl-9 shadow-sm"
+                aria-controls={`${id}-options`}
+                aria-expanded={suggestionsOpen && Boolean(draft.trim())}
+              />
+            </div>
+          </PopoverAnchor>
+          {draft.trim() && (
+            <PopoverContent
+              id={`${id}-options`}
+              role="listbox"
+              align="start"
+              sideOffset={4}
+              collisionPadding={12}
+              onOpenAutoFocus={(event) => event.preventDefault()}
+              className="max-h-52 overflow-y-auto rounded-xl border-edge-default bg-surface-overlay p-1 shadow-elevation-3"
+              style={{ width: inputAnchorRef.current?.getBoundingClientRect().width }}
+            >
+              {!draftMatchesOption && (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => addAuthor(draft)}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-brand hover:bg-brand-subtleBg"
+                >
+                  <PlusCircle className="h-4 w-4 shrink-0" /> Cadastrar “{draft.trim()}”
+                </button>
+              )}
+              {suggestions.map((option) => (
+                <button
+                  key={chaveDeAutor(option)}
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => addAuthor(option)}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-subtle"
+                >
+                  {option}
+                </button>
+              ))}
+            </PopoverContent>
+          )}
+        </Popover>
+        <Button type="button" variant="outline" onClick={() => addAuthor()} disabled={!draft.trim()} className="shrink-0 gap-1.5">
           <PlusCircle className="h-4 w-4" /> Adicionar
         </Button>
       </div>
@@ -137,12 +191,43 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
   const [buscandoTracado, setBuscandoTracado] = useState(false);
   const [desenhando, setDesenhando] = useState(false);
   const [generatingHistory, setGeneratingHistory] = useState(false);
+  const [registeredCouncilorAuthors, setRegisteredCouncilorAuthors] = useState([]);
+
+  const authorCityId = formData?.city_id
+    || bairros.find((bairro) => String(bairro.id) === String(formData?.bairro_id))?.city_id
+    || defaultCityId
+    || null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!authorCityId) {
+      setRegisteredCouncilorAuthors([]);
+      return undefined;
+    }
+    supabase
+      .from('councilors')
+      .select('name')
+      .eq('city_id', authorCityId)
+      .order('name')
+      .then(({ data, error }) => {
+        if (!cancelled) setRegisteredCouncilorAuthors(error ? [] : (data || []).map((item) => item.name));
+      });
+    return () => { cancelled = true; };
+  }, [authorCityId]);
 
   // O mesmo nome tende a aparecer em vários projetos. Reaproveitar o que já
-  // foi cadastrado reduz variações, mas o primeiro cadastro aceita texto novo.
+  // foi cadastrado reduz variações. A lista junta os perfis do painel com os
+  // nomes históricos, porque um vereador pode ser cadastrado antes da 1ª rua.
   const projectAuthorOptions = useMemo(
-    () => autoresDeProjetos([...(existingStreets || []), formData].filter(Boolean)),
-    [existingStreets, formData]
+    () => {
+      const names = [
+        ...registeredCouncilorAuthors,
+        ...autoresDeProjetos([...(existingStreets || []), formData].filter(Boolean)),
+      ];
+      return [...new Map(names.filter(Boolean).map((name) => [chaveDeAutor(name), name])).values()]
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    },
+    [existingStreets, formData, registeredCouncilorAuthors]
   );
 
   useEffect(() => {
@@ -496,7 +581,6 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
         };
         if (kind === 'document') {
           nextItem.type = fileTypeLabel(file.name);
-          if (!String(nextItem.title || '').trim()) nextItem.title = fileTitle(file.name);
         }
         return nextItem;
       }),
@@ -513,7 +597,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
 
     const item = kind === 'document'
       ? {
-          title: fileTitle(file.name),
+          title: '',
           description: '',
           type: fileTypeLabel(file.name),
           size: file.size,
@@ -893,6 +977,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                 placeholder="Selecione o status"
                 searchPlaceholder="Buscar status..."
                 notFoundText="Status não encontrado"
+                modal
               />
             </div>
           </div>
@@ -913,6 +998,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   searchPlaceholder="Buscar tipo..."
                   notFoundText="Tipo não encontrado"
                   disabled={!pavementFieldsEnabled}
+                  modal
                 />
               </div>
             </div>
@@ -1101,7 +1187,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                     </div>
 
                     <div className="space-y-4 border-t border-edge-subtle bg-surface-sunken/55 p-3 sm:p-4">
-                      <DocumentField icon={FileText} label="Número / Identificação" htmlFor={titleId}>
+                      <DocumentField icon={FileText} label="Número / identificação (opcional)" htmlFor={titleId}>
                         <Input
                           id={titleId}
                           value={document.title || ''}
@@ -1190,7 +1276,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   {photo.url && !photo.file && (
                     <div className="flex items-center gap-3">
                       <img src={photo.url} alt="" className="h-14 w-20 rounded-md border border-border object-cover" />
-                      <p className="min-w-0 truncate text-xs font-medium text-muted-foreground">Imagem atual salva no Supabase</p>
+                      <p className="min-w-0 truncate text-xs font-medium text-muted-foreground">Imagem atual</p>
                     </div>
                   )}
                   <Button asChild size="sm" variant="outline" className="w-fit">

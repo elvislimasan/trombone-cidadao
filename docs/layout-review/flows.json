@@ -1,0 +1,47 @@
+[
+  {
+    "route": "/explorar",
+    "width": 360,
+    "overflow": false,
+    "title": "Explorar — Trombone Cidadão"
+  },
+  {
+    "route": "/seguindo",
+    "width": 768,
+    "overflow": false,
+    "title": "Acompanhando — Trombone Cidadão"
+  },
+  {
+    "route": "/explorar",
+    "width": 1280,
+    "overflow": false,
+    "title": "Explorar — Trombone Cidadão"
+  },
+  {
+    "route": "/seguindo?aba=broncas",
+    "width": 390,
+    "overflow": false,
+    "title": "Acompanhando — Trombone Cidadão"
+  },
+  {
+    "media": {
+      "saved": true,
+      "photo": "photo-bytes",
+      "video": "video-bytes"
+    }
+  },
+  {
+    "surface": "25 29 36",
+    "neutral": "25 29 36",
+    "cards": [
+      {
+        "bg": "rgb(25, 29, 36)",
+        "color": "rgb(250, 251, 252)"
+      },
+      {
+        "bg": "rgb(25, 29, 36)",
+        "color": "rgb(250, 251, 252)"
+      }
+    ]
+  }
+]

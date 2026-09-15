@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Check, X, Eye, MessageSquare, FileText, Settings, Edit, Newspaper, Briefcase, Construction, Route as RoadIcon, Palette, Users, Filter, Search, EyeOff, Trash2, Shapes } from 'lucide-react';
+import { Check, X, Eye, MessageSquare, FileText, Settings, Edit, Newspaper, Briefcase, Construction, Route as RoadIcon, Palette, Users, Filter, Search, EyeOff, Trash2, Shapes, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -301,7 +301,7 @@ const AdminPage = () => {
               </motion.div>
               <motion.div variants={itemVariants}>
                 <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
-                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Briefcase className="w-4 h-4 md:w-5 md:h-5" /> Guia de Serviços</CardTitle></CardHeader>
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Briefcase className="w-4 h-4 md:w-5 md:h-5" /> Guia da Cidade</CardTitle></CardHeader>
                   <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Edite informações sobre transportes, pontos turísticos e CEPs.</CardDescription></CardContent>
                   <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/servicos')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
@@ -325,6 +325,13 @@ const AdminPage = () => {
                   <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><RoadIcon className="w-4 h-4 md:w-5 md:h-5" /> Mapa de Pavimentação</CardTitle></CardHeader>
                   <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Gerencie as ruas e o status de pavimentação no mapa interativo.</CardDescription></CardContent>
                   <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/pavimentacao')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
+                </Card>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 text-center h-full flex flex-col">
+                  <CardHeader className="p-4 md:p-6"><CardTitle className="flex items-center justify-center gap-2 text-base md:text-lg"><Landmark className="w-4 h-4 md:w-5 md:h-5" /> Vereadores</CardTitle></CardHeader>
+                  <CardContent className="flex-grow px-4 md:px-6 py-0"><CardDescription className="text-xs md:text-sm">Cadastre perfis, complete informações e confira as ruas nomeadas.</CardDescription></CardContent>
+                  <CardFooter className="p-3 md:p-4 mt-2 bg-muted/50"><Button className="w-full gap-2 h-9 md:h-10 text-xs md:text-sm" onClick={() => handleManageContent('/admin/vereadores')}><Edit className="w-3 h-3 md:w-4 md:h-4" /> Gerenciar</Button></CardFooter>
                 </Card>
               </motion.div>
               <motion.div variants={itemVariants}>

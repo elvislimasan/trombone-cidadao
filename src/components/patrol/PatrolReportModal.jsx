@@ -9,6 +9,7 @@ import { useNativeCamera } from '@/hooks/useNativeCamera';
 import { RAIO_PRESENCA_M, RAIO_AJUSTE_M } from '@/hooks/usePatrolSignals';
 import { haversine } from '@/lib/navGeo';
 import { nomeDaCategoria } from '@/lib/reportCategories';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 import {
   camposDaCategoria,
   validarCamposDaCategoria,
@@ -214,17 +215,18 @@ export default function PatrolReportModal({
 
     const enviados = await Promise.all(
       arquivos.map(async (arquivo) => {
-        const caminho = `${user.id}/${reportId}/${Date.now()}-${arquivo.name}`;
+        const uploadFile = await optimizeImageFile(arquivo);
+        const caminho = `${user.id}/${reportId}/${Date.now()}-${uploadFile.name}`;
         const { error } = await supabase.storage
           .from('reports-media')
-          .upload(caminho, arquivo);
+          .upload(caminho, uploadFile);
         if (error) throw new Error(error.message);
         const { data } = supabase.storage.from('reports-media').getPublicUrl(caminho);
         return {
           report_id: reportId,
           url: data.publicUrl,
           type: 'photo',
-          name: arquivo.name,
+          name: uploadFile.name,
         };
       })
     );

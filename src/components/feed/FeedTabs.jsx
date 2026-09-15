@@ -10,7 +10,7 @@ export const FEED_TABS = [
 ];
 
 const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange }) => (
-  <div role="tablist" className="flex gap-1">
+  <div role="tablist" className="flex gap-1 rounded-xl bg-surface-raised p-1">
     {tabs.map((tab) => {
       const active = activeTab === tab.key;
       return (
@@ -19,14 +19,14 @@ const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange }) => (
           role="tab"
           aria-selected={active}
           onClick={() => onChange(tab.key)}
-          className={`relative flex-1 py-3 px-1.5 text-sm font-semibold whitespace-nowrap transition-colors ${
-            active ? 'text-brand' : 'text-content-secondary hover:text-content-primary'
+          className={`relative flex-1 rounded-lg px-1.5 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+            active ? 'border border-transparent bg-surface-raised text-brand' : 'border border-transparent text-content-secondary hover:text-content-primary'
           }`}
         >
           {tab.label}
           <span
             aria-hidden="true"
-            className={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full transition-opacity ${
+            className={`absolute bottom-1 left-3 right-3 h-0.5 rounded-full transition-opacity ${
               active ? 'bg-brand opacity-100' : 'opacity-0'
             }`}
           />

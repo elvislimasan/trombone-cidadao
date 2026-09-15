@@ -45,3 +45,12 @@ export const bucketDataUri = (arquivo) =>
 
 /** Fundo do card da patrulha. Vive no mesmo bucket dos fundos de bronca. */
 export const ARQUIVO_FUNDO_PATRULHA = 'bg-patrulha.png';
+
+/** Fundo do card 9:16 do perfil legislativo. */
+export const ARQUIVO_FUNDO_VEREADOR = 'bg-vereador.png';
+
+/**
+ * Este fundo editorial vive no bucket público de produção e deve ser o mesmo
+ * nos previews locais e no app publicado, independentemente do Supabase de API.
+ */
+export const URL_FUNDO_VEREADOR = `https://mrejgpcxaevooofyenzq.supabase.co/storage/v1/object/public/card-instagram/${ARQUIVO_FUNDO_VEREADOR}`;

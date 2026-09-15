@@ -12,6 +12,7 @@ import { PlusCircle, Edit, Trash2, Calendar, FileText, Briefcase, ArrowLeft, Sav
 import { formatCurrency } from '@/lib/utils';
 import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange, onDirtyChange, onWorkCompletionChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -207,13 +208,14 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
     setIsUploading(true);
     try {
       for (const file of files) {
-        const fileExt = file.name.split('.').pop();
+        const uploadFile = await optimizeImageFile(file);
+        const fileExt = uploadFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
         const filePath = `measurements/${measurementId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('work-media')
-          .upload(filePath, file);
+          .upload(filePath, uploadFile);
 
         if (uploadError) throw uploadError;
 

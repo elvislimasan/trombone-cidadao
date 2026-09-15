@@ -458,7 +458,7 @@ const ModerationPage = () => {
                 rejectionTitle: rejectionTitle.trim(),
                 rejectionDescription: rejectionDescription.trim(),
                 reportTitle: item.title,
-                reportUrl: `${window.location.origin}/painel-usuario?tab=reports&report=${item.id}`
+                reportUrl: `${window.location.origin}/perfil?tab=reports&report=${item.id}`
               }
             });
           } catch (emailError) {

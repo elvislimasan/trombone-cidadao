@@ -74,7 +74,6 @@ export function useRevelarAoRolar(deps = []) {
  */
 export function Contador({ valor, sufixo = '', className = '' }) {
   const ref = useRef(null);
-  const jaAnimou = useRef(false);
   const [visivel, setVisivel] = useState(false);
   const [mostrado, setMostrado] = useState(null);
 
@@ -94,8 +93,8 @@ export function Contador({ valor, sufixo = '', className = '' }) {
   }, []);
 
   useEffect(() => {
-    if (!visivel || valor == null || jaAnimou.current) return undefined;
-    jaAnimou.current = true;
+    setMostrado(null);
+    if (!visivel || valor == null) return undefined;
 
     if (querMenosMovimento()) {
       setMostrado(valor);
@@ -120,11 +119,11 @@ export function Contador({ valor, sufixo = '', className = '' }) {
 
   // Antes de ter valor, um traço — e não "0". Zero é uma afirmação sobre a
   // cidade; o traço diz que o número ainda não chegou.
-  const texto = mostrado == null
+  const texto = valor == null ? '—' : mostrado == null
     ? (valor == null ? '—' : '0')
     : mostrado.toLocaleString('pt-BR');
 
-  return <span ref={ref} className={className}>{texto}{mostrado == null && valor == null ? '' : sufixo}</span>;
+  return <span ref={ref} className={className}>{texto}{valor == null ? '' : sufixo}</span>;
 }
 
 /**

@@ -19,6 +19,16 @@ export function normalizarLinkExterno(valor) {
   }
 }
 
+/** Aceita URL completa ou o formato curto mais comum: @empresa. */
+export function normalizarInstagram(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return null;
+  if (/^@?[a-z\d._]+$/i.test(texto)) {
+    return `https://www.instagram.com/${texto.replace(/^@/, '')}/`;
+  }
+  return normalizarLinkExterno(texto);
+}
+
 export function linkEhDoYoutube(valor) {
   const normalizado = normalizarLinkExterno(valor);
   if (!normalizado) return false;

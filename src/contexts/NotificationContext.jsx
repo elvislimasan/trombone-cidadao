@@ -26,7 +26,8 @@ const DEFAULT_PREFERENCES = {
   status_update: true,
   moderation_required: false,
   resolution_submission: true,
-  work_update: true
+  work_update: true,
+  following_activity: true
 };
 
 const FOREGROUND_PUSH_DEDUPE_MS = 60000;
@@ -116,7 +117,7 @@ export const NotificationProvider = ({ children }) => {
 
   const getNotificationUrl = (notification) => {
     if (notification.link) {
-      return toInternalNotificationUrl(notification.link, '/painel-usuario');
+      return toInternalNotificationUrl(notification.link, '/perfil');
     }
     if (notification.type === 'moderation_required') {
       if (notification.report_id) return '/admin/moderacao/broncas';
@@ -129,7 +130,7 @@ export const NotificationProvider = ({ children }) => {
     if (notification.work_id) {
       return `/obras-publicas/${notification.work_id}`;
     }
-    return '/painel-usuario';
+    return '/perfil';
   };
 
   // Mostrar notificação local

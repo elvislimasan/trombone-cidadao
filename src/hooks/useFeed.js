@@ -98,7 +98,7 @@ export function useFeed(tab = 'recent', cityId = null, userCoords = null) {
           upvotes:signatures(count),
           comments_count:comments(count),
           report_media(url, type),
-          author:profiles!author_id(name, avatar_url)
+          author:profiles!author_id(name, avatar_url, username, public_profile_enabled)
         `
         )
         .eq('moderation_status', 'approved')
@@ -184,7 +184,9 @@ export function useFeed(tab = 'recent', cityId = null, userCoords = null) {
           is_favorited: favorites.has(r.id),
           authorName: isAnonymous ? 'Anônimo' : r.author?.name || 'Cidadão',
           authorAvatar: isAnonymous ? null : r.author?.avatar_url || null,
+          authorUsername: !isAnonymous && r.author?.public_profile_enabled ? r.author?.username : null,
         };
+
       });
 
       // Restaura a ordem por distancia: o `in` acima devolve na ordem do banco.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Check, X, MapPin, FileText, Megaphone, Loader2, ShieldCheck, Eye, Image as ImageIcon, Route, Building, Briefcase, Settings, ChevronDown, Inbox, PartyPopper, LayoutDashboard, ArrowRight, Clock3 } from 'lucide-react';
+import { Check, X, MapPin, FileText, Megaphone, Loader2, ShieldCheck, Eye, Image as ImageIcon, Route, Building, Briefcase, Settings, ChevronDown, Inbox, PartyPopper, ArrowRight, Clock3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,13 +12,12 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { showAppError } from '@/lib/appError';
-import UserDashboardPage from '@/pages/UserDashboardPage';
+import CityThumbnailManager from '@/components/CityThumbnailManager';
 
 const AmbassadorPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
-  const [area, setArea] = useState('gestao');
-  const [managementTab, setManagementTab] = useState('cities');
+  const [managementTab, setManagementTab] = useState('reports');
 
   // Menu "Gerenciar": só os módulos que o usuário pode alterar. Sem nenhum,
   // o menu inteiro some.
@@ -36,10 +35,13 @@ const AmbassadorPage = () => {
   // State for "Minhas Cidades"
   const [myCities, setMyCities] = useState([]);
   const [loadingCities, setLoadingCities] = useState(true);
+  const [cityStats, setCityStats] = useState({});
+  const [loadingCityStats, setLoadingCityStats] = useState(false);
 
   // State for "Broncas pendentes"
   const [pendingReports, setPendingReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [queueErrors, setQueueErrors] = useState({});
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // State for "Atualizações pendentes"
@@ -62,7 +64,7 @@ const AmbassadorPage = () => {
     setLoadingCities(true);
     const { data, error } = await supabase
       .from('ambassador_cities')
-      .select('id, city_id, status, cities(id, name, state_id, states(uf))')
+      .select('id, city_id, status, cities(id, name, state_id, civic_thumbnail_url, civic_thumbnail_path, states(uf))')
       .eq('user_id', user.id)
       .eq('status', 'active');
 
@@ -81,6 +83,7 @@ const AmbassadorPage = () => {
       return;
     }
     setLoadingReports(true);
+    setQueueErrors(current => ({ ...current, 'reports': false }));
     const { data, error } = await supabase
       .from('reports')
       .select('id, title, category_id, created_at, moderation_status, city_id, category:category_id(name)')
@@ -98,6 +101,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      setQueueErrors(current => ({ ...current, 'reports': true }));
       showAppError({ title: 'Erro ao buscar broncas', description: error.message, variant: 'destructive' });
     } else {
       setPendingReports(data || []);
@@ -112,6 +116,7 @@ const AmbassadorPage = () => {
       return;
     }
     setLoadingUpdates(true);
+    setQueueErrors(current => ({ ...current, 'updates': false }));
     // Get report_updates where the parent report is in my cities
     const { data, error } = await supabase
       .from('report_updates')
@@ -124,6 +129,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      setQueueErrors(current => ({ ...current, 'updates': true }));
       showAppError({ title: 'Erro ao buscar atualizações', description: error.message, variant: 'destructive' });
     } else {
       // Filter client-side by city
@@ -141,6 +147,7 @@ const AmbassadorPage = () => {
       return;
     }
     setLoadingWorkMedia(true);
+    setQueueErrors(current => ({ ...current, 'work-media': false }));
     // Get public_work_media where the parent work is in my cities
     const { data, error } = await supabase
       .from('public_work_media')
@@ -153,6 +160,7 @@ const AmbassadorPage = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      setQueueErrors(current => ({ ...current, 'work-media': true }));
       showAppError({ title: 'Erro ao buscar mídias de obra', description: error.message, variant: 'destructive' });
     } else {
       // Filter client-side by city
@@ -161,6 +169,35 @@ const AmbassadorPage = () => {
       setPendingWorkMedia(filtered);
     }
     setLoadingWorkMedia(false);
+  }, []);
+
+  const fetchCityStats = useCallback(async (cityIds) => {
+    if (!cityIds || cityIds.length === 0) {
+      setCityStats({});
+      setLoadingCityStats(false);
+      return;
+    }
+
+    setLoadingCityStats(true);
+    const results = await Promise.all(cityIds.map(async (cityId) => {
+      const [citizensResult, reportsResult, resolvedResult] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('city_id', cityId),
+        supabase.from('reports').select('id', { count: 'exact', head: true }).eq('city_id', cityId),
+        supabase.from('reports').select('id', { count: 'exact', head: true }).eq('city_id', cityId).eq('status', 'resolved'),
+      ]);
+
+      const error = citizensResult.error || reportsResult.error || resolvedResult.error;
+      if (error) console.error(`Erro ao carregar dados da cidade ${cityId}:`, error);
+
+      return [cityId, {
+        citizens: citizensResult.count || 0,
+        reports: reportsResult.count || 0,
+        resolved: resolvedResult.count || 0,
+      }];
+    }));
+
+    setCityStats(Object.fromEntries(results));
+    setLoadingCityStats(false);
   }, []);
 
   useEffect(() => {
@@ -173,8 +210,9 @@ const AmbassadorPage = () => {
       fetchPendingReports(cityIds);
       fetchPendingUpdates(cityIds);
       fetchPendingWorkMedia(cityIds);
+      fetchCityStats(cityIds);
     }
-  }, [canAccess, myCities, loadingCities, fetchPendingReports, fetchPendingUpdates, fetchPendingWorkMedia]);
+  }, [canAccess, myCities, loadingCities, fetchPendingReports, fetchPendingUpdates, fetchPendingWorkMedia, fetchCityStats]);
 
   const handleReportAction = async (reportId, newStatus) => {
     setActionLoadingId(`report-${reportId}-${newStatus}`);
@@ -297,41 +335,23 @@ const AmbassadorPage = () => {
       </Helmet>
 
       <div className="mx-auto w-full max-w-[100rem] px-3 py-6 sm:px-5 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="overflow-hidden rounded-3xl bg-gradient-to-r from-[#171717] via-[#26070b] to-[#7f1220] p-5 text-white shadow-elevation-2 md:p-6"
-        >
-          <div className="grid items-center gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="flex items-start gap-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-content-onBrand">
-                <ShieldCheck className="h-6 w-6" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-300">Central do embaixador</p>
-                <h1 className="mt-1 text-xl font-extrabold md:text-2xl">Cuide da participação nas suas cidades</h1>
-                <p className="mt-1.5 max-w-2xl text-sm text-white/70">Modere contribuições, acompanhe pendências e gerencie os módulos sob sua responsabilidade.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{loadingCities ? '—' : myCities.length}</strong><span className="text-[10px] text-white/60">cidades</span></div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{loadingReports || loadingUpdates || loadingWorkMedia ? '—' : totalPending}</strong><span className="text-[10px] text-white/60">pendências</span></div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><strong className="block text-xl tabular-nums">{manageLinks.length}</strong><span className="text-[10px] text-white/60">módulos</span></div>
-            </div>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-extrabold text-content-primary md:text-2xl">Gestão das cidades</h1>
+            <p className="mt-1 text-sm text-content-secondary">Modere contribuições e gerencie os módulos sob sua responsabilidade.</p>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
+          <div className="flex flex-wrap items-center gap-3">
             {totalPending > 0 ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold"><Inbox className="h-4 w-4 text-amber-300" /> {totalPending} {totalPending === 1 ? 'item aguardando' : 'itens aguardando'} moderação</span>
-            ) : !loadingReports && !loadingUpdates && !loadingWorkMedia ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-bold"><PartyPopper className="h-4 w-4 text-amber-300" /> Tudo em dia</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-status-pendingBg px-3 py-2 text-xs font-bold text-status-pendingFg"><Inbox className="h-4 w-4" /> {totalPending} {totalPending === 1 ? 'item aguardando' : 'itens aguardando'} moderação</span>
+            ) : !loadingReports && !loadingUpdates && !loadingWorkMedia && !Object.values(queueErrors).some(Boolean) ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-success-bg px-3 py-2 text-xs font-bold text-success-fg"><PartyPopper className="h-4 w-4" /> Tudo em dia</span>
             ) : null}
 
             {manageLinks.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="ml-auto gap-1.5 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+                  <Button variant="outline" size="sm" className="gap-1.5">
                     <Settings className="h-4 w-4" /> Gerenciar <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -345,15 +365,22 @@ const AmbassadorPage = () => {
               </DropdownMenu>
             )}
           </div>
-        </motion.div>
+        </div>
 
-        <Tabs value={area} onValueChange={setArea} className="mt-5">
-          <TabsList className="grid h-auto w-full max-w-lg grid-cols-2 rounded-xl bg-surface-sunken p-1">
-            <TabsTrigger value="gestao" className="gap-2 rounded-lg py-2.5"><ShieldCheck className="h-4 w-4" /> Gestão das cidades</TabsTrigger>
-            <TabsTrigger value="atividade" className="gap-2 rounded-lg py-2.5"><LayoutDashboard className="h-4 w-4" /> Minha atividade</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="gestao" className="mt-5">
+        <section className="mb-6 rounded-2xl border border-edge-subtle bg-surface-raised p-5" aria-labelledby="attention-title">
+          <h2 id="attention-title" className="text-lg font-bold text-content-primary">Precisa de atenção</h2>
+          <p className="mt-1 text-sm text-content-secondary">Comece pelas contribuições que aguardam há mais tempo.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { tab: 'reports', label: 'Revisar broncas', items: pendingReports, loading: loadingReports },
+              { tab: 'updates', label: 'Revisar atualizações', items: pendingUpdates, loading: loadingUpdates },
+              { tab: 'work-media', label: 'Revisar mídias de obras', items: pendingWorkMedia, loading: loadingWorkMedia },
+            ].map(({ tab, label, items, loading }) => <button key={tab} type="button" onClick={() => { setManagementTab(tab); requestAnimationFrame(() => document.getElementById('management-queues')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }} className="rounded-xl border border-edge-subtle p-4 text-left hover:border-brand/40">
+              <strong className="block text-sm text-content-primary">{label}</strong><span className="mt-1 block text-sm text-content-secondary">{loading ? 'Carregando…' : queueErrors[tab] ? 'Não foi possível carregar' : `${items.length} aguardando`}</span>
+              {!loading && !queueErrors[tab] && items[0]?.created_at && <span className="mt-2 block text-xs text-content-tertiary">Mais antiga: {new Date(items[0].created_at).toLocaleDateString('pt-BR')}</span>}
+            </button>)}
+          </div>
+        </section>
 
         {showOnboardingBanner && (
           <Card className="mb-6 border-tc-red/30 bg-tc-red/5">
@@ -377,7 +404,7 @@ const AmbassadorPage = () => {
           </Card>
         )}
 
-        <Tabs value={managementTab} onValueChange={setManagementTab} className="w-full lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <Tabs id="management-queues" style={{ scrollMarginTop: '6rem' }} value={managementTab} onValueChange={setManagementTab} className="w-full lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start lg:gap-6">
           <aside className="mb-5 min-w-0 lg:sticky lg:top-24 lg:mb-0">
             <div className="hidden px-1 pb-3 lg:block">
               <p className="text-xs font-extrabold uppercase tracking-wider text-content-tertiary">Área de trabalho</p>
@@ -445,10 +472,11 @@ const AmbassadorPage = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              <div className={`grid gap-4 ${myCities.length === 1 ? 'grid-cols-1' : 'md:grid-cols-2 2xl:grid-cols-3'}`}>
                 {myCities.map((ac) => {
                   const city = ac.cities;
                   const cityPending = pendingByCity(ac.city_id);
+                  const stats = cityStats[ac.city_id] || { citizens: 0, reports: 0, resolved: 0 };
                   const cityPendingTotal = cityPending.reports + cityPending.updates + cityPending.workMedia;
                   const firstPendingTab = cityPending.reports > 0
                     ? 'reports'
@@ -461,8 +489,8 @@ const AmbassadorPage = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                      <Card className="h-full overflow-hidden border-edge-subtle bg-surface-raised transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md">
-                        <CardHeader className="border-b border-edge-subtle bg-surface-subtle/50 p-5 pb-4">
+                      <Card className={`h-full overflow-hidden border-edge-subtle bg-surface-raised transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md ${myCities.length === 1 ? 'xl:grid xl:grid-cols-[minmax(18rem,0.8fr)_minmax(24rem,1.2fr)]' : ''}`}>
+                        <CardHeader className={`border-b border-edge-subtle bg-surface-subtle/50 p-5 pb-4 ${myCities.length === 1 ? 'xl:border-b-0 xl:border-r' : ''}`}>
                           <div className="flex items-start justify-between gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg">
                               <MapPin className="h-5 w-5" />
@@ -475,6 +503,24 @@ const AmbassadorPage = () => {
                           <CardDescription>{city?.states?.uf ? `Estado: ${city.states.uf}` : 'Estado desconhecido'}</CardDescription>
                         </CardHeader>
                         <CardContent className="p-5">
+                          <div>
+                            <p className="text-xs font-extrabold uppercase tracking-wider text-content-tertiary">Dados da cidade</p>
+                            <div className="mt-3 grid grid-cols-3 divide-x divide-edge-subtle rounded-2xl border border-edge-subtle bg-surface-raised py-3 text-center">
+                              {[
+                                { label: 'Cidadãos cadastrados', value: stats.citizens },
+                                { label: 'Broncas registradas', value: stats.reports },
+                                { label: 'Problemas resolvidos', value: stats.resolved },
+                              ].map(({ label, value }) => (
+                                <div key={label} className="min-w-0 px-2">
+                                  <p className="text-xl font-black leading-none tabular-nums text-brand">{loadingCityStats ? '—' : value}</p>
+                                  <p className="mt-1.5 text-[9px] font-semibold leading-3 text-content-secondary sm:text-[10px]">{label}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mt-5 border-t border-edge-subtle pt-4">
+                            <p className="mb-3 text-xs font-extrabold uppercase tracking-wider text-content-tertiary">Fila de moderação</p>
                           <div className="grid grid-cols-3 gap-2 text-center">
                             {[
                               { label: 'Broncas', value: cityPending.reports },
@@ -486,6 +532,7 @@ const AmbassadorPage = () => {
                                 <p className="mt-1 text-[10px] font-semibold text-content-tertiary">{label}</p>
                               </div>
                             ))}
+                          </div>
                           </div>
 
                           {cityPendingTotal > 0 ? (
@@ -499,6 +546,14 @@ const AmbassadorPage = () => {
                             </button>
                           ) : (
                             <p className="mt-4 flex items-center gap-2 text-xs font-semibold text-success-fg"><PartyPopper className="h-4 w-4" /> Moderação em dia</p>
+                          )}
+                          {city && (
+                            <div className="mt-4 border-t border-edge-subtle pt-4">
+                              <CityThumbnailManager
+                                city={city}
+                                onSaved={(nextCity) => setMyCities((items) => items.map((item) => item.city_id === ac.city_id ? { ...item, cities: nextCity } : item))}
+                              />
+                            </div>
                           )}
                         </CardContent>
                       </Card>
@@ -736,12 +791,6 @@ const AmbassadorPage = () => {
                 ))}
               </div>
             )}
-          </TabsContent>
-        </Tabs>
-          </TabsContent>
-
-          <TabsContent value="atividade" className="mt-6">
-            <UserDashboardPage embedded />
           </TabsContent>
         </Tabs>
       </div>

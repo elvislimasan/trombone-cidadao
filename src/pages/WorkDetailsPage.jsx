@@ -43,6 +43,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -809,8 +810,9 @@ const WorkDetailsPage = () => {
     try {
       if (contribFiles.length > 0) {
         for (const file of contribFiles) {
-          const path = `measurements/${currentMeasurement.id}/${Date.now()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage.from('work-media').upload(path, file);
+          const uploadFile = await optimizeImageFile(file);
+          const path = `measurements/${currentMeasurement.id}/${Date.now()}-${uploadFile.name}`;
+          const { error: uploadError } = await supabase.storage.from('work-media').upload(path, uploadFile);
           if (uploadError) throw uploadError;
           const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(path);
           let type = 'file';

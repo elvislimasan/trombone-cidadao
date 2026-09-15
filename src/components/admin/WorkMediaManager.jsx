@@ -7,6 +7,7 @@ import { ImageIcon, Video, Paperclip, FolderOpen, Trash2, Upload } from 'lucide-
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { showAppError } from '@/lib/appError';
+import { optimizeImageFile } from '@/lib/optimizeImage';
 
 export const WorkMediaManager = ({ workId }) => {
   const { user } = useAuth();
@@ -31,8 +32,7 @@ export const WorkMediaManager = ({ workId }) => {
   }, [fetchMedia]);
 
   const uploadSingleFile = async (file) => {
-    let uploadFile = file;
-    // Removido conversão para webp para evitar erros de MIME type no Supabase
+    const uploadFile = await optimizeImageFile(file);
     
     const filePath = `works/${workId}/${Date.now()}-${uploadFile.name}`;
     const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);

@@ -15,6 +15,9 @@ import {
   temLeiMunicipal,
   nomeRedundante,
   normalizarFotos,
+  rankingDeAutores,
+  rotaDoVereador,
+  slugDeVereador,
   tipoDoArquivo,
 } from '../lib/pavementStreetHistory.js';
 
@@ -273,6 +276,24 @@ test('valor estranho em `kind` cai em "outro"', () => {
   assert.equal(docs[0].kind, 'outro');
 });
 
+test('nome técnico do PDF não aparece como título público', () => {
+  const docs = normalizarDocumentos({
+    historical_documents: [{
+      url: 'https://exemplo.com/relatorio_broncas_iluminacao_2026-09-11.pdf',
+      title: 'relatorio_broncas_iluminacao_2026-09-11',
+      kind: 'projeto_lei',
+    }],
+  });
+  assert.equal(docs[0].title, 'Projeto de lei');
+});
+
+test('identificação legível do projeto continua aparecendo', () => {
+  const docs = normalizarDocumentos({
+    historical_documents: [{ url: 'arquivo.pdf', title: 'PL-06-2015', kind: 'projeto_lei' }],
+  });
+  assert.equal(docs[0].title, 'PL-06-2015');
+});
+
 test('projeto de lei preserva o vereador autor', () => {
   const docs = normalizarDocumentos({
     historical_documents: [{ url: 'projeto.pdf', kind: 'projeto_lei', councilor_author: '  Maria Souza  ' }],
@@ -340,6 +361,23 @@ test('filtro sem autor lista apenas rua com projeto ainda sem autoria', () => {
 test('filtro por vereador ignora acento e caixa', () => {
   const street = { historical_documents: [{ url: 'p.pdf', kind: 'projeto_lei', councilor_author: 'José Lima' }] };
   assert.equal(correspondeAoFiltroDeAutor(street, 'JOSE LIMA'), true);
+});
+
+test('perfil do vereador ganha uma rota legível por cidade', () => {
+  assert.equal(slugDeVereador('José d’Ávila Júnior'), 'jose-d-avila-junior');
+  assert.equal(rotaDoVereador(64, 'José d’Ávila Júnior'), '/vereadores/64/jose-d-avila-junior');
+});
+
+test('ranking conta ruas, não a repetição do autor no mesmo projeto', () => {
+  const ranking = rankingDeAutores([
+    { historical_documents: [{ kind: 'projeto_lei', councilor_authors: ['Ana Lima', 'ANA LIMA', 'José Melo'] }] },
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'Ana-Lima' }] },
+    { historical_documents: [{ kind: 'projeto_lei', councilor_author: 'José Melo' }] },
+  ]);
+  assert.deepEqual(ranking.map(({ name, streets }) => ({ name, streets })), [
+    { name: 'Ana Lima', streets: 2 },
+    { name: 'José Melo', streets: 2 },
+  ]);
 });
 
 test('temLeiMunicipal só é verdadeiro com documento marcado', () => {

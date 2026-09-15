@@ -311,7 +311,9 @@ export default function MissionsPage() {
 
           A ordem da tela é uma afirmação sobre prioridade. Roupa de avatar
           acima de "3 broncas para confirmar" diz que o app é sobre a roupa. */}
-      {!carregando && <MarcosCosmeticos conquistas={conquistas} />}
+      <div id="conquistas" className="scroll-mt-24">
+        {!carregando && <MarcosCosmeticos conquistas={conquistas} />}
+      </div>
 
       {/* A coleção fica como link, não como cartão, pelo mesmo motivo. */}
       <Link

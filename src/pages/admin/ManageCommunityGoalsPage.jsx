@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { CalendarDays, ChevronDown, ChevronUp, ExternalLink, Loader2, MapPin, Plus, Repeat2, Search, Target } from 'lucide-react';
 import AdminModuleHero from '@/components/admin/AdminModuleHero';
+import CityCombobox from '@/components/CityCombobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
@@ -260,21 +261,14 @@ const ManageCommunityGoalsPage = () => {
           <div className="space-y-4 px-5 pb-5">
 
           <Campo label="Cidade">
-            <select
+            <CityCombobox
               value={cidadeId}
-              onChange={(e) => {
-                setCidadeId(e.target.value);
+              onChange={(value) => {
+                setCidadeId(String(value));
                 setNova((n) => ({ ...n, bairro_ids: [] }));
               }}
               className={entrada}
-            >
-              <option value="">Selecione…</option>
-              {cidadesDisponiveis.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.rotulo}
-                </option>
-              ))}
-            </select>
+            />
           </Campo>
 
           <Campo label="Título" ajuda="Ex: Atualizar a situação das ruas no entorno das escolas">
