@@ -102,6 +102,14 @@
 }
 
 @layer utilities {
+  /* Shell fluido para paginas densas: evita faixas vazias em desktops largos. */
+  .page-shell-fluid {
+    width: 100%;
+    max-width: none;
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 3vw, 4rem);
+  }
+
   /* Rolagem horizontal sem barra visivel.
      Usada nas faixas que rolam de lado (filtros de trilha, "Continue daqui").
      A barra do desktop apareceria por cima do conteudo dentro de cartoes de

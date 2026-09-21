@@ -139,10 +139,18 @@ test('o relatorio por pavimento ignora as ruas sem pavimentacao', () => {
   assert.ok(r.secoes[0].linhas.some((l) => l[0] === 'Asfalto'));
 });
 
-test('a lista completa traz o CEP e o panorama nao traz secao nenhuma', () => {
+test('a lista completa traz os dados de conferencia e o panorama nao traz secao nenhuma', () => {
   const completa = montarRelatorio('completo', BASE);
-  assert.equal(completa.secoes[0].colunas.at(-1), 'CEP');
+  assert.deepEqual(completa.secoes[0].colunas, [
+    'Rua',
+    'CEP(s)',
+    'Bairro',
+    'Situação',
+    'Tipo de pavimento',
+  ]);
   assert.equal(completa.secoes[0].linhas.length, 5);
+  assert.ok(completa.titulo.startsWith('Relatório de Ruas'));
+  assert.equal(completa.secoes[0].linhas.find((linha) => linha[0] === 'Rua A')[1], '56400-000');
 
   const panorama = montarRelatorio('panorama', BASE);
   assert.deepEqual(panorama.secoes, []);

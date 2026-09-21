@@ -96,7 +96,7 @@ const ManagePermissionsPage = () => {
     }
     setSaving(false);
     if (error) {
-      showAppError({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar', description: [error.message, error.code && `Código: ${error.code}`, error.details, error.hint].filter(Boolean).join(' · '), variant: 'destructive' });
       return;
     }
     fetchRules();
@@ -114,7 +114,7 @@ const ManagePermissionsPage = () => {
     }
     setSaving(false);
     if (error) {
-      showAppError({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      showAppError({ title: 'Erro ao salvar', description: [error.message, error.code && `Código: ${error.code}`, error.details, error.hint].filter(Boolean).join(' · '), variant: 'destructive' });
       return;
     }
     fetchRules();

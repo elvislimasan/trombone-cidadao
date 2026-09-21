@@ -26,6 +26,15 @@ const canvasBlob = (canvas, type, quality) => new Promise((resolve, reject) => {
   }, type, quality);
 });
 
+export async function imageDimensions(file) {
+  const { image, url } = await loadImage(file);
+  try {
+    return { width: image.naturalWidth, height: image.naturalHeight };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /**
  * Redimensiona fotos antes do upload no navegador e no WebView do app.
  * O limite padrão acompanha o fluxo principal de broncas no mobile nativo.
@@ -52,7 +61,9 @@ export async function optimizeImageFile(file, { maxDimension = 1600, quality = 0
       canvas.width = 1;
       canvas.height = 1;
       const dimensionsChanged = scale < 1;
-      if (blob.size >= file.size && !(forceResize && dimensionsChanged)) return file;
+      // Se a foto excede o limite, envie a versão reduzida mesmo quando o
+      // WebP ocupa mais bytes: o limite de resolução deve ser respeitado.
+      if (blob.size >= file.size && !dimensionsChanged && !forceResize) return file;
       const name = String(file.name || 'imagem').replace(/\.[^.]+$/, '') + '.webp';
       return new File([blob], name, { type: 'image/webp', lastModified: Date.now() });
     } finally {

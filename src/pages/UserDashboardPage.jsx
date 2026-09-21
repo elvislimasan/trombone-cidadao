@@ -2,20 +2,17 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import {
-  Activity, Building, CheckCircle, ChevronLeft,
+  Activity, CheckCircle, ChevronLeft,
   ChevronRight, Clock, Edit, Eye, FileText, Heart, MapPin, MessageSquare,
-  PlusCircle, Search, Send, SlidersHorizontal, Trash2, Upload, XCircle,
+  PlusCircle, Search, SlidersHorizontal, Trash2, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useCity } from '@/contexts/CityContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import ReportModal from '@/components/ReportModal';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -38,16 +35,12 @@ const normalizarBusca = (value) => String(value || '')
 
 const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null, profileMode = false }) => {
   const { user } = useAuth();
-  const { activeCityId } = useCity();
   const location = useLocation();
   const [reports, setReports] = useState([]);
   const [comments, setComments] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportToDelete, setReportToDelete] = useState(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [newEntry, setNewEntry] = useState({ name: '', address: '', phone: '', type: 'commerce', category_id: null, photo: null, photoPreview: null });
-  const [guideCategories, setGuideCategories] = useState([]);
-  const photoInputRef = useRef(null);
   const suppressReportAutoOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reports');
@@ -75,12 +68,6 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     }
   }, [location.search]);
   const { handleUpvote: handleUpvoteHook } = useUpvote();
-
-  useEffect(() => {
-    if (!activeCityId) { setGuideCategories([]); return; }
-    supabase.from('directory_categories').select('*').eq('active', true).order('name')
-      .then(({ data }) => setGuideCategories(data || []));
-  }, [activeCityId]);
 
   const fetchUserContributions = useCallback(async () => {
     if (!user) return;
@@ -127,12 +114,14 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   }, [fetchUserContributions]);
 
   useEffect(() => {
-    if (tabParam) {
+    if (tabParam === 'guide') {
+      navigate('/guia-da-cidade?adicionar=1', { replace: true });
+    } else if (tabParam) {
       setActiveTab(tabParam);
     } else if (reportParam) {
       setActiveTab('reports');
     }
-  }, [tabParam, reportParam]);
+  }, [tabParam, reportParam, navigate]);
 
   useEffect(() => {
     if (!reportParam) {
@@ -288,53 +277,6 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
   const openDeleteConfirmation = (report) => {
     setReportToDelete(report);
-  };
-
-  const handleNewEntryChange = (e) => {
-    const { name, value } = e.target;
-    setNewEntry(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewEntry(prev => ({ ...prev, photo: file, photoPreview: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleNewEntrySubmit = async (e) => {
-    e.preventDefault();
-    if (!newEntry.name || !newEntry.address || !newEntry.phone) {
-      showAppError({ title: "Campos obrigatórios", description: "Por favor, preencha nome, endereço e telefone.", variant: "destructive" });
-      return;
-    }
-    if (!activeCityId) {
-      showAppError({ title: "Selecione uma cidade", description: "Escolha a cidade no topo da página antes de enviar sua sugestão.", variant: "destructive" });
-      return;
-    }
-
-    const { error } = await supabase
-      .from('directory')
-      .insert({
-        name: newEntry.name,
-        address: newEntry.address,
-        phone: newEntry.phone,
-        type: newEntry.type,
-        category_id: newEntry.category_id || null,
-        city_id: activeCityId,
-        submitted_by: user.id,
-        status: 'pending'
-      });
-
-    if (error) {
-      showAppError({ title: "Erro ao enviar colaboração", description: error.message, variant: "destructive" });
-    } else {
-      setNewEntry({ name: '', address: '', phone: '', type: 'commerce', category_id: null, photo: null, photoPreview: null });
-    }
   };
 
     const handleUpvote = async (id) => {
@@ -605,13 +547,6 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
               <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
               <span className="truncate ml-0.5 sm:ml-0">Comentários</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="guide" 
-              className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
-            >
-              <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
-              <span className="truncate ml-0.5 sm:ml-0">Guias</span>
-            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="reports" className="relative min-h-[300px]">
@@ -881,59 +816,6 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
             )}
           </TabsContent>
 
-          <TabsContent value="guide" className="mt-8">
-            <Card className="max-w-2xl mx-auto">
-              <CardHeader>
-                <CardTitle>Adicionar ao Guia da Cidade</CardTitle>
-                <CardDescription>Ajude a mapear comércios, igrejas, órgãos e outros locais importantes da cidade.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleNewEntrySubmit} className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Nome do local</Label>
-                    <Input id="name" name="name" value={newEntry.name} onChange={handleNewEntryChange} placeholder="Ex.: Igreja Matriz ou Mercado Central" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="address">Endereço</Label>
-                    <Input id="address" name="address" value={newEntry.address} onChange={handleNewEntryChange} placeholder="Ex: Rua Principal, 123" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Telefone</Label>
-                    <Input id="phone" name="phone" value={newEntry.phone} onChange={handleNewEntryChange} placeholder="(87) 99999-8888" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Categoria</Label>
-                    <Combobox
-                      options={guideCategories.map((category) => {
-                        const parent = guideCategories.find((item) => String(item.id) === String(category.parent_id));
-                        return { value: category.id, label: `${parent ? `${parent.name} · ` : ''}${category.name}` };
-                      })}
-                      value={newEntry.category_id || ''}
-                      onChange={(value) => setNewEntry(prev => ({ ...prev, category_id: value || null }))}
-                      placeholder="Selecione a categoria"
-                      searchPlaceholder="Buscar categoria..."
-                      notFoundText="Nenhuma categoria cadastrada"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Foto do Local (Opcional)</Label>
-                    <div className="flex items-center gap-4">
-                      {newEntry.photoPreview ? (
-                        <img src={newEntry.photoPreview} alt="Pré-visualização" className="w-24 h-24 object-cover rounded-md border" />
-                      ) : (
-                        <div className="w-24 h-24 bg-muted rounded-md flex items-center justify-center text-muted-foreground">
-                          <Building className="w-8 h-8" />
-                        </div>
-                      )}
-                      <Button type="button" variant="outline" onClick={() => photoInputRef.current.click()}><Upload className="w-4 h-4 mr-2" />Enviar Foto</Button>
-                      <input type="file" ref={photoInputRef} onChange={handlePhotoChange} className="hidden" accept="image/*" />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full gap-2"><Send className="w-4 h-4" /> Enviar para Moderação</Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
       </div>

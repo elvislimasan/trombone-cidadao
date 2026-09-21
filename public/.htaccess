@@ -31,6 +31,18 @@
   # Redirect /share/rua/SLUG to Supabase Edge Function (rua)
   RewriteRule ^share/rua/(.*)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-street?id=$1 [R=302,L]
 
+  # Prévia do Guia da Cidade para itens, categorias e visão geral.
+  RewriteRule ^share/guia/categoria/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-guide?type=category&id=$1 [R=302,L,QSA,NE]
+  RewriteRule ^share/guia/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-guide?type=place&id=$1 [R=302,L,QSA,NE]
+  RewriteRule ^share/guia/?$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-guide?type=index [R=302,L,QSA,NE]
+
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^guia-da-cidade/categoria/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-guide?type=category&id=$1 [R=302,L,QSA,NE]
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^guia-da-cidade/guia/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-guide?type=place&id=$1 [R=302,L,QSA,NE]
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
+  RewriteRule ^guia-da-cidade/?$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-guide?type=index [R=302,L,QSA,NE]
+
   # Redirect /share/radar/ID to the social preview for city events
   RewriteRule ^share/radar/([^?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-city-event?id=$1 [R=302,L]
 
@@ -47,7 +59,7 @@
   # A URL canônica do perfil agora é /username. Rotas do aplicativo ficam fora
   # desta regra e continuam usando suas próprias páginas/metatags.
   RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|Twitterbot|WhatsApp|TelegramBot|Discordbot|Slackbot|LinkedInBot|bingbot|Googlebot|Applebot|YandexBot|DuckDuckBot|Baiduspider|facebot) [NC]
-  RewriteRule ^(?!(?:admin|sobre|estatisticas|feed|mapa|broncas|abaixo-assinados|obras-publicas|imoveis-alugados|agora|servicos|noticias|contato|perfil|configuracoes|explorar|seguindo|favoritos|salvos-outros|obras-favoritas|painel-usuario|alterar-senha|excluir-conta|minhas-peticoes|buscar|missoes|app|login|cadastro)/?$)([a-z0-9][a-z0-9._]{1,28}[a-z0-9])/?$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
+  RewriteRule ^(?!(?:admin|sobre|estatisticas|feed|mapa|broncas|abaixo-assinados|obras-publicas|imoveis-alugados|agora|servicos|guiadacidade|guia-da-cidade|noticias|contato|perfil|configuracoes|explorar|seguindo|favoritos|salvos-outros|obras-favoritas|painel-usuario|alterar-senha|excluir-conta|minhas-peticoes|buscar|missoes|app|login|cadastro)/?$)([a-z0-9][a-z0-9._]{1,28}[a-z0-9])/?$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-public-profile?username=$1 [R=302,L,NE]
 
   # Prévia social rica das páginas legislativas.
   RewriteRule ^share/vereador/([^/?]+)/([^/?]+)$ https://mrejgpcxaevooofyenzq.supabase.co/functions/v1/share-councilor?city=$1&slug=$2 [R=302,L,NE]

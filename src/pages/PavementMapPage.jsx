@@ -69,7 +69,9 @@ const PavementMapPage = () => {
   // Qual PERGUNTA o relatório responde, e em que formato sai. Duas escolhas
   // separadas de propósito: o tipo é sobre conteúdo, o formato é sobre o que se
   // vai fazer com ele — anexar num ofício (PDF) ou trabalhar numa planilha (CSV).
-  const [tipoRelatorio, setTipoRelatorio] = useState('panorama');
+  // Assim como em imóveis, baixar sem mudar nenhuma opção entrega a lista
+  // dos registros. Panorama e relatórios de pendências seguem disponíveis.
+  const [tipoRelatorio, setTipoRelatorio] = useState('completo');
   const [relatoriosAbertos, setRelatoriosAbertos] = useState(false);
   const isMobile = useIsMobile();
 
@@ -379,15 +381,17 @@ const PavementMapPage = () => {
   // Aqui so sobrou papel: cabecalho, o grafico de barras do panorama e as
   // tabelas que vierem, sejam quais forem.
   const gerarPdf = (relatorio) => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation: relatorio.tipo === 'completo' ? 'landscape' : 'portrait' });
     doc.setFontSize(16);
     doc.text(relatorio.titulo, 14, 18);
 
+    doc.setFontSize(10);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 26);
     doc.setFontSize(11);
-    doc.text(relatorio.subtitulo, 14, 26);
+    doc.text(relatorio.subtitulo, 14, 33);
 
     doc.setFontSize(10);
-    let y = 34;
+    let y = 41;
     if (relatorio.atualizadoEm) {
       doc.text(`Atualizado em: ${relatorio.atualizadoEm}`, 14, y);
       y += 6;
@@ -451,7 +455,9 @@ const PavementMapPage = () => {
     return doc;
   };
 
-  const relatorioAtual = () => montarRelatorio(tipoRelatorio, streetData, {
+  // O PDF e o CSV obedecem ao mesmo recorte mostrado no mapa/lista, como o
+  // relatório de imóveis. Antes, os filtros da tela eram ignorados no download.
+  const relatorioAtual = () => montarRelatorio(tipoRelatorio, filteredStreets, {
     cidade: activeCityName,
     atualizadoEm: lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null,
   });

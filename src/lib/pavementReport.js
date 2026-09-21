@@ -139,6 +139,23 @@ const listaSimples = (ruas, { comCep = false } = {}) => {
   return { colunas, linhas };
 };
 
+// A listagem principal segue o mesmo papel do relatório de imóveis: uma
+// linha por registro, com os campos necessários para conferência. O panorama
+// continua existindo como relatório separado, mas não substitui esta relação.
+const listaCompleta = (ruas) => ({
+  colunas: ['Rua', 'CEP(s)', 'Bairro', 'Situação', 'Tipo de pavimento'],
+  linhas: [...ruas].sort(porBairroENome).map((rua) => {
+    const ceps = cepsDaRua(rua).map((item) => item.cep);
+    return [
+      rua.name || '—',
+      ceps.length ? ceps.join(' · ') : '—',
+      nomeDoBairro(rua),
+      rotuloDoStatus(rua.status),
+      rua.status === 'unpaved' ? 'Não se aplica' : rotuloDoPavimento(rua.pavement_type),
+    ];
+  }),
+});
+
 export const TIPOS_DE_RELATORIO = Object.freeze([
   Object.freeze({
     id: 'panorama',
@@ -285,9 +302,9 @@ export const TIPOS_DE_RELATORIO = Object.freeze([
   Object.freeze({
     id: 'completo',
     label: 'Lista completa',
-    descricao: 'Todas as ruas, com bairro, situação e CEP.',
+    descricao: 'Todas as ruas exibidas, com CEP, bairro, situação e tipo de pavimento.',
     montar: (ruas) => (ruas.length
-      ? [{ titulo: `Todas as ruas (${ruas.length})`, ...listaSimples(ruas, { comCep: true }) }]
+      ? [{ titulo: `Ruas cadastradas (${ruas.length})`, ...listaCompleta(ruas) }]
       : []),
   }),
 ]);
@@ -316,7 +333,7 @@ export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null
 
   return {
     tipo: tipo.id,
-    titulo: `Relatório de Pavimentação${cidade ? ` — ${cidade}` : ''}`,
+    titulo: `${tipo.id === 'completo' ? 'Relatório de Ruas' : 'Relatório de Pavimentação'}${cidade ? ` — ${cidade}` : ''}`,
     subtitulo: tipo.label,
     atualizadoEm,
     recorte: Array.isArray(bairros) && bairros.length ? bairros.join(', ') : null,

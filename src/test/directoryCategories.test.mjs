@@ -37,10 +37,28 @@ test('transportes e pontos turísticos são migrados para categorias do Guia', a
   assert.match(migration, /from public\.transport t/);
   assert.match(migration, /from public\.tourist_spots s/);
   assert.match(migration, /guide_metadata/);
-  assert.match(publicPage, /useState\(null\)/);
+  assert.match(publicPage, /useParams\(\)/);
+  assert.match(publicPage, /\/guia-da-cidade\/categoria\/\$\{encodeURIComponent\(id\)\}/);
+  assert.match(publicPage, /!isCategoryPage && <section/);
+  assert.match(publicPage, /aria-label=\{`Subcategorias de/);
+  assert.match(publicPage, /categoryLink\(child\.id\)/);
+  assert.match(publicPage, /categoryLink\(category\.id\)/);
   assert.doesNotMatch(publicPage, /Todos os locais/);
   assert.doesNotMatch(publicPage, /from\('transport'\)|from\('tourist_spots'\)/);
   assert.doesNotMatch(managePage, /TabsTrigger value="transport"|TabsTrigger value="tourist_spots"/);
+});
+
+test('categorias do Guia podem ser editadas, compartilhadas e removidas sem perder locais', async () => {
+  const [page, migration] = await Promise.all([
+    read('src/pages/admin/ManageServicesPage.jsx'),
+    read('supabase/migrations/265_directory_categories_safe_delete.sql'),
+  ]);
+
+  assert.match(page, /handleUpdateCategory/);
+  assert.match(page, /handleDeleteCategory/);
+  assert.match(page, /https:\/\/trombonecidadao\.com\.br\/share\/guia\/categoria\/\$\{encodeURIComponent\(category\.id\)\}/);
+  assert.match(migration, /before delete on public\.directory_categories/);
+  assert.match(migration, /from public\.directory where category_id = old\.id/);
 });
 
 test('explorador de documentos permite arrastar e usar menu de contexto', async () => {

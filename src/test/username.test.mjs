@@ -66,7 +66,7 @@ test('validação rejeita caracteres especiais e acentuação', () => {
 });
 
 test('validação rejeita nomes de rotas e termos reservados', () => {
-  for (const reserved of ['admin', 'suporte', 'trombone', 'prefeitura', 'vereador', 'feed', 'mapa', 'obras', 'login']) {
+  for (const reserved of ['admin', 'suporte', 'trombone', 'prefeitura', 'vereador', 'feed', 'mapa', 'obras', 'login', 'guiadacidade']) {
     assert.equal(isReservedUsername(reserved), true, `Deveria ser reservado: ${reserved}`);
     const check = validateUsername(reserved);
     assert.equal(check.valid, false, `Validação deveria falhar para ${reserved}`);

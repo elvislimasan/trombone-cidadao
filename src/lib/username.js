@@ -27,6 +27,8 @@ export const RESERVED_USERNAMES = new Set([
   'contato',
   'noticias',
   'servicos',
+  'guiadacidade',
+  'guia-da-cidade',
   'perfil',
   'login',
   'cadastro',

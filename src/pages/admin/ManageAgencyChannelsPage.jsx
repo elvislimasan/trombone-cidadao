@@ -466,7 +466,7 @@ const ManageAgencyChannelsPage = () => {
           : 'Ou o período já foi enviado, ou nenhum canal ativo tem bronca pendente.',
       });
     } catch (error) {
-      showAppError({ title: 'Falha ao gerar', description: error?.message, variant: 'destructive' });
+      showAppError({ title: 'Falha ao gerar', description: [error?.message, error?.code && `Código: ${error.code}`, error?.details, error?.hint].filter(Boolean).join(' · '), variant: 'destructive' });
     } finally {
       setGerando(null);
     }

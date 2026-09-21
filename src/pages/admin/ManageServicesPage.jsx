@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Upload, Check, Hourglass, Tags, Church } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Upload, Check, Hourglass, Tags, Church, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import CityCombobox from '@/components/CityCombobox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,12 +17,16 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Combobox } from '@/components/ui/combobox';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
-import { showAppError } from '@/lib/appError';
+import { showAppError, showAppNotice } from '@/lib/appError';
 import { optimizeImageFile } from '@/lib/optimizeImage';
 import LocationPickerMap from '@/components/LocationPickerMap';
 import { useCity } from '@/contexts/CityContext';
 import { normalizarInstagram } from '@/lib/externalLinks';
+import { guideLocation } from '@/lib/guideLocation';
 
+import GuideCategorySelect from '@/components/GuideCategorySelect';
+import GuideTransportFields from '@/components/GuideTransportFields';
+import { guideCategoryIds, isGuideTransport } from '@/lib/guideCategories';
 // Lista unificada do Guia, com o mesmo recorte no celular e no desktop.
 const ListaServicos = ({ data, onEdit, onDelete }) => {
   const { visiveis, propsPaginacao } = useListaPaginada(data || [], { porPagina: 20 });
@@ -52,20 +57,15 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
   const { cities } = useCity();
   const [formData, setFormData] = useState(null);
   const [mapLocation, setMapLocation] = useState(null);
+  const [mapRevision, setMapRevision] = useState(0);
   const fileInputRef = useRef(null);
+  const secondaryFileInputRef = useRef(null);
 
   useEffect(() => {
     if (item) {
-      setFormData({ ...item });
-      const point = item.location;
-      if (point?.coordinates?.length >= 2) {
-        setMapLocation({ lat: Number(point.coordinates[1]), lng: Number(point.coordinates[0]) });
-      } else if (typeof point === 'string') {
-        const match = point.match(/POINT\(([-\d.]+) ([-\d.]+)\)/);
-        setMapLocation(match ? { lat: Number(match[2]), lng: Number(match[1]) } : null);
-      } else {
-        setMapLocation(null);
-      }
+      setFormData({ ...item, category_ids: guideCategoryIds(item) });
+      setMapLocation(guideLocation(item.address) || guideLocation(item.location));
+      setMapRevision((revision) => revision + 1);
     } else {
       setFormData(null);
       setMapLocation(null);
@@ -75,6 +75,13 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'address') {
+      const linkedPosition = guideLocation(value);
+      if (linkedPosition) {
+        setMapLocation(linkedPosition);
+        setMapRevision((revision) => revision + 1);
+      }
+    }
   };
 
   const handleFileChange = (e) => {
@@ -86,6 +93,18 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleSecondaryFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setFormData((prev) => ({
+      ...prev,
+      secondary_image_file: file,
+      guide_metadata: { ...prev.guide_metadata, secondary_image_url: reader.result },
+    }));
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e) => {
@@ -122,16 +141,8 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
               <Textarea id="description" name="description" value={formData.description || ''} onChange={handleChange} rows={4} />
             </div>
             <div className="grid gap-2">
-              <Label>Categoria ou subcategoria</Label>
-              <Combobox
-                options={directoryCategoryOptions}
-                value={formData.category_id || ''}
-                onChange={(value) => setFormData((prev) => ({ ...prev, category_id: value || null }))}
-                placeholder="Selecione a categoria"
-                searchPlaceholder="Buscar categoria..."
-                notFoundText="Crie a categoria na aba Guia da Cidade."
-                modal
-              />
+              <Label>Categorias e subcategorias</Label>
+              <GuideCategorySelect options={directoryCategoryOptions} value={formData.category_ids || []} onChange={(value) => setFormData((prev) => ({ ...prev, category_ids: value, category_id: value[0] || null }))} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="city_id">Cidade</Label>
@@ -142,6 +153,7 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
                 modal
               />
             </div>
+            {isGuideTransport(formData, directoryCategories || []) && <GuideTransportFields value={formData.guide_metadata || {}} onChange={(value) => setFormData((prev) => ({ ...prev, guide_metadata: value }))} />}
             <div className="grid gap-2">
               <Label htmlFor="address">Endereço</Label>
               <Input id="address" name="address" value={formData.address} onChange={handleChange} />
@@ -150,7 +162,7 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
               <Label>Localização no mapa</Label>
               <div className="h-64 overflow-hidden rounded-xl border border-input">
                 <LocationPickerMap
-                  key={formData.city_id || 'no-city'}
+                  key={`${formData.city_id || 'no-city'}-${mapRevision}`}
                   initialPosition={mapLocation}
                   onLocationChange={setMapLocation}
                   fallbackCityCenter={fallbackCityCenter}
@@ -178,11 +190,20 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
               />
             </div>
             <div className="grid gap-2">
-              <Label>Imagem</Label>
+              <Label>Imagem em destaque</Label>
               <div className="flex items-center gap-4">
-                <img src={formData.image_url} alt={formData.name} className="w-20 h-20 object-cover rounded-md border" />
-                <Button type="button" variant="outline" onClick={() => fileInputRef.current.click()}><Upload className="w-4 h-4 mr-2" />Trocar Imagem</Button>
+                {formData.image_url && <img src={formData.image_url} alt={formData.name} className="w-20 h-20 object-contain rounded-md border" />}
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current.click()}><Upload className="w-4 h-4 mr-2" />Escolher imagem</Button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Imagem secundária (informações adicionais)</Label>
+              <div className="flex flex-wrap items-center gap-4">
+                {formData.guide_metadata?.secondary_image_url && <img src={formData.guide_metadata.secondary_image_url} alt="Prévia da imagem secundária" className="h-20 w-20 rounded-md border object-contain" />}
+                <Button type="button" variant="outline" onClick={() => secondaryFileInputRef.current.click()}><Upload className="mr-2 h-4 w-4" />Escolher imagem</Button>
+                {formData.guide_metadata?.secondary_image_url && <Button type="button" variant="ghost" onClick={() => setFormData((prev) => ({ ...prev, secondary_image_file: null, guide_metadata: { ...prev.guide_metadata, secondary_image_url: null } }))}>Remover</Button>}
+                <input type="file" ref={secondaryFileInputRef} onChange={handleSecondaryFileChange} className="hidden" accept="image/*" />
               </div>
             </div>
           </>
@@ -223,6 +244,9 @@ const ManageServicesPage = () => {
   const [directoryCategories, setDirectoryCategories] = useState([]);
   const [newCategory, setNewCategory] = useState({ name: '', parent_id: null });
   const [savingCategory, setSavingCategory] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [deletingCategoryBusy, setDeletingCategoryBusy] = useState(false);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [deletingItem, setDeletingItem] = useState(null);
@@ -275,7 +299,21 @@ const ManageServicesPage = () => {
     if (pendingError) {
       showAppError({ title: "Erro ao buscar sugestões pendentes", description: pendingError.message, variant: "destructive" });
     } else {
-      setPendingEntries(pending);
+      const entries = pending || [];
+      const authorIds = [...new Set(entries.map((entry) => entry.submitted_by).filter(Boolean))];
+      let authors = new Map();
+      if (authorIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', authorIds);
+        if (profilesError) {
+          showAppError({ title: 'Erro ao carregar autores das sugestões', description: profilesError.message, variant: 'destructive' });
+        } else {
+          authors = new Map((profiles || []).map((profile) => [profile.id, profile]));
+        }
+      }
+      setPendingEntries(entries.map((entry) => ({ ...entry, author: authors.get(entry.submitted_by) })));
     }
   }, [isScopedAmbassador, myActiveCityIds]);
 
@@ -301,6 +339,69 @@ const ManageServicesPage = () => {
     }
     setNewCategory({ name: '', parent_id: null });
     await fetchData();
+  };
+
+  const canChangeCategory = (category) => Boolean(
+    user?.is_admin || user?.is_master ||
+    (category.city_id != null && isScopedAmbassador && myActiveCityIds.some((id) => String(id) === String(category.city_id)))
+  );
+
+  const handleUpdateCategory = async (event) => {
+    event.preventDefault();
+    if (!editingCategory || !canChangeCategory(editingCategory)) return;
+    const name = editingCategory.name.trim();
+    if (!name) {
+      showAppError({ title: 'Informe o nome da categoria', variant: 'destructive' });
+      return;
+    }
+    const hasChildren = directoryCategories.some((category) => String(category.parent_id) === String(editingCategory.id));
+    if (hasChildren && editingCategory.parent_id) {
+      showAppError({ title: 'Esta categoria possui subcategorias', description: 'Remova ou mova as subcategorias antes de alterar o nível.', variant: 'destructive' });
+      return;
+    }
+    setSavingCategory(true);
+    const { error } = await supabase.from('directory_categories')
+      .update({ name, parent_id: editingCategory.parent_id || null })
+      .eq('id', editingCategory.id);
+    setSavingCategory(false);
+    if (error) {
+      showAppError({ title: 'Não foi possível editar a categoria', description: error.code === '23505' ? 'Já existe uma categoria com esse nome.' : error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingCategory(null);
+    await fetchData();
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory || !canChangeCategory(deletingCategory)) return;
+    setDeletingCategoryBusy(true);
+    const [children, places] = await Promise.all([
+      supabase.from('directory_categories').select('id', { count: 'exact', head: true }).eq('parent_id', deletingCategory.id),
+      supabase.from('directory').select('id', { count: 'exact', head: true }).or(`category_id.eq.${deletingCategory.id},category_ids.cs.{${deletingCategory.id}}`),
+    ]);
+    if (children.error || places.error) {
+      showAppError({ title: 'Não foi possível verificar a categoria', description: children.error?.message || places.error?.message, variant: 'destructive' });
+    } else if (children.count || places.count) {
+      showAppError({ title: 'Categoria em uso', description: `Mova ou remova ${children.count || 0} subcategoria(s) e ${places.count || 0} local(is) antes de excluir.`, variant: 'destructive' });
+    } else {
+      const { error } = await supabase.from('directory_categories').delete().eq('id', deletingCategory.id);
+      if (error) showAppError({ title: 'Não foi possível remover a categoria', description: error.message, variant: 'destructive' });
+      else {
+        setDeletingCategory(null);
+        await fetchData();
+      }
+    }
+    setDeletingCategoryBusy(false);
+  };
+
+  const copyCategoryLink = async (category) => {
+    try {
+      const city = category.city_id || 'todas';
+      await navigator.clipboard.writeText(`https://trombonecidadao.com.br/share/guia/categoria/${encodeURIComponent(category.id)}?cidade=${city}`);
+      showAppNotice({ title: 'Link da categoria copiado' });
+    } catch {
+      showAppError({ title: 'Não foi possível copiar o link', variant: 'destructive' });
+    }
   };
 
   useEffect(() => {
@@ -333,7 +434,7 @@ const ManageServicesPage = () => {
   }, [searchParams, directoryData.all, setSearchParams]);
 
   const handleSave = async (itemToSave) => {
-    const { image_file, ...dbData } = itemToSave;
+    const { image_file, secondary_image_file, ...dbData } = itemToSave;
     const tableName = 'directory';
 
     if (!dbData.city_id) {
@@ -361,12 +462,24 @@ const ManageServicesPage = () => {
       dbData.image_url = publicUrl;
     }
 
+    if (secondary_image_file) {
+      const uploadFile = await optimizeImageFile(secondary_image_file);
+      const filePath = `${tableName}/secondary-${Date.now()}-${uploadFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, uploadFile);
+      if (uploadError) {
+        showAppError({ title: 'Erro no upload da imagem secundária', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('work-media').getPublicUrl(filePath);
+      dbData.guide_metadata = { ...dbData.guide_metadata, secondary_image_url: publicUrl };
+    }
+
     if (dbData.id) {
       const { error } = await supabase.from(tableName).update(dbData).eq('id', dbData.id);
-      if (error) showAppError({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+      if (error) { showAppError({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
     } else {
       const { error } = await supabase.from(tableName).insert(dbData);
-      if (error) showAppError({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+      if (error) { showAppError({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return; }
     }
 
     fetchData();
@@ -392,7 +505,7 @@ const ManageServicesPage = () => {
       type: 'directory',
       item: {
         name: '', description: '', address: '', phone: '', instagram_url: '', location: null,
-        image_url: '', type: 'commerce', status: 'approved', category_id: null,
+        image_url: '', type: 'commerce', status: 'approved', category_id: null, category_ids: [],
         city_id: isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null,
       },
     });
@@ -459,7 +572,13 @@ const ManageServicesPage = () => {
                           <h3 className="font-bold">{entry.name}</h3>
                           <p className="text-sm text-muted-foreground">{entry.address}</p>
                           <p className="text-sm text-muted-foreground">{entry.phone}</p>
-                          <p className="text-xs text-muted-foreground mt-2">Sugerido por ID: {entry.submitted_by}</p>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={entry.author?.avatar_url || undefined} alt={entry.author?.name || 'Foto do usuário'} className="object-cover" />
+                              <AvatarFallback>{entry.author?.name?.trim().slice(0, 1).toUpperCase() || '?'}</AvatarFallback>
+                            </Avatar>
+                            <span>Sugerido por <span className="font-medium text-foreground">{entry.author?.name?.trim() || 'Usuário não disponível'}</span></span>
+                          </div>
                         </div>
                         <div className="flex-shrink-0 flex md:flex-col gap-2">
                           <Button size="sm" variant="outline" className="text-red-500 border-red-500 hover:bg-red-500/10 gap-2" onClick={() => handleModeration(entry, 'rejected')}><X className="w-4 h-4" />Rejeitar</Button>
@@ -496,7 +615,16 @@ const ManageServicesPage = () => {
                 <div className="mt-2 grid gap-1.5 border-t pt-3">
                   {directoryCategories.map((category) => {
                       const parent = directoryCategories.find((item) => String(item.id) === String(category.parent_id));
-                      return <div key={category.id} className="rounded-lg bg-muted/50 px-3 py-2 text-xs"><span className="font-semibold">{parent ? `${parent.name} · ` : ''}{category.name}</span></div>;
+                      return <div key={category.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                        <span className="min-w-0 font-semibold">{parent ? `${parent.name} · ` : ''}{category.name}</span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button type="button" size="icon" variant="ghost" title="Copiar link" aria-label={`Copiar link de ${category.name}`} onClick={() => copyCategoryLink(category)}><Copy className="h-3.5 w-3.5" /></Button>
+                          {canChangeCategory(category) && <>
+                            <Button type="button" size="icon" variant="ghost" title="Editar categoria" aria-label={`Editar ${category.name}`} onClick={() => setEditingCategory({ ...category })}><Edit className="h-3.5 w-3.5" /></Button>
+                            <Button type="button" size="icon" variant="ghost" className="text-red-500 hover:text-red-600" title="Remover categoria" aria-label={`Remover ${category.name}`} onClick={() => setDeletingCategory(category)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </>}
+                        </div>
+                      </div>;
                     })}
                 </div>
               </CardContent>
@@ -513,6 +641,25 @@ const ManageServicesPage = () => {
       </div>
 
       {editingItem && <EditModal item={editingItem.item} onSave={handleSave} onClose={() => setEditingItem(null)} allowedCityIds={isScopedAmbassador ? myActiveCityIds : undefined} directoryCategories={directoryCategories} />}
+
+      <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Editar categoria</DialogTitle></DialogHeader>
+          {editingCategory && <form onSubmit={handleUpdateCategory} className="grid gap-4">
+            <div className="grid gap-2"><Label htmlFor="edit-category-name">Nome</Label><Input id="edit-category-name" value={editingCategory.name} onChange={(event) => setEditingCategory((current) => ({ ...current, name: event.target.value }))} required /></div>
+            <div className="grid gap-2"><Label>Categoria principal</Label><Combobox options={directoryCategories.filter((category) => !category.parent_id && String(category.id) !== String(editingCategory.id)).map((category) => ({ value: category.id, label: category.name }))} value={editingCategory.parent_id || ''} onChange={(value) => setEditingCategory((current) => ({ ...current, parent_id: value || null }))} placeholder="Nenhuma (categoria principal)" searchPlaceholder="Buscar categoria principal..." modal /></div>
+            <DialogFooter><Button type="button" variant="outline" onClick={() => setEditingCategory(null)}>Cancelar</Button><Button type="submit" disabled={savingCategory}><Save className="mr-2 h-4 w-4" />Salvar</Button></DialogFooter>
+          </form>}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingCategory} onOpenChange={(open) => !open && !deletingCategoryBusy && setDeletingCategory(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Remover categoria</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Remover “{deletingCategory?.name}”? Categorias com subcategorias ou locais cadastrados precisam ser esvaziadas antes.</p>
+          <DialogFooter><Button type="button" variant="outline" disabled={deletingCategoryBusy} onClick={() => setDeletingCategory(null)}>Cancelar</Button><Button type="button" variant="destructive" disabled={deletingCategoryBusy} onClick={handleDeleteCategory}><Trash2 className="mr-2 h-4 w-4" />Remover</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
         <DialogContent className="sm:max-w-md bg-card border-border">

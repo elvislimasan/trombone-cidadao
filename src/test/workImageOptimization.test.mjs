@@ -22,11 +22,11 @@ test('substituição da foto antiga é segura e força a redução das dimensõe
   ]);
 
   assert.match(optimizer, /forceResize: true/);
-  assert.match(imageOptimizer, /forceResize && dimensionsChanged/);
-  const upload = optimizer.indexOf('.upload(path, optimized');
-  const update = optimizer.indexOf(".from('public_work_media')");
-  const removeOriginal = optimizer.lastIndexOf('.remove([previousPath])');
-  assert.ok(upload >= 0 && update > upload && removeOriginal > update);
+  assert.match(imageOptimizer, /!dimensionsChanged && !forceResize/);
+  assert.match(optimizer, /\.eq\('url', item\.url\)\s*\.select\('id'\)/);
+  assert.match(optimizer, /if \(updateError \|\| !updated\?\.length\)/);
+  assert.match(optimizer, /removeOriginalIfUnreferenced\(item\.url, path\)/);
+  assert.match(optimizer, /optimizeStoredWorkThumbnail/);
 });
 
 test('redimensionamento funciona na obra e no modal Gerenciar', async () => {

@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/share/guia/categoria/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-city-guide?type=category&id=:id"
+    },
+    {
+      "source": "/share/guia/:id",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-city-guide?type=place&id=:id"
+    },
+    {
+      "source": "/share/guia",
+      "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-city-guide?type=index"
+    },
+    {
       "source": "/share/abaixo-assinado/:id",
       "destination": "https://xxdletrjyjajtrmhwzev.supabase.co/functions/v1/share-petition?id=:id"
     },

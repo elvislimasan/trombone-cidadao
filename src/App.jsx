@@ -167,6 +167,8 @@ const SEO = () => {
   const isCustomMetaPage = location.pathname.startsWith('/bronca/')
     || location.pathname.startsWith('/u/')
     || location.pathname.startsWith('/@')
+    || location.pathname.startsWith('/guia-da-cidade')
+    || location.pathname.startsWith('/share/guia')
     || Boolean(shortUsername && !isReservedUsername(shortUsername));
 
   // Customize titles and descriptions per route
@@ -275,6 +277,11 @@ const PrivateRoute = ({ children }) => {
 const ParaOMapaDeBroncas = () => {
   const { search } = useLocation();
   return <Navigate to={{ pathname: '/mapa', search }} replace />;
+};
+
+const LegacyGuideRedirect = () => {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={{ pathname: pathname.replace(/^\/(?:servicos|guiadacidade)(?=\/|$)/, '/guia-da-cidade'), search, hash }} replace />;
 };
 
 // O antigo painel pessoal agora faz parte de /perfil. Preservamos a query para
@@ -836,10 +843,16 @@ function AppShell() {
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
-              <Route path="/servicos" element={<ServicesPage />} />
-              <Route path="/servicos/transporte/:id" element={<TransportDetailsPage />} />
-              <Route path="/servicos/ponto-turistico/:id" element={<TouristSpotDetailsPage />} />
-              <Route path="/servicos/guia/:id" element={<DirectoryDetailsPage />} />
+              <Route path="/guia-da-cidade" element={<ServicesPage />} />
+              <Route path="/guia-da-cidade/categoria/:categoryId" element={<ServicesPage />} />
+              <Route path="/guia-da-cidade/transporte/:id" element={<TransportDetailsPage />} />
+              <Route path="/guia-da-cidade/ponto-turistico/:id" element={<TouristSpotDetailsPage />} />
+              <Route path="/guia-da-cidade/guia/:id" element={<DirectoryDetailsPage />} />
+              <Route path="/share/guia/:id" element={<DirectoryDetailsPage />} />
+              <Route path="/share/guia/categoria/:categoryId" element={<ServicesPage />} />
+              <Route path="/share/guia" element={<ServicesPage />} />
+              <Route path="/guiadacidade/*" element={<LegacyGuideRedirect />} />
+              <Route path="/servicos/*" element={<LegacyGuideRedirect />} />
               <Route path="/noticias" element={<NewsPage />} />
               <Route path="/noticias/:newsId" element={<NewsDetailsPage />} />
               <Route path="/contato" element={<ContactPage />} />

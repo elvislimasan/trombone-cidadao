@@ -49,7 +49,7 @@ const ServicesRankingSidebar = ({ currentServiceId }) => {
           key={item.id}
           variants={itemVariants}
         >
-          <Link to={`/servicos/guia/${item.id}`} className="block p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-transparent hover:border-primary/50">
+          <Link to={`/guia-da-cidade/guia/${item.id}`} className="block p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-transparent hover:border-primary/50">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-foreground truncate pr-4 flex-1">
                 <span className="text-primary font-bold mr-2">#{index + 1}</span>

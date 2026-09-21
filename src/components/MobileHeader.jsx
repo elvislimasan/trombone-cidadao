@@ -91,7 +91,7 @@ const MobileHeader = () => {
     else if (path === '/agora') setPageTitle('Radar da cidade');
     else if (path.startsWith('/agora/')) setPageTitle('Acontecimento');
     else if (path === '/sobre') setPageTitle('Sobre o Projeto');
-    else if (path === '/servicos') setPageTitle('Serviços');
+    else if (path === '/guia-da-cidade') setPageTitle('Guia da Cidade');
     else if (path === '/contato') setPageTitle('Contato');
     else if (path === '/mapa-pavimentacao') setPageTitle('Pavimentação');
     else if (path === '/abaixo-assinados') setPageTitle('Abaixo-Assinados');

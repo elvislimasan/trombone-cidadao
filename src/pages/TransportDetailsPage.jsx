@@ -48,7 +48,7 @@ const TransportDetailsPage = () => {
     
     if (error) {
       showAppError({ title: "Erro ao buscar transporte", description: error.message, variant: "destructive" });
-      navigate('/servicos');
+      navigate('/guia-da-cidade');
     } else {
       setTransport(data);
     }
@@ -111,7 +111,7 @@ const TransportDetailsPage = () => {
         className="container mx-auto px-4 py-12"
       >
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-          <Link to="/servicos">
+          <Link to="/guia-da-cidade">
             <Button variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar para o Guia da Cidade

@@ -21,7 +21,7 @@ const groups = [
     ['/mapa-pavimentacao', 'Ruas e pavimentação', 'Conheça a situação das ruas.', Route],
   ] },
   { title: 'Informações e serviços', items: [
-    ['/servicos', 'Guia da Cidade', 'Comércio, serviços, turismo e transporte em um só lugar.', Briefcase],
+    ['/guia-da-cidade', 'Guia da Cidade', 'Comércio, serviços, turismo e transporte em um só lugar.', Briefcase],
     ['/noticias', 'Notícias', 'Leia as novidades da cidade.', Newspaper],
     ['/imoveis-alugados', 'Imóveis públicos alugados', 'Consulte imóveis e contratos públicos.', Building],
   ] },

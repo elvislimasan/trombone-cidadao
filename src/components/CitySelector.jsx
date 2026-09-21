@@ -20,7 +20,7 @@ import { useCity, useCityView } from '@/contexts/CityContext';
  * um dropdown absoluto seria recortado pela coluna e perderia o início dos
  * nomes, especialmente no mapa de pavimentação em notebook.
  */
-export default function CitySelector({ align = 'right', mobileBare = false, inverted = false, scope = 'local' }) {
+export default function CitySelector({ align = 'right', mobileBare = false, inverted = false, scope = 'local', onCityChange }) {
   const globalCity = useCity();
   const localCity = useCityView();
   const {
@@ -53,6 +53,7 @@ export default function CitySelector({ align = 'right', mobileBare = false, inve
 
   const chooseCity = (cityId) => {
     setActiveCity(cityId);
+    onCityChange?.(cityId);
     setOpen(false);
     setSearch('');
   };

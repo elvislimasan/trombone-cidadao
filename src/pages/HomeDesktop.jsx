@@ -44,7 +44,7 @@ const MODULOS = [
   { nome: 'Obras Públicas', path: '/obras-publicas', Icone: Construction, descricao: 'Acompanhe obras em qualquer município.', tom: 'bg-status-pendingBg text-status-pendingFg', destaque: 'border-status-pendingBorder bg-gradient-to-b from-status-pendingBg/65 to-surface-raised' },
   { nome: 'Ruas', path: '/mapa-pavimentacao', Icone: RouteIcon, descricao: 'Consulte ruas e pavimentação.', tom: 'bg-status-progressBg text-status-progressFg', destaque: 'border-status-progressBorder bg-gradient-to-b from-status-progressBg/55 to-surface-raised' },
   { nome: 'Imóveis Alugados', path: '/imoveis-alugados', Icone: Building, descricao: 'Transparência no uso de imóveis públicos.', tom: 'bg-brand-subtleBg text-brand-subtleFg' },
-  { nome: 'Serviços', path: '/servicos', Icone: Briefcase, descricao: 'Serviços públicos perto de você.', tom: 'bg-success-bg text-success-fg' },
+  { nome: 'Guia da Cidade', path: '/guia-da-cidade', Icone: Briefcase, descricao: 'Comércio, serviços, turismo e transporte.', tom: 'bg-success-bg text-success-fg' },
   { nome: 'Estatísticas', path: '/estatisticas', Icone: BarChart2, descricao: 'Indicadores de participação cidadã.', tom: 'bg-status-resolvedBg text-status-resolvedFg' },
 ];
 

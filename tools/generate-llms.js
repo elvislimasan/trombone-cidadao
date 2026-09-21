@@ -70,6 +70,10 @@ function extractRoutes(appJsxPath) {
         } else if (pathMatch) {
           routePath = pathMatch[1].startsWith('/') ? pathMatch[1] : `/${pathMatch[1]}`;
         }
+
+        // A mesma tela atende categorias e o fallback da prévia social; no
+        // índice público ela deve apontar para a entrada canônica do Guia.
+        if (componentName === 'ServicesPage' && routePath !== '/guia-da-cidade') continue;
         
         routes.set(componentName, routePath);
       }

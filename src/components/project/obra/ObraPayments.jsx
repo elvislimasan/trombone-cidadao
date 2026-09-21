@@ -67,9 +67,7 @@ export function ObraPaymentsSummary({
         </div>
       </div>
 
-      <div className="relative mt-6 rounded-2xl border border-red-100/60 bg-gradient-to-br from-red-50/70 via-background to-amber-50/40 p-5 sm:p-6 overflow-hidden shadow-sm">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-red-200/30 blur-2xl" />
-        <div className="pointer-events-none absolute -left-10 -bottom-10 h-44 w-44 rounded-full bg-amber-200/25 blur-2xl" />
+      <div className="mt-6 rounded-2xl border border-red-100 bg-background p-5 shadow-sm sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0">
             <button type="button" className="text-left" onClick={onConsult}>

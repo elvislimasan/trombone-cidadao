@@ -99,7 +99,7 @@ const Footer = () => {
                   {column.links.map((link, linkIndex) => (
                     link.isVisible && (
                       <li key={linkIndex}>
-                        <Link to={link.path} style={linkStyle} className="hover:underline">{nomeDoLink(link)}</Link>
+                        <Link to={['/servicos', '/guiadacidade'].includes(link.path) ? '/guia-da-cidade' : link.path} style={linkStyle} className="hover:underline">{nomeDoLink(link)}</Link>
                       </li>
                     )
                   ))}
