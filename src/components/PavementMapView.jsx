@@ -204,6 +204,7 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
   const raioDoPonto = zoom >= 17 ? 5 : zoom >= 15 ? 3.5 : 2.5;
 
   useImperativeHandle(ref, () => ({
+    getMap: () => mapRef.current,
     goToLocation: (location) => {
       if (mapRef.current) {
         mapRef.current.flyTo([location.lat, location.lng], 18);

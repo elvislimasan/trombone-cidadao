@@ -13,3 +13,9 @@ test('ranking fica depois do painel de mapa para não reduzir o canvas', async (
   assert.ok(ranking > mapPanelEnd, 'ranking deve ser renderizado fora e depois do painel com altura de viewport');
   assert.match(page.slice(mapPanelEnd, ranking), /max-w-\[112rem\]/);
 });
+
+test('ranking permite revelar todos os autores além do top 5', async () => {
+  const component = await read('src/components/pavement/CouncilorRankingCard.jsx');
+  assert.match(component, /Ver todos/);
+  assert.match(component, /visibleRanking/);
+});

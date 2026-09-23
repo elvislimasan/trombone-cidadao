@@ -9,6 +9,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   ESTADOS_DO_ENVIO,
@@ -169,4 +170,10 @@ test('sem nome de órgão a frase continua uma frase', () => {
   const f = fraseDeCobranca({ total: 2 });
   assert.match(f.titulo, /o órgão responsável 2 vezes/);
   assert.doesNotMatch(f.titulo, /undefined|null|NaN/);
+});
+
+test('admin autenticado conserva permissão para gerar o relatório mensal', async () => {
+  const migration = await readFile(new URL('../../supabase/migrations/271_restaurar_disparo_relatorio_orgao.sql', import.meta.url), 'utf8');
+  assert.match(migration, /grant execute on function public\.enviar_relatorios_do_orgao\(text\) to authenticated/i);
+  assert.doesNotMatch(migration, /revoke[^;]*authenticated/i);
 });

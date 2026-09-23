@@ -14,8 +14,10 @@ const Avatar = ({ profile, name }) => profile?.photo_url ? (
 );
 
 export default function CouncilorRankingCard({ streets, cityId, cityName }) {
-  const ranking = useMemo(() => rankingDeAutores(streets).slice(0, 5), [streets]);
+  const ranking = useMemo(() => rankingDeAutores(streets), [streets]);
   const [profiles, setProfiles] = useState(new Map());
+  const [expanded, setExpanded] = useState(false);
+  const visibleRanking = expanded ? ranking : ranking.slice(0, 5);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,9 +45,10 @@ export default function CouncilorRankingCard({ streets, cityId, cityName }) {
           <h2 id="councilor-ranking-title" className="text-sm font-extrabold text-content-primary">Quem mais nomeou ruas</h2>
           <p className="text-xs text-content-secondary">Projetos de lei cadastrados{cityName ? ` em ${cityName}` : ''}</p>
         </div>
+        {ranking.length > 5 && <button type="button" className="ml-auto shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-brand transition-colors hover:bg-brand-subtleBg" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Mostrar menos' : 'Ver todos'}</button>}
       </div>
       <div className="grid divide-y divide-edge-subtle sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
-        {ranking.map((item, index) => {
+        {visibleRanking.map((item, index) => {
           const profile = profiles.get(item.key);
           return (
             <Link

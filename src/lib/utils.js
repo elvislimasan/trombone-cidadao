@@ -92,15 +92,20 @@ export function formatCnpj(cnpj) {
 export function formatPhone(phone) {
   if (!phone) return '';
   // Remove tudo que não é número
-  const numbers = phone.replace(/\D/g, '');
+  let numbers = phone.replace(/\D/g, '');
+  if (numbers.startsWith('55') && (numbers.length === 12 || numbers.length === 13)) {
+    numbers = numbers.slice(2);
+  }
   // Limita a 11 dígitos (DDD + 9 dígitos)
   const limited = numbers.slice(0, 11);
   
   // Formata: (87) 99999-9999
   if (limited.length <= 2) {
     return limited.length > 0 ? `(${limited}` : '';
-  } else if (limited.length <= 7) {
+  } else if (limited.length <= 6) {
     return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+  } else if (limited.length <= 10) {
+    return `(${limited.slice(0, 2)}) ${limited.slice(2, 6)}-${limited.slice(6)}`;
   } else {
     return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
   }

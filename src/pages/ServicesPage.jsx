@@ -110,9 +110,9 @@ const PlaceCard = ({ item, viewMode }) => (
     to={`/guia-da-cidade/guia/${item.id}`}
     className={`group flex min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-elevation-2 ${viewMode === 'grade' ? 'flex-col' : 'items-center gap-3 p-3 sm:gap-4 sm:p-4'}`}
   >
-    <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-subtle ${viewMode === 'grade' ? 'h-36 w-full rounded-none' : 'h-14 w-14 sm:h-16 sm:w-16'}`}>
+    {(item.image_url || viewMode !== 'grade') && <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-subtle ${viewMode === 'grade' ? 'h-36 w-full rounded-none' : 'h-14 w-14 sm:h-16 sm:w-16'}`}>
       {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" loading="lazy" /> : <Building className="h-6 w-6 text-content-tertiary" aria-hidden="true" />}
-    </span>
+    </span>}
     <span className={`min-w-0 flex-1 ${viewMode === 'grade' ? 'p-4' : ''}`}>
       <span className="block truncate text-sm font-extrabold text-content-primary sm:text-base">{item.name}</span>
       {(item.guide_metadata?.destination || item.description) && <span className="mt-0.5 block line-clamp-2 text-xs text-content-secondary">{item.guide_metadata?.destination ? `Destino: ${item.guide_metadata.destination}` : item.description}</span>}
@@ -271,7 +271,7 @@ const ServicesPage = () => {
   const guideHomeLink = `/guia-da-cidade?cidade=${activeCityId ?? 'todas'}`;
   const openAddItem = () => {
     if (canManageServices) {
-      navigate('/servicos/gerenciar');
+      setGuideDialogOpen(true);
       return;
     }
     if (!user) {
@@ -524,7 +524,7 @@ const ServicesPage = () => {
       {loading && !isCategoryPage && <p className="mt-6 text-center text-sm text-content-tertiary">Carregando categorias...</p>}
       {!loading && isCategoryPage && !selectedCategory && selectedCategoryId !== 'sem-categoria' && <p className="mt-8 rounded-2xl border border-dashed border-edge-default p-8 text-center text-sm text-content-secondary">Categoria não encontrada. <Link to="/guia-da-cidade" className="font-bold text-brand underline">Voltar ao Guia da Cidade</Link></p>}
     </motion.div>
-    <GuideEntryDialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen} userId={user?.id} cityId={activeCityId} cities={cities} categories={directoryCategories} initialCategoryId={selectedCategory?.id || null} onSubmitted={fetchData} />
+    <GuideEntryDialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen} userId={user?.id} cityId={activeCityId} cities={cities} categories={directoryCategories} initialCategoryId={selectedCategory?.id || null} approveImmediately={canManageServices} onSubmitted={async () => { await fetchData(); if (canManageServices) navigate(guideHomeLink, { replace: true }); }} />
   </>;
 };
 

@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogClose, DialogDescription, DialogHeader, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
 import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -14,10 +16,14 @@ export default function DirectoryLocationDialog({ open, onOpenChange, item, onSa
   const [position, setPosition] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [address, setAddress] = useState('');
+  const [locatingAddress, setLocatingAddress] = useState(false);
+  const requestRef = React.useRef(0);
 
   useEffect(() => {
     if (open) {
       setPosition(guideLocation(item.location) || guideLocation(item.address));
+      setAddress(item.address || '');
       setError('');
     }
   }, [open, item]);
@@ -28,7 +34,7 @@ export default function DirectoryLocationDialog({ open, onOpenChange, item, onSa
     setSaving(true);
     setError('');
     try {
-      await saveGuideLocation(supabase, item.id, position);
+      await saveGuideLocation(supabase, item.id, position, address);
     } catch (err) {
       setError(err.message || 'Não foi possível salvar a localização.');
       setSaving(false);
@@ -37,6 +43,19 @@ export default function DirectoryLocationDialog({ open, onOpenChange, item, onSa
     setSaving(false);
     onOpenChange(false);
     await onSaved?.();
+  };
+
+  const handleLocationChange = async (nextPosition) => {
+    setPosition(nextPosition);
+    if (!nextPosition) return;
+    const requestId = ++requestRef.current;
+    setLocatingAddress(true);
+    const { data, error: reverseError } = await supabase.functions.invoke('reverse-geocode', {
+      body: { lat: nextPosition.lat, lng: nextPosition.lng, zoom: 18 },
+    });
+    if (requestId !== requestRef.current) return;
+    setLocatingAddress(false);
+    if (!reverseError && typeof data?.address === 'string' && data.address.trim()) setAddress(data.address.trim());
   };
 
   return <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
@@ -48,10 +67,11 @@ export default function DirectoryLocationDialog({ open, onOpenChange, item, onSa
       <form onSubmit={submit} className="grid gap-4">
         <div className="isolate h-[min(50dvh,24rem)] overflow-hidden rounded-xl border" style={saving ? { pointerEvents: 'none' } : undefined}>
           <Suspense fallback={<div className="flex h-full items-center justify-center bg-muted">Carregando mapa...</div>}>
-            <LocationPickerMap initialPosition={position} onLocationChange={setPosition} showMarker={Boolean(position)} showLocateButton initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: city.state?.uf } : null} />
+            <LocationPickerMap initialPosition={position} onLocationChange={handleLocationChange} showMarker={Boolean(position)} showLocateButton initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: city.state?.uf } : null} />
           </Suspense>
         </div>
         <p className="text-sm text-content-secondary" aria-live="polite">{position ? `Ponto selecionado: ${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}` : 'Nenhum ponto selecionado. Clique no mapa para adicionar.'}</p>
+        <div className="grid gap-2"><Label htmlFor="guide-location-address">Endereço</Label><Input id="guide-location-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder={locatingAddress ? 'Buscando endereço...' : 'Endereço do ponto marcado'} /></div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <DialogClose asChild><Button type="button" variant="outline" disabled={saving}>Cancelar</Button></DialogClose>

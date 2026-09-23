@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { BarChart3, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, X } from 'lucide-react';
+import { BarChart3, Download, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -32,6 +32,8 @@ import { savePavementStreet } from '@/lib/savePavementStreet';
 import { apelidosDaRua } from '@/lib/streetAliases';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { nomeDoArquivoDoMapa } from '@/lib/pavementMapPdf';
+import { capturarMapaVisivel, criarPdfDoMapaVisivel } from '@/lib/pavementMapSnapshot';
 import {
   MAP_CANVAS_CLASS,
   MAP_GRID_CLASS,
@@ -66,6 +68,7 @@ const PavementMapPage = () => {
   const mapViewRef = useRef();
   const { cityId: activeCityId, cityName: activeCityName, city: activeCity } = useCityView();
   const [downloading, setDownloading] = useState(false);
+  const [downloadingMap, setDownloadingMap] = useState(false);
   // Qual PERGUNTA o relatório responde, e em que formato sai. Duas escolhas
   // separadas de propósito: o tipo é sobre conteúdo, o formato é sobre o que se
   // vai fazer com ele — anexar num ofício (PDF) ou trabalhar numa planilha (CSV).
@@ -83,6 +86,7 @@ const PavementMapPage = () => {
   const [linksDaCidade, setLinksDaCidade] = useState({});
   const [editandoLinks, setEditandoLinks] = useState(null);
   const [salvandoLinks, setSalvandoLinks] = useState(false);
+  const [arquivoMapa, setArquivoMapa] = useState(null);
 
   const carregarLinks = useCallback(async () => {
     if (!activeCityId) { setLinksDaCidade({}); return; }
@@ -96,10 +100,13 @@ const PavementMapPage = () => {
 
   useEffect(() => { carregarLinks(); }, [carregarLinks]);
 
-  const abrirEdicaoDeLinks = () => setEditandoLinks({
-    pavement_street_map_url: linksDaCidade.pavement_street_map_url || '',
-    pavement_cep_list_url: linksDaCidade.pavement_cep_list_url || '',
-  });
+  const abrirEdicaoDeLinks = () => {
+    setArquivoMapa(null);
+    setEditandoLinks({
+      pavement_street_map_url: linksDaCidade.pavement_street_map_url || '',
+      pavement_cep_list_url: linksDaCidade.pavement_cep_list_url || '',
+    });
+  };
 
   const salvarLinks = async () => {
     setSalvandoLinks(true);
@@ -109,10 +116,22 @@ const PavementMapPage = () => {
       const texto = String(valor || '').trim();
       return texto || null;
     };
+    let mapUrl = limpar(editandoLinks.pavement_street_map_url);
+    if (arquivoMapa) {
+      const safeName = arquivoMapa.name.replace(/[^a-z0-9._-]+/gi, '-');
+      const filePath = `pavement-maps/${activeCityId}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('work-media').upload(filePath, arquivoMapa);
+      if (uploadError) {
+        setSalvandoLinks(false);
+        showAppError({ title: 'Não foi possível enviar o mapa', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+      mapUrl = supabase.storage.from('work-media').getPublicUrl(filePath).data.publicUrl;
+    }
     const { error } = await supabase
       .from('cities')
       .update({
-        pavement_street_map_url: limpar(editandoLinks.pavement_street_map_url),
+        pavement_street_map_url: mapUrl,
         pavement_cep_list_url: limpar(editandoLinks.pavement_cep_list_url),
       })
       .eq('id', activeCityId);
@@ -533,6 +552,40 @@ const PavementMapPage = () => {
     }
   };
 
+  const handleDownloadMapPdf = async () => {
+    setDownloadingMap(true);
+    try {
+      if (!activeCityId) throw new Error('Selecione uma cidade antes de gerar o desenho do mapa.');
+      const snapshot = await capturarMapaVisivel(mapViewRef.current?.getMap());
+      const doc = criarPdfDoMapaVisivel({
+        ...snapshot,
+        ruas: filteredStreets,
+        cidade: activeCityName,
+        atualizadoEm: lastUpdate,
+      });
+      const fileName = nomeDoArquivoDoMapa(activeCityName);
+
+      if (Capacitor.isNativePlatform()) {
+        await salvarDocumento({
+          base64: pdfParaBase64(doc),
+          fileName,
+          contentType: 'application/pdf',
+          tituloShare: `Mapa de ruas de ${activeCityName}`,
+        });
+      } else {
+        doc.save(fileName);
+      }
+    } catch (error) {
+      showAppError({
+        title: 'Erro ao gerar o mapa de ruas',
+        description: error.message || 'Não foi possível criar o desenho em PDF.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingMap(false);
+    }
+  };
+
   const propsDoRelatorio = {
     linksDaCidade,
     podeGerenciar: canManageStreets,
@@ -624,6 +677,19 @@ const PavementMapPage = () => {
                   <HelpCircle className="h-4 w-4" /> {stats.unnamed} sem nome
                 </button>
               )}
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 gap-2 rounded-full border-brand/30 bg-surface-raised px-4 text-xs font-bold text-brand shadow-sm hover:bg-brand-subtleBg"
+                onClick={handleDownloadMapPdf}
+                disabled={downloadingMap || !activeCityId || streetData.length === 0}
+                title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Exportar o enquadramento e os filtros visíveis em PDF'}
+              >
+                {downloadingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {downloadingMap ? 'Gerando mapa...' : 'Baixar mapa visível (PDF)'}
+              </Button>
             </div>
           </div>
         {/* A FAIXA DE NÚMEROS É A PRIMEIRA COISA DA TELA.
@@ -994,8 +1060,8 @@ const PavementMapPage = () => {
           </DialogHeader>
           {editandoLinks && (
             <div className="grid gap-4 py-2">
-              <label className="grid gap-1.5">
-                <span className="text-xs font-semibold text-content-secondary">Mapa de ruas oficial</span>
+              <div className="grid gap-1.5">
+                <span className="text-xs font-semibold text-content-secondary">Mapa de ruas oficial (imagem ou PDF)</span>
                 <Input
                   type="url"
                   inputMode="url"
@@ -1003,7 +1069,12 @@ const PavementMapPage = () => {
                   value={editandoLinks.pavement_street_map_url}
                   onChange={(e) => setEditandoLinks((atual) => ({ ...atual, pavement_street_map_url: e.target.value }))}
                 />
-              </label>
+                <span className="text-[11px] text-content-tertiary">Cole um link ou envie o arquivo fornecido pela prefeitura.</span>
+                <label className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-edge-default bg-surface-subtle px-3 py-3 text-xs font-bold text-content-secondary hover:border-brand/40 hover:text-brand">
+                  <Upload className="h-4 w-4" /> {arquivoMapa ? arquivoMapa.name : 'Escolher imagem ou PDF'}
+                  <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(event) => setArquivoMapa(event.target.files?.[0] || null)} />
+                </label>
+              </div>
               <label className="grid gap-1.5">
                 <span className="text-xs font-semibold text-content-secondary">Lista de ruas com CEP (PDF)</span>
                 <Input

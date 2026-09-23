@@ -1,11 +1,14 @@
 import { guideLocation } from './guideLocation.js';
 
-export async function saveGuideLocation(client, id, position) {
+export async function saveGuideLocation(client, id, position, address = null) {
   const point = guideLocation(position);
   if (!point) throw new Error('Marque a localização no mapa antes de salvar.');
 
   const { data, error } = await client.from('directory')
-    .update({ location: `POINT(${point.lng} ${point.lat})` })
+    .update({
+      location: `POINT(${point.lng} ${point.lat})`,
+      ...(String(address || '').trim() ? { address: String(address).trim() } : {}),
+    })
     .eq('id', id)
     .select('id, location')
     .single();

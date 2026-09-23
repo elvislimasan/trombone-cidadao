@@ -86,10 +86,12 @@ export default function PavementReportsPanel({
                 href={linksDaCidade.pavement_street_map_url}
                 target="_blank"
                 rel="noreferrer"
+                download
                 className="flex items-center gap-2 rounded-lg border border-edge-subtle bg-surface-subtle px-2.5 py-2 text-xs font-bold text-brand transition-colors hover:border-brand/30 hover:bg-brand-subtleBg"
               >
                 <MapIcon className="h-3.5 w-3.5 shrink-0" />
-                <span className="min-w-0 truncate">Mapa de ruas oficial</span>
+                <span className="min-w-0 truncate">Baixar mapa de ruas oficial</span>
+                <Download className="ml-auto h-3.5 w-3.5 shrink-0" />
               </a>
             )}
             {linksDaCidade.pavement_cep_list_url && (

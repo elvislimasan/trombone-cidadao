@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, PlusCircle, Edit, Trash2, Save, X, Upload, Check, Hourglass, Tags, Church, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -26,7 +26,9 @@ import { guideLocation } from '@/lib/guideLocation';
 
 import GuideCategorySelect from '@/components/GuideCategorySelect';
 import GuideTransportFields from '@/components/GuideTransportFields';
+import GuidePhoneFields from '@/components/GuidePhoneFields';
 import { guideCategoryIds, isGuideTransport } from '@/lib/guideCategories';
+import { guidePhones } from '@/lib/guideDetails';
 // Lista unificada do Guia, com o mesmo recorte no celular e no desktop.
 const ListaServicos = ({ data, onEdit, onDelete }) => {
   const { visiveis, propsPaginacao } = useListaPaginada(data || [], { porPagina: 20 });
@@ -60,12 +62,16 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
   const [mapRevision, setMapRevision] = useState(0);
   const fileInputRef = useRef(null);
   const secondaryFileInputRef = useRef(null);
+  const addressTouchedRef = useRef(false);
+  const reverseRequestRef = useRef(0);
 
   useEffect(() => {
     if (item) {
-      setFormData({ ...item, category_ids: guideCategoryIds(item) });
+      const phones = guidePhones(item);
+      setFormData({ ...item, category_ids: guideCategoryIds(item), phones: phones.length > 0 ? phones : [''] });
       setMapLocation(guideLocation(item.address) || guideLocation(item.location));
       setMapRevision((revision) => revision + 1);
+      addressTouchedRef.current = false;
     } else {
       setFormData(null);
       setMapLocation(null);
@@ -76,11 +82,25 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (name === 'address') {
+      addressTouchedRef.current = true;
       const linkedPosition = guideLocation(value);
       if (linkedPosition) {
         setMapLocation(linkedPosition);
         setMapRevision((revision) => revision + 1);
       }
+    }
+  };
+
+  const handleLocationChange = async (newLocation) => {
+    setMapLocation(newLocation);
+    if (!newLocation || addressTouchedRef.current) return;
+    const requestId = ++reverseRequestRef.current;
+    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+      body: { lat: newLocation.lat, lng: newLocation.lng, zoom: 18 },
+    });
+    if (error || requestId !== reverseRequestRef.current || addressTouchedRef.current) return;
+    if (typeof data?.address === 'string' && data.address.trim()) {
+      setFormData((current) => ({ ...current, address: data.address.trim() }));
     }
   };
 
@@ -109,8 +129,13 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const phones = formData.phones.map((phone) => phone.trim()).filter(Boolean);
+    const payload = { ...formData };
+    delete payload.phones;
     onSave({
-      ...formData,
+      ...payload,
+      phone: phones[0] || '',
+      guide_metadata: { ...formData.guide_metadata, phones },
       instagram_url: normalizarInstagram(formData.instagram_url) || null,
       location: mapLocation ? `POINT(${mapLocation.lng} ${mapLocation.lat})` : null,
     });
@@ -164,19 +189,16 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
                 <LocationPickerMap
                   key={`${formData.city_id || 'no-city'}-${mapRevision}`}
                   initialPosition={mapLocation}
-                  onLocationChange={setMapLocation}
+                  onLocationChange={handleLocationChange}
                   fallbackCityCenter={fallbackCityCenter}
                   showLocateButton
                   showMarker={Boolean(mapLocation)}
                   initialZoom={16}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Toque no mapa ou use sua localização para marcar o ponto exato.</p>
+              <p className="text-xs text-muted-foreground">Toque no mapa para marcar o ponto; o endereço será preenchido automaticamente.</p>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} />
-            </div>
+            <GuidePhoneFields phones={formData.phones} onChange={(phones) => setFormData((prev) => ({ ...prev, phones }))} />
             <div className="grid gap-2">
               <Label htmlFor="instagram_url">Instagram da empresa</Label>
               <Input
@@ -237,6 +259,7 @@ const EditModal = ({ item, onSave, onClose, allowedCityIds, directoryCategories 
 };
 
 const ManageServicesPage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [myActiveCityIds, setMyActiveCityIds] = useState([]);
   const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
@@ -474,6 +497,7 @@ const ManageServicesPage = () => {
       dbData.guide_metadata = { ...dbData.guide_metadata, secondary_image_url: publicUrl };
     }
 
+    const isNewItem = !dbData.id;
     if (dbData.id) {
       const { error } = await supabase.from(tableName).update(dbData).eq('id', dbData.id);
       if (error) { showAppError({ title: "Erro ao atualizar", description: error.message, variant: "destructive" }); return; }
@@ -482,8 +506,9 @@ const ManageServicesPage = () => {
       if (error) { showAppError({ title: "Erro ao adicionar", description: error.message, variant: "destructive" }); return; }
     }
 
-    fetchData();
+    await fetchData();
     setEditingItem(null);
+    if (isNewItem) navigate(`/guia-da-cidade?cidade=${dbData.city_id}`, { replace: true });
   };
 
   const handleDelete = async () => {

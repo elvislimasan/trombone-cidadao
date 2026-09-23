@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import CityCombobox from '@/components/CityCombobox';
 import GuideCategorySelect from '@/components/GuideCategorySelect';
 import GuideTransportFields from '@/components/GuideTransportFields';
+import GuidePhoneFields from '@/components/GuidePhoneFields';
 import { Dialog, DialogClose, DialogHeader, DialogTitle, FormDialogContent, FormDialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { guideCategoryIds, isGuideTransport } from '@/lib/guideCategories';
 import { guideLocation } from '@/lib/guideLocation';
 import { normalizarInstagram } from '@/lib/externalLinks';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { guidePhones } from '@/lib/guideDetails';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -25,6 +27,7 @@ const editableItem = (item) => ({
   description: item.description || '',
   address: item.address || '',
   phone: item.phone || '',
+  phones: guidePhones(item).length > 0 ? guidePhones(item) : [''],
   instagram_url: item.instagram_url || '',
   city_id: item.city_id || '',
   category_id: item.category_id || null,
@@ -43,6 +46,8 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
   const [saving, setSaving] = useState(false);
   const mainInput = useRef(null);
   const secondaryInput = useRef(null);
+  const addressTouchedRef = useRef(false);
+  const reverseRequestRef = useRef(0);
 
   useEffect(() => {
     if (!open) return;
@@ -51,6 +56,7 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
     setMapRevision((revision) => revision + 1);
     setMainFile(null);
     setSecondaryFile(null);
+    addressTouchedRef.current = false;
   }, [item, open]);
 
   const categoryOptions = useMemo(() => {
@@ -86,6 +92,7 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
 
   const handleAddressChange = (event) => {
     const address = event.target.value;
+    addressTouchedRef.current = true;
     setForm((current) => ({ ...current, address }));
     const linkedPosition = guideLocation(address);
     if (linkedPosition) {
@@ -93,6 +100,19 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
       // O Leaflet conserva a viewport depois de montado. Remontar somente
       // quando um link valido e colado faz o mapa ir ao novo ponto.
       setMapRevision((revision) => revision + 1);
+    }
+  };
+
+  const handleLocationChange = async (newPosition) => {
+    setPosition(newPosition);
+    if (!newPosition || addressTouchedRef.current) return;
+    const requestId = ++reverseRequestRef.current;
+    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
+      body: { lat: newPosition.lat, lng: newPosition.lng, zoom: 18 },
+    });
+    if (error || requestId !== reverseRequestRef.current || addressTouchedRef.current) return;
+    if (typeof data?.address === 'string' && data.address.trim()) {
+      setForm((current) => ({ ...current, address: data.address.trim() }));
     }
   };
 
@@ -111,12 +131,12 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
         name: form.name.trim(),
         description: form.description.trim() || null,
         address: form.address.trim(),
-        phone: form.phone.trim(),
+        phone: form.phones.map((phone) => phone.trim()).filter(Boolean)[0] || '',
         instagram_url: normalizarInstagram(form.instagram_url) || null,
         city_id: form.city_id,
         category_id: form.category_ids[0],
         category_ids: form.category_ids,
-        guide_metadata: { ...form.guide_metadata, secondary_image_url: secondaryUrl },
+        guide_metadata: { ...form.guide_metadata, phones: form.phones.map((phone) => phone.trim()).filter(Boolean), secondary_image_url: secondaryUrl },
         image_url: imageUrl,
         location: location ? `POINT(${location.lng} ${location.lat})` : null,
       };
@@ -149,8 +169,8 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
           <div className="grid gap-2"><Label>Cidade</Label><CityCombobox modal value={form.city_id} allowedCityIds={allowedCityIds} onChange={(city_id) => setForm((current) => ({ ...current, city_id }))} /></div>
           {isGuideTransport(form, categories) && <GuideTransportFields value={form.guide_metadata} onChange={(guide_metadata) => setForm((current) => ({ ...current, guide_metadata }))} />}
           <div className="grid gap-2"><Label htmlFor="directory-address">Endereço</Label><Input id="directory-address" value={form.address} onChange={handleAddressChange} /><p className="text-xs text-muted-foreground">Ao colar um link do Google Maps, o pino vai automaticamente para o local indicado.</p></div>
-          <div className="grid gap-2"><Label>Localização no mapa</Label><div className="h-64 overflow-hidden rounded-xl border"><Suspense fallback={<div className="h-full animate-pulse bg-muted" />}><LocationPickerMap key={`${form.city_id || 'city'}-${mapRevision}`} initialPosition={position} onLocationChange={setPosition} fallbackCityCenter={fallbackCityCenter} showLocateButton showMarker={Boolean(position)} initialZoom={16} /></Suspense></div></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div className="grid gap-2"><Label htmlFor="directory-phone">Telefone</Label><Input id="directory-phone" value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} /></div><div className="grid gap-2"><Label htmlFor="directory-instagram">Instagram</Label><Input id="directory-instagram" value={form.instagram_url} onChange={(e) => setForm((current) => ({ ...current, instagram_url: e.target.value }))} placeholder="@empresa" /></div></div>
+          <div className="grid gap-2"><Label>Localização no mapa</Label><div className="h-64 overflow-hidden rounded-xl border"><Suspense fallback={<div className="h-full animate-pulse bg-muted" />}><LocationPickerMap key={`${form.city_id || 'city'}-${mapRevision}`} initialPosition={position} onLocationChange={handleLocationChange} fallbackCityCenter={fallbackCityCenter} showLocateButton showMarker={Boolean(position)} initialZoom={16} /></Suspense></div><p className="text-xs text-muted-foreground">Ao marcar o pino, o endereço é preenchido automaticamente.</p></div>
+          <div className="grid gap-4 sm:grid-cols-2"><GuidePhoneFields phones={form.phones} onChange={(phones) => setForm((current) => ({ ...current, phones }))} /><div className="grid content-start gap-2"><Label htmlFor="directory-instagram">Instagram</Label><Input id="directory-instagram" value={form.instagram_url} onChange={(e) => setForm((current) => ({ ...current, instagram_url: e.target.value }))} placeholder="@empresa" /></div></div>
           <ImageField label="Imagem principal" preview={mainPreview} inputRef={mainInput} onFile={setMainFile} onRemove={() => { setMainFile(null); setForm((current) => ({ ...current, image_url: '' })); }} />
           <ImageField label="Imagem secundária" preview={secondaryPreview} inputRef={secondaryInput} onFile={setSecondaryFile} onRemove={() => { setSecondaryFile(null); setForm((current) => ({ ...current, guide_metadata: { ...current.guide_metadata, secondary_image_url: null } })); }} />
         </div>

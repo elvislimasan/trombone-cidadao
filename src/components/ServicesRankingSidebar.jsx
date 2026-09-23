@@ -38,10 +38,10 @@ const ServicesRankingSidebar = ({ currentServiceId }) => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-3"
+      className="space-y-2"
     >
-      <h3 className="font-semibold text-md flex items-center gap-2 text-muted-foreground mb-2">
-        <Building className="w-5 h-5" />
+      <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-content-tertiary">
+        <Building className="h-4 w-4" />
         Top 5 do Guia da Cidade
       </h3>
       {items.length > 0 ? items.map((item, index) => (
@@ -49,34 +49,34 @@ const ServicesRankingSidebar = ({ currentServiceId }) => {
           key={item.id}
           variants={itemVariants}
         >
-          <Link to={`/guia-da-cidade/guia/${item.id}`} className="block p-3 rounded-lg bg-background hover:bg-muted transition-colors border border-transparent hover:border-primary/50">
+          <Link to={`/guia-da-cidade/guia/${item.id}`} className="block rounded-xl border border-edge-subtle bg-surface-subtle p-3 transition-colors hover:border-brand/30 hover:bg-brand-subtleBg">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-foreground truncate pr-4 flex-1">
-                <span className="text-primary font-bold mr-2">#{index + 1}</span>
+              <p className="flex-1 truncate pr-4 text-sm font-semibold text-content-primary">
+                <span className="mr-2 font-extrabold text-brand">#{index + 1}</span>
                 {item.name}
               </p>
-              <div className="flex items-center text-xs text-muted-foreground gap-1 flex-shrink-0">
-                <TrendingUp className="w-3 h-3" />
+              <div className="flex flex-shrink-0 items-center gap-1 text-xs text-content-tertiary">
+                <TrendingUp className="h-3 w-3" />
                 <span>{item.views || 0}</span>
               </div>
             </div>
           </Link>
         </motion.div>
       )) : (
-        <p className="text-sm text-muted-foreground text-center py-4">Nenhum item no ranking.</p>
+        <p className="py-4 text-center text-sm text-content-tertiary">Nenhum item no ranking.</p>
       )}
     </motion.div>
   );
 
   return (
-    <Card className="bg-card border-border rounded-2xl shadow-lg h-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg text-tc-red">
-          <TrendingUp className="w-5 h-5" />
+    <Card className="rounded-2xl border-edge-subtle bg-surface-raised shadow-elevation-1">
+      <CardHeader className="p-5 pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg text-brand">
+          <TrendingUp className="h-5 w-5" />
           Mais Populares
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="px-5 pb-5">
         <RankingList items={rankings} />
       </CardContent>
     </Card>
