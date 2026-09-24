@@ -7,13 +7,14 @@ import { Label } from '@/components/ui/label';
 import { AGENCY_CASE_STATUSES, AGENCY_PRIORITIES, agencyStatus } from '@/lib/agencyPanel';
 
 const STEPS = [
-  { id: 'entrada', label: 'Receber', hint: 'Conferir e encaminhar', statuses: ['nova', 'recebida', 'triagem'], description: 'Confira a solicitação e a secretaria responsável antes de organizar o atendimento.' },
-  { id: 'responsavel', label: 'Responsável', hint: 'Definir quem atende', statuses: ['atribuida'], description: 'Escolha a pessoa da secretaria que acompanhará esta demanda.' },
-  { id: 'planejamento', label: 'Planejar', hint: 'Protocolo e previsão', statuses: ['programada'], description: 'Registre o protocolo e a previsão de atendimento para orientar a equipe.' },
-  { id: 'execucao', label: 'Executar', hint: 'Registrar o andamento', statuses: ['em_execucao', 'execucao_informada'], description: 'Atualize o andamento conforme o serviço for iniciado ou executado.' },
-  { id: 'conclusao', label: 'Concluir', hint: 'Confirmar o resultado', statuses: ['aguardando_confirmacao', 'encerrada'], description: 'Informe o resultado ao cidadão. Encerre apenas depois de verificar a conclusão do atendimento.' },
+  { id: 'entrada', label: 'Receber', statuses: ['nova', 'recebida', 'triagem'] },
+  { id: 'responsavel', label: 'Responsável', statuses: ['atribuida'] },
+  { id: 'planejamento', label: 'Planejar', statuses: ['programada'] },
+  { id: 'execucao', label: 'Executar', statuses: ['em_execucao', 'execucao_informada'] },
+  { id: 'conclusao', label: 'Concluir', statuses: ['aguardando_confirmacao', 'encerrada'] },
 ];
 const stepIndex = (status) => Math.max(0, STEPS.findIndex((step) => step.statuses.includes(status)));
+
 const selectClass = 'mt-1 h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60';
 
 export default function AgencyCaseWorkflow({ item, form, setForm, canOperate, cityAdministrator, channelMembers, cityChannels, destinationId, setDestinationId, routeCase, busy, routing, dirty, onSave, communicationOpen, setCommunicationOpen }) {
@@ -55,8 +56,6 @@ export default function AgencyCaseWorkflow({ item, form, setForm, canOperate, ci
       </nav>
 
       <div id="agency-step-panel" className="mt-5">
-        <h3 className="text-sm font-semibold">{STEPS[active].hint}</h3>
-        <p className="mt-1 text-xs leading-5 text-content-secondary">{STEPS[active].description}</p>
         {triage && <p className="mt-3 rounded-xl bg-brand-subtleBg p-3 text-xs leading-5 text-content-secondary">Esta bronca está na triagem municipal. {cityAdministrator ? 'Selecione a secretaria na etapa Receber para liberar o atendimento.' : 'Aguarde o administrador encaminhar a bronca para uma secretaria.'}</p>}
 
         {active === 0 && <div className="mt-4 space-y-4">
@@ -85,10 +84,10 @@ export default function AgencyCaseWorkflow({ item, form, setForm, canOperate, ci
           <div className="grid gap-4 sm:grid-cols-2"><div><Label htmlFor="agency-protocol">Protocolo</Label><Input id="agency-protocol" value={form.protocol} onChange={(event) => update('protocol', event.target.value)} disabled={!canOperate || busy} placeholder="Ex.: 2026/00123" className="mt-1" /></div><div className="min-w-0"><Label htmlFor="agency-deadline">Previsão de atendimento</Label><Input id="agency-deadline" type="datetime-local" value={form.deadline} onChange={(event) => update('deadline', event.target.value)} disabled={!canOperate || busy} className="mt-1 min-w-0" /></div></div>
           {statusAction('programada', 'Marcar como programada')}
         </div>}
-        {active === 3 && <div className="mt-4 space-y-3"><div className="flex flex-wrap gap-2">{statusAction('em_execucao', 'Iniciar execução')}{statusAction('execucao_informada', 'Informar serviço executado')}</div><p className="text-xs leading-5 text-content-secondary">Use “Comunicar atualização” no topo para explicar o que foi realizado e eventuais pendências.</p></div>}
-        {active === 4 && <div className="mt-4 space-y-3"><div className="flex flex-wrap gap-2">{statusAction('aguardando_confirmacao', 'Aguardar confirmação')}{statusAction('encerrada', 'Marcar como encerrada')}</div><p className="text-xs leading-5 text-content-secondary">Revise o resultado e a resposta pública antes de salvar o encerramento.</p></div>}
+        {active === 3 && <div className="mt-4 flex flex-wrap gap-2">{statusAction('em_execucao', 'Iniciar execução')}{statusAction('execucao_informada', 'Informar serviço executado')}</div>}
+        {active === 4 && <div className="mt-4 flex flex-wrap gap-2">{statusAction('aguardando_confirmacao', 'Aguardar confirmação')}{statusAction('encerrada', 'Marcar como encerrada')}</div>}
       </div>
-      <p className="mt-4 text-xs leading-5 text-content-secondary" role="status">{form.status !== item.status ? `Ao salvar, a situação será: ${agencyStatus(form.status).label}.` : 'As mudanças de etapa e os campos só são aplicados ao salvar.'}</p>
+      {form.status !== item.status && <p className="mt-4 text-xs text-content-secondary" role="status">Ao salvar: {agencyStatus(form.status).label}.</p>}
       <details className="mt-5 border-t border-edge-subtle pt-4"><summary className="cursor-pointer text-xs font-semibold text-content-secondary">Outras situações / corrigir etapa</summary><Label htmlFor="agency-case-status" className="mt-3 block">Situação do atendimento</Label><select id="agency-case-status" value={form.status} onChange={(event) => chooseStatus(event.target.value)} disabled={!canOperate || busy || triage} className={selectClass}>{AGENCY_CASE_STATUSES.map((status) => <option key={status.id} value={status.id}>{status.label}</option>)}</select><p className="mt-2 text-xs text-content-secondary">A recusa exige uma justificativa pública. Toda mudança fica no histórico.</p></details>
     </section>
 

@@ -336,9 +336,13 @@ export default function AgencyCaseDetailsPage() {
               </p>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-edge-subtle pt-2">
-            <p className="min-w-0 break-words text-xs text-content-secondary">{caseItem.canal?.canal_triagem ? 'Triagem municipal' : caseItem.canal?.nome}</p>
-            <Button type="button" onClick={() => setDetailsOpen(true)} variant="ghost" size="sm" className="-mr-2 gap-1.5 text-xs text-content-secondary">
+          <div className="mt-4 flex min-w-0 flex-col gap-4 border-t border-edge-subtle pt-4 2xl:flex-row 2xl:items-center">
+            <dl className="grid min-w-0 flex-1 grid-cols-1 gap-4 text-xs sm:grid-cols-3">
+              <div className="flex min-w-0 items-start gap-2"><Inbox className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" /><div className="min-w-0"><dt className="text-content-tertiary">Secretaria</dt><dd className="mt-1 break-words font-semibold">{caseItem.canal?.canal_triagem ? 'Triagem municipal' : caseItem.canal?.nome}</dd></div></div>
+              <div className="flex min-w-0 items-start gap-2"><User className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" /><div className="min-w-0"><dt className="text-content-tertiary">Responsável</dt><dd className="mt-1 break-words font-semibold">{caseItem.responsavel?.name || 'Não definido'}</dd></div></div>
+              <div className="flex min-w-0 items-start gap-2"><Clock className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" /><div className="min-w-0"><dt className="text-content-tertiary">Previsão de atendimento</dt><dd className="mt-1 break-words font-semibold">{caseItem.prazo_em ? fmtDate(caseItem.prazo_em, true) : 'Não definida'}</dd></div></div>
+            </dl>
+            <Button type="button" onClick={() => setDetailsOpen(true)} variant="ghost" size="sm" className="shrink-0 self-start gap-1.5 text-xs text-content-secondary 2xl:self-center">
               Ver detalhes, fotos e mapa<ArrowUpRight className="h-4 w-4" />
             </Button>
           </div>
@@ -383,10 +387,6 @@ export default function AgencyCaseDetailsPage() {
 
         <div className="mt-5 grid min-w-0 gap-5 items-start xl:grid-cols-[minmax(0,1fr)_minmax(18rem,28%)]" aria-label="Fluxo do atendimento">
           <div className="min-w-0">
-            <dl className="mb-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-              <div className="flex min-w-0 items-center gap-3 rounded-xl border border-edge-subtle bg-surface-raised px-4 py-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-subtle"><User className="h-4 w-4 text-content-secondary" /></span><div className="min-w-0"><dt className="text-content-tertiary">Responsável</dt><dd className="mt-0.5 break-words font-semibold">{caseItem.responsavel?.name || 'Não definido'}</dd></div></div>
-              <div className="flex min-w-0 items-center gap-3 rounded-xl border border-edge-subtle bg-surface-raised px-4 py-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-subtle"><Clock className="h-4 w-4 text-content-secondary" /></span><div className="min-w-0"><dt className="text-content-tertiary">Previsão de atendimento</dt><dd className="mt-0.5 font-semibold">{caseItem.prazo_em ? fmtDate(caseItem.prazo_em, true) : 'Não definida'}</dd></div></div>
-            </dl>
           <AgencyCaseWorkflow
             communicationOpen={communicationOpen} setCommunicationOpen={setCommunicationOpen}
             item={caseItem} form={form} setForm={setForm} canOperate={canOperate}
