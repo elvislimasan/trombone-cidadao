@@ -35,7 +35,7 @@ export function AgencyCaseLocationMap({ item }) {
   </div>;
 }
 
-export default function AgencyCasesMap({ cases, query = '' }) {
+export default function AgencyCasesMap({ cases, query = '', controls, loading = false }) {
   const [showAreas, setShowAreas] = useState(true);
   const [showPoints, setShowPoints] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -48,12 +48,17 @@ export default function AgencyCasesMap({ cases, query = '' }) {
   backQuery.set('origem', 'mapa');
 
   return <section className="mt-5 space-y-4" aria-label="Mapa de demandas municipais">
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-4">
-      <div><h2 className="font-bold">Onde concentrar o atendimento</h2><p className="mt-1 text-xs text-content-secondary">{located.length} demandas no mapa · {missing} sem localização válida · {cases.length} nos filtros</p></div>
+    <div className="space-y-4 rounded-2xl border border-edge-subtle bg-surface-raised p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="font-bold">Onde concentrar o atendimento</h2><p className="mt-1 text-xs text-content-secondary">{located.length} demandas no mapa · {missing} sem localização válida · {cases.length} nos filtros</p></div>
+        {controls}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-edge-subtle pt-3">
       <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={showAreas} onChange={(e) => setShowAreas(e.target.checked)} className="accent-red-600" />Concentração de demandas abertas</label>
       <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={showPoints} onChange={(e) => setShowPoints(e.target.checked)} className="accent-red-600" />Mostrar pontos individuais</label>
+      </div>
     </div>
-    {!points.length ? <div className="rounded-2xl border border-edge-subtle bg-surface-raised p-10 text-center text-content-secondary">Nenhuma demanda com localização válida nos filtros atuais. Consulte a lista ou altere os filtros.</div> :
+    {loading ? <div role="status" className="flex min-h-56 items-center justify-center text-sm text-content-secondary">Carregando todas as demandas dos filtros…</div> : !points.length ? <div className="rounded-2xl border border-edge-subtle bg-surface-raised p-10 text-center text-content-secondary">Nenhuma demanda com localização válida nos filtros atuais. Consulte a lista ou altere os filtros.</div> :
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-3">
           <div className="relative z-0 h-[65dvh] min-h-96 overflow-hidden rounded-2xl border border-edge-subtle">
@@ -68,13 +73,13 @@ export default function AgencyCasesMap({ cases, query = '' }) {
                 <Popup><div className="space-y-2"><strong>{item.report?.title || 'Bronca sem título'}</strong><p>{item.report?.address || 'Endereço não informado'}</p><p>{item.report?.category?.name} · {agencyCaseStatus(item).label}</p><p>{item.canal?.nome}</p><Link className="font-bold underline" to={`/prefeitura/broncas/${item.report_id}?${backQuery}`}>Abrir atendimento</Link></div></Popup>
               </CircleMarker>)}
             </MapContainer>
-          </div>
-          <div className="rounded-xl border border-edge-subtle bg-surface-raised p-3 sm:max-w-sm">
-            <h3 className="text-xs font-bold">Concentração de demandas</h3>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {AGENCY_AREA_LEVELS.map((level) => <div key={level.label} className="flex items-center gap-2 text-xs"><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: level.color }} /><span className="font-semibold">{level.label}</span><span className="ml-auto text-content-secondary">{level.range}</span></div>)}
+          <div className="pointer-events-none absolute bottom-7 left-3 z-[1000] max-w-[calc(100%_-_1.5rem)] rounded-xl border border-edge-subtle bg-surface-raised/85 px-3 py-2 shadow-sm backdrop-blur-md" aria-label="Legenda de concentração de demandas">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <h3 className="text-[11px] font-bold text-content-secondary">Concentração</h3>
+              {AGENCY_AREA_LEVELS.map((level) => <div key={level.label} className="flex items-center gap-1.5 whitespace-nowrap text-[10px]"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: level.color }} /><span className="font-semibold">{level.label}</span><span className="text-content-tertiary">{level.range}</span></div>)}
             </div>
-            <p className="mt-2 text-[11px] text-content-tertiary">Sem cor: nenhum registro aberto localizado nos filtros atuais.</p>
+            <span className="sr-only">Sem cor significa que não há registro aberto localizado nos filtros atuais.</span>
+          </div>
           </div>
         </div>
         <aside className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-4">

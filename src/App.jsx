@@ -124,6 +124,7 @@ import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 import AudienceTracker from '@/components/AudienceTracker';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 import FollowingActivityPage from '@/pages/FollowingActivityPage';
+import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
 
 const SEO = () => {
   const location = useLocation();
@@ -273,7 +274,7 @@ const PrivateRoute = ({ children }) => {
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-  if (user.tipo_conta !== 'prefeitura' && isProfileIncomplete(user) && location.pathname !== '/completar-cadastro') {
+  if (!hasMunicipalityPanelAccess(user) && isProfileIncomplete(user) && location.pathname !== '/completar-cadastro') {
     return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
   }
   return children;
@@ -725,7 +726,7 @@ function AppShell() {
     };
   }, [navigate]); // Remover location.pathname para evitar loops
 
-  if (!authLoading && user?.tipo_conta === 'prefeitura' && !rotaPermitidaParaPrefeitura) {
+  if (!authLoading && hasMunicipalityPanelAccess(user) && !rotaPermitidaParaPrefeitura) {
     return <Navigate to="/prefeitura/broncas" replace />;
   }
 

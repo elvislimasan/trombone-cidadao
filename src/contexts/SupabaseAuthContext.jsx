@@ -51,24 +51,41 @@ export const AuthProvider = ({ children }) => {
 
     try {
       // Adicionar timeout para a busca de perfil para evitar "travar" a inicialização
-      const fetchPromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
+      const fetchPromise = Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single(),
+        // O vinculo ativo e a fonte de verdade do acesso municipal. Manter esse
+        // dado junto do perfil evita mandar o servidor para o feed enquanto a
+        // atualizacao de `tipo_conta` ainda nao chegou ao estado do cliente.
+        supabase
+          .from('prefeitura_membros')
+          .select('id')
+          .eq('user_id', authUser.id)
+          .eq('ativo', true)
+          .limit(1)
+          .maybeSingle(),
+      ]);
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
       );
 
-      const { data: profile, error } = await Promise.race([fetchPromise, timeoutPromise]);
+      const [profileResult, municipalityResult] = await Promise.race([fetchPromise, timeoutPromise]);
+      const { data: profile, error } = profileResult;
 
       if (error) {
         console.error("Error fetching user profile:", error);
         setUser((prev) => prev || authUser); // Fallback to auth user
         return authUser;
       } else {
-        const fullUser = { ...authUser, ...profile };
+        const fullUser = {
+          ...authUser,
+          ...profile,
+          has_municipality_access: Boolean(municipalityResult?.data),
+        };
         setUser(fullUser);
         return fullUser;
       }

@@ -319,10 +319,10 @@ export default function AgencyDashboardPage({ view = 'list' }) {
           <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" className="accent-red-600" checked={overdue} onChange={(event) => updateFilter('atrasadas', event.target.checked ? '1' : '', '')} />Somente atrasadas</label>
           </div>
         </MunicipalDrawer>
-        {(mapView || loadError) && <div className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised p-4">{searchControls}</div>}
+        {loadError && <div className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised p-4">{searchControls}</div>}
 
 
-        {loadError ? <div role="alert" className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised p-6"><p className="font-bold">Não foi possível carregar as demandas</p><p className="mt-2 text-sm text-content-secondary">{loadError}</p><Button className="mt-3" onClick={() => loadCases()}>Tentar novamente</Button></div> : mapView ? (listLoading || refreshing ? <div role="status" className="flex min-h-56 items-center justify-center gap-2 text-sm"><Loader2 className="h-6 w-6 animate-spin text-brand" />Carregando todas as demandas dos filtros…</div> : <Suspense fallback={<p className="p-6">Carregando mapa…</p>}><AgencyCasesMap cases={cases} query={currentQuery} /></Suspense>) :
+        {loadError ? <div role="alert" className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised p-6"><p className="font-bold">Não foi possível carregar as demandas</p><p className="mt-2 text-sm text-content-secondary">{loadError}</p><Button className="mt-3" onClick={() => loadCases()}>Tentar novamente</Button></div> : mapView ? <Suspense fallback={<p className="p-6">Carregando mapa…</p>}><AgencyCasesMap cases={cases} query={currentQuery} controls={searchControls} loading={listLoading || refreshing} /></Suspense> :
 
         <section className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm">
           <div className="flex flex-col gap-3 border-b border-edge-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
