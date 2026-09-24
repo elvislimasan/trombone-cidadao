@@ -29,6 +29,7 @@ const Header = () => {
   const [logoUrl, setLogoUrl] = useState('/logo.png');
   const [logoError, setLogoError] = useState(false);
   const [menuSettings, setMenuSettings] = useState(defaultMenuSettings);
+  const [hasMunicipalityAccess, setHasMunicipalityAccess] = useState(false);
   const location = useLocation();
   const {
     notificationsEnabled,
@@ -88,6 +89,29 @@ const Header = () => {
       window.removeEventListener('site-settings-updated', fetchSiteSettings);
     };
   }, [fetchSiteSettings]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkMunicipalityAccess = async () => {
+      if (!user?.id) {
+        setHasMunicipalityAccess(false);
+        return;
+      }
+      if (user.is_admin || user.is_master) {
+        setHasMunicipalityAccess(false);
+        return;
+      }
+      const { data } = await supabase.from('prefeitura_membros')
+        .select('id').eq('user_id', user.id).eq('ativo', true).limit(1).maybeSingle();
+      if (!cancelled) setHasMunicipalityAccess(Boolean(data));
+    };
+    checkMunicipalityAccess();
+    window.addEventListener('municipality-access-changed', checkMunicipalityAccess);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('municipality-access-changed', checkMunicipalityAccess);
+    };
+  }, [user?.id, user?.is_admin, user?.is_master]);
 
   useEffect(() => {
     if (isOpen) {
@@ -330,6 +354,11 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/obras-favoritas" className="flex items-center"><LucideIcons.HardHat className="mr-2 h-4 w-4" /><span>Obras Favoritas</span></Link>
                   </DropdownMenuItem>
+                  {hasMunicipalityAccess && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/prefeitura/broncas" className="flex items-center"><LucideIcons.Building2 className="mr-2 h-4 w-4" /><span>Painel da Prefeitura</span></Link>
+                    </DropdownMenuItem>
+                  )}
                   {(user.is_ambassador || user.is_master) && (
                     <DropdownMenuItem asChild>
                       <Link to="/embaixador" className="flex items-center"><LucideIcons.ShieldCheck className="mr-2 h-4 w-4" /><span>Painel Embaixador</span></Link>

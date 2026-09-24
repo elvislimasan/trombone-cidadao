@@ -2,17 +2,17 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import {
-  ArrowLeft, PlusCircle, Mail, Power, PowerOff, Send, Loader2, AlertTriangle, CheckCircle2,
+  PlusCircle, Power, PowerOff, Loader2, CheckCircle2, Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, FormDialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
+import MunicipalTable from '@/components/municipality/MunicipalTable';
+import { loadMunicipalRows } from '@/lib/municipalTable';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useCity } from '@/contexts/CityContext';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { CATEGORIAS_BRONCA } from '@/lib/reportCategories';
 import {
@@ -27,13 +27,8 @@ import {
 //
 // POR QUE CADASTRAR AQUI E ATIVAR EM OUTRO PASSO
 //
-// O embaixador é quem conhece a prefeitura e é quem tem o endereço certo. Mas o
-// custo de errar o endereço não recai sobre a cidade dele: um e-mail errado faz
-// o app mandar dezenas de broncas para o lugar errado e, quando a entrega for
-// confirmada, gravar "encaminhada" numa tabela que não tem delete (207). Por
-// isso o canal nasce inativo e só um admin liga — a regra está no gatilho
-// `orgao_canal_so_admin_ativa` da 222, e este botão só reflete o que o banco já
-// recusa.
+// O administrador municipal cadastra e ativa suas secretarias. O canal nasce
+// desligado para que o e-mail seja conferido antes do primeiro envio.
 //
 // A TELA MOSTRA O QUE FOI ENVIADO, NÃO SÓ O CADASTRO
 //
@@ -59,13 +54,13 @@ const vazio = {
   city_id: '',
 };
 
-const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar, onFechar }) => {
+const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar, onFechar, onAlternar, podeAtivar }) => {
   const [form, setForm] = useState(vazio);
 
   useEffect(() => {
     if (!aberto) return;
     setForm(canal ? { ...vazio, ...canal } : vazio);
-  }, [aberto, canal]);
+  }, [aberto, canal?.id]);
 
   const ocupadas = useMemo(
     () => categoriasOcupadas(canaisDaCidade.filter((c) => String(c.city_id) === String(form.city_id)), form.id),
@@ -92,12 +87,8 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
   };
 
   return (
-    <Dialog open={aberto} onOpenChange={(v) => !v && onFechar()}>
-      <FormDialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{canal ? 'Editar canal' : 'Novo canal do órgão'}</DialogTitle>
-        </DialogHeader>
-
+    <MunicipalDrawer open={aberto} onClose={onFechar} busy={salvando} title={canal ? canal.nome : 'Nova secretaria'} description="Dados institucionais, categorias e recebimento de relatórios."
+      footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={salvando} onClick={onFechar}>Cancelar</Button><Button disabled={erros.length > 0 || semCidade || salvando} onClick={() => onSalvar({ ...form, copias })}>{salvando ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
         <div className="space-y-4 py-2">
           {/* Combobox e não `select`: são 5.570 cidades, e um `select` nativo
               obriga a rolar de "Abadia de Goiás" até a sua. A busca do
@@ -126,7 +117,7 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
           </div>
 
           <div>
-            <Label htmlFor="canal-nome">Nome do órgão</Label>
+            <Label htmlFor="canal-nome">Nome da secretaria ou órgão</Label>
             <Input
               id="canal-nome"
               value={form.nome}
@@ -219,23 +210,18 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
 
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
             <p className="text-xs text-amber-800">
-              O canal é salvo <strong>desligado</strong>. Nenhum e-mail sai antes de um
-              administrador conferir o endereço e ativá-lo.
+              O recebimento começa <strong>desligado</strong>. Confira o endereço antes de ativá-lo.
             </p>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onFechar}>Cancelar</Button>
-          <Button
-            disabled={erros.length > 0 || semCidade || salvando}
-            onClick={() => onSalvar({ ...form, copias })}
-          >
-            {salvando ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </FormDialogContent>
-    </Dialog>
+        {canal && <section className="mt-5 space-y-3 border-t border-edge-subtle pt-4"><h3 className="font-bold">Recebimento de relatórios</h3><p className="text-sm text-content-secondary">{canal.ativo ? 'Ativado' : 'Desligado'}</p>
+          {canal.desativado_motivo && <p className="rounded-xl bg-brand-subtleBg p-3 text-xs text-content-secondary">{canal.desativado_motivo}</p>}
+          {podeAtivar && <Button variant="outline" disabled={salvando} onClick={() => onAlternar(canal)}>{canal.ativo ? <PowerOff className="mr-2 h-4 w-4" /> : <Power className="mr-2 h-4 w-4" />}{canal.ativo ? 'Desligar recebimento' : 'Ativar recebimento'}</Button>}
+          <p className="text-xs text-content-secondary">Esta ação é aplicada imediatamente, usando o endereço já salvo.</p>
+          <h3 className="pt-3 font-bold">Histórico de envios</h3><HistoricoDeEnvios canalId={canal.id} />
+        </section>}
+    </MunicipalDrawer>
   );
 };
 
@@ -302,30 +288,28 @@ const HistoricoDeEnvios = ({ canalId }) => {
 
 const ManageAgencyChannelsPage = () => {
   const { user } = useAuth();
-  const podeAtivar = !!user && (user.is_admin || user.is_master);
-  const escopoEmbaixador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
 
-  // A lista completa vem do CityContext, que já a carrega paginada de 1000 em
-  // 1000. Buscar `cities` aqui com um `.order('name')` simples devolveria só as
-  // primeiras 1000 linhas — o limite padrão do PostgREST — e cidades do "D" em
-  // diante sumiriam do cadastro sem nenhum erro aparecer.
-  const { cities: todasAsCidades } = useCity();
-  const [cidadesDoEmbaixador, setCidadesDoEmbaixador] = useState([]);
+  const [cidadesDoEscopo, setCidadesDoEscopo] = useState([]);
+  const [cidadesAdministradas, setCidadesAdministradas] = useState([]);
+  const [escopoCarregado, setEscopoCarregado] = useState(false);
 
   const [canais, setCanais] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [cityFilter, setCityFilter] = useState('all');
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [gerando, setGerando] = useState(null);
   const [editando, setEditando] = useState(undefined); // undefined = fechado
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     // Sem filtro de cidade: a policy de select da 222 já devolve só o que este
     // usuário pode gerir. Repetir a regra aqui criaria uma segunda redação dela.
-    const { data, error } = await supabase
+    const { data, error } = await loadMunicipalRows(() => supabase
       .from('orgao_canais')
       .select('*, categorias:orgao_categorias(category_id), cidade:cities(name, states(uf))')
-      .order('created_at', { ascending: false });
+      .eq('canal_triagem', false)
+      .order('created_at', { ascending: false }).order('id'));
 
     if (error) {
       showAppError({ title: 'Erro ao carregar canais', description: error.message, variant: 'destructive' });
@@ -347,33 +331,42 @@ const ManageAgencyChannelsPage = () => {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  // O embaixador só pode cadastrar canal nas cidades dele, e essa lista é curta
-  // — vale a consulta própria. Admin e master usam a lista inteira do contexto.
+  // Esta tela pertence ao administrador municipal. Admin/master da plataforma
+  // analisa cadastros em /admin/prefeituras e não entra na operação da cidade.
   useEffect(() => {
-    if (!escopoEmbaixador || !user?.id) return;
+    if (!user?.id) return;
+    setEscopoCarregado(false);
     supabase
-      .from('ambassador_cities')
-      .select('city_id, cities(id, name, states(uf))')
+      .from('prefeitura_membros')
+      .select('prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(city_id, nome, cidade:cities(name, states(uf)))')
       .eq('user_id', user.id)
-      .eq('status', 'active')
+      .eq('papel', 'administrador')
+      .eq('ativo', true)
       .then(({ data }) => {
-        setCidadesDoEmbaixador((data || [])
-          .map((r) => ({ id: r.city_id, name: r.cities?.name, uf: r.cities?.states?.uf }))
-          .filter((c) => c.name));
+        const managed = (data || [])
+          .map((row) => ({
+            id: row.prefeitura?.city_id,
+            name: row.prefeitura?.cidade?.name,
+            uf: row.prefeitura?.cidade?.states?.uf,
+          }))
+          .filter((city) => city.id && city.name);
+        setCidadesDoEscopo(managed);
+        setCidadesAdministradas(managed.map((city) => String(city.id)));
+        setEscopoCarregado(true);
       });
-  }, [escopoEmbaixador, user?.id]);
+  }, [user?.id]);
 
   // `value` como String porque `cities.id` é bigint e chega do PostgREST como
   // string — comparar com número daria sempre falso na seleção.
   const cidades = useMemo(() => {
-    const base = escopoEmbaixador
-      ? cidadesDoEmbaixador
-      : (todasAsCidades || []).map((c) => ({ id: c.id, name: c.name, uf: c.state?.uf }));
-    return base.map((c) => ({
+    return cidadesDoEscopo.map((c) => ({
       value: String(c.id),
       label: `${c.name}${c.uf ? ` - ${c.uf}` : ''}`,
     }));
-  }, [escopoEmbaixador, cidadesDoEmbaixador, todasAsCidades]);
+  }, [cidadesDoEscopo]);
+
+  const podeAtivarCanal = (canal) => cidadesAdministradas.includes(String(canal.city_id));
+  const semAcesso = escopoCarregado && cidades.length === 0;
 
   const salvar = async (form) => {
     setSalvando(true);
@@ -420,8 +413,8 @@ const ManageAgencyChannelsPage = () => {
       }
 
       showAppNotice({
-        title: form.id ? 'Canal atualizado' : 'Canal cadastrado',
-        description: form.id ? undefined : 'Ele começa desligado — um administrador precisa ativar.',
+        title: form.id ? 'Secretaria atualizada' : 'Secretaria cadastrada',
+        description: form.id ? undefined : 'Ele começa desligado para você conferir o endereço antes de ativar.',
       });
       setEditando(undefined);
       carregar();
@@ -437,64 +430,45 @@ const ManageAgencyChannelsPage = () => {
   };
 
   const alternarAtivo = async (canal) => {
-    const { error } = await supabase
-      .from('orgao_canais')
-      .update({ ativo: !canal.ativo })
-      .eq('id', canal.id);
-    if (error) {
+    if (salvando) return;
+    setSalvando(true);
+    try {
+      const { data, error } = await supabase.from('orgao_canais').update({ ativo: !canal.ativo }).eq('id', canal.id).select('id').single();
+      if (error || !data) throw error || new Error('Não foi possível atualizar esta secretaria.');
+      setCanais((items) => items.map((item) => item.id === canal.id ? { ...item, ativo: !canal.ativo } : item));
+      setEditando((item) => item?.id === canal.id ? { ...item, ativo: !canal.ativo } : item);
+      showAppNotice({ title: canal.ativo ? 'Recebimento desligado' : 'Recebimento ativado' });
+    } catch (error) {
       showAppError({ title: 'Não foi possível alterar', description: error.message, variant: 'destructive' });
-      return;
-    }
-    showAppNotice({
-      title: canal.ativo ? 'Canal desligado' : 'Canal ativado',
-      description: canal.ativo
-        ? 'Nenhum relatório novo será enviado para este endereço.'
-        : 'O próximo relatório do período já sai para este endereço.',
-    });
-    carregar();
+    } finally { setSalvando(false); }
   };
 
-  const gerarAgora = async (periodo) => {
-    setGerando(periodo);
-    try {
-      const { data, error } = await supabase.rpc('enviar_relatorios_do_orgao', { p_periodo: periodo });
-      if (error) throw error;
-      showAppNotice({
-        title: data > 0 ? `${data} relatório(s) na fila` : 'Nada novo para enviar',
-        description: data > 0
-          ? 'O envio acontece em segundos. Recarregue para ver o estado.'
-          : 'Ou o período já foi enviado, ou nenhum canal ativo tem bronca pendente.',
-      });
-    } catch (error) {
-      showAppError({ title: 'Falha ao gerar', description: [error?.message, error?.code && `Código: ${error.code}`, error?.details, error?.hint].filter(Boolean).join(' · '), variant: 'destructive' });
-    } finally {
-      setGerando(null);
-    }
-  };
+  if (!escopoCarregado) {
+    return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-brand" /></div>;
+  }
+
+  if (semAcesso) {
+    return <div className="page-shell-fluid py-12"><div className="mx-auto max-w-xl rounded-3xl border bg-card p-8 text-center shadow-sm"><Building2 className="mx-auto h-10 w-10 text-muted-foreground" /><h1 className="mt-4 text-2xl font-black">Acesso municipal necessário</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">Somente o administrador aprovado da prefeitura pode cadastrar secretarias. Administradores da plataforma fazem a aprovação em seu painel próprio.</p><Button asChild className="mt-5"><Link to="/prefeitura/acesso">Solicitar cadastro</Link></Button></div></div>;
+  }
 
   return (
     <>
       <Helmet>
-        <title>Canais do órgão - Trombone Cidadão</title>
+        <title>Secretarias | Painel da Prefeitura</title>
+        <meta name="robots" content="noindex" />
       </Helmet>
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <ArrowLeft className="w-4 h-4" /> Voltar ao painel
-        </Link>
-
+      <div className="page-shell-fluid py-8">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
-            <h1 className="text-3xl font-bold text-tc-red">Canais do órgão</h1>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-red-600">Administração municipal</p>
+            <h1 className="mt-1 text-3xl font-black tracking-tight">Secretarias</h1>
             <p className="text-muted-foreground text-sm mt-1 max-w-xl">
-              Um e-mail por secretaria e as categorias que ela responde. Toda segunda sai o
-              relatório do que aquela secretaria ainda não recebeu; no dia 1º, o de tudo que
-              continua aberto.
+              Defina qual secretaria recebe cada categoria de bronca e mantenha os endereços
+              institucionais usados nos relatórios oficiais.
             </p>
           </div>
-          <Button onClick={() => setEditando(null)}>
-            <PlusCircle className="w-4 h-4 mr-2" /> Novo canal
-          </Button>
+          <Button onClick={() => setEditando(null)}><PlusCircle className="w-4 h-4 mr-2" /> Nova secretaria</Button>
         </div>
 
         <div className="rounded-xl border bg-muted/40 px-4 py-3 mb-6">
@@ -502,119 +476,29 @@ const ManageAgencyChannelsPage = () => {
             A etapa <strong>“Encaminhada ao órgão”</strong> na linha do tempo da bronca não é
             gravada no envio: ela é gravada quando o provedor de e-mail confirma a entrega na
             caixa do destinatário. Um relatório que voltou não encaminha nada — e derruba o
-            canal automaticamente.
+            recebimento automaticamente.
           </p>
-          {podeAtivar && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              <Button size="sm" variant="outline" disabled={!!gerando} onClick={() => gerarAgora('semanal')}>
-                {gerando === 'semanal'
-                  ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  : <Send className="w-3.5 h-3.5 mr-1.5" />}
-                Gerar semanal agora
-              </Button>
-              <Button size="sm" variant="outline" disabled={!!gerando} onClick={() => gerarAgora('mensal')}>
-                {gerando === 'mensal'
-                  ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  : <Send className="w-3.5 h-3.5 mr-1.5" />}
-                Gerar mensal agora
-              </Button>
-              <span className="text-[11px] text-muted-foreground self-center">
-                Gerar duas vezes o mesmo período não manda o e-mail duas vezes.
-              </span>
-            </div>
-          )}
         </div>
 
-        {carregando && <p className="text-sm text-muted-foreground">Carregando…</p>}
+        <MunicipalTable title="Secretarias cadastradas" loading={carregando}
+          rows={canais.filter((canal) => (statusFilter === 'all' || canal.ativo === (statusFilter === 'active')) && (categoryFilter === 'all' || canal.categorias.includes(categoryFilter)) && (cityFilter === 'all' || String(canal.city_id) === cityFilter))}
+          filterKey={statusFilter + categoryFilter + cityFilter} onOpen={setEditando}
+          searchPlaceholder="Nome, e-mail, cidade ou categoria"
+          searchText={(canal) => [canal.nome, canal.email, canal.cidadeNome, ...canal.categorias.map((id) => CATEGORIAS_BRONCA.find((cat) => cat.id === id)?.name || id)].join(' ')}
+          filters={<>
+            <label className="text-xs font-semibold text-content-secondary">Situação<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 block h-10 rounded-md border border-edge-subtle bg-surface-raised px-3"><option value="all">Todas</option><option value="active">Ativas</option><option value="inactive">Desligadas</option></select></label>
+            <label className="text-xs font-semibold text-content-secondary">Categoria<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="mt-1 block h-10 max-w-full rounded-md border border-edge-subtle bg-surface-raised px-3"><option value="all">Todas</option>{CATEGORIAS_BRONCA.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></label>
+            {cidades.length > 1 && <label className="text-xs font-semibold text-content-secondary">Cidade<select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)} className="mt-1 block h-10 rounded-md border border-edge-subtle bg-surface-raised px-3"><option value="all">Todas</option>{cidades.map((city) => <option key={city.value} value={city.value}>{city.label}</option>)}</select></label>}
+          </>}
+          columns={[
+            { key: 'nome', label: 'Secretaria', width: '23%', value: (canal) => canal.nome, render: (canal) => <span className="font-bold text-content-primary">{canal.nome}</span> },
+            { key: 'email', label: 'E-mail', width: '24%', value: (canal) => canal.email, render: (canal) => <span className="break-all">{canal.email}</span> },
+            { key: 'city', label: 'Cidade', value: (canal) => canal.cidadeNome },
+            { key: 'categories', label: 'Categorias', value: (canal) => canal.categorias.length, render: (canal) => canal.categorias.length ? canal.categorias.map((id) => CATEGORIAS_BRONCA.find((cat) => cat.id === id)?.name || id).join(', ') : 'Sem categoria' },
+            { key: 'status', label: 'Situação', value: (canal) => canal.ativo ? 'Ativa' : 'Desligada', render: (canal) => <span className={`rounded-full px-2 py-1 text-xs font-semibold ${canal.ativo ? 'bg-success-bg text-success-fg' : 'bg-surface-subtle text-content-secondary'}`}>{canal.ativo ? 'Ativa' : 'Desligada'}</span> },
+            { key: 'date', label: 'Cadastro', value: (canal) => canal.created_at || '', render: (canal) => canal.created_at ? new Date(canal.created_at).toLocaleDateString('pt-BR') : '—' },
+          ]} />
 
-        {!carregando && canais.length === 0 && (
-          <Card>
-            <CardContent className="py-10 text-center">
-              <Mail className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">
-                Nenhum canal cadastrado ainda. Enquanto não houver, o encaminhamento continua
-                sendo registrado à mão dentro de cada bronca.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="space-y-4">
-          {canais.map((canal) => (
-            <Card key={canal.id}>
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <CardTitle className="text-lg">{canal.nome}</CardTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {canal.cidadeNome} · {canal.email}
-                    </p>
-                    {canal.emails_copia?.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Em cópia: {canal.emails_copia.join(', ')}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Respostas vão para {canal.reply_to}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-1 rounded-full border ${canal.ativo ? TOM.ok : TOM.neutro}`}>
-                      {canal.ativo ? 'Ativo' : 'Desligado'}
-                    </span>
-                    <Button variant="outline" size="sm" onClick={() => setEditando(canal)}>
-                      Editar
-                    </Button>
-                    {podeAtivar && (
-                      <Button
-                        variant={canal.ativo ? 'outline' : 'default'}
-                        size="sm"
-                        onClick={() => alternarAtivo(canal)}
-                      >
-                        {canal.ativo
-                          ? <><PowerOff className="w-3.5 h-3.5 mr-1.5" /> Desligar</>
-                          : <><Power className="w-3.5 h-3.5 mr-1.5" /> Ativar</>}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                <div className="flex flex-wrap gap-1.5">
-                  {canal.categorias.length === 0 && (
-                    <span className="text-xs text-red-600">
-                      Sem categoria — este canal nunca receberá nada.
-                    </span>
-                  )}
-                  {canal.categorias.map((id) => {
-                    const cat = CATEGORIAS_BRONCA.find((c) => c.id === id);
-                    return (
-                      <span key={id} className="text-xs px-2 py-1 rounded-full bg-muted">
-                        {cat ? `${cat.icon} ${cat.name}` : id}
-                      </span>
-                    );
-                  })}
-                </div>
-
-                {canal.desativado_motivo && (
-                  <div className="mt-3 flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                    <span>Desligado automaticamente: {canal.desativado_motivo}</span>
-                  </div>
-                )}
-
-                {!podeAtivar && !canal.ativo && !canal.desativado_motivo && (
-                  <p className="text-xs text-amber-700 mt-3">
-                    Aguardando um administrador conferir o endereço e ativar.
-                  </p>
-                )}
-
-                {podeAtivar && <HistoricoDeEnvios canalId={canal.id} />}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
 
       <CanalForm
@@ -624,6 +508,8 @@ const ManageAgencyChannelsPage = () => {
         canaisDaCidade={canais}
         salvando={salvando}
         onSalvar={salvar}
+        onAlternar={alternarAtivo}
+        podeAtivar={editando ? podeAtivarCanal(editando) : false}
         onFechar={() => setEditando(undefined)}
       />
     </>

@@ -25,10 +25,9 @@ export function useReportPermissions(report) {
   const isAuthorOrAdmin =
     !!user && !!report && (user.is_admin || user.id === report.author_id);
 
-  const canChangeStatus =
-    !!user &&
-    !!report &&
-    (user.is_admin || user.user_type === 'public_official');
+  // O papel global `public_official` não define cidade nem secretaria. Ações
+  // institucionais agora passam pelo painel e pela membership validada no banco.
+  const canChangeStatus = !!user && !!report && user.is_admin;
   const canEditCategory = !!user && !!report && user.is_admin;
   const canEditWaterUtility =
     !!report && report.category === 'buracos' && canEditCategory;

@@ -50,12 +50,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      setUser((prev) => {
-        if (prev && prev.id === authUser.id) return prev;
-        return authUser;
-      });
-      setLoading(false);
-
       // Adicionar timeout para a busca de perfil para evitar "travar" a inicialização
       const fetchPromise = supabase
         .from('profiles')
@@ -72,21 +66,27 @@ export const AuthProvider = ({ children }) => {
       if (error) {
         console.error("Error fetching user profile:", error);
         setUser((prev) => prev || authUser); // Fallback to auth user
+        return authUser;
       } else {
         const fullUser = { ...authUser, ...profile };
         setUser(fullUser);
+        return fullUser;
       }
     } catch (err) {
       console.error("Profile fetch exception or timeout:", err);
       setUser((prev) => prev || authUser); // Fallback to auth user em caso de timeout/erro
+      return authUser;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   const refreshUserProfile = useCallback(async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
-      await fetchUserProfile(authUser);
+      return fetchUserProfile(authUser);
     }
+    return null;
   }, [fetchUserProfile]);
 
   // Função interna para processar callback de autenticação (URL completa ou hash)

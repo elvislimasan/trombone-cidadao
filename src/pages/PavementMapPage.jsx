@@ -32,8 +32,7 @@ import { savePavementStreet } from '@/lib/savePavementStreet';
 import { apelidosDaRua } from '@/lib/streetAliases';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { nomeDoArquivoDoMapa } from '@/lib/pavementMapPdf';
-import { capturarMapaVisivel, criarPdfDoMapaVisivel } from '@/lib/pavementMapSnapshot';
+import { criarPdfDoMapaDeRuas, nomeDoArquivoDoMapa } from '@/lib/pavementMapPdf';
 import {
   MAP_CANVAS_CLASS,
   MAP_GRID_CLASS,
@@ -556,9 +555,9 @@ const PavementMapPage = () => {
     setDownloadingMap(true);
     try {
       if (!activeCityId) throw new Error('Selecione uma cidade antes de gerar o desenho do mapa.');
-      const snapshot = await capturarMapaVisivel(mapViewRef.current?.getMap());
-      const doc = criarPdfDoMapaVisivel({
-        ...snapshot,
+      // Permite pintar o estado de carregamento antes do desenho vetorial.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const doc = criarPdfDoMapaDeRuas({
         ruas: filteredStreets,
         cidade: activeCityName,
         atualizadoEm: lastUpdate,
@@ -684,11 +683,11 @@ const PavementMapPage = () => {
                 variant="outline"
                 className="h-9 gap-2 rounded-full border-brand/30 bg-surface-raised px-4 text-xs font-bold text-brand shadow-sm hover:bg-brand-subtleBg"
                 onClick={handleDownloadMapPdf}
-                disabled={downloadingMap || !activeCityId || streetData.length === 0}
-                title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Exportar o enquadramento e os filtros visíveis em PDF'}
+                disabled={downloadingMap || !activeCityId || filteredStreets.length === 0}
+                title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Mapa geral A1 com quadras em azul claro e nomes das ruas em destaque. Inclui todas as ruas dos filtros atuais.'}
               >
                 {downloadingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloadingMap ? 'Gerando mapa...' : 'Baixar mapa visível (PDF)'}
+                {downloadingMap ? 'Gerando mapa...' : 'Baixar mapa detalhado (PDF)'}
               </Button>
             </div>
           </div>

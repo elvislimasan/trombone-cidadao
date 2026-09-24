@@ -1,3 +1,5 @@
+import { historiaDeTempoDaBronca } from '@/lib/reportAgeStory';
+
 // Calcula os sinais de urgencia/engajamento de uma bronca.
 // story e community sao consumidos pela tela de detalhe (Fase 2);
 // o card exibe apenas o chip de maior prioridade (densidade enxuta).
@@ -6,7 +8,6 @@ export function computeSignals(report, { ageDays, ageHours }) {
   const support = Number(report.upvotes || 0);
   const comments = Number(report.comments_count || 0);
   const score = support * 2 + comments;
-  const isLighting = report.category_id === 'iluminacao';
   const isOld = ageDays >= 7;
 
   const chips = [];
@@ -31,9 +32,7 @@ export function computeSignals(report, { ageDays, ageHours }) {
   // mas o FeedCard atual (densidade enxuta) nao os renderiza.
   let story = null;
   if (!isResolved && isOld) {
-    story = isLighting
-      ? `Essa rua está há ${ageDays} dias no escuro.`
-      : `Esse problema está há ${ageDays} dias sem solução.`;
+    story = historiaDeTempoDaBronca(report, ageDays);
   } else if (!isResolved && support >= 30) {
     story = `Mais de ${support} pessoas já apoiaram.`;
   } else if (!isResolved && (support >= 10 || comments >= 5)) {

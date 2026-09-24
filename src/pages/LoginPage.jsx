@@ -45,7 +45,7 @@ const LoginPage = () => {
       if (!target && from?.pathname) {
         target = `${from.pathname}${from.search || ''}`;
       }
-      navigate(target || postAuthFallback, { replace: true });
+      navigate(user.tipo_conta === 'prefeitura' ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
     }
   }, [user, navigate, location.state]);
 
@@ -56,7 +56,7 @@ const LoginPage = () => {
       if (error) throw error;
       // signInWithIdToken pode não disparar onAuthStateChange no Capacitor,
       // então força atualização do perfil e redireciona explicitamente
-      await refreshUserProfile();
+      const refreshedUser = await refreshUserProfile();
       let target = null;
       try {
         target = sessionStorage.getItem('tc_post_login_redirect');
@@ -64,7 +64,7 @@ const LoginPage = () => {
       } catch {}
       const from = location.state?.from;
       if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-      navigate(target || postAuthFallback, { replace: true });
+      navigate(refreshedUser?.tipo_conta === 'prefeitura' ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
     } catch (error) {
       // Código 1001 = usuário cancelou o painel da Apple — ignorar silenciosamente
       const cancelled =
@@ -136,6 +136,7 @@ const LoginPage = () => {
       // Try again silently for the user
       const { error: secondError } = await signIn(email, password);
       if (!secondError) {
+          const refreshedUser = await refreshUserProfile();
           // Sem toast de boas-vindas: o login termina navegando para o feed,
           // e a tela que troca já diz que entrou. O toast chegava POR CIMA do
           // destino, anunciando o que a pessoa estava vendo.
@@ -146,7 +147,7 @@ const LoginPage = () => {
           } catch {}
           const from = location.state?.from;
           if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-          navigate(target || postAuthFallback, { replace: true });
+          navigate(refreshedUser?.tipo_conta === 'prefeitura' ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
       } else {
           setErrors({
             email: '',
@@ -185,6 +186,7 @@ const LoginPage = () => {
         }
     } else {
         // Ver acima: navegar já é o retorno visual do login.
+        const refreshedUser = await refreshUserProfile();
         let target = null;
         try {
           target = sessionStorage.getItem('tc_post_login_redirect');
@@ -192,7 +194,7 @@ const LoginPage = () => {
         } catch {}
         const from = location.state?.from;
         if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-        navigate(target || postAuthFallback, { replace: true });
+        navigate(refreshedUser?.tipo_conta === 'prefeitura' ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
       }
     } catch (error) {
       setErrors({

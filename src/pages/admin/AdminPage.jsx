@@ -37,7 +37,7 @@ const adminLinks = [
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.', module: 'services' },
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },
-  { to: '/admin/canais-do-orgao', icon: 'Mail', title: 'Canais do Órgão', description: 'E-mail de cada secretaria, categorias e relatórios automáticos.' },
+  { to: '/admin/prefeituras', icon: 'Building2', title: 'Prefeituras e acessos', description: 'Aprove cadastros e gerencie administradores municipais.' },
   { to: '/admin/embaixadores', icon: 'ShieldCheck', title: 'Gestão de Embaixadores', description: 'Convites, embaixadores ativos e promoções de masters.' },
   { to: '/admin/permissoes', icon: 'ShieldCheck', title: 'Permissões', description: 'Defina quem pode alterar cada módulo.', masterOnly: true },
   { to: '/admin/configuracoes', icon: 'Settings', title: 'Configurações do Site', description: 'Personalize a aparência do site.' },
@@ -56,7 +56,7 @@ const GRUPOS = [
 const grupoDoLink = ({ to }) => {
   if (/moderacao|auditorias|lixeira|assistente/.test(to)) return 'moderacao';
   if (/usuarios|embaixadores|vereadores|permissoes|audiencia/.test(to)) return 'pessoas';
-  if (/configuracoes|canais-do-orgao/.test(to)) return 'sistema';
+  if (/configuracoes|prefeituras/.test(to)) return 'sistema';
   return 'conteudo';
 };
 

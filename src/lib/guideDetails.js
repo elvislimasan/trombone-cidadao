@@ -55,6 +55,7 @@ export const emptyGuideJourney = () => ({
 });
 
 const normalizeJourney = (journey = {}) => {
+  if (!journey || typeof journey !== 'object' || Array.isArray(journey)) journey = {};
   const normalized = { ...emptyGuideJourney(), ...journey };
   // Não regrava um campo novo em registros legados apenas ao lê-los.
   if (Array.isArray(journey.weekdays)) normalized.weekdays = normalizeGuideWeekdays(journey.weekdays);
@@ -69,6 +70,7 @@ export const guideJourneyTitle = (journey = {}, index = 0) => guideWeekdayTitle(
 
 /** Lê tanto os novos percursos quanto o formato singular dos registros antigos. */
 export const guideJourneys = (metadata = {}) => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return [];
   if (Array.isArray(metadata.journeys) && metadata.journeys.length > 0) {
     return metadata.journeys.map(normalizeJourney);
   }
@@ -77,6 +79,29 @@ export const guideJourneys = (metadata = {}) => {
     legacy.arrival_time, legacy.schedule, legacy.boarding_location, legacy.dropoff_location]
     .some((value) => clean(value));
   return hasLegacyJourney ? [legacy] : [];
+};
+
+/** Atualiza um percurso sem depender do objeto renderizado pelo formulário. */
+export const updateGuideJourney = (metadata, index, changes) => {
+  const existing = guideJourneys(metadata);
+  const journeys = existing.length > 0 ? existing : [emptyGuideJourney()];
+  if (!Number.isInteger(index) || index < 0 || index >= journeys.length) return metadata;
+  return metadataWithJourneys(metadata, journeys.map((journey, itemIndex) => (
+    itemIndex === index ? { ...journey, ...changes } : journey
+  )));
+};
+
+export const toggleGuideJourneyWeekday = (metadata, index, weekday) => {
+  if (!GUIDE_WEEKDAYS.some(({ id }) => id === weekday)) return metadata;
+  const journeys = guideJourneys(metadata);
+  const journey = (journeys.length > 0 ? journeys : [emptyGuideJourney()])[index];
+  if (!journey) return metadata;
+  const weekdays = normalizeGuideWeekdays(journey.weekdays);
+  return updateGuideJourney(metadata, index, {
+    weekdays: weekdays.includes(weekday)
+      ? weekdays.filter((id) => id !== weekday)
+      : [...weekdays, weekday],
+  });
 };
 
 /** Grava a lista nova e mantém o primeiro percurso nos campos antigos. */

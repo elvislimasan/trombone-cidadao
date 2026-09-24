@@ -1027,7 +1027,9 @@ const ReportDetails = ({
   const statusInfo = getStatusInfo(effectiveStatus);
   const StatusIcon = statusInfo.icon;
   const canEdit = user && (user.is_admin || (user.id === report.author_id && report.moderation_status === 'pending_approval'));
-  const canChangeStatus = user && (user.is_admin || user.user_type === 'public_official');
+  // Servidores atuam pelo painel institucional, com escopo de secretaria
+  // validado no banco. O papel global não concede edição desta bronca.
+  const canChangeStatus = user && user.is_admin;
   // Sinal aberto não é matéria de moderação: não tem foto nem descrição para
   // julgar, e a migração 175 impede publicá-lo pelo banco. Sem esta exceção o
   // admin veria o botão Aprovar, clicaria e receberia um erro cru do Postgres —
@@ -1995,7 +1997,7 @@ const ReportDetails = ({
                       
                       {['pending', 'in-progress'].includes(report.status) && 
                        !report.resolution_submission && 
-                       (user?.id === report.author_id || user?.is_admin || user?.user_type === 'public_official') && (
+                       (user?.id === report.author_id || user?.is_admin) && (
                         <Button onClick={handleMarkResolvedClick} className="bg-green-600 hover:bg-green-700 gap-2 text-xs sm:text-sm">
                           <CheckCircle className="w-4 h-4" />
                           <span className="hidden sm:inline">Marcar Resolvido</span>

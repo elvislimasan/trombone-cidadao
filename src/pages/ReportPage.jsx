@@ -51,6 +51,7 @@ import {
 import ReportSummary from "@/components/report/ReportSummary";
 import ReportTimeline from "@/components/report/ReportTimeline";
 import ReportOfficialStep from "@/components/report/ReportOfficialStep";
+import ReportOfficialResponses from "@/components/report/ReportOfficialResponses";
 import ReportImpactReceipt from "@/components/report/ReportImpactReceipt";
 import ReportBeforeAfter from "@/components/report/ReportBeforeAfter";
 import ReportRevisitPrompt from "@/components/report/ReportRevisitPrompt";
@@ -75,6 +76,7 @@ import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
 import { showAppError } from '@/lib/appError';
 import { linkDuplicateReport } from '@/lib/linkReport';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { historiaDeTempoDaBronca } from '@/lib/reportAgeStory';
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -120,7 +122,6 @@ const ReportPage = () => {
   const {
     isAdmin,
     isMaster,
-    isPublicOfficial,
     isAuthorOrAdmin,
     canModerate,
     canEditCategory,
@@ -433,25 +434,8 @@ const ReportPage = () => {
       Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
     );
 
-    if (ageDays < 7) return null;
-
-    // A frase é da CATEGORIA, não genérica: "essa rua está no escuro" é o que
-    // a pessoa reconhece ao passar por lá, e "sem solução" não diz nada sobre
-    // o que continua acontecendo enquanto ninguém resolve.
-    const porCategoria = {
-      iluminacao: `Essa rua está há ${ageDays} dias no escuro.`,
-      buracos: `Esse buraco está há ${ageDays} dias na via.`,
-      esgoto: `Esse esgoto está há ${ageDays} dias correndo.`,
-      limpeza: `Esse ponto está há ${ageDays} dias sem limpeza.`,
-      poda: `Essa árvore está há ${ageDays} dias esperando poda.`,
-      "vazamento-de-agua": `Essa água está há ${ageDays} dias vazando.`,
-    };
-
-    return (
-      porCategoria[report.category] ||
-      `Esse problema está há ${ageDays} dias sem solução.`
-    );
-  }, [report?.category, report?.created_at, report?.status]);
+    return historiaDeTempoDaBronca(report, ageDays);
+  }, [report?.category, report?.category_id, report?.created_at, report?.issue_type, report?.status]);
 
   const waterUtilityName = useMemo(() => {
     if (!report || !report.is_from_water_utility) return null;
@@ -1543,7 +1527,7 @@ const ReportPage = () => {
             <>
               <ReportHeader
                 onBack={() => navigate(-1)}
-                showAdminActions={isAdmin || isMaster || isPublicOfficial}
+                showAdminActions={isAdmin || isMaster}
                 canLinkReports={isAdmin || isMaster}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
                 handleEditClick={handleEditClick}
@@ -1657,6 +1641,8 @@ const ReportPage = () => {
                       })
                     }
                   />
+
+                  <ReportOfficialResponses reportId={reportId} />
 
                   {/* O retorno mais convincente que este app consegue dar, e o
                       mais barato: as duas fotos já estavam guardadas. */}
