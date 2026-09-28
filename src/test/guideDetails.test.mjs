@@ -74,3 +74,16 @@ test('metadados de percurso inválidos não derrubam a edição', () => {
     dropoff_location: '',
   });
 });
+
+test('selecionar um dia no segundo percurso mantém o primeiro e o título público', () => {
+  const original = metadataWithJourneys({}, [
+    { origin: 'Floresta', weekdays: ['monday', 'tuesday'] },
+    { origin: 'Serra Talhada', weekdays: [] },
+  ]);
+  const updated = metadataWithJourneys(original, guideJourneys(original).map((journey, index) =>
+    index === 1 ? { ...journey, weekdays: ['saturday'] } : journey));
+
+  assert.deepEqual(guideJourneys(updated)[0].weekdays, ['monday', 'tuesday']);
+  assert.deepEqual(guideJourneys(updated)[1].weekdays, ['saturday']);
+  assert.equal(guideJourneyTitle(guideJourneys(updated)[1], 1), 'Percurso: sábado');
+});

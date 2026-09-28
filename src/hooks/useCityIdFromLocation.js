@@ -1,5 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
+import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 
 // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
 // Reutilizável por qualquer formulário com marcador no mapa (broncas, obras...).
@@ -30,10 +31,10 @@ export function useCityIdFromLocation() {
     };
 
     const matchFromGeocode = async (zoom) => {
-      const { data, error } = await supabase.functions.invoke('reverse-geocode', {
-        body: { lat, lng, zoom },
+      const data = await reverseGeocodePin({ lat, lng }, {
+        invoke: supabase.functions.invoke.bind(supabase.functions), zoom,
       });
-      if (error || !data) return null;
+      if (!data) return null;
       const bairro = String(data.suburb ?? '').trim();
       if (bairro) resolvedNeighborhoodRef.current = bairro;
       const city = data.city;
@@ -54,7 +55,7 @@ export function useCityIdFromLocation() {
     } catch (e) {
       console.error('[useCityIdFromLocation] falhou:', e);
     }
-    return resolvedCityIdRef.current;
+    return resolvedCityKeyRef.current === key ? resolvedCityIdRef.current : null;
   }, []);
 
   const resetCityCache = useCallback(() => {

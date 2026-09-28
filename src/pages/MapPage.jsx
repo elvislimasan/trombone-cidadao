@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
 import { showAppError } from '@/lib/appError';
 import { statusDaConsulta, statusInicialDoMapa } from '@/lib/mapReportFilters';
+import { guideLocation } from '@/lib/guideLocation';
 
 const MapView = lazy(() => import('@/components/MapView'));
 // Carregado sob demanda: quem só consulta o mapa não paga pelo peso dos hooks
@@ -173,6 +174,11 @@ export default function MapPage() {
   // ── Search ──
   const [titleSearchInput, setTitleSearchInput] = useState('');
   const [titleSearchTerm,  setTitleSearchTerm]  = useState('');
+  const [searchMatches, setSearchMatches] = useState(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setTitleSearchTerm(titleSearchInput.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [titleSearchInput]);
 
   // ── Reports / map ──
   const [mapClusters, setMapClusters] = useState([]); // [{ isCluster, lat, lng, count, ids, report }]
@@ -225,6 +231,41 @@ export default function MapPage() {
   // O recorte "só as broncas desta rua", vindo de `?rua=<id>` — o link que a
   // faixa de Minha Rua usa. Ver `useFocoDeRua`.
   const { foco: focoDeRua, limpar: limparFocoDeRua } = useFocoDeRua('report_ids');
+
+  // Busca no conjunto da cidade, inclusive nos pinos agrupados. O RPC do mapa
+  // devolve os IDs de cada cluster, mas não os títulos nem as plaquetas.
+  useEffect(() => {
+    const term = titleSearchTerm.trim();
+    if (!term) { setSearchMatches(null); return undefined; }
+    let cancelled = false;
+    setSearchMatches(null);
+    const columns = ['title', 'pole_number', 'reported_plate', 'reported_post_identifier'];
+    Promise.all(columns.map((column) => {
+      let q = supabase.from('reports').select('id, location')
+        .eq('moderation_status', 'approved').neq('status', 'duplicate')
+        .ilike(column, `%${term}%`).limit(1000);
+      if (mapCityId) q = q.eq('city_id', mapCityId);
+      if (statusFilter === 'active') q = q.in('status', ['pending', 'in-progress']);
+      else if (statusFilter !== 'all') q = q.eq('status', statusFilter);
+      if (categoryFilter !== 'all') q = q.eq('category_id', categoryFilter);
+      if (focoDeRua) q = q.in('id', [...focoDeRua.ids]);
+      return q;
+    })).then((results) => {
+      if (cancelled) return;
+      const failed = results.find((result) => result.error);
+      if (failed) throw failed.error;
+      const reports = [...new Map(results.flatMap((result) => result.data || []).map((report) => [String(report.id), report])).values()];
+      setSearchMatches(new Set(reports.map((report) => String(report.id))));
+      const point = guideLocation(reports[0]?.location);
+      if (point) setFlyToTarget({ ...point, zoom: 18, nonce: Date.now() });
+      else setFlyToTarget(null);
+    }).catch((error) => {
+      if (cancelled) return;
+      setSearchMatches(new Set());
+      showAppError({ title: 'Não foi possível pesquisar broncas', description: error.message });
+    });
+    return () => { cancelled = true; };
+  }, [titleSearchTerm, mapCityId, statusFilter, categoryFilter, focoDeRua]);
 
   // Chegou o foco, o mapa vai até a rua. Sem isto, o recorte esconderia quase
   // tudo e deixaria a pessoa procurando o punhado que sobrou no zoom anterior.
@@ -591,13 +632,17 @@ export default function MapPage() {
   // recorte que alguém pediu.
   useEffect(() => {
     if (modo !== 'lista') return undefined;
+    if (titleSearchTerm.trim() && searchMatches?.size === 0) {
+      setLista({ itens: [], total: 0, carregando: false });
+      return undefined;
+    }
 
     let cancelado = false;
     setLista((atual) => ({ ...atual, carregando: true }));
 
     let q = supabase
       .from('reports')
-      .select('id, title, address, status, created_at, categories(name), upvotes:signatures(count)', { count: 'exact' })
+      .select('id, title, address, status, created_at, pole_number, reported_plate, reported_post_identifier, categories(name), upvotes:signatures(count)', { count: 'exact' })
       .eq('moderation_status', 'approved')
       .neq('status', 'duplicate')
       .order('created_at', { ascending: false });
@@ -611,7 +656,10 @@ export default function MapPage() {
     else if (statusFilter && statusFilter !== 'all') q = q.eq('status', statusFilter);
     if (categoryFilter !== 'all') q = q.eq('category_id', categoryFilter);
     if (focoDeRua) q = q.in('id', [...focoDeRua.ids]);
-    if (titleSearchTerm.trim()) q = q.ilike('title', `%${titleSearchTerm.trim()}%`);
+    if (titleSearchTerm.trim()) {
+      if (!searchMatches) return undefined;
+      q = q.in('id', [...searchMatches]);
+    }
 
     const de = (pagina - 1) * PAGINA_DA_LISTA;
     q.range(de, de + PAGINA_DA_LISTA - 1).then(({ data, count, error }) => {
@@ -625,7 +673,7 @@ export default function MapPage() {
     });
 
     return () => { cancelado = true; };
-  }, [modo, pagina, mapCityId, statusFilter, categoryFilter, focoDeRua, titleSearchTerm]);
+  }, [modo, pagina, mapCityId, statusFilter, categoryFilter, focoDeRua, titleSearchTerm, searchMatches]);
 
   // Mudou o recorte, volta para a primeira página: filtrar estando na sétima
   // daria uma lista vazia que parece "nenhuma bronca encontrada".
@@ -659,14 +707,16 @@ export default function MapPage() {
         .filter(Boolean);
     }
 
-    // A busca por título continua só entre pinos individuais: aqui não há o que
-    // interseccionar — o cluster não traz o título de ninguém.
-    const term = titleSearchTerm.trim().toLowerCase();
-    if (!term) return itens;
-    return itens.filter(item =>
-      !item.isCluster && String(item.report?.title ?? '').toLowerCase().includes(term)
-    );
-  }, [mapClusters, titleSearchTerm, focoDeRua]);
+    // A busca por título ou plaqueta usa os IDs obtidos na consulta da cidade.
+    // Assim os clusters também mostram apenas as broncas encontradas.
+    if (!titleSearchTerm.trim()) return itens;
+    if (!searchMatches) return [];
+    return itens.map((item) => {
+      const ids = (item.ids || []).map(String).filter((id) => searchMatches.has(id));
+      if (!ids.length) return null;
+      return item.isCluster ? { ...item, ids, count: ids.length } : item;
+    }).filter(Boolean);
+  }, [mapClusters, titleSearchTerm, searchMatches, focoDeRua]);
 
   const totalVisibleCount = useMemo(
     () => visibleClusters.reduce((sum, item) => sum + item.count, 0),
@@ -739,17 +789,9 @@ export default function MapPage() {
   // requisicao extra. Clusters entram so em 'all': a agregacao nao carrega a
   // categoria de cada bronca, entao somar em outra chave inventaria numero.
   const handleTitleSearch = useCallback(() => {
-    const next = titleSearchInput.trim();
-    setTitleSearchTerm(next);
-    if (!next) { setFlyToTarget(null); return; }
-    const first = mapClusters.find(item =>
-      !item.isCluster && String(item.report?.title ?? '').toLowerCase().includes(next.toLowerCase())
-    );
-    const loc = first?.report?.location;
-    if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
-      setFlyToTarget({ lat: loc.lat, lng: loc.lng, zoom: 18, nonce: Date.now() });
-    }
-  }, [titleSearchInput, mapClusters]);
+    setTitleSearchTerm(titleSearchInput.trim());
+    if (!titleSearchInput.trim()) setFlyToTarget(null);
+  }, [titleSearchInput]);
 
   const handleReportClick = useCallback(
     (report) => navigate(`/bronca/${report.id ?? report}`),
@@ -1027,7 +1069,7 @@ export default function MapPage() {
                   value={titleSearchInput}
                   onChange={e => setTitleSearchInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-                  placeholder="Buscar bronca"
+                  placeholder="Título ou número do poste"
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none"
                 />
                 {titleSearchInput && (
@@ -1156,7 +1198,7 @@ export default function MapPage() {
                 value={titleSearchInput}
                 onChange={e => setTitleSearchInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-                placeholder="Buscar bronca"
+                placeholder="Título ou número do poste"
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none"
               />
               {titleSearchInput && (
@@ -1345,7 +1387,7 @@ export default function MapPage() {
             value={titleSearchInput}
             onChange={e => setTitleSearchInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-            placeholder="Buscar bronca..."
+            placeholder="Título ou número do poste"
             className="bg-transparent outline-none text-sm flex-1 min-w-0"
           />
           {titleSearchInput && (

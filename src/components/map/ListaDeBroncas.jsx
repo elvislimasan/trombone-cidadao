@@ -99,6 +99,9 @@ export default function ListaDeBroncas({
                       <span className="truncate">{bronca.address}</span>
                     </span>
                   )}
+                  {(bronca.pole_number || bronca.reported_plate || bronca.reported_post_identifier) && (
+                    <span className="inline-flex items-center gap-1">Poste/plaqueta: {bronca.pole_number || bronca.reported_plate || bronca.reported_post_identifier}</span>
+                  )}
                   {quando && (
                     <span className="inline-flex items-center gap-1">
                       <Calendar className="h-3 w-3 shrink-0" /> {quando}

@@ -7,6 +7,7 @@ import { Dialog, DialogClose, DialogDescription, DialogHeader, DialogTitle, Form
 import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { guideLocation } from '@/lib/guideLocation';
+import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { saveGuideLocation } from '@/lib/saveGuideLocation';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -50,12 +51,10 @@ export default function DirectoryLocationDialog({ open, onOpenChange, item, onSa
     if (!nextPosition) return;
     const requestId = ++requestRef.current;
     setLocatingAddress(true);
-    const { data, error: reverseError } = await supabase.functions.invoke('reverse-geocode', {
-      body: { lat: nextPosition.lat, lng: nextPosition.lng, zoom: 18 },
-    });
+    const data = await reverseGeocodePin(nextPosition, { invoke: supabase.functions.invoke.bind(supabase.functions) });
     if (requestId !== requestRef.current) return;
     setLocatingAddress(false);
-    if (!reverseError && typeof data?.address === 'string' && data.address.trim()) setAddress(data.address.trim());
+    if (typeof data?.address === 'string' && data.address.trim()) setAddress(data.address.trim());
   };
 
   return <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
@@ -71,7 +70,7 @@ export default function DirectoryLocationDialog({ open, onOpenChange, item, onSa
           </Suspense>
         </div>
         <p className="text-sm text-content-secondary" aria-live="polite">{position ? `Ponto selecionado: ${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}` : 'Nenhum ponto selecionado. Clique no mapa para adicionar.'}</p>
-        <div className="grid gap-2"><Label htmlFor="guide-location-address">Endereço</Label><Input id="guide-location-address" value={address} onChange={(event) => setAddress(event.target.value)} placeholder={locatingAddress ? 'Buscando endereço...' : 'Endereço do ponto marcado'} /></div>
+        <div className="grid gap-2"><Label htmlFor="guide-location-address">Endereço</Label><Input id="guide-location-address" value={address} onChange={(event) => { requestRef.current += 1; setLocatingAddress(false); setAddress(event.target.value); }} placeholder={locatingAddress ? 'Buscando endereço...' : 'Endereço do ponto marcado'} /></div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <DialogClose asChild><Button type="button" variant="outline" disabled={saving}>Cancelar</Button></DialogClose>

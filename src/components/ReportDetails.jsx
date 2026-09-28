@@ -23,7 +23,7 @@ import { validateVideoFile } from '@/utils/videoProcessor';
 import { ShareModal } from './PetitionComponents';
 import { mascarar } from '@/lib/profanity';
 import { showAppError, showAppInfo } from '@/lib/appError';
-import { TIPOS_DE_PROBLEMA_ILUMINACAO } from '@/lib/reportCategoryFields';
+import { TIPOS_DE_PROBLEMA_ILUMINACAO, TIPOS_DE_PROBLEMA_ESGOTO } from '@/lib/reportCategoryFields';
 import { optimizeImageFile } from '@/lib/optimizeImage';
 
 
@@ -1699,6 +1699,20 @@ const ReportDetails = ({
                   </div>
                 )}
               </div>
+            )}
+
+            {isEditing && (editData?.category_id === 'esgoto' || report?.category === 'esgoto') && (
+              <label className="grid gap-1.5 text-sm font-medium text-foreground">
+                Tipo do problema de esgoto
+                <Combobox
+                  value={editData?.issue_type || ''}
+                  onChange={(issue_type) => setEditData((current) => ({ ...current, issue_type }))}
+                  options={TIPOS_DE_PROBLEMA_ESGOTO.map((item) => ({ value: item.value, label: item.label }))}
+                  placeholder="Selecione o problema"
+                  searchPlaceholder="Buscar tipo..."
+                  modal
+                />
+              </label>
             )}
 
             {isEditing && (editData?.category_id === 'buracos' || report?.category === 'buracos') && (

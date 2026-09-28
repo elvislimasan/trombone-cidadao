@@ -35,6 +35,7 @@ export const ReportProblemDetails = ({
   reportedPostIdentifier,
   formatDateTime,
   getLightingIssueTypeLabel,
+  getSewageIssueTypeLabel,
   formatPoleLabel,
 }) => {
   // Campos de iluminacao publica (poste, placa, tipo de problema) so fazem
@@ -55,6 +56,11 @@ export const ReportProblemDetails = ({
       icon: "lighting",
       label: "Tipo",
       value: issueType ? getLightingIssueTypeLabel(issueType) : "—",
+    },
+    category === "esgoto" && {
+      icon: "waterleak",
+      label: "Tipo",
+      value: issueType ? getSewageIssueTypeLabel(issueType) : "—",
     },
     category === "iluminacao" && {
       icon: "flag",

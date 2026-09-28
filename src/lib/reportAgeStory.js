@@ -1,27 +1,22 @@
-const TIPOS_SEM_RUA_ESCURA = new Set([
-  'lamp_on_daytime',
-  'arm_damaged',
-  'exposed_wiring',
-  'pole_leaning',
-  'pole_broken',
-  'no_identifier',
-  'other',
-]);
-
-export const historiaDeTempoDaBronca = (report, ageDays) => {
-  if (!report || report.status === 'resolved' || ageDays < 7) return null;
-  const category = report.category_id || report.category;
+export function reportAgeStoryFor(category, issueType, ageDays) {
+  const days = Math.max(0, Math.floor(Number(ageDays) || 0));
+  if (days < 7) return null;
   if (category === 'iluminacao') {
-    return TIPOS_SEM_RUA_ESCURA.has(report.issue_type)
-      ? `Esse problema de iluminação está há ${ageDays} dias sem solução.`
-      : `Essa rua está há ${ageDays} dias no escuro.`;
+    if (issueType === 'lamp_on_daytime') return `Este poste está há ${days} dias aceso durante o dia.`;
+    if (['lamp_off', 'lamp_blinking', 'no_lighting'].includes(issueType)) return `Essa rua está há ${days} dias no escuro.`;
+    return `Esse problema de iluminação está há ${days} dias sem solução.`;
   }
-  const porCategoria = {
-    buracos: `Esse buraco está há ${ageDays} dias na via.`,
-    esgoto: `Esse esgoto está há ${ageDays} dias correndo.`,
-    limpeza: `Esse ponto está há ${ageDays} dias sem limpeza.`,
-    poda: `Essa árvore está há ${ageDays} dias esperando poda.`,
-    'vazamento-de-agua': `Essa água está há ${ageDays} dias vazando.`,
+  const messages = {
+    buracos: `Esse buraco está há ${days} dias na via.`,
+    esgoto: `Esse problema de esgoto está há ${days} dias sem solução.`,
+    limpeza: `Esse ponto está há ${days} dias sem limpeza.`,
+    poda: `Essa árvore está há ${days} dias esperando poda.`,
+    'vazamento-de-agua': `Essa água está há ${days} dias vazando.`,
   };
-  return porCategoria[category] || `Esse problema está há ${ageDays} dias sem solução.`;
-};
+  return messages[category] || `Esse problema está há ${days} dias sem solução.`;
+}
+
+export function historiaDeTempoDaBronca(report, ageDays) {
+  if (!report || report.status === 'resolved') return null;
+  return reportAgeStoryFor(report.category_id || report.category, report.issue_type, ageDays);
+}

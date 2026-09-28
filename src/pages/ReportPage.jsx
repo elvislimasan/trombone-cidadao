@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { useReportPermissions } from "@/hooks/useReportPermissions";
 import { supabase } from "@/lib/customSupabaseClient";
 import { getReportShareUrl } from "@/lib/shareUtils";
+import { rotuloDoTipoDeProblemaEsgoto } from "@/lib/reportCategoryFields";
 import { useUpvote } from "../hooks/useUpvotes";
 import DynamicSEO from "../components/DynamicSeo";
 import DonationModal from "@/components/DonationModal";
@@ -1284,7 +1285,7 @@ const ReportPage = () => {
           }
         }
       } else {
-        reportUpdates.issue_type = null;
+        reportUpdates.issue_type = category_id === 'esgoto' ? (issue_type ? String(issue_type).trim() : null) : null;
         reportUpdates.pole_number = null;
         reportUpdates.pole_id = null;
         reportUpdates.reported_post_identifier = null;
@@ -1610,6 +1611,7 @@ const ReportPage = () => {
                     reportedPostIdentifier={report.reported_post_identifier}
                     formatDateTime={formatDateTime}
                     getLightingIssueTypeLabel={getLightingIssueTypeLabel}
+                    getSewageIssueTypeLabel={rotuloDoTipoDeProblemaEsgoto}
                     formatPoleLabel={formatPoleLabel}
                   />
 

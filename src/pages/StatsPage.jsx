@@ -182,6 +182,7 @@ const ReportsStats = () => {
   const [categoryData, setCategoryData] = useState([]);
   const [statusData, setStatusData] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('all'); // all | buracos
+  const [lightingNeighborhood, setLightingNeighborhood] = useState('');
   const [timelineView, setTimelineView] = useState('monthly'); // monthly | annual
   const [chartType, setChartType] = useState('grouped'); // grouped | stacked | line
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -217,15 +218,23 @@ const ReportsStats = () => {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('reports')
-        .select('*, category:categories(id, name)')
-        .eq('moderation_status', 'approved')
-        .neq('status', 'duplicate');
-      if (activeCityId) query = query.eq('city_id', activeCityId);
-      const { data: reports, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const reports = [];
+      const pageSize = 1000;
+      for (let from = 0; ; from += pageSize) {
+        let query = supabase
+          .from('reports')
+          .select('*, category:categories(id, name)')
+          .eq('moderation_status', 'approved')
+          .neq('status', 'duplicate');
+        if (activeCityId) query = query.eq('city_id', activeCityId);
+        const { data, error } = await query
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        reports.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+      }
 
       const total = reports.length;
       const pending = reports.filter(r => r.status === 'pending').length;
@@ -272,6 +281,31 @@ const ReportsStats = () => {
       ? all
       : all.filter((report) => String(report.category?.id ?? 'outros') === categoryFilter);
   }, [stats.reports, categoryFilter]);
+
+  // O PDF lista apenas broncas abertas. Bairros sem broncas no PDF não devem
+  // aparecer como opções que gerariam um documento vazio.
+  const lightingNeighborhoods = useMemo(() => {
+    const counts = new Map();
+    (stats.reports || []).forEach((report) => {
+      if (report.category?.id !== 'iluminacao' || !['pending', 'in-progress'].includes(report.status)) return;
+      const neighborhood = String(report.neighborhood || '').trim();
+      if (neighborhood) counts.set(neighborhood, (counts.get(neighborhood) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      .map(([name, count]) => ({ name, count }));
+  }, [stats.reports]);
+
+  const pdfReports = useMemo(() => categoryFilter === 'iluminacao' && lightingNeighborhood
+    ? filteredReports.filter((report) => String(report.neighborhood || '').trim() === lightingNeighborhood)
+    : filteredReports, [categoryFilter, filteredReports, lightingNeighborhood]);
+
+  const pdfReportCount = useMemo(() => pdfReports.filter((report) =>
+    report.status === 'pending' || report.status === 'in-progress').length, [pdfReports]);
+
+  useEffect(() => {
+    if (lightingNeighborhood && !lightingNeighborhoods.some(({ name }) => name === lightingNeighborhood)) setLightingNeighborhood('');
+  }, [lightingNeighborhood, lightingNeighborhoods]);
 
   // Opções do filtro montadas a partir das categorias presentes nos dados da
   // cidade — antes era uma lista fixa (Todas/Buracos), o que impedia filtrar
@@ -376,21 +410,22 @@ const ReportsStats = () => {
   // Função auxiliar para gerar o PDF.
   // O relatório acompanha o filtro de categoria do card: "Todas as categorias"
   // sai completo, uma categoria específica sai só com as broncas dela.
-  const generatePdf = () => {
+  const generatePdf = ({ reports = filteredReports, categoryLabel = selectedCategoryLabel, neighborhood = '' } = {}) => {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("Relatório de Broncas - Trombone Cidadão", 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 14, 28);
-    doc.text(`Categoria: ${selectedCategoryLabel}`, 14, 34);
+    doc.text(`Categoria: ${categoryLabel}`, 14, 34);
+    if (neighborhood) doc.text(`Bairro: ${neighborhood}`, 14, 40);
 
-    let yPosition = 44;
+    let yPosition = neighborhood ? 50 : 44;
     const emptyPosition = yPosition;
 
     // Seções listadas por status (apenas pendentes e em andamento)
 
-    const reportsToInclude = filteredReports
+    const reportsToInclude = reports
       .filter(report => report.status === 'pending' || report.status === 'in-progress');
 
     const groupedByStatus = reportsToInclude.reduce((acc, report) => {
@@ -494,8 +529,7 @@ const ReportsStats = () => {
     });
 
     if (yPosition === emptyPosition) { // No reports were added
-      const scope = categoryFilter === 'all' ? '' : ` em ${selectedCategoryLabel}`;
-      doc.text(`Não há broncas pendentes ou em andamento${scope} para relatar.`, 14, yPosition);
+      doc.text(`Não há broncas pendentes ou em andamento em ${neighborhood || categoryLabel} para relatar.`, 14, yPosition);
     }
     
     return doc;
@@ -525,17 +559,21 @@ const ReportsStats = () => {
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
-      const doc = generatePdf();
+      const neighborhood = categoryFilter === 'iluminacao' ? lightingNeighborhood : '';
+      const doc = generatePdf({ reports: pdfReports, neighborhood });
       const scopeSlug = categoryFilter === 'all' ? '' : `${slugify(selectedCategoryLabel)}_`;
-      const fileName = `relatorio_broncas_${scopeSlug}${new Date().toISOString().split('T')[0]}.pdf`;
+      const neighborhoodSlug = neighborhood ? `${slugify(neighborhood)}_` : '';
+      const fileName = `relatorio_broncas_${scopeSlug}${neighborhoodSlug}${new Date().toISOString().split('T')[0]}.pdf`;
 
       await savePdfDocument({
         doc,
         fileName,
         successTitle: 'Download concluído!',
-        successDescription: categoryFilter === 'all'
-          ? 'Relatório com todas as categorias.'
-          : `Relatório apenas da categoria ${selectedCategoryLabel}.`,
+        successDescription: neighborhood
+          ? `Relatório de ${selectedCategoryLabel} no bairro ${neighborhood}.`
+          : categoryFilter === 'all'
+            ? 'Relatório com todas as categorias.'
+            : `Relatório apenas da categoria ${selectedCategoryLabel}.`,
       });
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
@@ -912,8 +950,8 @@ const ReportsStats = () => {
         >
           <Card className="h-full border border-edge-subtle bg-surface-raised rounded-2xl shadow-elevation-1">
             <CardHeader>
-              <div className="flex items-start justify-between gap-3">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
                   <CardTitle className="text-sm md:text-base text-content-primary">
                     {categoryFilter === 'buracos' ? 'Buracos — origem do problema' : 'Broncas por categoria'}
                   </CardTitle>
@@ -922,43 +960,58 @@ const ReportsStats = () => {
                       Total de buracos: <span className="font-semibold">{stats.waterUtility.totalBuracos}</span>
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-content-secondary">
-                    {categoryFilter === 'all'
-                      ? 'O relatório sai com todas as categorias.'
-                      : <>O relatório sai só com <span className="font-semibold">{selectedCategoryLabel}</span>.</>}
-                  </p>
                 </div>
-                {/* Filtro + relatorio juntos: o PDF acompanha exatamente a
-                    categoria selecionada aqui. */}
-                <div className="flex shrink-0 flex-col items-end gap-2">
+                <div className="w-full sm:w-[190px]">
+                  <span className="mb-1 block text-xs font-medium text-content-secondary">Categoria</span>
                   <Combobox
                     value={categoryFilter}
-                    onChange={setCategoryFilter}
+                    onChange={(value) => {
+                      setCategoryFilter(value);
+                      setLightingNeighborhood('');
+                    }}
                     options={categoryOptions}
                     placeholder="Categoria"
                     searchPlaceholder="Buscar categoria..."
-                    className="h-8 w-[150px] bg-surface-subtle/70 border-muted text-xs"
+                    className="h-9 w-full bg-surface-subtle/70 border-muted text-xs"
                   />
-                  <Button
-                    onClick={handleDownloadPdf}
-                    disabled={downloading}
-                    size="sm"
-                    className="h-8 w-[150px] text-xs"
-                    aria-label={`Baixar relatório — ${selectedCategoryLabel}`}
-                  >
-                    {downloading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Baixando...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-4 w-4" />
-                        Relatório
-                      </>
-                    )}
-                  </Button>
                 </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-edge-subtle bg-surface-subtle/50 p-3">
+                <div className="min-w-0 flex-1 basis-44 self-center">
+                  <p className="text-sm font-semibold text-content-primary">Relatório em PDF</p>
+                  <p className="mt-0.5 text-xs text-content-secondary">
+                    {categoryFilter === 'iluminacao'
+                      ? `${lightingNeighborhood ? `Iluminação em ${lightingNeighborhood}` : 'Iluminação em todos os bairros'} · ${pdfReportCount} ${pdfReportCount === 1 ? 'bronca aberta' : 'broncas abertas'}`
+                      : `${selectedCategoryLabel} · ${pdfReportCount} ${pdfReportCount === 1 ? 'bronca aberta' : 'broncas abertas'}`}
+                  </p>
+                </div>
+                {categoryFilter === 'iluminacao' && (
+                  <div className="w-full min-w-0 sm:w-56">
+                    <label htmlFor="lighting-neighborhood" className="mb-1 block text-xs font-medium text-content-secondary">Bairro do relatório</label>
+                    <select
+                      id="lighting-neighborhood"
+                      value={lightingNeighborhood}
+                      onChange={(event) => setLightingNeighborhood(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-edge-subtle bg-surface-raised px-3 text-sm text-content-primary"
+                    >
+                      <option value="">Todos os bairros</option>
+                      {lightingNeighborhoods.map(({ name, count }) => (
+                        <option key={name} value={name}>{name} ({count})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleDownloadPdf}
+                  disabled={downloading}
+                  className="h-9 w-full gap-1.5 text-xs sm:w-auto"
+                  aria-label={`Baixar relatório em PDF: ${selectedCategoryLabel}${categoryFilter === 'iluminacao' && lightingNeighborhood ? `, bairro ${lightingNeighborhood}` : ''}`}
+                >
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {downloading ? 'Baixando...' : 'Baixar PDF'}
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
