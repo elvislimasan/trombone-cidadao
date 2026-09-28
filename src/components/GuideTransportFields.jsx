@@ -25,7 +25,30 @@ export default function GuideTransportFields({ value = {}, onChange }) {
         <h3 className="text-sm font-bold text-content-primary">{guideJourneyTitle(journey, index)}</h3>
         {visibleJourneys.length > 1 && <Button type="button" variant="ghost" size="sm" className="h-8 gap-1.5 text-destructive" onClick={() => changeJourneys(visibleJourneys.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="h-3.5 w-3.5" /> Remover</Button>}
       </div>
-      <fieldset className="space-y-2"><legend className="text-sm font-medium leading-none">Dias de funcionamento</legend><div className="flex flex-wrap gap-2">{GUIDE_WEEKDAYS.map((day) => { const checked = normalizeGuideWeekdays(journey.weekdays).includes(day.id); return <label key={day.id} className={`cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${checked ? 'border-brand bg-brand text-primary-foreground' : 'border-edge-subtle bg-surface-raised text-content-secondary hover:bg-surface-subtle'}`}><input className="sr-only" type="checkbox" checked={checked} onChange={() => updateJourney(index, { weekdays: checked ? normalizeGuideWeekdays(journey.weekdays).filter((id) => id !== day.id) : [...normalizeGuideWeekdays(journey.weekdays), day.id] })} />{day.short}</label>; })}</div><p className="text-xs text-muted-foreground">Título público: <strong className="text-content-primary">{guideJourneyTitle(journey, index)}</strong></p></fieldset>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium leading-none">Dias de funcionamento</legend>
+        <div className="flex flex-wrap gap-2">
+          {GUIDE_WEEKDAYS.map((day) => {
+            const selected = normalizeGuideWeekdays(journey.weekdays);
+            const checked = selected.includes(day.id);
+            return (
+              <button
+                key={day.id}
+                type="button"
+                aria-label={`${day.label} no percurso ${index + 1}`}
+                aria-pressed={checked}
+                onClick={() => updateJourney(index, {
+                  weekdays: checked ? selected.filter((id) => id !== day.id) : [...selected, day.id],
+                })}
+                className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${checked ? 'border-brand bg-brand text-primary-foreground' : 'border-edge-subtle bg-surface-raised text-content-secondary hover:bg-surface-subtle'}`}
+              >
+                {day.short}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">Título público: <strong className="text-content-primary">{guideJourneyTitle(journey, index)}</strong></p>
+      </fieldset>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2"><Label>Cidade de saída</Label><CityCombobox modal value={journey.origin_city_id} onChange={(id) => setCity(index, 'origin_city_id', 'origin', id)} /></div>
         <div className="space-y-2"><Label>Cidade de chegada</Label><CityCombobox modal value={journey.destination_city_id} onChange={(id) => setCity(index, 'destination_city_id', 'destination', id)} /></div>

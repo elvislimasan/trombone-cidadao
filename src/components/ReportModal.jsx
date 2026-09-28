@@ -35,8 +35,9 @@ import { App } from "@capacitor/app";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { VideoProcessor } from "@/plugins/VideoProcessor";
 import { useCityIdFromLocation } from "@/hooks/useCityIdFromLocation";
+import { reverseGeocodePin } from "@/lib/reverseGeocodePin";
 import { CATEGORIAS_BRONCA } from "@/lib/reportCategories";
-import { TIPOS_DE_PROBLEMA_ILUMINACAO } from "@/lib/reportCategoryFields";
+import { TIPOS_DE_PROBLEMA_ILUMINACAO, TIPOS_DE_PROBLEMA_ESGOTO } from "@/lib/reportCategoryFields";
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { FLORESTA_COORDS } from "@/config/mapConfig";
@@ -129,6 +130,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   const [wizardStep, setWizardStep] = useState(0);
   // 'unknown' | 'requesting' | 'granted' | 'denied'
   const [locationPermission, setLocationPermission] = useState("unknown");
+  const [addressLookupFailed, setAddressLookupFailed] = useState(false);
   // O que o assistente sugeriu, para comparar com o que a pessoa escolheu no
   // fim. Guardado aqui, e não no componente da sugestão, porque a medição vale
   // no ENVIO: aceitar e trocar depois de ver a foto não é acerto.
@@ -576,15 +578,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (lastReverseGeocodeKeyRef.current === key) return;
 
     const timer = setTimeout(async () => {
-      const { data, error } = await supabase.functions.invoke(
-        "reverse-geocode",
-        {
-          body: { lat, lng, zoom: 18 },
-        }
-      );
+      const data = await reverseGeocodePin({ lat, lng }, {
+        invoke: supabase.functions.invoke.bind(supabase.functions),
+      });
 
       if (cancelled) return;
-      if (error) return;
+      setAddressLookupFailed(!data?.address);
 
       const address = data?.address;
       if (typeof address === "string" && address.trim()) {
@@ -2707,7 +2706,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         hasErrors = true;
       }
       if (
-        formData.category === "iluminacao" &&
+        ["iluminacao", "esgoto"].includes(formData.category) &&
         (!formData.issue_type || formData.issue_type.trim() === "")
       ) {
         newErrors.issue_type = "Por favor, selecione o tipo do problema.";
@@ -2827,7 +2826,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       hasErrors = true;
     }
     if (
-      formData.category === "iluminacao" &&
+      ["iluminacao", "esgoto"].includes(formData.category) &&
       (!formData.issue_type || formData.issue_type.trim() === "")
     ) {
       newErrors.issue_type = "Por favor, selecione o tipo do problema.";
@@ -2962,7 +2961,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         showAppError({
           title: "Não foi possível identificar a cidade",
           description:
-            "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
+            "Confira a conexão e a posição do pin no mapa e tente enviar novamente.",
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -3069,7 +3068,13 @@ const ReportModal = ({ onClose, onSubmit }) => {
     reverseGeocodeTargetRef.current = newLocation;
     lastReverseGeocodeKeyRef.current = null;
     resetCityCache();
-    setFormData((prev) => ({ ...prev, location: newLocation, city_id: undefined }));
+    setAddressLookupFailed(false);
+    setFormData((prev) => ({
+      ...prev,
+      location: newLocation,
+      city_id: undefined,
+      address: addressTouchedRef.current ? prev.address : "",
+    }));
   };
 
   const handleClose = () => {
@@ -3223,7 +3228,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         showAppError({
           title: "Não foi possível identificar a cidade",
           description:
-            "Confira se o marcador no mapa está sobre a localização correta e tente novamente. Se persistir, ajuste levemente o marcador.",
+            "Confira a conexão e a posição do pin no mapa e tente enviar novamente.",
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -3627,7 +3632,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                                   ? null
                                   : prev.reported_pole_distance_m,
                               issue_type:
-                                c.id !== "iluminacao" ? "" : prev.issue_type,
+                                c.id !== prev.category ? "" : prev.issue_type,
                             }));
                             if (errors.category)
                               setErrors((prev) => ({
@@ -3697,7 +3702,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     </div>
                   )}
 
-                  {formData.category === "iluminacao" && (
+                  {["iluminacao", "esgoto"].includes(formData.category) && (
                     <div ref={issueTypeFieldRef}>
                       <div>
                         <label className="block text-sm font-medium text-foreground mb-2">
@@ -3725,7 +3730,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           }`}
                         >
                           <option value="">Selecione…</option>
-                          {lightingIssueTypes.map((t) => (
+                          {(formData.category === "esgoto" ? TIPOS_DE_PROBLEMA_ESGOTO : lightingIssueTypes).map((t) => (
                             <option key={t.value} value={t.value}>
                               {t.label}
                             </option>
@@ -3769,7 +3774,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
               {wizardStep === 1 && (
                 <div className="w-full">
-                  {locationPermission !== "granted" && (
+                  {locationPermission !== "granted" && !formData.location && (
                     <div className="mx-4 mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-destructive shrink-0" />
@@ -3783,8 +3788,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         <>
                           <p className="text-xs text-muted-foreground">
                             {isNative
-                              ? "A localização é obrigatória. Vá em Configurações > Aplicativos > Trombone Cidadão e permita a localização."
-                              : "A localização está bloqueada no navegador. Toque no ícone de cadeado ou ⓘ na barra de endereço, permita a localização e toque em \"Tentar novamente\"."}
+                              ? "Marque o local no mapa ou permita o GPS em Configurações > Aplicativos > Trombone Cidadão."
+                              : "Marque o local no mapa ou permita a localização no navegador e toque em \"Tentar novamente\"."}
                           </p>
                           <button
                             type="button"
@@ -3918,7 +3923,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       type="text"
                       value={formData.address}
                       onChange={(e) => {
-                        addressTouchedRef.current = true;
+                        addressTouchedRef.current = Boolean(e.target.value.trim());
+                        if (!addressTouchedRef.current) lastReverseGeocodeKeyRef.current = null;
                         setFormData({ ...formData, address: e.target.value });
                         if (errors.address)
                           setErrors((prev) => ({
@@ -3936,6 +3942,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     {errors.address && (
                       <p className="text-xs text-destructive mt-1">
                         {errors.address}
+                      </p>
+                    )}
+                    {addressLookupFailed && !formData.address && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Não foi possível obter o endereço do pin. Informe um endereço de referência para continuar.
                       </p>
                     )}
 
@@ -4433,17 +4444,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <Button
                     type="button"
                     className="flex-1 bg-primary hover:bg-primary/90"
-                    disabled={
-                      wizardStep === 1 && locationPermission !== "granted"
-                    }
                     onClick={() => {
                       if (!validateStep(wizardStep)) return;
                       setWizardStep((s) => Math.min(2, s + 1));
                     }}
                   >
-                    {wizardStep === 1 && locationPermission !== "granted"
-                      ? "Aguardando localização…"
-                      : "Continuar"}
+                    Continuar
                   </Button>
                 )}
 
@@ -4562,7 +4568,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                               ? null
                               : prev.reported_pole_distance_m,
                           issue_type:
-                            c.id !== "iluminacao" ? "" : prev.issue_type,
+                            c.id !== prev.category ? "" : prev.issue_type,
                         }));
                         if (errors.category)
                           setErrors((prev) => ({
@@ -4616,7 +4622,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 </div>
               )}
 
-              {formData.category === "iluminacao" && (
+              {["iluminacao", "esgoto"].includes(formData.category) && (
                 <div className="space-y-4" ref={issueTypeFieldRef}>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -4644,7 +4650,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       }`}
                     >
                       <option value="">Selecione…</option>
-                      {lightingIssueTypes.map((t) => (
+                      {(formData.category === "esgoto" ? TIPOS_DE_PROBLEMA_ESGOTO : lightingIssueTypes).map((t) => (
                         <option key={t.value} value={t.value}>
                           {t.label}
                         </option>
@@ -4657,7 +4663,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     )}
                   </div>
 
-                  <div>
+                  {formData.category === "iluminacao" && <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Número/plaqueta do poste{" "}
                       <span className="text-muted-foreground">(opcional)</span>
@@ -4700,7 +4706,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         abaixo.
                       </p>
                     )}
-                  </div>
+                  </div>}
                 </div>
               )}
 
@@ -4831,7 +4837,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   type="text"
                   value={formData.address}
                   onChange={(e) => {
-                    addressTouchedRef.current = true;
+                    addressTouchedRef.current = Boolean(e.target.value.trim());
+                    if (!addressTouchedRef.current) lastReverseGeocodeKeyRef.current = null;
                     setFormData({ ...formData, address: e.target.value });
                     if (errors.address)
                       setErrors((prev) => ({ ...prev, address: undefined }));
@@ -4846,6 +4853,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 {errors.address && (
                   <p className="text-xs text-destructive mt-1">
                     {errors.address}
+                  </p>
+                )}
+                {addressLookupFailed && !formData.address && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Não foi possível obter o endereço do pin. Informe um endereço de referência para continuar.
                   </p>
                 )}
 

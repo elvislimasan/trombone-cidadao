@@ -78,7 +78,7 @@ export function useCreateReport({ onCreated } = {}) {
               : null,
           reported_pole_distance_m:
             category === 'iluminacao' ? reported_pole_distance_m : null,
-          issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
+          issue_type: ['iluminacao', 'esgoto'].includes(category) ? (issue_type?.trim() || null) : null,
           is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
           is_anonymous: !!is_anonymous,
           // Bairro do MARCADOR, pela mesma razão do city_id: a bronca pertence ao

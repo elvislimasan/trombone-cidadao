@@ -14,6 +14,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError } from '@/lib/appError';
 import { guideCategoryIds, isGuideTransport } from '@/lib/guideCategories';
 import { guideLocation } from '@/lib/guideLocation';
+import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { normalizarInstagram } from '@/lib/externalLinks';
 import { optimizeImageFile } from '@/lib/optimizeImage';
 import { guidePhones } from '@/lib/guideDetails';
@@ -107,10 +108,8 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
     setPosition(newPosition);
     if (!newPosition || addressTouchedRef.current) return;
     const requestId = ++reverseRequestRef.current;
-    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
-      body: { lat: newPosition.lat, lng: newPosition.lng, zoom: 18 },
-    });
-    if (error || requestId !== reverseRequestRef.current || addressTouchedRef.current) return;
+    const data = await reverseGeocodePin(newPosition, { invoke: supabase.functions.invoke.bind(supabase.functions) });
+    if (requestId !== reverseRequestRef.current || addressTouchedRef.current) return;
     if (typeof data?.address === 'string' && data.address.trim()) {
       setForm((current) => ({ ...current, address: data.address.trim() }));
     }
@@ -156,7 +155,7 @@ export default function DirectoryEditDialog({ open, onOpenChange, item, categori
   };
 
   return <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-    <FormDialogContent className="grid h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:h-[90vh] sm:max-w-2xl">
+    <FormDialogContent className="grid h-[94dvh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-clip p-0 sm:h-[90vh] sm:max-w-2xl">
       <DialogHeader className="border-b border-edge-subtle px-5 py-4 pr-12 sm:px-6">
         <DialogTitle>Editar local</DialogTitle>
         <p className="text-sm text-content-tertiary">As mudanças aparecem imediatamente no Guia da Cidade.</p>

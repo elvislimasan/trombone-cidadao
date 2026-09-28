@@ -503,7 +503,7 @@ function HomePage() {
     throwIfAborted(signal);
     if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
 
-    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id, neighborhood, is_anonymous } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
     const normalizedPole = normalizePoleLabel(pole_number);
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
@@ -524,8 +524,11 @@ function HomePage() {
         reported_post_identifier: category === 'iluminacao' ? savedReportedPostIdentifier : null,
         reported_plate: category === 'iluminacao' ? savedReportedPlate : null,
         reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
-        issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
+        issue_type: ['iluminacao', 'esgoto'].includes(category) ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
+        city_id,
+        neighborhood: neighborhood?.trim() || null,
+        is_anonymous: !!is_anonymous,
         status: 'pending',
         moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval'
       })
@@ -562,7 +565,7 @@ function HomePage() {
   };
 
   const handleUpdateReport = async (editData) => {
-    const { id, title, description, address, location, category_id, pole_number, pole_id, reported_post_identifier, reported_plate, reported_pole_distance_m, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission } = editData;
+    const { id, title, description, address, location, category_id, issue_type, pole_number, pole_id, reported_post_identifier, reported_plate, reported_pole_distance_m, newPhotos, newVideos, removedMedia, status, is_recurrent, evaluation, resolution_submission } = editData;
 
     const reportUpdates = { 
       title, 
@@ -576,6 +579,8 @@ function HomePage() {
     };
     
     if (typeof category_id !== 'undefined') {
+      reportUpdates.issue_type = ['iluminacao', 'esgoto'].includes(category_id)
+        ? (issue_type ? String(issue_type).trim() : null) : null;
       if (category_id === 'iluminacao') {
         if (typeof pole_number !== 'undefined') {
           reportUpdates.pole_number = pole_number ? String(pole_number).trim() : null;

@@ -337,7 +337,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
         reported_post_identifier: category === 'iluminacao' ? savedReportedPostIdentifier : null,
         reported_plate: category === 'iluminacao' ? savedReportedPlate : null,
         reported_pole_distance_m: category === 'iluminacao' ? reported_pole_distance_m : null,
-        issue_type: category === 'iluminacao' ? (issue_type?.trim() || null) : null,
+        issue_type: ['iluminacao', 'esgoto'].includes(category) ? (issue_type?.trim() || null) : null,
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         city_id: geocodedCityId ?? null,
         status: 'pending',

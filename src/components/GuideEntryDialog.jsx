@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError } from '@/lib/appError';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 
 import GuideCategorySelect from '@/components/GuideCategorySelect';
 import GuideTransportFields from '@/components/GuideTransportFields';
@@ -47,10 +48,8 @@ export default function GuideEntryDialog({ open, onOpenChange, userId, cityId, c
     setEntry((current) => ({ ...current, location }));
     if (!location || addressTouchedRef.current) return;
     const requestId = ++reverseRequestRef.current;
-    const { data, error } = await supabase.functions.invoke('reverse-geocode', {
-      body: { lat: location.lat, lng: location.lng, zoom: 18 },
-    });
-    if (error || requestId !== reverseRequestRef.current || addressTouchedRef.current) return;
+    const data = await reverseGeocodePin(location, { invoke: supabase.functions.invoke.bind(supabase.functions) });
+    if (requestId !== reverseRequestRef.current || addressTouchedRef.current) return;
     if (typeof data?.address === 'string' && data.address.trim()) {
       setEntry((current) => ({ ...current, address: data.address.trim() }));
     }

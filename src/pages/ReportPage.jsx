@@ -18,6 +18,8 @@ import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { useReportPermissions } from "@/hooks/useReportPermissions";
 import { supabase } from "@/lib/customSupabaseClient";
 import { getReportShareUrl } from "@/lib/shareUtils";
+import { reportAgeStoryFor } from "@/lib/reportAgeStory";
+import { rotuloDoTipoDeProblemaEsgoto } from "@/lib/reportCategoryFields";
 import { useUpvote } from "../hooks/useUpvotes";
 import DynamicSEO from "../components/DynamicSeo";
 import DonationModal from "@/components/DonationModal";
@@ -438,20 +440,8 @@ const ReportPage = () => {
     // A frase é da CATEGORIA, não genérica: "essa rua está no escuro" é o que
     // a pessoa reconhece ao passar por lá, e "sem solução" não diz nada sobre
     // o que continua acontecendo enquanto ninguém resolve.
-    const porCategoria = {
-      iluminacao: `Essa rua está há ${ageDays} dias no escuro.`,
-      buracos: `Esse buraco está há ${ageDays} dias na via.`,
-      esgoto: `Esse esgoto está há ${ageDays} dias correndo.`,
-      limpeza: `Esse ponto está há ${ageDays} dias sem limpeza.`,
-      poda: `Essa árvore está há ${ageDays} dias esperando poda.`,
-      "vazamento-de-agua": `Essa água está há ${ageDays} dias vazando.`,
-    };
-
-    return (
-      porCategoria[report.category] ||
-      `Esse problema está há ${ageDays} dias sem solução.`
-    );
-  }, [report?.category, report?.created_at, report?.status]);
+    return reportAgeStoryFor(report.category, report.issue_type, ageDays);
+  }, [report?.category, report?.issue_type, report?.created_at, report?.status]);
 
   const waterUtilityName = useMemo(() => {
     if (!report || !report.is_from_water_utility) return null;
@@ -1300,7 +1290,7 @@ const ReportPage = () => {
           }
         }
       } else {
-        reportUpdates.issue_type = null;
+        reportUpdates.issue_type = category_id === 'esgoto' ? (issue_type ? String(issue_type).trim() : null) : null;
         reportUpdates.pole_number = null;
         reportUpdates.pole_id = null;
         reportUpdates.reported_post_identifier = null;
@@ -1626,6 +1616,7 @@ const ReportPage = () => {
                     reportedPostIdentifier={report.reported_post_identifier}
                     formatDateTime={formatDateTime}
                     getLightingIssueTypeLabel={getLightingIssueTypeLabel}
+                    getSewageIssueTypeLabel={rotuloDoTipoDeProblemaEsgoto}
                     formatPoleLabel={formatPoleLabel}
                   />
 

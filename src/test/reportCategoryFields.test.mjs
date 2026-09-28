@@ -7,6 +7,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   camposDaCategoria,
@@ -15,6 +16,8 @@ import {
   camposParaColunas,
   normalizarPlaqueta,
   TIPOS_DE_PROBLEMA_ILUMINACAO,
+  TIPOS_DE_PROBLEMA_ESGOTO,
+  rotuloDoTipoDeProblemaEsgoto,
 } from '../lib/reportCategoryFields.js';
 
 // ── Quais campos existem ──────────────────────────────────────────────────────
@@ -28,6 +31,25 @@ test('buraco pergunta sobre obra de água, sem obrigar', () => {
   const campos = camposDaCategoria('buracos');
   assert.deepEqual(campos.map((c) => c.id), ['is_from_water_utility']);
   assert.equal(campos[0].obrigatorio, false);
+});
+
+test('esgoto pede subcategoria e grava o tipo sem dados de poste', () => {
+  assert.deepEqual(camposDaCategoria('esgoto').map((c) => c.id), ['issue_type']);
+  assert.deepEqual(Object.keys(validarCamposDaCategoria('esgoto', {})), ['issue_type']);
+  for (const tipo of TIPOS_DE_PROBLEMA_ESGOTO) {
+    assert.equal(categoriaCompleta('esgoto', { issue_type: tipo.value }), true);
+    assert.equal(rotuloDoTipoDeProblemaEsgoto(tipo.value), tipo.label);
+  }
+  const columns = camposParaColunas('esgoto', { issue_type: 'sewer_box_without_cover', pole_number: '123' });
+  assert.equal(columns.issue_type, 'sewer_box_without_cover');
+  assert.equal(columns.pole_number, null);
+});
+
+test('migration aceita os tipos de esgoto do formulário e os preserva na patrulha', () => {
+  const sql = readFileSync(new URL('../../supabase/migrations/272_sewage_issue_types.sql', import.meta.url), 'utf8');
+  for (const tipo of TIPOS_DE_PROBLEMA_ESGOTO) assert.match(sql, new RegExp(`'${tipo.value}'`));
+  assert.match(sql, /issue_type = case when v_categoria in \('iluminacao', 'esgoto'\)/);
+  assert.match(sql, /if v_categoria = 'iluminacao' and v_plaqueta is null/);
 });
 
 test('categoria sem campo extra devolve lista vazia', () => {

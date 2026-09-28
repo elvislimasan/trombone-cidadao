@@ -31,6 +31,16 @@ export const TIPOS_DE_PROBLEMA_ILUMINACAO = [
   { value: 'other', label: 'outro' },
 ];
 
+export const TIPOS_DE_PROBLEMA_ESGOTO = [
+  { value: 'sewer_clogged', label: 'esgoto entupido' },
+  { value: 'sewer_box_broken', label: 'caixa de esgoto quebrada' },
+  { value: 'sewer_box_without_cover', label: 'caixa de esgoto sem tampa' },
+  { value: 'sewer_cover_broken', label: 'tampa quebrada' },
+];
+
+export const rotuloDoTipoDeProblemaEsgoto = (valor) =>
+  TIPOS_DE_PROBLEMA_ESGOTO.find((tipo) => tipo.value === String(valor || '').trim())?.label || String(valor || '').trim() || 'Não informado';
+
 export const rotuloDoTipoDeProblemaIluminacao = (valor) => {
   const id = String(valor || '').trim();
   if (!id) return 'Não informado';
@@ -45,6 +55,10 @@ export const rotuloDoTipoDeProblemaIluminacao = (valor) => {
  * marcação de obra da companhia de água, que é informação útil e não requisito.
  */
 export const CAMPOS_POR_CATEGORIA = {
+  esgoto: [{
+    id: 'issue_type', tipo: 'selecao', rotulo: 'Tipo do problema', obrigatorio: true,
+    opcoes: TIPOS_DE_PROBLEMA_ESGOTO, erro: 'Selecione o tipo do problema.',
+  }],
   iluminacao: [
     {
       id: 'issue_type',
@@ -131,7 +145,7 @@ export const camposParaColunas = (categoryId, dados = {}) => {
   const plaqueta = ehIluminacao ? normalizarPlaqueta(dados.pole_number) : '';
 
   return {
-    issue_type: ehIluminacao ? dados.issue_type?.trim() || null : null,
+    issue_type: ehIluminacao || categoryId === 'esgoto' ? dados.issue_type?.trim() || null : null,
     pole_number: ehIluminacao ? plaqueta || null : null,
     pole_id: ehIluminacao ? dados.pole_id || null : null,
     reported_pole_distance_m:
