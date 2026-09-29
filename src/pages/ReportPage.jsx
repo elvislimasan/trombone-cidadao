@@ -53,6 +53,7 @@ import ReportSummary from "@/components/report/ReportSummary";
 import ReportTimeline from "@/components/report/ReportTimeline";
 import ReportOfficialStep from "@/components/report/ReportOfficialStep";
 import ReportOfficialResponses from "@/components/report/ReportOfficialResponses";
+import ReportMunicipalService from "@/components/report/ReportMunicipalService";
 import ReportImpactReceipt from "@/components/report/ReportImpactReceipt";
 import ReportBeforeAfter from "@/components/report/ReportBeforeAfter";
 import ReportRevisitPrompt from "@/components/report/ReportRevisitPrompt";
@@ -1644,6 +1645,10 @@ const ReportPage = () => {
                     }
                   />
 
+                  <ReportMunicipalService reportId={reportId} reportStatus={report.status} onVerify={(type) => {
+                    if (!user) { navigate('/login'); return; }
+                    setUpdateType(type); setShowUpdateModal(true);
+                  }} />
                   <ReportOfficialResponses reportId={reportId} />
 
                   {/* O retorno mais convincente que este app consegue dar, e o

@@ -13,6 +13,18 @@ const STATE_UF = {
   'Santa Catarina': 'SC', 'São Paulo': 'SP', Sergipe: 'SE', Tocantins: 'TO',
 };
 
+export function canonicalReportNeighborhood(value, city, stateUf) {
+  const name = String(value || '').trim();
+  const area = name.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+  const municipality = String(city || '').normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('pt-BR').trim();
+  if (municipality === 'floresta' && String(stateUf || '').toUpperCase() === 'PE'
+    && (area === 'dner' || area === 'sao francisco de assis dner')) {
+    return 'São Francisco de Assis (DNER)';
+  }
+  return name || null;
+}
+
 export function normalizeReverseGeocode(payload) {
   if (!payload || typeof payload !== 'object') return null;
   const details = payload.raw?.address || payload.address || {};
@@ -25,14 +37,18 @@ export function normalizeReverseGeocode(payload) {
   )).trim();
   const iso = String(fields['ISO3166-2-lvl4'] || '').trim();
   const state_uf = String(payload.state_uf || (iso.startsWith('BR-') ? iso.slice(3) : STATE_UF[fields.state] || '')).trim();
-  const suburb = String(payload.suburb || fields.suburb || fields.neighbourhood || fields.quarter || '').trim();
+  const cityDistrict = String(fields.city_district || '').trim();
+  const rawSuburb = [payload.suburb, fields.suburb, fields.neighbourhood, fields.quarter,
+    cityDistrict.toLocaleLowerCase('pt-BR') !== city.toLocaleLowerCase('pt-BR') ? cityDistrict : null]
+    .map((value) => String(value || '').trim()).find(Boolean) || '';
+  const suburb = canonicalReportNeighborhood(rawSuburb, city, state_uf);
   const road = String(fields.road || fields.pedestrian || fields.footway || '').trim();
   const number = String(fields.house_number || '').trim();
   const address = typeof payload.address === 'string'
     ? payload.address.trim()
-    : [[road, number].filter(Boolean).join(', '), suburb, city, fields.state]
+    : [[road, number].filter(Boolean).join(', '), rawSuburb, city, fields.state]
       .filter(Boolean).join(' - ') || String(payload.display_name || '').trim();
-  return { address: address || null, city: city || null, state_uf: state_uf || null, suburb: suburb || null };
+  return { address: address || null, city: city || null, state_uf: state_uf || null, suburb };
 }
 
 export async function reverseGeocodePin(location, { invoke, fetcher = fetch, zoom = 18 } = {}) {

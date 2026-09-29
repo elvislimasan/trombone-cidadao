@@ -356,7 +356,7 @@ const Header = () => {
                   </DropdownMenuItem>
                   {hasMunicipalityAccess && (
                     <DropdownMenuItem asChild>
-                      <Link to="/prefeitura/broncas" className="flex items-center"><LucideIcons.Building2 className="mr-2 h-4 w-4" /><span>Painel da Prefeitura</span></Link>
+                      <Link to="/prefeitura/visao-geral" className="flex items-center"><LucideIcons.Building2 className="mr-2 h-4 w-4" /><span>Painel da Prefeitura</span></Link>
                     </DropdownMenuItem>
                   )}
                   {(user.is_ambassador || user.is_master) && (

@@ -194,6 +194,7 @@ const LocationPickerMap = ({
    * tiles que ninguém tinha buscado ainda: cinza garantido sem rede.
    */
   initialZoom = null,
+  children,
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
@@ -310,6 +311,7 @@ const LocationPickerMap = ({
 
         {/* Limita o zoom dinamicamente quando troca de layer */}
         <ZoomLimiter maxZoom={activeMaxZoom} />
+        {children}
 
         {/* So o mapa de ruas acompanha o tema; satelite e foto aerea. O
             satelite nao tem versao offline: o Esri nao e pre-carregado e a

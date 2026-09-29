@@ -42,6 +42,8 @@
     "build:standalone:dev": "npm run clean:dist && npm run clean:android && npm run build:dev && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
     "build:standalone:dev:aab": "npm run clean:dist && npm run clean:android && npm run build:dev && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "import:poles": "node scripts/import_poles_from_kmz.js",
+    "poles:addresses": "node scripts/backfill-pole-addresses.mjs",
+    "reports:neighborhoods": "node scripts/backfill-report-neighborhoods.mjs",
     "link:dev": "supabase link --project-ref xxdletrjyjajtrmhwzev",
     "link:prod": "supabase link --project-ref mrejgpcxaevooofyenzq"
   },

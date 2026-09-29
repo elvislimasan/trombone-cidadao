@@ -47,6 +47,12 @@ export const rotuloDoTipoDeProblemaIluminacao = (valor) => {
   return TIPOS_DE_PROBLEMA_ILUMINACAO.find((tipo) => tipo.value === id)?.label || id;
 };
 
+export const rotuloDoTipoDeProblema = (categoria, valor) => {
+  if (categoria === 'iluminacao') return rotuloDoTipoDeProblemaIluminacao(valor);
+  if (categoria === 'esgoto') return rotuloDoTipoDeProblemaEsgoto(valor);
+  return String(valor || '').trim() || 'Não informado';
+};
+
 /**
  * Descrição dos campos extras por categoria.
  *

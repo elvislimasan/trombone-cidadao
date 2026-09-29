@@ -108,8 +108,11 @@ import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
 import ManageMunicipalitiesPage from '@/pages/admin/ManageMunicipalitiesPage';
 import ManageCityIdentityPage from '@/pages/admin/ManageCityIdentityPage';
 import OrgaoRelatorioPage from '@/pages/OrgaoRelatorioPage';
-import AgencyDashboardPage from '@/pages/AgencyDashboardPage';
-import AgencyCaseDetailsPage from '@/pages/AgencyCaseDetailsPage';
+import MunicipalDemandsPage from '@/pages/MunicipalDemandsPage';
+import MunicipalOverviewPage from '@/pages/MunicipalOverviewPage';
+import MunicipalReportsPage from '@/pages/MunicipalReportsPage';
+import MunicipalLightingPage from '@/pages/MunicipalLightingPage';
+import MunicipalServiceSettingsPage from '@/pages/MunicipalServiceSettingsPage';
 import MunicipalityAccessPage from '@/pages/MunicipalityAccessPage';
 import MunicipalityInvitePage from '@/pages/MunicipalityInvitePage';
 import MunicipalityRegisterPage from '@/pages/MunicipalityRegisterPage';
@@ -124,7 +127,7 @@ import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 import AudienceTracker from '@/components/AudienceTracker';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 import FollowingActivityPage from '@/pages/FollowingActivityPage';
-import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
+import { hasMunicipalityPanelAccess, shouldRedirectMunicipalityUser } from '@/lib/municipalityAccess';
 
 const SEO = () => {
   const location = useLocation();
@@ -374,26 +377,12 @@ function AppShell() {
     location.pathname.startsWith('/conferir') ||
     (location.pathname === '/rota-do-dia' &&
       new URLSearchParams(location.search).get('vista') === 'mapa');
-  const painelPrefeituraAtivo = [
-    '/prefeitura/broncas',
-    '/prefeitura/mapa',
-    '/prefeitura/secretarias',
-    '/prefeitura/equipe',
-  ].some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
-  const convitePrefeituraAtivo = location.pathname.startsWith('/prefeitura/convite/');
-  const areaPrefeituraAtiva = painelPrefeituraAtivo || convitePrefeituraAtivo;
+  const areaPrefeituraAtiva = location.pathname.startsWith('/prefeitura/');
   const interfaceIsolada = patrulhaAtiva || areaPrefeituraAtiva;
-  const rotaPermitidaParaPrefeitura = areaPrefeituraAtiva
-    || location.pathname === '/alterar-senha'
-    || location.pathname === '/termos-de-uso';
 
-  // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
-  // sobreviva à saída da rota que quebrou.
-  //
-  // Antes havia uma exceção aqui: a patrulha era a MapPage com um overlay, e
-  // deixar a key mudar recarregaria o mapa inteiro. Agora a patrulha é página
-  // própria, e a regra volta a ser uma só.
-  const boundaryKey = location.pathname;
+  // O painel municipal mantém seu layout e as permissões durante a navegação.
+  // Seu boundary interno reinicia apenas o conteúdo da página que mudou.
+  const boundaryKey = areaPrefeituraAtiva ? '/prefeitura' : location.pathname;
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -726,8 +715,8 @@ function AppShell() {
     };
   }, [navigate]); // Remover location.pathname para evitar loops
 
-  if (!authLoading && hasMunicipalityPanelAccess(user) && !rotaPermitidaParaPrefeitura) {
-    return <Navigate to="/prefeitura/broncas" replace />;
+  if (!authLoading && shouldRedirectMunicipalityUser(user, location.pathname)) {
+    return <Navigate to="/prefeitura/visao-geral" replace />;
   }
 
   return (
@@ -760,9 +749,8 @@ function AppShell() {
             <div className="flex-1 min-h-0 flex flex-col">
               {!interfaceIsolada && <PendingInviteBanner />}
               {!interfaceIsolada && <AppFeedbackBanner />}
-              {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
-                  de erro persistiria mesmo depois de sair da rota que quebrou. */}
-              <ErrorBoundary key={boundaryKey}>
+              {/* Fora do painel municipal, a key reinicia a tela de erro ao navegar. */}
+              <ErrorBoundary key={boundaryKey} resetKey={location.pathname}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
@@ -776,12 +764,20 @@ function AppShell() {
               <Route path="/orgao/relatorio/:token" element={<OrgaoRelatorioPage />} />
               <Route path="/prefeitura/convite/:token" element={<MunicipalityInvitePage />} />
               <Route path="/prefeitura/convite/:token/cadastro" element={<MunicipalityRegisterPage />} />
-              <Route path="/prefeitura/broncas" element={<PrivateRoute><MunicipalityLayout><AgencyDashboardPage /></MunicipalityLayout></PrivateRoute>} />
-              <Route path="/prefeitura/mapa" element={<PrivateRoute><MunicipalityLayout><AgencyDashboardPage view="map" /></MunicipalityLayout></PrivateRoute>} />
-              <Route path="/prefeitura/broncas/:reportId" element={<PrivateRoute><MunicipalityLayout><AgencyCaseDetailsPage /></MunicipalityLayout></PrivateRoute>} />
+              <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
+                <Route path="/prefeitura/visao-geral" element={<MunicipalOverviewPage />} />
+                <Route path="/prefeitura/demandas" element={<MunicipalDemandsPage />} />
+                <Route path="/prefeitura/demandas/nova" element={<MunicipalDemandsPage view="form" />} />
+                <Route path="/prefeitura/demandas/:id" element={<MunicipalDemandsPage view="form" />} />
+                <Route path="/prefeitura/broncas" element={<MunicipalReportsPage />} />
+                <Route path="/prefeitura/mapa" element={<MunicipalReportsPage view="map" />} />
+                <Route path="/prefeitura/broncas/:reportId" element={<MunicipalReportsPage />} />
+                <Route path="/prefeitura/iluminacao" element={<MunicipalLightingPage />} />
+                <Route path="/prefeitura/configuracoes" element={<MunicipalServiceSettingsPage />} />
+                <Route path="/prefeitura/secretarias" element={<ManageAgencyChannelsPage />} />
+                <Route path="/prefeitura/equipe" element={<MunicipalityTeamPage />} />
+              </Route>
               <Route path="/prefeitura/acesso" element={<PrivateRoute><MunicipalityAccessPage /></PrivateRoute>} />
-              <Route path="/prefeitura/secretarias" element={<PrivateRoute><MunicipalityLayout><ManageAgencyChannelsPage /></MunicipalityLayout></PrivateRoute>} />
-              <Route path="/prefeitura/equipe" element={<PrivateRoute><MunicipalityLayout><MunicipalityTeamPage /></MunicipalityLayout></PrivateRoute>} />
               <Route path="/app" element={<AppLandingPage />} />
               <Route path="/convite/:token" element={<AcceptInvitePage />} />
               

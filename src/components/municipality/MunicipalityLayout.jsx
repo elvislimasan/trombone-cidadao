@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
-  Inbox,
+  ClipboardList,
+  LayoutDashboard,
   LogOut,
   Menu,
   Settings2,
@@ -10,18 +11,24 @@ import {
   X,
   Moon,
   Sun,
-  Map,
+  MessageSquare,
+  LampDesk,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
+import useMunicipalityWorkspace, { selectMunicipalityWorkspace } from '@/hooks/useMunicipalityWorkspace';
 
 const navigation = [
-  { to: '/prefeitura/broncas', label: 'Broncas', icon: Inbox, adminOnly: false },
-  { to: '/prefeitura/mapa', label: 'Mapa de broncas', icon: Map, adminOnly: false },
+  { to: '/prefeitura/visao-geral', label: 'Visão geral', icon: LayoutDashboard, adminOnly: false },
+  { to: '/prefeitura/broncas', label: 'Broncas da cidade', icon: MessageSquare, adminOnly: false },
+  { to: '/prefeitura/demandas', label: 'Ordens de serviço', icon: ClipboardList, adminOnly: false },
+  { to: '/prefeitura/iluminacao', label: 'Iluminação pública', icon: LampDesk, adminOnly: false },
   { to: '/prefeitura/secretarias', label: 'Secretarias', icon: Settings2, adminOnly: true },
   { to: '/prefeitura/equipe', label: 'Equipe', icon: Users, adminOnly: true },
+  { to: '/prefeitura/configuracoes', label: 'Regras de atendimento', icon: Settings2, adminOnly: true },
 ];
 
 const navClass = ({ isActive }) => [
@@ -31,12 +38,12 @@ const navClass = ({ isActive }) => [
     : 'text-content-secondary hover:bg-surface-subtle hover:text-content-primary',
 ].join(' ');
 
-export default function MunicipalityLayout({ children }) {
+export default function MunicipalityLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const contentRef = useRef(null);
-  const [memberships, setMemberships] = useState([]);
+  const { memberships, municipality, isAdministrator } = useMunicipalityWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const [branding, setBranding] = useState({ name: 'Trombone Cidadão', logo: '/logo.png' });
   const { resolved: theme, setPreference } = useTheme();
@@ -45,6 +52,13 @@ export default function MunicipalityLayout({ children }) {
     contentRef.current?.scrollTo({ top: 0 });
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [menuOpen]);
 
   useEffect(() => {
     let active = true;
@@ -57,23 +71,6 @@ export default function MunicipalityLayout({ children }) {
     return () => { active = false; window.removeEventListener('site-settings-updated', loadBranding); };
   }, []);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    let active = true;
-    supabase
-      .from('prefeitura_membros')
-      .select('papel, prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(nome, status, cidade:cities(name, states(uf)))')
-      .eq('user_id', user.id)
-      .eq('ativo', true)
-      .then(({ data }) => {
-        if (active) setMemberships(data || []);
-      });
-    return () => { active = false; };
-  }, [user?.id]);
-
-  const isAdministrator = memberships.some((item) => item.papel === 'administrador' && item.prefeitura?.status === 'ativa');
-  const municipality = memberships.find((item) => item.papel === 'administrador')?.prefeitura
-    || memberships[0]?.prefeitura;
   const city = municipality?.cidade;
   const locationLabel = [city?.name, city?.states?.uf].filter(Boolean).join(' - ');
   const visibleNavigation = useMemo(
@@ -110,7 +107,7 @@ export default function MunicipalityLayout({ children }) {
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <Link to="/prefeitura/broncas" className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+            <Link to="/prefeitura/visao-geral" className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
               <img src={branding.logo} alt="" className="h-9 w-9 shrink-0 object-contain" onError={() => setBranding((current) => current.logo === '/logo.png' ? current : { ...current, logo: '/logo.png' })} />
               <div className="min-w-0">
                 <p className="truncate font-display text-sm font-extrabold tracking-tight sm:text-lg">{branding.name}</p>
@@ -120,6 +117,7 @@ export default function MunicipalityLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {memberships.length > 1 && <label className="min-w-0"><span className="sr-only">Prefeitura ativa</span><select aria-label="Prefeitura ativa" className="h-9 max-w-[9rem] rounded-lg border border-edge-subtle bg-surface-raised px-2 text-xs text-content-primary sm:max-w-[14rem]" value={municipality?.id || ''} onChange={(event) => selectMunicipalityWorkspace(user.id, event.target.value)}>{memberships.map((item) => <option key={item.prefeitura.id} value={item.prefeitura.id}>{item.prefeitura.nome}</option>)}</select></label>}
             <Button type="button" variant="ghost" size="icon" onClick={() => setPreference(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -132,12 +130,13 @@ export default function MunicipalityLayout({ children }) {
         </div>
       </header>
 
+      {menuOpen && <button type="button" className="absolute inset-x-0 bottom-0 top-16 z-30 bg-black/30 lg:hidden" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
       {menuOpen && (
         <div className="absolute inset-x-0 top-16 z-40 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-edge-subtle bg-surface-raised px-4 py-3 shadow-lg lg:hidden">
           <p className="mb-3 px-3 text-xs font-semibold text-content-secondary">{municipality?.nome || 'Gestão municipal'}{locationLabel ? ` · ${locationLabel}` : ''}</p>
           <nav id="municipality-mobile-nav" aria-label="Painel da prefeitura" className="grid gap-1">
             {visibleNavigation.map(({ to, label, icon: Icon }) => (
-              <NavLink key={to} to={to} className={navClass} onClick={() => setMenuOpen(false)}>
+              <NavLink key={to} to={to} className={({ isActive }) => navClass({ isActive: isActive || (to === '/prefeitura/broncas' && pathname === '/prefeitura/mapa') })} onClick={() => setMenuOpen(false)}>
                 <Icon className="h-4 w-4" /> {label}
               </NavLink>
             ))}
@@ -159,7 +158,7 @@ export default function MunicipalityLayout({ children }) {
             </div>
             <nav aria-label="Painel da prefeitura" className="grid min-h-0 content-start gap-1 overflow-y-auto">
               {visibleNavigation.map(({ to, label, icon: Icon }) => (
-                <NavLink key={to} to={to} className={navClass}>
+                <NavLink key={to} to={to} className={({ isActive }) => navClass({ isActive: isActive || (to === '/prefeitura/broncas' && pathname === '/prefeitura/mapa') })}>
                   <Icon className="h-4 w-4" /> {label}
                 </NavLink>
               ))}
@@ -171,7 +170,9 @@ export default function MunicipalityLayout({ children }) {
             </div>
           </div>
         </aside>
-        <main ref={contentRef} className="min-h-0 min-w-0 overflow-y-auto overscroll-contain">{children}</main>
+        <main ref={contentRef} className="min-h-0 min-w-0 overflow-y-auto overscroll-contain">
+          <ErrorBoundary key={pathname}><Outlet /></ErrorBoundary>
+        </main>
       </div>
     </div>
   );

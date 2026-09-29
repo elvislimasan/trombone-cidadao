@@ -111,6 +111,9 @@ serve(async (req) => {
       return Number.isFinite(n) && n > 0 ? n : null;
     };
 
+    // O app já envia o bairro do marcador. Preserve-o caso a consulta no servidor
+    // falhe; a resolução detalhada pode preenchê-lo também para versões antigas.
+    let neighborhood: string | null = String(report?.neighborhood ?? "").trim() || null;
     const matchCityAtZoom = async (zoom: number): Promise<number | null> => {
       try {
         // Usa o mesmo geocodificador do formulário. A chamada direta anterior ao
@@ -119,7 +122,11 @@ serve(async (req) => {
         const { data: g, error: geoError } = await supabaseAdmin.functions.invoke(
           "reverse-geocode", { body: { lat, lng, zoom } },
         );
-        if (geoError || !g?.city || !g?.state_uf) return null;
+        if (geoError) return null;
+        if (zoom === 18) {
+          neighborhood = String(g?.suburb ?? "").trim() || neighborhood;
+        }
+        if (!g?.city || !g?.state_uf) return null;
         const { data } = await supabaseAdmin.rpc("match_city", {
           p_name: g.city,
           p_uf: g.state_uf,
@@ -142,6 +149,16 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 422,
       });
+    }
+
+    // A geo de Floresta pode devolver "DNER" ou "São Francisco de Assis - DNER".
+    // No cadastro municipal os dois nomes são o mesmo bairro.
+    if (cityId === 64 && neighborhood) {
+      const area = neighborhood.normalize("NFD").replace(/\p{M}/gu, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (area === "dner" || area === "sao francisco de assis dner") {
+        neighborhood = "São Francisco de Assis (DNER)";
+      }
     }
 
     const isLighting = category === "iluminacao";
@@ -224,6 +241,7 @@ serve(async (req) => {
       issue_type: (isLighting || category === "esgoto") ? (issueType || null) : null,
       is_from_water_utility: isBuracos ? Boolean(report?.is_from_water_utility) : null,
       city_id: cityId,
+      neighborhood,
     };
 
     const { data, error } = await supabaseAdmin

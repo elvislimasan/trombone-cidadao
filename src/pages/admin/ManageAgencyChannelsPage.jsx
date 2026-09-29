@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import MunicipalTable from '@/components/municipality/MunicipalTable';
+import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import { loadMunicipalRows } from '@/lib/municipalTable';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,7 +61,7 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
   useEffect(() => {
     if (!aberto) return;
     setForm(canal ? { ...vazio, ...canal } : vazio);
-  }, [aberto, canal?.id]);
+  }, [aberto, canal]);
 
   const ocupadas = useMemo(
     () => categoriasOcupadas(canaisDaCidade.filter((c) => String(c.city_id) === String(form.city_id)), form.id),
@@ -458,25 +459,12 @@ const ManageAgencyChannelsPage = () => {
         <meta name="robots" content="noindex" />
       </Helmet>
 
-      <div className="page-shell-fluid py-8">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-red-600">Administração municipal</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight">Secretarias</h1>
-            <p className="text-muted-foreground text-sm mt-1 max-w-xl">
-              Defina qual secretaria recebe cada categoria de bronca e mantenha os endereços
-              institucionais usados nos relatórios oficiais.
-            </p>
-          </div>
-          <Button onClick={() => setEditando(null)}><PlusCircle className="w-4 h-4 mr-2" /> Nova secretaria</Button>
-        </div>
+      <div className="page-shell-fluid pb-10 pt-6 sm:pt-8">
+        <MunicipalPageHeader eyebrow="Administração municipal" title="Secretarias" description="Defina a responsabilidade por categoria e mantenha os contatos institucionais atualizados." action={<Button className="w-full sm:w-auto" onClick={() => setEditando(null)}><PlusCircle className="mr-2 h-4 w-4" />Nova secretaria</Button>} />
 
-        <div className="rounded-xl border bg-muted/40 px-4 py-3 mb-6">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            A etapa <strong>“Encaminhada ao órgão”</strong> na linha do tempo da bronca não é
-            gravada no envio: ela é gravada quando o provedor de e-mail confirma a entrega na
-            caixa do destinatário. Um relatório que voltou não encaminha nada — e derruba o
-            recebimento automaticamente.
+        <div className="mb-6 mt-6 rounded-xl border border-edge-subtle bg-surface-subtle px-4 py-3">
+          <p className="text-xs leading-relaxed text-content-secondary">
+            O recebimento é confirmado quando o e-mail chega à secretaria. Se a entrega falhar, o canal é desligado automaticamente para evitar novos encaminhamentos sem destino.
           </p>
         </div>
 

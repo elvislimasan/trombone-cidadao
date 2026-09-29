@@ -18,6 +18,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import MunicipalTable from '@/components/municipality/MunicipalTable';
+import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import { loadMunicipalRows } from '@/lib/municipalTable';
 import { AGENCY_MEMBER_ROLES } from '@/lib/agencyPanel';
 
@@ -187,16 +188,7 @@ export default function MunicipalityTeamPage() {
     <>
       <Helmet><title>Equipe | Painel da Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
       <div className="page-shell-fluid py-6 sm:py-8">
-        <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-brand">Administração municipal</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight">Equipe e acessos</h1>
-            <p className="mt-2 max-w-3xl text-sm text-content-secondary">Convide servidores, associe cada pessoa à secretaria correta e controle quem pode responder oficialmente.</p>
-          </div>
-          {channels.length > 0 && (
-            <Button onClick={() => setInviteOpen(true)}><Mail className="mr-2 h-4 w-4" />Convidar funcionário</Button>
-          )}
-        </header>
+        <MunicipalPageHeader eyebrow="Administração municipal" title="Equipe e acessos" description="Convide servidores, associe cada pessoa à secretaria correta e controle os níveis de acesso." action={channels.length > 0 && <Button className="w-full sm:w-auto" onClick={() => setInviteOpen(true)}><Mail className="mr-2 h-4 w-4" />Convidar funcionário</Button>} />
 
         {channels.length === 0 ? (
           <section className="mt-6 rounded-2xl border border-dashed border-edge-strong bg-surface-raised p-10 text-center">

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReverseGeocode, reverseGeocodePin } from '../lib/reverseGeocodePin.js';
+import { canonicalReportNeighborhood, normalizeReverseGeocode, reverseGeocodePin } from '../lib/reverseGeocodePin.js';
 
 test('extrai endereço e município do resultado direto do Nominatim', () => {
   assert.deepEqual(normalizeReverseGeocode({
@@ -19,6 +19,27 @@ test('usa o município quando o detalhe chama um bairro de cidade', () => {
     address: { city: 'Boa Vista', county: 'Recife', state: 'Pernambuco' },
   });
   assert.equal(result.city, 'Recife');
+});
+
+test('consulta direta também reconhece city_district como bairro', () => {
+  const result = normalizeReverseGeocode({ address: {
+    road: 'Rua A', suburb: ' ', city_district: 'Três Marias', city: 'Floresta', state: 'Pernambuco',
+  } });
+  assert.equal(result.suburb, 'Três Marias');
+  assert.equal(result.address, 'Rua A - Três Marias - Floresta - Pernambuco');
+  assert.equal(normalizeReverseGeocode({ address: { city_district: ' floresta ', city: 'Floresta' } }).suburb, null);
+});
+
+test('DNER usa o nome cadastrado em Floresta sem alterar o endereço', () => {
+  assert.equal(canonicalReportNeighborhood('DNER', 'Floresta', 'PE'), 'São Francisco de Assis (DNER)');
+  assert.equal(canonicalReportNeighborhood('São Francisco de Assis - DNER', 'Floresta', 'PE'), 'São Francisco de Assis (DNER)');
+  assert.equal(canonicalReportNeighborhood('DNER', 'Outra cidade', 'PE'), 'DNER');
+  const result = normalizeReverseGeocode({
+    address: 'Rua A - São Francisco de Assis - DNER - Floresta - Pernambuco',
+    city: 'Floresta', state_uf: 'PE', suburb: 'São Francisco de Assis - DNER',
+  });
+  assert.equal(result.suburb, 'São Francisco de Assis (DNER)');
+  assert.equal(result.address, 'Rua A - São Francisco de Assis - DNER - Floresta - Pernambuco');
 });
 
 test('consulta direta recupera endereço quando a função falha', async () => {
