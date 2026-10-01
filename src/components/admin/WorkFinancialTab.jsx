@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -237,7 +238,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   };
 
   const handleDeletePayment = async (id) => {
-    if (!window.confirm('Excluir este pagamento?')) return;
+    if (!await confirmApp({ title: 'Excluir este pagamento?', description: 'Esta ação não pode ser desfeita.', confirmLabel: 'Excluir pagamento', destructive: true })) return;
     try {
       const { error } = await supabase.from('public_work_payments').delete().eq('id', id);
       if (error) throw error;

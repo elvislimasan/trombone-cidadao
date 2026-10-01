@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -132,7 +133,7 @@ const PetitionUpdatesManager = ({ petitionId }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Tem certeza que deseja excluir esta novidade?")) return;
+    if (!await confirmApp({ title: 'Excluir esta novidade?', description: 'Ela deixará de aparecer na petição.', confirmLabel: 'Excluir novidade', destructive: true })) return;
 
     const { error } = await supabase
       .from('petition_updates')

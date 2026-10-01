@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Clock3, ExternalLink, Landmark, Loader2, Pencil, PlusCircle, Search, ShieldCheck, User, XCircle } from 'lucide-react';
@@ -158,7 +159,7 @@ export default function ManageCouncilorsPage() {
   const mergeProfile = async () => {
     const target = councilors.find((item) => item.id === mergeTargetId);
     if (!editing?.id || !target) return;
-    if (!window.confirm(`Unificar “${editing.name}” com “${target.name}”? As ruas serão transferidas para “${target.name}” e o cadastro duplicado será removido.`)) return;
+    if (!await confirmApp({ title: 'Unificar estes cadastros?', description: `As ruas de “${editing.name}” serão transferidas para “${target.name}” e o cadastro duplicado será removido.`, confirmLabel: 'Unificar', destructive: true })) return;
     setMerging(true);
     const { data, error } = await supabase.rpc('merge_councilor_profiles', {
       p_source_id: editing.id,
@@ -249,7 +250,7 @@ export default function ManageCouncilorsPage() {
   };
 
   const reviewLinkRequest = async (request, approve) => {
-    if (!approve && !window.confirm(`Recusar a solicitação de ${request.requester?.name || 'esta conta'}?`)) return;
+    if (!approve && !await confirmApp({ title: 'Recusar esta solicitação?', description: `A solicitação de ${request.requester?.name || 'esta conta'} será recusada.`, confirmLabel: 'Recusar', destructive: true })) return;
     setReviewingRequestId(request.id);
     const { error } = await supabase.rpc('review_councilor_link_request', {
       p_request_id: request.id,

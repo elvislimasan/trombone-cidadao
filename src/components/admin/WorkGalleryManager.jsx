@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { confirmApp } from '@/lib/appConfirm';
 import { supabase } from "@/lib/customSupabaseClient";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { ObraGallery } from "@/components/project/obra/ObraGallery";
@@ -317,7 +318,7 @@ export function WorkGalleryManager({
 
   const handleDeleteDocumentFolder = useCallback(async (folder) => {
     if (!user?.is_admin || !folder?.id) return;
-    if (!window.confirm(`Excluir a pasta “${folder.name}” e suas subpastas? Os arquivos serão mantidos na raiz.`)) return;
+    if (!await confirmApp({ title: 'Excluir esta pasta?', description: `A pasta “${folder.name}” e suas subpastas serão excluídas. Os arquivos serão mantidos na raiz.`, confirmLabel: 'Excluir pasta', destructive: true })) return;
     try {
       const { error } = await supabase.from('public_work_document_folders').delete().eq('id', folder.id);
       if (error) throw error;

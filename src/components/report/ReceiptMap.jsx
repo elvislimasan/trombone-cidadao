@@ -28,14 +28,14 @@ export default function ReceiptMap({ point }) {
   const centerY = (1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2 * world;
   const tiles = [];
   for (let x = Math.floor((centerX - 350) / size); x <= Math.floor((centerX + 350) / size); x++) {
-    for (let y = Math.floor((centerY - 115) / size); y <= Math.floor((centerY + 115) / size); y++) {
+    for (let y = Math.floor((centerY - 160) / size); y <= Math.floor((centerY + 160) / size); y++) {
       if (y < 0 || y >= 2 ** zoom) continue;
       tiles.push({ x, y, left: x * size - centerX, top: y * size - centerY });
     }
   }
   const href = `https://www.openstreetmap.org/?mlat=${point.lat}&mlon=${point.lng}#map=${zoom}/${point.lat}/${point.lng}`;
   return <div className="overflow-hidden rounded-xl border border-slate-200">
-    <div className="relative h-[230px] overflow-hidden bg-slate-200" role="img" aria-label={`Ponto da solicitação no mapa: ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}>
+    <div className="relative h-[320px] overflow-hidden bg-slate-200" role="img" aria-label={`Ponto da solicitação no mapa: ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}>
       {tiles.map(({ x, y, left, top }) => <img key={`${x}-${y}`} src={montarUrlDeTile(TILE_LIGHT, { z: zoom, x: ((x % 2 ** zoom) + 2 ** zoom) % 2 ** zoom, y })} alt="" loading="eager" className="absolute !max-w-none" style={{ width: size, height: size, left: `calc(50% + ${left}px)`, top: `calc(50% + ${top}px)` }} />)}
       <MapPin size={30} fill="#dc2626" stroke="white" strokeWidth={2.5} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full drop-shadow-md" aria-hidden="true" />
       <span className="absolute bottom-1 right-1 bg-white/90 px-1.5 py-0.5 text-[9px] text-slate-700">© OpenStreetMap contributors</span>

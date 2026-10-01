@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, ArrowRight, Maximize, Minimize, AlertCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { alertApp } from '@/lib/appConfirm';
 
 const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
@@ -62,7 +63,7 @@ const MediaViewer = ({ media = [], startIndex = 0, onClose }) => {
 
     if (!document.fullscreenElement) {
       element.requestFullscreen().catch(err => {
-        alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        void alertApp({ title: 'Tela cheia indisponível', description: err.message });
       });
     } else {
       document.exitFullscreen();

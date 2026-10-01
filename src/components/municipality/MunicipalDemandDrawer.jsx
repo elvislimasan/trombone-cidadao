@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, Download, FileText, Link2, Loader2, Lock, MapPin, MessageSquare, Paperclip, Play, RotateCcw, Search, UserPlus, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, Download, FileText, Link2, Loader2, Lock, MapPin, MessageSquare, Paperclip, Play, RotateCcw, Search, Trash2, UserPlus, X } from 'lucide-react';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import MunicipalDemandHistory from '@/components/municipality/MunicipalDemandHistory';
 import MunicipalDemandAttachmentsTab from '@/components/municipality/MunicipalDemandAttachmentsTab';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
+import { confirmApp } from '@/lib/appConfirm';
 import { DEMAND_INITIAL_FORM, DEMAND_STATUSES, DEMAND_PRIORITIES, canEditDemand, demandPayload, evidenceError, formFromReport, localDateTime, suggestDemandAssignment, suggestedPublicResponse, validateDemandFields } from '@/lib/municipalDemand';
 import { loadMunicipalServiceOrder } from '@/lib/municipalServiceOrder';
 import { collectExportRows } from '@/lib/municipalExport';
@@ -78,6 +79,8 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   const municipalityId = context.municipality?.id;
   const electricianMode = Boolean(context.isElectrician && item?.atribuido_a === context.userId && context.electricianChannelIds?.includes(String(item.canal_id)));
   const editable = item ? canEditDemand(context, item.canal_id) || electricianMode : context.canEdit;
+  const canDeleteOrder = Boolean(item && editable && !electricianMode && (context.isAdministrator || item.criado_por === context.userId));
+  const deletableStatus = ['aberta', 'triagem', 'cancelada'].includes(item?.status);
   const availableChannels = item && !context.isAdministrator ? context.channels.filter((channel) => channel.id === item.canal_id) : context.channels.filter((channel) => canEditDemand(context, channel.id));
   const eligibleMembers = useMemo(() => [...new Map([...context.members, ...extraMembers].map((member) => [String(member.canal_id) + ':' + member.user_id, member])).values()].filter((member) => String(member.canal_id) === String(form.canal_id) && member.ativo && (['gestor', 'operador'].includes(member.papel) || (form.category_id === 'iluminacao' && member.papel === 'eletricista'))), [context.members, extraMembers, form.canal_id, form.category_id]);
   const dirty = Boolean(baseline && (JSON.stringify(form) !== baseline || publicResponse || internalNote || reason || pendingFiles.length || reports.some((report) => report.newLink)));
@@ -102,7 +105,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     if (tab === 'dados' && form.titulo.trim().length < 3) { setValidationScope('title'); setFocusAttempt((value) => value + 1); return; }
     setFormError(''); setTab(visibleTabs[stepIndex + 1][0]);
   };
-  const close = () => { if (!saving && !registering && (!dirty || window.confirm('Há alterações não salvas. Deseja fechar o atendimento?'))) onClose(); };
+  const close = async () => { if (!saving && !registering && (!dirty || await confirmApp({ title: 'Descartar alterações?', description: 'Há alterações não salvas neste atendimento. Deseja fechar mesmo assim?', confirmLabel: 'Descartar alterações', destructive: true }))) onClose(); };
 
   useEffect(() => {
     if (!open || !municipalityId) return undefined;
@@ -239,13 +242,13 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     setFormError('');
   };
   const removeOrder = async () => {
-    if (!item || !context.isAdministrator || item.status !== 'cancelada' || saving) return;
-    if (!window.confirm(`Remover definitivamente a ordem ${item.protocolo}? O histórico interno será excluído.`)) return;
+    if (!canDeleteOrder || !deletableStatus || saving) return;
+    if (!await confirmApp({ title: 'Excluir esta ordem?', description: `A ordem ${item.protocolo}, o histórico interno e os anexos deixarão de aparecer. As solicitações vinculadas permanecerão cadastradas. Esta ação não pode ser desfeita.`, confirmLabel: 'Excluir ordem', destructive: true })) return;
     setSaving(true); setFormError('');
-    const { error: failure } = await supabase.rpc('remover_ordem_cancelada', { p_prefeitura: municipalityId, p_demanda: item.id });
+    const { error: failure } = await supabase.rpc('excluir_demanda_municipal', { p_prefeitura: municipalityId, p_demanda: item.id });
     setSaving(false);
     if (failure) { setFormError(failure.message); return; }
-    showAppNotice({ title: 'Ordem removida' });
+    showAppNotice({ title: 'Ordem excluída' });
     onRemoved?.(item.id);
   };
   const addFiles = (event, tipo) => {
@@ -311,7 +314,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   return <MunicipalDrawer open={open} onClose={close} busy={saving || registering} variant="demand" inline={inline} activeSection={tab}
     title={item?.protocolo || (demandId && demandId !== 'nova' ? 'Ordem de serviço' : 'Nova ordem de serviço')}
     description={item ? <span className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-status-progressBg px-2 py-0.5 text-xs font-bold text-status-progressFg">{DEMAND_STATUSES.find(([key]) => key === form.status)?.[1] || 'Em atendimento'}</span><span className="text-xs">{context.channels.find((channel) => String(channel.id) === String(form.canal_id))?.nome || 'Aguardando secretaria'}</span>{dirty && <span className="inline-flex items-center gap-1.5 rounded-md bg-status-pendingBg px-2 py-0.5 text-xs font-semibold text-status-pendingFg"><span className="h-1.5 w-1.5 rounded-full bg-current" />Não salvo</span>}</span> : 'Registre o serviço em etapas: dados, local, atendimento, anexos, comunicação e vínculos.'}
-    headerAction={item && editable && <div className="flex flex-wrap items-center gap-2"><label className="text-xs font-semibold">Status da ordem<select aria-label="Alterar status da ordem" className={selectClass + ' mt-1 min-w-40'} value={form.status} onChange={(event) => advance(event.target.value, false)} disabled={saving}>{statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{dirty && <Button type="submit" form="municipal-demand-form" className="min-w-32 shadow-sm" disabled={saving || locating || registering || !form.titulo.trim()}>{saving ? 'Salvando…' : 'Salvar ordem'}</Button>}{context.isAdministrator && item.status === 'cancelada' && <Button type="button" variant="outline" size="sm" disabled={saving} onClick={removeOrder}>Remover ordem</Button>}</div>}
+    headerAction={item && editable && <div className="flex flex-wrap items-center gap-2"><label className="text-xs font-semibold">Status da ordem<select aria-label="Alterar status da ordem" className={selectClass + ' mt-1 min-w-40'} value={form.status} onChange={(event) => advance(event.target.value, false)} disabled={saving}>{statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{dirty && <Button type="submit" form="municipal-demand-form" className="min-w-32 shadow-sm" disabled={saving || locating || registering || !form.titulo.trim()}>{saving ? 'Salvando…' : 'Salvar ordem'}</Button>}{canDeleteOrder && <Button type="button" variant="outline" size="sm" disabled={saving || !deletableStatus} title={!deletableStatus ? 'Cancele e salve a ordem antes de excluí-la.' : undefined} onClick={removeOrder}><Trash2 className="mr-1.5 h-4 w-4" />Excluir ordem</Button>}</div>}
     navigation={!loading && !error && (inline && isNew ? <nav aria-label="Etapas da ordem de serviço"><ol className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{visibleTabs.map(([key, title], index) => { const { icon: Icon, detail } = tabDetails[key]; const selected = tab === key; return <li key={key} className="min-w-0"><button type="button" aria-current={selected ? 'step' : undefined} disabled={locating || saving || registering} onClick={() => { setTab(key); setFormError(''); }} className={'flex min-h-16 w-full min-w-0 flex-col justify-between gap-1 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 ' + (selected ? 'border-brand bg-brand text-content-onBrand shadow-sm' : 'border-edge-subtle bg-surface-subtle text-content-primary hover:border-brand/40 hover:bg-brand-subtleBg')}><span className="flex w-full min-w-0 items-center justify-between gap-2 text-xs font-bold"><span className="truncate">{title}{key === 'vinculos' && reports.length ? ` (${reports.length})` : ''}</span><Icon className="h-4 w-4 shrink-0" /></span><span className={'line-clamp-2 text-[11px] leading-4 ' + (selected ? 'text-content-onBrand/80' : 'text-content-secondary')}>{String(index + 1).padStart(2, '0')} · {detail}</span></button></li>; })}</ol></nav> : <nav aria-label="Seções do atendimento" className="overflow-x-auto"><div className="flex min-w-max gap-1.5 rounded-xl bg-surface-subtle p-1.5">{visibleTabs.map(([key, title], index) => { const { icon: Icon } = tabDetails[key]; const selected = tab === key; return <button key={key} type="button" aria-current={selected ? (isNew ? 'step' : 'page') : undefined} disabled={locating || saving || registering} onClick={() => { setTab(key); setFormError(''); }} className={'group flex min-h-10 min-w-max items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 ' + (selected ? 'border-edge-subtle bg-surface-raised text-brand-subtleFg shadow-sm' : 'border-transparent text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Icon className="h-4 w-4 shrink-0" /><span>{title}{key === 'vinculos' && reports.length ? ` (${reports.length})` : ''}</span>{isNew && <span className="text-[10px] tabular-nums text-content-tertiary">{String(index + 1).padStart(2, '0')}</span>}</button>; })}</div></nav>)}
     footer={isNew && !loading && !error && <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
       {stepIndex > 0 && <Button type="button" variant="ghost" disabled={saving || locating || registering} onClick={() => setTab(visibleTabs[stepIndex - 1][0])}><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Button>}
@@ -325,7 +328,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
           <fieldset disabled={saving || registering} className={'min-w-0 ' + (inline && isNew ? 'flex h-full flex-col gap-3' : 'space-y-5')}>
           {item?.revisao_pendente && <div role="status" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-4 text-sm text-danger-subtleFg"><AlertCircle className="mr-2 inline h-4 w-4" />Há uma manifestação da comunidade que precisa de revisão. Consulte o histórico e reabra o atendimento se houver trabalho pendente.</div>}
           {!editable && <p className="rounded-xl bg-surface-subtle p-3 text-sm text-content-secondary">Você tem acesso de consulta a este atendimento.</p>}
-          {formError && <div role="alert" className="space-y-2 rounded-xl border border-danger/30 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg"><p>{formError}</p>{item && <Button type="button" variant="outline" size="sm" onClick={() => { if (!dirty || window.confirm('Recarregar o atendimento e descartar as alterações locais?')) setRevision((value) => value + 1); }}>Recarregar atendimento</Button>}</div>}
+          {formError && <div role="alert" className="space-y-2 rounded-xl border border-danger/30 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg"><p>{formError}</p>{item && <Button type="button" variant="outline" size="sm" onClick={async () => { if (!dirty || await confirmApp({ title: 'Recarregar atendimento?', description: 'As alterações locais não salvas serão descartadas.', confirmLabel: 'Recarregar', destructive: true })) setRevision((value) => value + 1); }}>Recarregar atendimento</Button>}</div>}
           {tab === 'dados' && <section className="flex min-h-[18rem] min-w-0 w-full flex-1 flex-col gap-3 rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
               <SectionHeading icon={FileText} title="Informações do serviço" description="Comece pelo que precisa ser feito e pela prioridade." />
               <div className={'grid min-w-0 gap-3 sm:grid-cols-2 ' + (inline ? 'xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]' : '')}>

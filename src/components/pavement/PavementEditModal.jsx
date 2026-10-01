@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { MapPin, PlusCircle, BookOpen, Image as ImageIcon, FileText, ChevronLeft, ChevronRight, ChevronDown, UploadCloud, Loader2, Save, Trash2, Star, Route as Road, PenLine, Sparkles, Quote, Layers3, User, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -642,7 +643,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
 
     const hasExistingText = ['honoree_name', 'biography', 'curiosities']
       .some((field) => String(formData[field] || '').trim());
-    if (hasExistingText && !window.confirm('A IA poderá substituir os textos atuais no formulário. Deseja continuar?')) return;
+    if (hasExistingText && !await confirmApp({ title: 'Substituir os textos atuais?', description: 'A geração por IA poderá substituir os textos deste formulário.', confirmLabel: 'Continuar' })) return;
 
     setGeneratingHistory(true);
     try {

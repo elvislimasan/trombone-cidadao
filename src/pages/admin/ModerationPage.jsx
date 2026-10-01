@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -258,7 +259,7 @@ const ModerationPage = () => {
 
   const handleAction = async (item, newStatus) => {
     if (newStatus === 'deleted' && isUpdateModeration) {
-      if (window.confirm('Excluir esta atualização definitivamente? Esta ação não pode ser desfeita.')) {
+      if (await confirmApp({ title: 'Excluir esta atualização?', description: 'Esta ação é definitiva e não pode ser desfeita.', confirmLabel: 'Excluir atualização', destructive: true })) {
         await handleDeleteUpdate(item);
       }
       return;

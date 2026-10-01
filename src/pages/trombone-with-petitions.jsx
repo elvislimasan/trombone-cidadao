@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { alertApp } from '@/lib/appConfirm';
 
 // Mock data
 const mockReports = [
@@ -436,7 +437,7 @@ const TromboneCidadaoDemo = () => {
         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F05045'}
         onClick={(e) => {
           e.stopPropagation();
-          alert('Apoiar petição: ' + petition.title);
+          void alertApp({ title: 'Apoiar petição', description: petition.title });
         }}
         >
           Apoiar Agora
@@ -932,7 +933,7 @@ const TromboneCidadaoDemo = () => {
           cursor: 'pointer',
           transition: 'transform 0.2s'
         }}
-        onClick={() => alert('Nova Bronca!')}
+        onClick={() => void alertApp({ title: 'Nova solicitação' })}
         onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >

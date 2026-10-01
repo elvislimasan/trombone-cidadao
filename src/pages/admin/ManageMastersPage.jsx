@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { promptApp } from '@/lib/appConfirm';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -740,7 +741,8 @@ const ApplicationsSection = () => {
   };
 
   const handleReject = async (app) => {
-    const reason = window.prompt('Motivo da rejeição (opcional):') || null;
+    const reason = await promptApp({ title: 'Rejeitar candidatura?', description: 'Informe o motivo, se desejar.', confirmLabel: 'Rejeitar candidatura' });
+    if (reason === null) return;
     setActionId(`${app.id}-reject`);
     const { error } = await supabase
       .from('ambassador_applications')

@@ -102,7 +102,7 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
           moderation_status: municipalMode ? (is_public === true ? 'approved' : 'internal') : user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
           city_id: cityId,
         })
-        .select('id,protocol,title,address,created_at,location,is_public,created_by_municipality')
+        .select('id,protocol,title,description,category_id,issue_type,pole_number,is_from_water_utility,address,created_at,location,is_public,created_by_municipality')
         .single();
 
       if (signal && typeof insertQuery.abortSignal === 'function') {

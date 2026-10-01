@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { promptApp } from '@/lib/appConfirm';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Building2, Check, Copy, Loader2, Mail, Power, PowerOff, UserCheck, X } from 'lucide-react';
@@ -51,7 +52,7 @@ export default function ManageMunicipalitiesPage() {
   useEffect(() => { load(); }, [load]);
 
   const review = async (request, approve) => {
-    const reason = approve ? null : window.prompt('Informe o motivo da recusa:');
+    const reason = approve ? null : await promptApp({ title: 'Recusar cadastro?', description: 'Informe o motivo da recusa.', required: true, confirmLabel: 'Recusar cadastro' });
     if (!approve && reason === null) return;
     setWorking(request.id);
     const { error } = await supabase.rpc('revisar_solicitacao_prefeitura', {

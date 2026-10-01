@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -126,7 +127,7 @@ const MyPetitionsPage = () => {
   };
 
   const handleDeletePetition = async (petition) => {
-    if (!confirm("Tem certeza que deseja excluir permanentemente esta petição? Esta ação não pode ser desfeita.")) return;
+    if (!await confirmApp({ title: 'Excluir esta petição?', description: 'A exclusão é permanente e não pode ser desfeita.', confirmLabel: 'Excluir petição', destructive: true })) return;
 
     setLoading(true);
     try {

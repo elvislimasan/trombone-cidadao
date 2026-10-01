@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { confirmApp } from '@/lib/appConfirm';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,6 +78,7 @@ const useIsMobile = () => {
 };
 
 const PetitionEditor = ({ petition, onSave, onCancel }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
@@ -389,7 +391,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   };
 
   const handleDiscardDraft = async () => {
-    if (!confirm("Tem certeza que deseja descartar o rascunho? Você perderá todas as alterações não publicadas e voltará para a versão ativa.")) return;
+    if (!await confirmApp({ title: 'Descartar o rascunho?', description: 'As alterações não publicadas serão perdidas e a versão ativa voltará a aparecer.', confirmLabel: 'Descartar', destructive: true })) return;
     
     setLoading(true);
     try {
@@ -432,7 +434,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   };
 
   const handleClosePetition = async () => {
-    if (!confirm("Tem certeza que deseja encerrar esta petição? Ela não poderá mais receber assinaturas, mas continuará visível.")) return;
+    if (!await confirmApp({ title: 'Encerrar esta petição?', description: 'Ela não receberá novas assinaturas, mas continuará visível.', confirmLabel: 'Encerrar petição' })) return;
 
     setLoading(true);
     try {
@@ -462,7 +464,7 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
   };
 
   const handleDeletePetition = async () => {
-    if (!confirm("Tem certeza que deseja excluir permanentemente esta petição? Esta ação não pode ser desfeita.")) return;
+    if (!await confirmApp({ title: 'Excluir esta petição?', description: 'A exclusão é permanente e não pode ser desfeita.', confirmLabel: 'Excluir petição', destructive: true })) return;
 
     setLoading(true);
     try {
@@ -502,8 +504,8 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
     }
   };
 
-  const handleRestore = (snapshot) => {
-    if (!confirm("Tem certeza que deseja restaurar esta versão? As alterações atuais serão perdidas.")) return;
+  const handleRestore = async (snapshot) => {
+    if (!await confirmApp({ title: 'Restaurar esta versão?', description: 'As alterações atuais serão perdidas.', confirmLabel: 'Restaurar', destructive: true })) return;
     
     setFormData({
       ...snapshot,
@@ -1055,9 +1057,9 @@ const PetitionEditor = ({ petition, onSave, onCancel }) => {
     );
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     if (isDirty) {
-      if (confirm("Você tem alterações não salvas. Deseja sair sem salvar?")) {
+      if (await confirmApp({ title: 'Sair sem salvar?', description: 'As alterações não salvas serão perdidas.', confirmLabel: 'Sair sem salvar', destructive: true })) {
         onCancel();
       }
     } else {

@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Download, Filter, LayoutGrid, LayoutList, Loader2, LockKeyhole, Map as MapIcon, MapPin, Megaphone, MoreHorizontal, Search, Signpost } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Download, Filter, LayoutGrid, LayoutList, Loader2, LockKeyhole, Map as MapIcon, MapPin, Megaphone, MoreHorizontal, Search, Signpost, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,6 +18,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { loadMunicipalReportFacets, loadMunicipalReportPage, REPORT_AGES, REPORT_PAGE_SIZES, REPORT_PHASES, REPORT_STATUSES, reportAge, reportPageNumbers } from '@/lib/municipalReports';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 import { TIPOS_DE_PROBLEMA_ESGOTO, TIPOS_DE_PROBLEMA_ILUMINACAO, rotuloDoTipoDeProblema } from '@/lib/reportCategoryFields';
+import { confirmApp } from '@/lib/appConfirm';
+import { showAppError, showAppNotice } from '@/lib/appError';
 
 const ReportsMap = lazy(() => import('@/components/municipality/MunicipalReportsMap'));
 const date = (value) => value ? new Date(value).toLocaleDateString('pt-BR') : '—';
@@ -81,6 +83,7 @@ export default function MunicipalReportsPage({ view = 'list' }) {
   const [revision, setRevision] = useState(0);
   const [serviceOrderOpen, setServiceOrderOpen] = useState(false);
   const [reportCreateOpen, setReportCreateOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [mobileLayout, setMobileLayout] = useState('list');
   const query = params.get('q') || '';
   const category = params.get('categoria') || 'all';
@@ -177,6 +180,27 @@ export default function MunicipalReportsPage({ view = 'list' }) {
   };
   const saved = () => { closeDemand(); setRevision((value) => value + 1); };
   const toggleSelection = (id) => setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  const canDeleteReport = (item) => Boolean(context.canEdit && item.created_by_municipality === municipalityId
+    && (context.isAdministrator || item.author_id === context.userId));
+  const deleteReport = async (item) => {
+    if (!canDeleteReport(item) || linkedIds.has(item.id) || deletingId) return;
+    if (!await confirmApp({ title: 'Excluir esta solicitação?', description: `A solicitação ${item.protocol || item.title}, suas fotos, seu comprovante e o histórico vinculado deixarão de aparecer. Esta ação não pode ser desfeita.`, confirmLabel: 'Excluir solicitação', destructive: true })) return;
+    setDeletingId(item.id);
+    try {
+      const { error: failure } = await supabase.rpc('excluir_solicitacao_municipal', {
+        p_prefeitura: municipalityId, p_report: item.id,
+      });
+      if (failure) throw failure;
+      if (activeReportId === item.id) closeReport();
+      setSelectedIds((current) => current.filter((id) => id !== item.id));
+      setRevision((value) => value + 1);
+      showAppNotice({ title: 'Solicitação excluída' });
+    } catch (failure) {
+      showAppError({ title: 'Não foi possível excluir a solicitação', description: failure.message });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (context.loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!context.municipality) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Acesso institucional necessário</h1><p className="mt-2 text-sm text-content-secondary">{context.error}</p></div>;
@@ -220,6 +244,8 @@ export default function MunicipalReportsPage({ view = 'list' }) {
     <DropdownMenuItem onSelect={() => change('bronca', item.id)}>Ver detalhes da solicitação</DropdownMenuItem>
     {context.canEdit && (item.is_public || !item.created_by_municipality) && !linkedIds.has(item.id) && ['pending', 'in-progress'].includes(item.status) && <DropdownMenuItem onSelect={() => { setSelectedIds([item.id]); setServiceOrderOpen(true); }}>Gerar ordem de serviço</DropdownMenuItem>}
     {(item.is_public || !item.created_by_municipality) && <DropdownMenuItem asChild><Link to={'/bronca/' + item.id} target="_blank" rel="noopener noreferrer">Abrir página pública</Link></DropdownMenuItem>}
+    {canDeleteReport(item) && <DropdownMenuItem onSelect={() => deleteReport(item)} disabled={linkedIds.has(item.id) || Boolean(deletingId)} className="text-danger focus:text-danger"><Trash2 className="mr-2 h-4 w-4" />{deletingId === item.id ? 'Excluindo…' : 'Excluir solicitação'}</DropdownMenuItem>}
+    {canDeleteReport(item) && linkedIds.has(item.id) && <p className="px-2 py-1 text-xs text-content-secondary">Remova primeiro a ordem de serviço vinculada.</p>}
   </DropdownMenuContent></DropdownMenu>;
 
   return <div className="page-shell-fluid min-w-0 pb-10 pt-6 sm:pt-8" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
@@ -295,7 +321,7 @@ export default function MunicipalReportsPage({ view = 'list' }) {
       </section>
     </>}
     {serviceOrderOpen && <MunicipalServiceOrderDialog context={context} selectedIds={selectedIds} onRemove={(id) => setSelectedIds((current) => current.filter((value) => value !== id))} onClose={() => setServiceOrderOpen(false)} onCreated={() => { setRevision((value) => value + 1); setSelectedIds([]); }} onOpenOrder={(id) => { setServiceOrderOpen(false); openDemand(id); }} />}
-    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={municipalityId} onClose={() => setReportCreateOpen(false)} onCreated={(created) => { setParams(new URLSearchParams(created?.id ? { bronca: created.id, ...(created.is_public === false ? { visibilidade: 'internas' } : {}) } : {}), { replace: true }); setRevision((value) => value + 1); }} />
+    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={municipalityId} onClose={() => setReportCreateOpen(false)} onCreated={() => setRevision((value) => value + 1)} onReceiptClose={(created) => { if (created?.id) setParams(new URLSearchParams({ bronca: created.id, ...(created.is_public === false ? { visibilidade: 'internas' } : {}) }), { replace: true }); }} />
     <MunicipalReportDrawer open={Boolean(activeReportId) && !activeDemandId} reportId={activeReportId} context={context} onClose={closeReport} onCreateDemand={(id) => { closeReport(); setSelectedIds([id]); setServiceOrderOpen(true); }} onOpenDemand={(id) => openDemand(id)} onUpdated={() => { setSelectedIds([]); setRevision((value) => value + 1); }} />
     <MunicipalDemandDrawer open={Boolean(activeDemandId)} demandId={activeDemandId} reportId={linkedReportId} context={context} onClose={closeDemand} onSaved={saved} onRemoved={saved} />
   </div>;

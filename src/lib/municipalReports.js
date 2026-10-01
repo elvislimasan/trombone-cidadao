@@ -9,7 +9,12 @@ export const REPORT_AGES = [['all', 'Todas'], ['7', 'Até 7 dias'], ['15', '8–
 export const REPORT_PAGE_SIZES = [20, 50, 100];
 const DAY = 86400000;
 const BATCH_SIZE = 500;
-const REPORT_FIELDS = 'id,title,address,neighborhood,created_at,status,category_id,issue_type,is_public,created_by_municipality,featured_image_url,report_media(url,type,created_at),category:categories(name)';
+const REPORT_FIELDS = 'id,title,protocol,address,neighborhood,created_at,status,category_id,issue_type,is_public,created_by_municipality,author_id,featured_image_url,report_media(url,type,created_at),category:categories(name)';
+
+export function canChangeMunicipalReportVisibility(report, context) {
+  return Boolean(context?.canEdit && context?.municipality?.id
+    && report?.created_by_municipality === context.municipality.id);
+}
 
 export function reportAge(value, now = new Date()) {
   const created = new Date(value);

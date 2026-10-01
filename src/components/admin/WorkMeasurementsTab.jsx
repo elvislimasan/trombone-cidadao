@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -294,7 +295,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   };
 
   const handleDeleteMedia = async (mediaId, path) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta mídia?')) return;
+    if (!await confirmApp({ title: 'Excluir esta mídia?', description: 'O arquivo será removido desta obra.', confirmLabel: 'Excluir mídia', destructive: true })) return;
 
     try {
       const { error } = await supabase
@@ -644,7 +645,7 @@ export function WorkMeasurementsTab({ workId, contractors = [], onEditingChange,
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta medição?')) return;
+    if (!await confirmApp({ title: 'Excluir esta medição?', description: 'Esta ação não pode ser desfeita.', confirmLabel: 'Excluir medição', destructive: true })) return;
 
     try {
       const { error } = await supabase

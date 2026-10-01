@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { Clock3, ExternalLink, FileText, Info, Loader2, MapPin, MessageSquare, Paperclip, Plus } from 'lucide-react';
+import { Clock3, Download, ExternalLink, FileText, Info, Loader2, MapPin, MessageSquare, Paperclip, Plus, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import MediaViewer from '@/components/MediaViewer';
@@ -8,7 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/customSupabaseClient';
 import { agencyCasePoint } from '@/lib/agencyCaseFilters';
 import { DEMAND_STATUSES } from '@/lib/municipalDemand';
+import { canChangeMunicipalReportVisibility } from '@/lib/municipalReports';
 import { rotuloDoTipoDeProblema } from '@/lib/reportCategoryFields';
+import { loadMunicipalReportReceiptUrl, municipalReceiptDownloadUrl, saveMunicipalReportReceipt } from '@/lib/municipalReportReceipt';
 
 const LocationMap = lazy(() => import('@/components/municipality/AgencyCasesMap').then((module) => ({ default: module.AgencyCaseLocationMap })));
 const statusLabels = { pending: 'Pendente', 'in-progress': 'Em andamento', pending_resolution: 'Aguardando confirmação', resolved: 'Resolvida', duplicate: 'Duplicada' };
@@ -32,6 +34,12 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
   const [visibilityBusy, setVisibilityBusy] = useState(false);
   const [visibilityError, setVisibilityError] = useState('');
   const [revision, setRevision] = useState(0);
+  const [receiptUrl, setReceiptUrl] = useState(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptSaving, setReceiptSaving] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
+  const [receiptLoadFailed, setReceiptLoadFailed] = useState(false);
+  const [receiptRevision, setReceiptRevision] = useState(0);
 
   useEffect(() => {
     if (!open || !reportId || !context.municipality?.id) return;
@@ -47,7 +55,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     (async () => {
       const [reportResult, linkedResult, stepsResult, updatesResult] = await Promise.all([
         supabase.from('reports')
-          .select('id,title,description,address,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
+          .select('id,title,description,address,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
           .eq('id', reportId).eq('city_id', context.municipality.city_id)
           .or(`moderation_status.eq.approved,moderation_status.eq.internal,moderation_status.is.null,created_by_municipality.eq.${context.municipality.id}`)
           .or('is_petition.eq.false,is_petition.is.null').maybeSingle(),
@@ -69,6 +77,53 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     return () => { active = false; };
   }, [open, reportId, context.municipality?.id, context.municipality?.city_id, revision]);
 
+  useEffect(() => {
+    if (!open || !report?.id) {
+      setReceiptUrl(null);
+      setReceiptError('');
+      return;
+    }
+    let active = true;
+    setReceiptLoading(true);
+    setReceiptUrl(null);
+    setReceiptError('');
+    setReceiptLoadFailed(false);
+    loadMunicipalReportReceiptUrl(supabase, report.id).then((url) => {
+      if (active) setReceiptUrl(url);
+    }).catch(() => {
+      if (active) {
+        setReceiptLoadFailed(true);
+        setReceiptError('Não foi possível carregar o comprovante. Tente novamente.');
+      }
+    }).finally(() => {
+      if (active) setReceiptLoading(false);
+    });
+    return () => { active = false; };
+  }, [open, report?.id, receiptRevision]);
+
+  useEffect(() => {
+    const refreshReceipt = (event) => {
+      if (event.detail?.id === reportId) setReceiptRevision((value) => value + 1);
+    };
+    window.addEventListener('municipal-report-receipt-saved', refreshReceipt);
+    return () => window.removeEventListener('municipal-report-receipt-saved', refreshReceipt);
+  }, [reportId]);
+
+  const createReceipt = async () => {
+    if (!report?.id || !context.canEdit || receiptSaving) return;
+    setReceiptSaving(true);
+    setReceiptError('');
+    try {
+      await saveMunicipalReportReceipt(supabase, report);
+      setReceiptRevision((value) => value + 1);
+    } catch (failure) {
+      console.error('Falha ao gerar ou salvar o comprovante municipal:', failure);
+      setReceiptError('Não foi possível gerar ou salvar o PDF do comprovante. Tente novamente.');
+    } finally {
+      setReceiptSaving(false);
+    }
+  };
+
   const publishUpdate = async (event) => {
     event.preventDefault();
     if (!context.canEdit || updating) return;
@@ -82,8 +137,9 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     setUpdateMessage(''); setRevision((value) => value + 1); onUpdated?.();
   };
 
+  const canChangeVisibility = canChangeMunicipalReportVisibility(report, context);
   const changeVisibility = async () => {
-    if (!report?.created_by_municipality || visibilityBusy) return;
+    if (!canChangeVisibility || visibilityBusy) return;
     setVisibilityBusy(true);
     setVisibilityError('');
     const nextPublic = !report.is_public;
@@ -118,7 +174,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
   const linkedStatus = DEMAND_STATUSES.find(([key]) => key === linked?.status)?.[1];
   const tabs = [
     { value: 'informacoes', label: 'Resumo', detail: 'Relato e dados', icon: Info },
-    { value: 'arquivos', label: 'Arquivos', detail: 'Fotos e mídias', icon: Paperclip, count: photos.length + otherFiles.length },
+    { value: 'arquivos', label: 'Arquivos', detail: 'Fotos e mídias', icon: Paperclip, count: photos.length + otherFiles.length + Number(Boolean(receiptUrl)) },
     { value: 'timeline', label: 'Atividade', detail: 'Histórico do caso', icon: Clock3, count: steps.length + updates.length },
     { value: 'localizacao', label: 'Localização', detail: 'Endereço e mapa', icon: MapPin },
   ];
@@ -136,7 +192,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
       : error ? <p role="alert" className="text-sm text-red-700">{error}</p>
         : report && <>
         <TabsContent value="informacoes" className="mt-0 space-y-6">
-          {report.created_by_municipality && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge-subtle bg-surface-subtle p-4" aria-label="Visibilidade da solicitação"><div><p className="text-sm font-bold">{report.is_public ? 'Visível ao público' : 'Solicitação interna da prefeitura'}</p><p className="mt-1 text-xs text-content-secondary">{report.is_public ? 'Aparece no mapa e no feed sem moderação.' : 'Aparece apenas para a equipe municipal. Publique para criar uma ordem de serviço vinculada.'}</p></div>{context.canEdit && <Button type="button" variant="outline" size="sm" disabled={visibilityBusy} onClick={changeVisibility}>{visibilityBusy ? 'Salvando…' : report.is_public ? 'Tornar interna' : 'Tornar pública'}</Button>}{visibilityError && <p role="alert" className="w-full text-xs text-danger">{visibilityError}</p>}</section>}
+          {report.created_by_municipality && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge-subtle bg-surface-subtle p-4" aria-label="Visibilidade da solicitação"><div><p className="text-sm font-bold">{report.is_public ? 'Visível ao público' : 'Solicitação interna da prefeitura'}</p><p className="mt-1 text-xs text-content-secondary">{report.is_public ? 'Aparece no mapa e no feed sem moderação.' : 'Aparece apenas para a equipe municipal. Publique para criar uma ordem de serviço vinculada.'}</p></div>{canChangeVisibility && <Button type="button" variant="outline" size="sm" disabled={visibilityBusy} onClick={changeVisibility}>{visibilityBusy ? 'Salvando…' : report.is_public ? 'Tornar interna' : 'Tornar pública'}</Button>}{visibilityError && <p role="alert" className="w-full text-xs text-danger">{visibilityError}</p>}</section>}
           <section aria-labelledby="relato-da-solicitação">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <h2 id="relato-da-solicitação" className="text-sm font-bold text-content-primary">Relato do cidadão</h2>
@@ -165,9 +221,21 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
           </section>
         </TabsContent>
         <TabsContent value="arquivos" className="mt-0 space-y-5">
-          {!photos.length && !otherFiles.length && <p className="rounded-xl border border-dashed border-edge-default bg-surface-raised p-8 text-center text-sm text-content-tertiary">Nenhum arquivo disponível nesta solicitação.</p>}
           {photos.length > 0 && <section><h3 className="mb-3 text-sm font-semibold">Fotos ({photos.length})</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{photos.map((url, index) => <button key={url} type="button" onClick={() => setViewingPhotoIndex(index)} aria-label={`Ampliar foto ${index + 1}`} className="overflow-hidden rounded-xl border border-edge-subtle focus-visible:ring-2 focus-visible:ring-brand"><img src={url} alt={`Foto ${index + 1} da solicitação`} loading="lazy" className="aspect-[4/3] w-full object-cover" /></button>)}</div></section>}
           {otherFiles.length > 0 && <section><h3 className="mb-3 text-sm font-semibold">Outras mídias ({otherFiles.length})</h3><div className="grid gap-3 sm:grid-cols-2">{otherFiles.map((media, index) => <div key={media.url} className="min-w-0 overflow-hidden rounded-xl border border-edge-subtle bg-surface-subtle">{media.type === 'video' && <video src={media.url} controls preload="metadata" aria-label={`Vídeo ${index + 1} da solicitação`} className="aspect-video w-full bg-black" />}<a href={media.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-3 text-sm font-semibold text-brand hover:underline"><FileText className="h-4 w-4 shrink-0" />{media.type === 'video' ? 'Abrir vídeo' : 'Abrir arquivo'} {index + 1}<ExternalLink className="ml-auto h-4 w-4 shrink-0" /></a></div>)}</div></section>}
+          <section className="flex flex-wrap items-center justify-between gap-3 border-t border-edge-subtle pt-4" aria-label="Comprovante da solicitação">
+            <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-subtleBg text-brand"><FileText className="h-5 w-5" /></span><div><h3 className="text-sm font-semibold">Comprovante da solicitação</h3><p className="mt-0.5 text-xs text-content-secondary">PDF com mapa e protocolo · acesso restrito à equipe municipal</p></div></div>
+            {receiptLoadFailed ? <Button type="button" size="sm" variant="outline" onClick={() => setReceiptRevision((value) => value + 1)}>Tentar novamente</Button>
+              : receiptUrl ? <div className="flex flex-wrap items-center gap-2">
+                <Button asChild size="sm" variant="outline"><a href={receiptUrl} target="_blank" rel="noopener noreferrer">Ver arquivo<ExternalLink className="ml-1.5 h-3.5 w-3.5" /></a></Button>
+                <Button asChild size="sm" variant="outline"><a href={municipalReceiptDownloadUrl(receiptUrl, report)} download><Download className="mr-1.5 h-3.5 w-3.5" />Baixar PDF</a></Button>
+                {context.canEdit && <Button type="button" size="sm" variant="outline" onClick={createReceipt} disabled={receiptSaving || receiptLoading}><RefreshCw className={`mr-1.5 h-3.5 w-3.5${receiptSaving ? ' animate-spin' : ''}`} />{receiptSaving ? 'Gerando…' : 'Atualizar PDF'}</Button>}
+              </div>
+                : context.canEdit && <Button type="button" size="sm" variant="outline" onClick={createReceipt} disabled={receiptSaving || receiptLoading}>{receiptSaving ? 'Gerando…' : 'Gerar PDF'}</Button>}
+            {receiptLoading && <p role="status" className="w-full text-xs text-content-secondary">Carregando comprovante…</p>}
+            {receiptError && <p role="alert" className="w-full text-xs text-danger">{receiptError}</p>}
+            {!receiptUrl && !receiptLoading && !receiptError && !context.canEdit && <p className="w-full text-xs text-content-tertiary">Comprovante ainda não disponível.</p>}
+          </section>
         </TabsContent>
         <TabsContent value="timeline" className="mt-0 space-y-5">
           <h2 className="text-sm font-bold">Atividade da solicitação</h2>
