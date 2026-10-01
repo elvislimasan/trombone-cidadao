@@ -3127,7 +3127,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
     reverseGeocodeTargetRef.current = newLocation;
     lastReverseGeocodeKeyRef.current = null;
     resetCityCache();
-    setIsAddressLookupLoading(false);
+    setIsAddressLookupLoading(!addressTouchedRef.current);
     setAddressLookupFailed(false);
     setFormData((prev) => ({
       ...prev,
@@ -3989,6 +3989,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                       onChange={(e) => {
                         addressTouchedRef.current = Boolean(e.target.value.trim());
                         if (!addressTouchedRef.current) lastReverseGeocodeKeyRef.current = null;
+                        setIsAddressLookupLoading(false);
                         setFormData({ ...formData, address: e.target.value });
                         if (errors.address)
                           setErrors((prev) => ({
@@ -4005,6 +4006,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                         : "Endereço de referência (ex: Rua da Floresta, 123)"}
                       required
                     />
+                    {isAddressLookupLoading && !addressTouchedRef.current && (
+                      <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Buscando endereço do ponto marcado…
+                      </p>
+                    )}
                     {errors.address && (
                       <p className="text-xs text-destructive mt-1">
                         {errors.address}
@@ -4877,6 +4884,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                   onChange={(e) => {
                     addressTouchedRef.current = Boolean(e.target.value.trim());
                     if (!addressTouchedRef.current) lastReverseGeocodeKeyRef.current = null;
+                    setIsAddressLookupLoading(false);
                     setFormData({ ...formData, address: e.target.value });
                     if (errors.address)
                       setErrors((prev) => ({ ...prev, address: undefined }));
@@ -4890,6 +4898,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                     : "Endereço de referência (ex: Rua da Floresta, 123)"}
                   required
                 />
+                {isAddressLookupLoading && !addressTouchedRef.current && (
+                  <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Buscando endereço do ponto marcado…
+                  </p>
+                )}
                 {errors.address && (
                   <p className="text-xs text-destructive mt-1">
                     {errors.address}

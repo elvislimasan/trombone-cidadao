@@ -74,8 +74,6 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   const [inviteResponsible, setInviteResponsible] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [extraMembers, setExtraMembers] = useState([]);
-  const [poleSearch, setPoleSearch] = useState('');
-  const [poles, setPoles] = useState([]);
   const municipalityId = context.municipality?.id;
   const electricianMode = Boolean(context.isElectrician && item?.atribuido_a === context.userId && context.electricianChannelIds?.includes(String(item.canal_id)));
   const editable = item ? canEditDemand(context, item.canal_id) || electricianMode : context.canEdit;
@@ -175,19 +173,6 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     return () => window.removeEventListener('beforeunload', warn);
   }, [open, dirty]);
   useEffect(() => {
-    if (!open || form.category_id !== 'iluminacao' || !context.municipality?.city_id) { setPoles([]); return undefined; }
-    let active = true;
-    const timer = window.setTimeout(async () => {
-      const term = poleSearch.trim().replace(/[%,()"'\\]/g, '');
-      let request = supabase.from('poles').select('id,identifier,plate,address,latitude,longitude')
-        .eq('city_id', context.municipality.city_id).neq('lighting_status', 'removido').order('identifier').limit(80);
-      if (term) request = request.or(`identifier.ilike.%${term}%,plate.ilike.%${term}%,address.ilike.%${term}%`);
-      const { data, error: failure } = await request;
-      if (active) { setPoles(data || []); if (failure) setFormError(failure.message); }
-    }, poleSearch ? 250 : 0);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [open, form.category_id, poleSearch, context.municipality?.city_id]);
-  useEffect(() => {
     if (!open || !search.trim() || !municipalityId) { setMatches([]); setSearching(false); return undefined; }
     let active = true;
     setSearching(true);
@@ -230,10 +215,6 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   const changeChannel = (channelId) => {
     const assignment = suggestDemandAssignment(context, form.category_id, channelId);
     setForm((current) => ({ ...current, canal_id: channelId, atribuido_a: channelId ? assignment.atribuido_a : '' }));
-  };
-  const selectPole = (id) => {
-    const pole = poles.find((entry) => String(entry.id) === String(id));
-    setForm((current) => ({ ...current, pole_id: id || '', ...(pole ? { endereco: pole.address || current.endereco, latitude: pole.latitude ?? current.latitude, longitude: pole.longitude ?? current.longitude } : {}) }));
   };
   const advance = (status, showDetails = true) => {
     setForm((current) => ({ ...current, status, executada_em: ['aguardando_confirmacao', 'concluida'].includes(status) ? current.executada_em || localDateTime(new Date()) : current.executada_em }));
@@ -339,9 +320,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
                 <Field title="Protocolo externo"><Input className="h-10" placeholder="Opcional" value={form.protocolo_externo} onChange={(event) => update('protocolo_externo', event.target.value)} disabled={!editable} /></Field>
                 {['iluminacao', 'esgoto'].includes(form.category_id) && <Field className={'sm:col-span-2 ' + (inline ? 'xl:col-span-5' : '')} title="Subcategoria"><select className={selectClass} value={form.issue_type} onChange={(event) => update('issue_type', event.target.value)} disabled={!editable}><option value="">Selecione o tipo de problema</option>{form.issue_type && ![...(form.category_id === 'iluminacao' ? TIPOS_DE_PROBLEMA_ILUMINACAO : TIPOS_DE_PROBLEMA_ESGOTO)].some((type) => type.value === form.issue_type) && <option value={form.issue_type}>{form.issue_type}</option>}{(form.category_id === 'iluminacao' ? TIPOS_DE_PROBLEMA_ILUMINACAO : TIPOS_DE_PROBLEMA_ESGOTO).map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></Field>}
               </div>
-              {form.category_id === 'iluminacao' && <div className="grid gap-3 rounded-xl border border-edge-subtle bg-surface-subtle p-3 sm:grid-cols-2"><Field title="Buscar poste cadastrado"><Input value={poleSearch} onChange={(event) => setPoleSearch(event.target.value)} placeholder="Número, plaqueta ou endereço" disabled={!editable} /></Field><Field title="Poste da ordem"><select className={selectClass} value={form.pole_id} onChange={(event) => selectPole(event.target.value)} disabled={!editable}><option value="">Selecione um poste</option>{form.pole_id && !poles.some((pole) => String(pole.id) === String(form.pole_id)) && <option value={form.pole_id}>Poste #{form.pole_id}</option>}{poles.map((pole) => <option key={pole.id} value={pole.id}>{pole.identifier || pole.plate || `#${pole.id}`} · {pole.address || 'Endereço não informado'}</option>)}</select></Field><p className="text-xs text-content-secondary sm:col-span-2">Mostrando até 80 postes. Refine a busca para encontrar o poste correto.</p></div>}
               <Field className="min-h-0 flex-1" title="Descrição"><textarea className={textAreaClass + ' min-h-32 flex-1 resize-y'} placeholder="Descreva o problema, detalhes e observações…" maxLength={10000} value={form.descricao} onChange={(event) => update('descricao', event.target.value)} disabled={!editable} /></Field>
-              {form.pole_id && <p className="rounded-lg bg-brand-subtleBg p-3 text-xs text-brand">Este atendimento está vinculado ao poste cadastrado #{form.pole_id}.</p>}
               {item && <div className="flex justify-end border-t border-edge-subtle pt-4"><Button type="button" variant="outline" disabled={printing || saving || registering || dirty} title={dirty ? 'Salve as alterações para baixar a ordem atualizada' : 'Baixar a ordem registrada'} onClick={print}>{printing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}PDF da ordem</Button></div>}
           </section>}
           {tab === 'local' && <MunicipalDemandLocation fieldErrors={fieldErrors} form={form} reports={reports} municipality={context.municipality} editable={editable} busy={saving} onLocatingChange={setLocating} onChange={(values) => { setForm((current) => ({ ...current, ...values })); setFormError(''); }} />}
