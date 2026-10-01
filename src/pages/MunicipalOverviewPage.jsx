@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, CheckCircle2, ClipboardList, Clock3, Loader2, Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
+import MunicipalReportCreateDialog from '@/components/municipality/MunicipalReportCreateDialog';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 import { supabase } from '@/lib/customSupabaseClient';
 
@@ -110,9 +111,11 @@ function Attention({ summary }) {
 }
 
 export default function MunicipalOverviewPage() {
+  const navigate = useNavigate();
   const context = useMunicipalityWorkspace();
   const municipalityId = context.municipality?.id;
   const [revision, setRevision] = useState(0);
+  const [reportCreateOpen, setReportCreateOpen] = useState(false);
   const [summary, setSummary] = useState(null);
   const [days, setDays] = useState([]);
   const [summaryError, setSummaryError] = useState('');
@@ -151,7 +154,7 @@ export default function MunicipalOverviewPage() {
 
   return <div className="page-shell-fluid min-w-0 pb-10 pt-6 text-content-primary sm:pt-8">
     <Helmet><title>Visão geral | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Gestão municipal" title="Visão geral" description="Acompanhe o ritmo dos serviços e identifique onde a equipe precisa agir." action={context.canEdit && <Button asChild><Link to="/prefeitura/demandas/nova"><Plus className="mr-2 h-4 w-4" />Nova ordem de serviço</Link></Button>} />
+    <MunicipalPageHeader eyebrow="Gestão municipal" title="Visão geral" description="Acompanhe o ritmo dos serviços e identifique onde a equipe precisa agir." action={context.canEdit && <Button onClick={() => setReportCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Criar solicitação de serviço</Button>} />
     {summaryError && <div role="alert" className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-danger/20 bg-danger-subtleBg p-4 text-sm text-danger"><span>Não foi possível carregar os indicadores. {summaryError}</span><Button variant="outline" size="sm" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</Button></div>}
     {loading ? <div className="flex min-h-72 items-center justify-center" role="status" aria-label="Carregando visão geral"><Loader2 className="h-6 w-6 animate-spin text-content-secondary" /></div> : summary && <>
       <section className="mt-6 grid gap-3 sm:grid-cols-3" aria-label="Indicadores principais">
@@ -162,5 +165,6 @@ export default function MunicipalOverviewPage() {
       <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2"><Distribution summary={summary} /><WeeklyChart days={days} error={weekError} loading={weekLoading} onRetry={() => setRevision((value) => value + 1)} /></div>
       <Attention summary={summary} />
     </>}
+    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
   </div>;
 }

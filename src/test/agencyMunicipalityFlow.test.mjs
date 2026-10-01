@@ -38,7 +38,7 @@ test('broncas são consultadas separadamente e podem vincular uma ordem explíci
   assert.match(drawer, /Abrir ordem de serviço/);
   assert.match(drawer, /vinculos_broncas_prefeitura/);
   assert.match(drawer, /LocationMap/);
-  assert.match(map, /Concentração de broncas abertas/);
+  assert.match(map, /Concentração de solicitações abertas/);
   assert.match(reports, /onCreateDemand=\{\(id\) => \{ closeReport\(\); setSelectedIds\(\[id\]\); setServiceOrderOpen\(true\); \}\}/);
   assert.match(reports, /Gerar Ordem de Serviço/);
   assert.doesNotMatch(reports, /MunicipalExportDialog|Exportar relatório|Exportar selecionadas/);
@@ -52,7 +52,7 @@ test('iluminação registra alterações e exporta histórico para PDF e planilh
     read('supabase/migrations/274_demandas_municipais_iluminacao.sql'),
   ]);
   assert.match(app, /path="\/prefeitura\/iluminacao"/);
-  assert.match(page, /rpc\('gerir_iluminacao_municipal'/);
+  assert.match(page, /rpc\('gerir_iluminacao_municipal_detalhado'/);
   assert.match(page, /from\('pole_lighting_changes'\)/);
   assert.match(page, /pdf\.autoTable/);
   assert.match(page, /text\/csv/);

@@ -16,6 +16,7 @@ import CartoesDeMapa from '@/components/map/CartoesDeMapa';
 import ListaDeBroncas from '@/components/map/ListaDeBroncas';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import ReportModal from '@/components/ReportModal';
+import ReportReceipt from '@/components/report/ReportReceipt';
 import { useCreateReport } from '@/hooks/useCreateReport';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
@@ -211,7 +212,23 @@ export default function MapPage() {
   // não traz nada de novo ensinaria que o envio falhou.
   const { user } = useAuth();
   const [criandoBronca, setCriandoBronca] = useState(false);
-  const { createReport } = useCreateReport({ onCreated: () => setCriandoBronca(false) });
+  const [receipt, setReceipt] = useState(null);
+  const receiptPendingRef = useRef(false);
+  const municipalMode = new URLSearchParams(location.search).get('origem') === 'prefeitura';
+  const { createReport } = useCreateReport({ municipalMode, onCreated: (_id, report) => {
+    receiptPendingRef.current = true;
+    setCriandoBronca(false);
+    setReceipt(report);
+  } });
+  const closeReportModal = () => {
+    setCriandoBronca(false);
+    if (municipalMode && !receiptPendingRef.current) navigate('/prefeitura/broncas');
+  };
+  const closeReceipt = () => {
+    receiptPendingRef.current = false;
+    setReceipt(null);
+    if (municipalMode) navigate('/prefeitura/broncas');
+  };
 
   // `?criar_bronca=1` é como o app volta do login querendo registrar uma
   // bronca (ver ReportModal). O destino era `/broncas`; agora é esta tela, e
@@ -223,9 +240,11 @@ export default function MapPage() {
     if (pedido !== '1' && pedido !== 'true') return;
 
     setCriandoBronca(true);
-    params.delete('criar_bronca');
-    const resto = params.toString();
-    navigate(`${location.pathname}${resto ? `?${resto}` : ''}`, { replace: true });
+    if (params.get('origem') !== 'prefeitura') {
+      params.delete('criar_bronca');
+      const resto = params.toString();
+      navigate(`${location.pathname}${resto ? `?${resto}` : ''}`, { replace: true });
+    }
   }, [location.pathname, location.search, navigate]);
 
   // O recorte "só as broncas desta rua", vindo de `?rua=<id>` — o link que a
@@ -1339,8 +1358,9 @@ export default function MapPage() {
       >
         {sobreposicoes}
         {criandoBronca && (
-          <ReportModal onClose={() => setCriandoBronca(false)} onSubmit={createReport} />
+          <ReportModal onClose={closeReportModal} onSubmit={createReport} municipalMode={municipalMode} />
         )}
+        <ReportReceipt report={receipt} onClose={closeReceipt} />
       </TelaDeMapa>
     );
   }
@@ -1450,6 +1470,8 @@ export default function MapPage() {
       </div>
 
       {sobreposicoes}
+      {criandoBronca && <ReportModal onClose={closeReportModal} onSubmit={createReport} municipalMode={municipalMode} />}
+      <ReportReceipt report={receipt} onClose={closeReceipt} />
     </div>
   );
 }

@@ -151,18 +151,28 @@ export default function PatrolReportModal({
 
   const selecionarPoste = useCallback((marcador) => {
     const poste = marcador?.data;
-    if (!poste) return;
+    const local = marcador?.location;
+    if (!poste || !Number.isFinite(local?.lat) || !Number.isFinite(local?.lng)) return false;
+    if (origem && haversine(origem, local) > RAIO_AJUSTE_M) {
+      showAppError({
+        title: 'Poste fora da área permitida',
+        description: `Selecione um poste a até ${RAIO_AJUSTE_M} metros do ponto original.`,
+      });
+      return false;
+    }
     const plaqueta = String(poste.plate || poste.identifier || marcador.title || '').trim();
+    setPonto({ lat: local.lat, lng: local.lng });
     setExtras((atual) => ({
       ...atual,
       pole_id: poste.pole_id,
       pole_number: plaqueta,
-      reported_pole_distance_m: poste.distance_m ?? null,
+      reported_pole_distance_m: 0,
       reported_post_identifier: poste.identifier ?? null,
       reported_plate: poste.plate ?? null,
     }));
     setTocados((atual) => ({ ...atual, pole_number: true }));
-  }, []);
+    return true;
+  }, [origem]);
 
   // Título sugerido pela categoria. Editável: quem está no local sabe mais que
   // a categoria escolhida às pressas por quem passou de carro.
@@ -191,6 +201,14 @@ export default function PatrolReportModal({
       return;
     }
     setPonto({ lat: novo.lat, lng: novo.lng });
+    setExtras((atual) => atual.pole_id ? {
+      ...atual,
+      pole_id: null,
+      pole_number: '',
+      reported_pole_distance_m: null,
+      reported_post_identifier: null,
+      reported_plate: null,
+    } : atual);
   }, [origem]);
 
   const deslocamento = useMemo(
@@ -412,6 +430,7 @@ export default function PatrolReportModal({
                       }))}
                     selectedOverlayMarkerId={extras.pole_id || null}
                     onOverlayMarkerSelect={selecionarPoste}
+                    snapToOverlayOnSelect
                     // Esta é A tela que precisa funcionar sem rede: quem chegou
                     // até aqui está de pé no local do problema, que é onde o
                     // sinal falta. Lê os tiles que a patrulha baixou de véspera

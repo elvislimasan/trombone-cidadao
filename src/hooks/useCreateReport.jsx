@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { activeMunicipalMembershipId } from '@/lib/municipalReportCreation';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
 
 const STORAGE_KEYS = {
@@ -23,7 +24,7 @@ const throwIfAborted = (signal) => {
   throw error;
 };
 
-export function useCreateReport({ onCreated } = {}) {
+export function useCreateReport({ onCreated, municipalMode = false, municipalityId: activeMunicipalityId = null } = {}) {
   const { user } = useAuth();
   const { celebrate } = useMissionProgress();
   const [submittedCount, setSubmittedCount] = useState(() => {
@@ -37,7 +38,7 @@ export function useCreateReport({ onCreated } = {}) {
   const createReport = useCallback(
     async (newReportData, uploadMediaCallback, { signal } = {}) => {
       throwIfAborted(signal);
-      if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
+      if (!user) throw new Error(`Sua sessão expirou. Entre novamente para enviar a ${municipalMode ? 'solicitação' : 'bronca'}.`);
       const {
         title, description, category, address, location,
         pole_number, pole_id, reported_pole_distance_m,
@@ -46,6 +47,7 @@ export function useCreateReport({ onCreated } = {}) {
         is_anonymous,
         city_id: geocodedCityId,
         neighborhood,
+        is_public,
       } = newReportData;
 
       const normPole = (raw) =>
@@ -55,6 +57,15 @@ export function useCreateReport({ onCreated } = {}) {
       // cidade do filtro ativo nem a do perfil do usuário — a bronca pertence ao
       // local marcado no mapa.
       const cityId = geocodedCityId ?? null;
+      let municipalityId = null;
+      if (municipalMode) {
+        const { data: memberships, error: membershipError } = await supabase.from('prefeitura_membros')
+          .select('prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(id,city_id,status)')
+          .eq('user_id', user.id).eq('ativo', true);
+        if (membershipError) throw membershipError;
+        municipalityId = activeMunicipalMembershipId(memberships, cityId, activeMunicipalityId);
+        if (!municipalityId) throw new Error('Não há prefeitura ativa vinculada a você nesta cidade.');
+      }
 
       let insertQuery = supabase
         .from('reports')
@@ -65,6 +76,8 @@ export function useCreateReport({ onCreated } = {}) {
           address,
           location: `POINT(${location.lng} ${location.lat})`,
           author_id: user.id,
+          ...(municipalMode ? { created_by_municipality: municipalityId } : {}),
+          ...(municipalMode ? { is_public: is_public === true } : {}),
           protocol: `TROMB-${Date.now()}`,
           pole_number: category === 'iluminacao' ? pole_number : null,
           pole_id: category === 'iluminacao' ? pole_id : null,
@@ -80,16 +93,16 @@ export function useCreateReport({ onCreated } = {}) {
             category === 'iluminacao' ? reported_pole_distance_m : null,
           issue_type: ['iluminacao', 'esgoto'].includes(category) ? (issue_type?.trim() || null) : null,
           is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
-          is_anonymous: !!is_anonymous,
+          is_anonymous: municipalMode ? false : !!is_anonymous,
           // Bairro do MARCADOR, pela mesma razão do city_id: a bronca pertence ao
           // lugar marcado no mapa, não ao bairro onde quem registra está.
           // Alimenta os títulos e as medalhas de bairro (migração 174).
           neighborhood: neighborhood?.trim() || null,
           status: 'pending',
-          moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
+          moderation_status: municipalMode ? (is_public === true ? 'approved' : 'internal') : user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
           city_id: cityId,
         })
-        .select('id')
+        .select('id,protocol,title,address,created_at,location,is_public,created_by_municipality')
         .single();
 
       if (signal && typeof insertQuery.abortSignal === 'function') {
@@ -113,13 +126,15 @@ export function useCreateReport({ onCreated } = {}) {
         throw submitError;
       }
 
-      celebrate();
+      if (!municipalMode) celebrate();
 
-      const nextSubmitted = submittedCount + 1;
-      setSubmittedCount(nextSubmitted);
-      try {
-        localStorage.setItem(STORAGE_KEYS.reportsSubmitted, String(nextSubmitted));
-      } catch {}
+      if (!municipalMode) {
+        const nextSubmitted = submittedCount + 1;
+        setSubmittedCount(nextSubmitted);
+        try {
+          localStorage.setItem(STORAGE_KEYS.reportsSubmitted, String(nextSubmitted));
+        } catch {}
+      }
 
       if (Capacitor.isNativePlatform()) {
         try {
@@ -127,7 +142,7 @@ export function useCreateReport({ onCreated } = {}) {
         } catch {}
       }
       try {
-        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) confetti({
+        if (!municipalMode && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) confetti({
           particleCount: 90,
           spread: 60,
           origin: { y: 0.25 },
@@ -135,12 +150,12 @@ export function useCreateReport({ onCreated } = {}) {
         });
       } catch {}
 
-      window.dispatchEvent(new CustomEvent('report-submitted', { detail: { id: data.id, published: !!(user.is_admin || user.is_master) } }));
-      onCreated?.(data.id);
+      window.dispatchEvent(new CustomEvent('report-submitted', { detail: { id: data.id, published: municipalMode ? data.is_public : !!(user.is_admin || user.is_master) } }));
+      onCreated?.(data.id, data);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
       return { id: data.id, notified: true };
     },
-    [submittedCount, user, onCreated, celebrate]
+    [submittedCount, user, onCreated, celebrate, municipalMode, activeMunicipalityId]
   );
 
   return { createReport, submittedCount };

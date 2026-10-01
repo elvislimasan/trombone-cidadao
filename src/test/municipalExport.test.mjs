@@ -223,7 +223,7 @@ test('PDF geral e fichas listam endereços vinculados com paginação para muita
   const overview = await buildMunicipalExportPdf({ records, kind: 'demands', municipality: context.municipality });
   const overviewText = overview.output();
   assert.ok(overview.getNumberOfPages() > 1);
-  assert.ok(overviewText.includes('Endereços das broncas vinculadas'));
+  assert.ok(overviewText.includes('Endereços das solicitações vinculadas'));
   assert.ok(overviewText.includes('Rua 0-0'));
   assert.ok(overviewText.includes('Rua 59-3'));
   assert.ok(overviewText.includes('Página 2 de'));

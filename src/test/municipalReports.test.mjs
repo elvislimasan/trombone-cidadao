@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadMunicipalReportFacets, loadMunicipalReportPage, loadPendingMapReports, reportAge, reportAgeBounds, reportPageNumbers } from '../lib/municipalReports.js';
 
 function fakeClient(rows, links = [], linkError = null, catalog = []) {
-  rows = rows.map((item) => ({ status: 'pending', ...item }));
+  rows = rows.map((item) => ({ status: 'pending', moderation_status: 'approved', is_public: true, ...item }));
   const batches = [];
   const client = {
     batches,
@@ -16,7 +16,20 @@ function fakeClient(rows, links = [], linkError = null, catalog = []) {
       const query = {
         select() { return query; },
         eq(key, value) { selected = selected.filter((item) => item[key] === value); return query; },
-        or() { return query; },
+        or(expression) {
+          if (expression.startsWith('moderation_status.')) {
+            const municipalityId = expression.match(/created_by_municipality\.eq\.([^,]+)/)?.[1];
+            selected = selected.filter((item) => item.moderation_status === 'approved'
+              || (expression.includes('moderation_status.eq.internal') && item.moderation_status === 'internal')
+              || item.moderation_status == null
+              || (municipalityId && item.created_by_municipality === municipalityId));
+          } else if (expression.startsWith('protocol.ilike.')) {
+            const term = expression.match(/^protocol\.ilike\.%([^%]+)%/)?.[1]?.toLocaleLowerCase('pt-BR');
+            if (term) selected = selected.filter((item) => ['protocol', 'title', 'address', 'neighborhood', 'description']
+              .some((field) => String(item[field] || '').toLocaleLowerCase('pt-BR').includes(term)));
+          }
+          return query;
+        },
         gte(key, value) { selected = selected.filter((item) => item[key] >= value); return query; },
         lt(key, value) { selected = selected.filter((item) => item[key] < value); return query; },
         in(key, values) { selected = selected.filter((item) => values.includes(item[key])); return query; },
@@ -44,6 +57,90 @@ function fakeClient(rows, links = [], linkError = null, catalog = []) {
   };
   return client;
 }
+
+test('solicitação interna da prefeitura aparece na lista sem entrar na moderação', async () => {
+  const client = fakeClient([
+    { id: 'interno', city_id: 1, moderation_status: 'internal', is_public: false, created_by_municipality: 'prefeitura', created_at: '2026-09-30T14:48:30Z' },
+    { id: 'publico', city_id: 1, moderation_status: 'approved', created_at: '2026-09-29T14:48:30Z' },
+    { id: 'legado', city_id: 1, moderation_status: 'pending_approval', created_by_municipality: 'prefeitura', created_at: '2026-09-28T14:48:30Z' },
+    { id: 'moderacao', city_id: 1, moderation_status: 'pending_approval', created_at: '2026-09-30T15:00:00Z' },
+  ]);
+  const result = await loadMunicipalReportPage(client, { cityId: 1, municipalityId: 'prefeitura', includeAllStatuses: true }, 1, 20);
+  assert.deepEqual(result.reports.map((item) => item.id), ['interno', 'publico', 'legado']);
+});
+
+test('abas Todas e Internas incluem broncas municipais sem depender da moderação', async () => {
+  const rows = [
+    { id: 'interna', city_id: 1, created_by_municipality: 'prefeitura', is_public: false, moderation_status: 'internal', category_id: 'buracos', created_at: '2026-10-01T12:00:00Z' },
+    { id: 'legada', city_id: 1, created_by_municipality: 'prefeitura', is_public: false, moderation_status: 'pending_approval', category_id: 'buracos', created_at: '2026-10-01T11:00:00Z' },
+    { id: 'publica', city_id: 1, created_by_municipality: 'prefeitura', is_public: true, moderation_status: 'approved', category_id: 'buracos', created_at: '2026-10-01T10:00:00Z' },
+    { id: 'cidada', city_id: 1, is_public: true, moderation_status: 'approved', category_id: 'buracos', created_at: '2026-10-01T09:00:00Z' },
+    { id: 'outra', city_id: 1, created_by_municipality: 'outra-prefeitura', is_public: false, moderation_status: 'internal', category_id: 'buracos', created_at: '2026-10-01T08:00:00Z' },
+  ];
+  const client = fakeClient(rows, [{ report_id: 'interna', demanda_id: 'ordem' }]);
+  const filters = { cityId: 1, municipalityId: 'prefeitura', includeAllStatuses: true, includeLinked: true };
+  const all = await loadMunicipalReportPage(client, { ...filters, visibility: 'all' }, 1, 20);
+  const internal = await loadMunicipalReportPage(client, { ...filters, visibility: 'internal' }, 1, 20);
+  const facets = await loadMunicipalReportFacets(client, { ...filters, visibility: 'internal' });
+  assert.deepEqual(all.reports.map((item) => item.id), ['interna', 'legada', 'publica', 'cidada', 'outra']);
+  assert.deepEqual(internal.reports.map((item) => item.id), ['interna', 'legada', 'outra']);
+  assert.deepEqual(internal.links.map((item) => item.report_id), ['interna']);
+  assert.deepEqual(facets.visibilityCounts, { public: 2, internal: 3 });
+  assert.deepEqual(facets.phaseCounts, { pending: 3, in_progress: 0, finished: 0 });
+  assert.deepEqual(facets.counts, { all: 3, buracos: 3 });
+});
+
+test('Públicas e Pendentes são o recorte padrão; andamento inclui aguardando confirmação', async () => {
+  const rows = [
+    { id: 'pendente', city_id: 1, status: 'pending', category_id: 'buracos', created_at: '2026-10-01T12:00:00Z' },
+    { id: 'andamento', city_id: 1, status: 'in-progress', category_id: 'buracos', created_at: '2026-10-01T11:00:00Z' },
+    { id: 'confirmacao', city_id: 1, status: 'pending_resolution', category_id: 'iluminacao', created_at: '2026-10-01T10:00:00Z' },
+    { id: 'finalizada', city_id: 1, status: 'resolved', category_id: 'iluminacao', created_at: '2026-10-01T09:00:00Z' },
+    { id: 'interna', city_id: 1, status: 'pending', category_id: 'poda', is_public: false, created_by_municipality: 'prefeitura', moderation_status: 'internal', created_at: '2026-10-01T08:00:00Z' },
+    { id: 'moderacao', city_id: 1, status: 'pending', category_id: 'poda', moderation_status: 'pending_approval', created_at: '2026-10-01T07:00:00Z' },
+  ];
+  const client = fakeClient(rows);
+  const base = { cityId: 1, municipalityId: 'prefeitura', visibility: 'public', includeLinked: true };
+  const pending = await loadMunicipalReportPage(client, { ...base, phase: 'pending' }, 1, 20);
+  const progress = await loadMunicipalReportPage(client, { ...base, phase: 'in_progress' }, 1, 20);
+  const finished = await loadMunicipalReportPage(client, { ...base, phase: 'finished' }, 1, 20);
+  assert.deepEqual(pending.reports.map((item) => item.id), ['pendente']);
+  assert.deepEqual(progress.reports.map((item) => item.id), ['andamento', 'confirmacao']);
+  assert.deepEqual(finished.reports.map((item) => item.id), ['finalizada']);
+  const facets = await loadMunicipalReportFacets(client, { ...base, phase: 'pending', includeAllStatuses: true });
+  assert.deepEqual(facets.visibilityCounts, { public: 1, internal: 1 });
+  assert.deepEqual(facets.phaseCounts, { pending: 1, in_progress: 2, finished: 1 });
+  assert.deepEqual(facets.counts, { all: 1, buracos: 1 });
+});
+
+test('ordenação pela coluna de status acontece antes da paginação', async () => {
+  const client = fakeClient([
+    { id: 'andamento-antigo', city_id: 1, status: 'in-progress', created_at: '2026-09-01T10:00:00Z' },
+    { id: 'confirmacao-nova', city_id: 1, status: 'pending_resolution', created_at: '2026-10-01T10:00:00Z' },
+    { id: 'andamento-novo', city_id: 1, status: 'in-progress', created_at: '2026-10-01T10:00:00Z' },
+    { id: 'confirmacao-antiga', city_id: 1, status: 'pending_resolution', created_at: '2026-09-01T10:00:00Z' },
+  ]);
+  const filters = { cityId: 1, municipalityId: 'prefeitura', visibility: 'public', phase: 'in_progress', includeLinked: true };
+  const ascending = await loadMunicipalReportPage(client, { ...filters, sort: 'status_asc' }, 1, 2);
+  const descendingFirst = await loadMunicipalReportPage(client, { ...filters, sort: 'status_desc' }, 1, 2);
+  const descending = await loadMunicipalReportPage(client, { ...filters, sort: 'status_desc' }, 2, 2);
+  assert.equal(ascending.total, 4);
+  assert.deepEqual(ascending.reports.map((item) => item.id), ['andamento-novo', 'andamento-antigo']);
+  assert.deepEqual(descendingFirst.reports.map((item) => item.id), ['confirmacao-nova', 'confirmacao-antiga']);
+  assert.deepEqual(descending.reports.map((item) => item.id), ['andamento-novo', 'andamento-antigo']);
+});
+
+test('protocolo do comprovante localiza solicitação municipal na aba correta', async () => {
+  const client = fakeClient([
+    { id: 'interna', city_id: 1, protocol: 'TROMB-12345', is_public: false, moderation_status: 'internal', created_by_municipality: 'prefeitura', created_at: '2026-10-01T12:00:00Z' },
+    { id: 'publica', city_id: 1, protocol: 'TROMB-67890', is_public: true, moderation_status: 'approved', created_by_municipality: 'prefeitura', created_at: '2026-10-01T11:00:00Z' },
+  ]);
+  const base = { cityId: 1, municipalityId: 'prefeitura', phase: 'pending', includeLinked: true };
+  const internal = await loadMunicipalReportPage(client, { ...base, visibility: 'internal', query: 'TROMB-12345' }, 1, 20);
+  const publicReport = await loadMunicipalReportPage(client, { ...base, visibility: 'public', query: 'TROMB-67890' }, 1, 20);
+  assert.deepEqual(internal.reports.map((item) => item.id), ['interna']);
+  assert.deepEqual(publicReport.reports.map((item) => item.id), ['publica']);
+});
 
 test('idade e filtros usam dias de calendário e não deixam lacunas nas faixas', () => {
   const now = new Date(2026, 8, 28, 10, 30);
@@ -131,6 +228,22 @@ test('lista, mapa e contadores consultam somente broncas pendentes sem ordem', a
   assert.equal(facets.neighborhoods.includes('resolved'), false);
   const closedFilter = await loadMunicipalReportPage(client, { ...filters, status: 'resolved' }, 1, 20);
   assert.equal(closedFilter.total, 0);
+});
+
+test('painel municipal conserva broncas atualizadas e filtra o subtipo sem incluir ordens vinculadas', async () => {
+  const rows = [
+    { id: '1', city_id: 1, status: 'pending', category_id: 'iluminacao', issue_type: 'lamp_off', created_at: '2026-09-28' },
+    { id: '2', city_id: 1, status: 'in-progress', category_id: 'iluminacao', issue_type: 'lamp_blinking', created_at: '2026-09-29' },
+    { id: '3', city_id: 1, status: 'pending_resolution', category_id: 'iluminacao', issue_type: 'lamp_blinking', created_at: '2026-09-30' },
+    { id: '4', city_id: 1, status: 'in-progress', category_id: 'iluminacao', issue_type: 'lamp_blinking', created_at: '2026-09-30' },
+  ];
+  const client = fakeClient(rows, [{ report_id: '4', demanda_id: 'ordem' }]);
+  const result = await loadMunicipalReportPage(client, {
+    cityId: 1, municipalityId: 'prefeitura', includeAllStatuses: true,
+    category: 'iluminacao', issueType: 'lamp_blinking',
+  }, 1, 20);
+  assert.deepEqual(result.reports.map((item) => item.id), ['3', '2']);
+  assert.equal(result.total, 2);
 });
 
 test('abas acompanham idade, bairro e vínculos, independentemente da categoria escolhida', async () => {

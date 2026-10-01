@@ -131,7 +131,7 @@ export default function AgencyCaseDetailsPage() {
 
     if (caseResult.error) {
       showAppError({
-        title: 'Não foi possível abrir a bronca',
+        title: 'Não foi possível abrir a solicitação',
         description: caseResult.error.message,
         variant: 'destructive',
       });
@@ -253,7 +253,7 @@ export default function AgencyCaseDetailsPage() {
         return;
       }
 
-      showAppNotice({ title: 'Demanda encaminhada', description: 'A secretaria responsável já pode acompanhar e atender esta bronca.' });
+      showAppNotice({ title: 'Demanda encaminhada', description: 'A secretaria responsável já pode acompanhar e atender esta solicitação.' });
       await load({ quiet: true });
     } catch (error) {
       showAppError({ title: 'Não foi possível encaminhar a demanda', description: error.message, variant: 'destructive' });
@@ -285,7 +285,7 @@ export default function AgencyCaseDetailsPage() {
       <div className="page-shell-fluid py-12">
         <div className="rounded-3xl border border-edge-subtle bg-surface-raised p-10 text-center shadow-sm">
           <Inbox className="mx-auto h-10 w-10 text-content-tertiary" />
-          <h1 className="mt-4 text-xl font-black">Bronca não encontrada</h1>
+          <h1 className="mt-4 text-xl font-black">Solicitação não encontrada</h1>
           <p className="mt-2 text-sm text-content-secondary">Ela pode ter sido removida ou encaminhada para uma secretaria à qual sua conta não tem acesso.</p>
           <Button asChild variant="outline" className="mt-5"><Link to={queuePath}><ArrowLeft className="mr-2 h-4 w-4" />Voltar à caixa de entrada</Link></Button>
         </div>
@@ -298,7 +298,7 @@ export default function AgencyCaseDetailsPage() {
   return (
     <>
       <Helmet>
-        <title>{caseItem.report?.title || 'Detalhes da bronca'} | Painel da Prefeitura</title>
+        <title>{caseItem.report?.title || 'Detalhes da solicitação'} | Painel da Prefeitura</title>
         <meta name="robots" content="noindex" />
       </Helmet>
 
@@ -318,9 +318,9 @@ export default function AgencyCaseDetailsPage() {
           </div>
         </header>
 
-        <section className="relative mt-3 min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-gradient-to-br from-surface-raised via-surface-raised to-brand-subtleBg p-4 shadow-sm sm:p-6" aria-label="Dados da bronca">
+        <section className="relative mt-3 min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-gradient-to-br from-surface-raised via-surface-raised to-brand-subtleBg p-4 shadow-sm sm:p-6" aria-label="Dados da solicitação">
           <div className="flex items-start gap-4 sm:items-center sm:gap-6">
-            <button type="button" className="aspect-square w-24 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:w-36 [&>*]:!h-full [&>*]:!w-full [&>*]:!rounded-none" aria-label="Ver fotos e detalhes da bronca" aria-expanded={detailsOpen} aria-controls="case-report-details" onClick={() => setDetailsOpen((open) => !open)}>
+            <button type="button" className="aspect-square w-24 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:w-36 [&>*]:!h-full [&>*]:!w-full [&>*]:!rounded-none" aria-label="Ver fotos e detalhes da solicitação" aria-expanded={detailsOpen} aria-controls="case-report-details" onClick={() => setDetailsOpen((open) => !open)}>
               <AgencyReportImage key={caseItem.report_id} report={caseItem.report} compact />
             </button>
             <div className="min-w-0 flex-1">
@@ -329,7 +329,7 @@ export default function AgencyCaseDetailsPage() {
                 <StatusBadge item={caseItem} />
                 {caseItem.prioridade === 'urgente' && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">Urgente</span>}
               </div>
-              <h1 className="mt-2 break-words text-lg font-extrabold leading-snug tracking-tight sm:text-2xl 2xl:text-3xl">{caseItem.report?.title || 'Bronca sem título'}</h1>
+              <h1 className="mt-2 break-words text-lg font-extrabold leading-snug tracking-tight sm:text-2xl 2xl:text-3xl">{caseItem.report?.title || 'Solicitação sem título'}</h1>
               <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-content-secondary sm:text-sm">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
                 <span className="min-w-0 break-words">{[caseItem.report?.address, caseItem.report?.neighborhood].filter(Boolean).join(' · ') || 'Local não informado'}</span>
@@ -347,9 +347,9 @@ export default function AgencyCaseDetailsPage() {
             </Button>
           </div>
         </section>
-          <MunicipalDrawer open={detailsOpen} onClose={() => setDetailsOpen(false)} title={caseItem.report?.title || 'Detalhes da bronca'} description={[caseItem.report?.address, caseItem.report?.neighborhood].filter(Boolean).join(' · ') || 'Informações da solicitação'}>
+          <MunicipalDrawer open={detailsOpen} onClose={() => setDetailsOpen(false)} title={caseItem.report?.title || 'Detalhes da solicitação'} description={[caseItem.report?.address, caseItem.report?.neighborhood].filter(Boolean).join(' · ') || 'Informações da solicitação'}>
             <div id="case-report-details" className="min-w-0 space-y-6">
-              <section aria-label="Descrição da bronca">
+              <section aria-label="Descrição da solicitação">
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className="rounded-full bg-brand-subtleBg px-2.5 py-1 font-semibold text-brand">{caseItem.report?.category?.name || 'Categoria não informada'}</span>
                   <span className="text-content-tertiary">{fmtDate(caseItem.report?.created_at, true)}</span>
@@ -370,7 +370,7 @@ export default function AgencyCaseDetailsPage() {
                 <h2 id="case-photos-title" className="mb-3 flex items-center justify-between text-sm font-bold">Fotos<span className="text-xs font-normal text-content-tertiary">{agencyReportImages(caseItem.report).length} anexadas</span></h2>
                 <div className="grid min-w-0 grid-cols-2 gap-3">
                   {agencyReportImages(caseItem.report).map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="group relative min-w-0 overflow-hidden rounded-xl border border-edge-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label={`Abrir foto ${index + 1} em nova aba`}>
-                    <img src={url} alt={`Foto ${index + 1} da bronca`} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-105 motion-reduce:transform-none" />
+                    <img src={url} alt={`Foto ${index + 1} da solicitação`} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-105 motion-reduce:transform-none" />
                     <span className="absolute bottom-2 right-2 rounded-lg bg-black/60 p-1.5 text-white"><ArrowUpRight className="h-3.5 w-3.5" /></span>
                   </a>)}
                   {!agencyReportImages(caseItem.report).length && <p className="col-span-2 rounded-xl border border-dashed border-edge-subtle p-4 text-xs text-content-tertiary">Nenhuma foto disponível.</p>}

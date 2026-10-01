@@ -58,7 +58,7 @@ const ManageReportsPage = () => {
   const isMobile = useIsMobile();
 
   const categories = useMemo(() => ({
-    'iluminacao': 'Iluminação Pública', 'buracos': 'Buracos na Via', 'esgoto': 'Esgoto Entupido',
+    'iluminacao': 'Iluminação Pública', 'buracos': 'Buracos na Via', 'esgoto': 'Esgoto',
     'limpeza': 'Limpeza Urbana', 'poda': 'Poda de Árvore', 'vazamento-de-agua': 'Vazamento de Água', 'outros': 'Outros',
   }), []);
 

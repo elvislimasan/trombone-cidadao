@@ -25,6 +25,7 @@ import { mascarar } from '@/lib/profanity';
 import { showAppError, showAppInfo } from '@/lib/appError';
 import { TIPOS_DE_PROBLEMA_ILUMINACAO, TIPOS_DE_PROBLEMA_ESGOTO } from '@/lib/reportCategoryFields';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -220,12 +221,17 @@ const ReportDetails = ({
   const [nearbyPoles, setNearbyPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
   const [nearbyPolesError, setNearbyPolesError] = useState(null);
+  const addressLookupRequestRef = useRef(0);
+  const [isAddressLookupLoading, setIsAddressLookupLoading] = useState(false);
+  const [addressLookupFailed, setAddressLookupFailed] = useState(false);
+
+  useEffect(() => () => { addressLookupRequestRef.current += 1; }, []);
 
  
   const categories = {
     'iluminacao': 'Iluminação Pública',
     'buracos': 'Buracos na Via',
-    'esgoto': 'Esgoto Entupido',
+    'esgoto': 'Esgoto',
     'limpeza': 'Limpeza Urbana',
     'poda': 'Poda de Árvore',
     'vazamento-de-agua': 'Vazamento de Água',
@@ -607,6 +613,9 @@ const ReportDetails = ({
   };
 
   const handleEdit = () => {
+    addressLookupRequestRef.current += 1;
+    setIsAddressLookupLoading(false);
+    setAddressLookupFailed(false);
     setEditData({ 
       ...report,
       newPhotos: [],
@@ -635,6 +644,9 @@ const ReportDetails = ({
   };
 
   const handleCancelEdit = () => {
+    addressLookupRequestRef.current += 1;
+    setIsAddressLookupLoading(false);
+    setAddressLookupFailed(false);
     if (startInEdit) {
       onClose();
       return;
@@ -645,7 +657,40 @@ const ReportDetails = ({
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'address') {
+      addressLookupRequestRef.current += 1;
+      setIsAddressLookupLoading(false);
+      setAddressLookupFailed(false);
+    }
     setEditData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const lookupEditAddress = async (location, zoom = 18) => {
+    const requestId = ++addressLookupRequestRef.current;
+    setAddressLookupFailed(false);
+    if (location?.lat == null || location?.lng == null ||
+        !Number.isFinite(Number(location.lat)) || !Number.isFinite(Number(location.lng))) {
+      setIsAddressLookupLoading(false);
+      setAddressLookupFailed(true);
+      return;
+    }
+
+    setIsAddressLookupLoading(true);
+    let result;
+    try {
+      result = await reverseGeocodePin(location, {
+        invoke: supabase.functions.invoke.bind(supabase.functions),
+        zoom,
+      });
+    } catch {
+      result = null;
+    }
+    if (requestId !== addressLookupRequestRef.current) return;
+
+    const address = result?.address?.trim();
+    setIsAddressLookupLoading(false);
+    setAddressLookupFailed(!address);
+    if (address) setEditData(prev => prev ? ({ ...prev, address }) : prev);
   };
 
   const handleEditPoleNumberChange = (e) => {
@@ -723,7 +768,19 @@ const ReportDetails = ({
   };
 
   const handleLocationChange = (newLocation) => {
-    setEditData(prev => ({ ...prev, location: newLocation }));
+    setEditData(prev => ({
+      ...prev,
+      location: newLocation,
+      address: '',
+      ...(prev.category_id === 'iluminacao' && prev.pole_id ? {
+        pole_id: null,
+        pole_number: '',
+        reported_pole_distance_m: null,
+        reported_post_identifier: null,
+        reported_plate: null,
+      } : {}),
+    }));
+    void lookupEditAddress(newLocation);
   };
 
   useEffect(() => {
@@ -1566,6 +1623,7 @@ const ReportDetails = ({
                     <LocationPickerMap
                       onLocationChange={handleLocationChange}
                       initialPosition={editData.location}
+                      snapToOverlayOnSelect={true}
                       overlayMarkers={
                         editData?.category_id === 'iluminacao'
                           ? nearbyPoles
@@ -1589,19 +1647,23 @@ const ReportDetails = ({
                       }
                       selectedOverlayMarkerId={editData?.pole_id}
                       onOverlayMarkerSelect={(m) => {
+                        const poleLocation = m.location;
+                        addressLookupRequestRef.current += 1;
+                        setIsAddressLookupLoading(false);
+                        setAddressLookupFailed(false);
                         setEditData((prev) => ({
                           ...prev,
+                          location: poleLocation,
                           pole_id: m.id,
-                          reported_pole_distance_m: m.data?.distance_m ?? null,
+                          reported_pole_distance_m: 0,
                           reported_post_identifier: m.data?.identifier ?? null,
                           reported_plate: m.data?.plate ?? null,
                           pole_number: formatPoleLabel(
                             m.data?.plate || m.data?.identifier || m.title || m.id
                           ),
-                          address: prev.address?.trim()
-                            ? prev.address
-                            : m.data?.address || prev.address || "",
+                          address: '',
                         }));
+                        void lookupEditAddress(poleLocation, 17);
                       }}
                       showSatelliteToggle={true}
                     />
@@ -1638,6 +1700,12 @@ const ReportDetails = ({
                   </div>
                 )}
                 <input type="text" name="address" value={editData.address} onChange={handleEditChange} className="w-full bg-background px-4 py-3 border border-input rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Endereço de referência" />
+                {isAddressLookupLoading && (
+                  <p className="mt-1 text-xs text-muted-foreground">Buscando endereço da nova localização...</p>
+                )}
+                {addressLookupFailed && !editData.address?.trim() && (
+                  <p className="mt-1 text-xs text-muted-foreground">Não foi possível encontrar o endereço. Informe uma referência antes de salvar.</p>
+                )}
               </div>
             ) : (
               report.address && <div className="flex items-center space-x-2 text-muted-foreground"><MapPin className="w-4 h-4" /><span className="text-sm">{report.address}</span></div>
@@ -1969,7 +2037,7 @@ const ReportDetails = ({
               {isEditing ? (
                 <>
                   <Button onClick={handleCancelEdit} variant="outline" className="flex-1 gap-2" disabled={isSaving}><X className="w-4 h-4" /> Cancelar</Button>
-                  <Button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 flex-1 gap-2" disabled={isSaving}>
+                  <Button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 flex-1 gap-2" disabled={isSaving || isAddressLookupLoading || (addressLookupFailed && !editData?.address?.trim())}>
                     {isSaving ? 'Salvando...' : <><Save className="w-4 h-4" /> Salvar</>}
                   </Button>
                 </>

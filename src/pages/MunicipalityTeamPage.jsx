@@ -178,7 +178,7 @@ export default function MunicipalityTeamPage() {
           <ShieldCheck className="mx-auto h-10 w-10 text-content-tertiary" />
           <h1 className="mt-4 text-2xl font-black">Área do administrador municipal</h1>
           <p className="mt-2 text-sm leading-6 text-content-secondary">Somente o administrador aprovado da prefeitura pode cadastrar funcionários e definir seus acessos.</p>
-          <Button asChild className="mt-5"><Link to="/prefeitura/broncas">Voltar às broncas</Link></Button>
+          <Button asChild className="mt-5"><Link to="/prefeitura/broncas">Voltar às solicitações</Link></Button>
         </div>
       </div>
     );
@@ -194,7 +194,7 @@ export default function MunicipalityTeamPage() {
           <section className="mt-6 rounded-2xl border border-dashed border-edge-strong bg-surface-raised p-10 text-center">
             <Building2 className="mx-auto h-10 w-10 text-content-tertiary" />
             <h2 className="mt-3 text-lg font-black">Cadastre primeiro uma secretaria</h2>
-            <p className="mt-1 text-sm text-content-secondary">A equipe é vinculada a uma secretaria para receber apenas as broncas sob sua responsabilidade.</p>
+            <p className="mt-1 text-sm text-content-secondary">A equipe é vinculada a uma secretaria para receber apenas as solicitações sob sua responsabilidade.</p>
             <Button asChild className="mt-5"><Link to="/prefeitura/secretarias">Cadastrar secretaria</Link></Button>
           </section>
         ) : (
@@ -217,7 +217,7 @@ export default function MunicipalityTeamPage() {
                   <select id="team-role" value={role} onChange={(event) => setRole(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-edge-strong bg-surface-raised px-3 text-sm">
                     {AGENCY_MEMBER_ROLES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                   </select>
-                  <p className="mt-2 text-xs leading-5 text-content-tertiary">Gestor e operador podem atualizar demandas. Leitura apenas consulta a fila e o histórico.</p>
+                  <p className="mt-2 text-xs leading-5 text-content-tertiary">Gestor e atendente podem criar e atualizar ordens. Eletricista vê apenas ordens de iluminação atribuídas a ele e registra a execução. Leitura apenas consulta.</p>
                 </div>
                 <Button type="submit" disabled={working || !inviteChannelId || !email.trim()}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Gerar convite</Button>
               </form>

@@ -70,8 +70,8 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
     if (filters.category !== 'all') rows.push(['Categoria', exportLabel(categories, filters.category)]);
     if (filters.neighborhood.trim()) rows.push(['Bairro', filters.neighborhood.trim()]);
     if (filters.priority !== 'all') rows.push(['Prioridade', exportLabel(DEMAND_PRIORITIES, filters.priority)]);
-    if (filters.age !== 'all') rows.push(['Idade da bronca', exportLabel(REPORT_AGES, filters.age)]);
-    if (filters.orderLink !== 'all') rows.push([demands ? 'Vínculo com bronca' : 'Ordem de serviço', exportLabel(orderLinkOptions, filters.orderLink)]);
+    if (filters.age !== 'all') rows.push(['Idade da solicitação', exportLabel(REPORT_AGES, filters.age)]);
+    if (filters.orderLink !== 'all') rows.push([demands ? 'Vínculo com solicitação' : 'Ordem de serviço', exportLabel(orderLinkOptions, filters.orderLink)]);
     if (filters.queue !== 'all') rows.push(['Fila de atendimento', exportLabel(EXPORT_QUEUES, filters.queue)]);
     if (filters.overdue) rows.push(['Prazo', 'Somente atrasadas']);
     if (filters.dueToday) rows.push(['Vencimento', 'Vencem hoje']);
@@ -81,7 +81,7 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
     rows.push(['Ordenação', exportLabel([['recentes', 'Mais recentes'], ['antigas', 'Mais antigas'], ['prazo', 'Prazo mais próximo']], filters.sort)]);
     return rows;
   };
-  const orderLinkOptions = [['all', 'Com e sem vínculo'], ['linked', demands ? 'Com bronca vinculada' : 'Com ordem de serviço'], ['unlinked', demands ? 'Sem bronca vinculada' : 'Sem ordem de serviço']];
+  const orderLinkOptions = [['all', 'Com e sem vínculo'], ['linked', demands ? 'Com solicitação vinculada' : 'Com ordem de serviço'], ['unlinked', demands ? 'Sem solicitação vinculada' : 'Sem ordem de serviço']];
   const advancedCount = [filters.age !== 'all', filters.orderLink !== 'all', filters.sort !== 'recentes', Boolean(filters.dateFrom), Boolean(filters.dateTo), groupBy !== 'none', format === 'pdf' && layout !== 'table', demands && filters.priority !== 'all', demands && filters.queue !== 'all', demands && filters.overdue, demands && filters.dueToday].filter(Boolean).length;
   const activeFilters = [];
   const chip = (key, label, value, reset) => activeFilters.push({ key, label, value, remove: () => update(key, reset) });
@@ -91,8 +91,8 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
   if (filters.neighborhood.trim()) chip('neighborhood', 'Bairro', filters.neighborhood.trim(), '');
   if (filters.responsible !== 'all') chip('responsible', 'Responsável', exportLabel([['unassigned', 'Sem responsável'], ...members], filters.responsible), 'all');
   if (filters.channel !== 'all') chip('channel', 'Secretaria', exportLabel(channels, filters.channel), 'all');
-  if (filters.age !== 'all') chip('age', 'Idade da bronca', exportLabel(REPORT_AGES, filters.age), 'all');
-  if (filters.orderLink !== 'all') chip('orderLink', demands ? 'Vínculo com bronca' : 'Ordem de serviço', exportLabel(orderLinkOptions, filters.orderLink), 'all');
+  if (filters.age !== 'all') chip('age', 'Idade da solicitação', exportLabel(REPORT_AGES, filters.age), 'all');
+  if (filters.orderLink !== 'all') chip('orderLink', demands ? 'Vínculo com solicitação' : 'Ordem de serviço', exportLabel(orderLinkOptions, filters.orderLink), 'all');
   if (filters.priority !== 'all') chip('priority', 'Prioridade', exportLabel(DEMAND_PRIORITIES, filters.priority), 'all');
   if (filters.queue !== 'all') chip('queue', 'Fila de atendimento', exportLabel(EXPORT_QUEUES, filters.queue), 'all');
   if (filters.overdue) chip('overdue', 'Prazo', 'Somente atrasadas', false);
@@ -115,7 +115,7 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
 
   return <Dialog open onOpenChange={(open) => { if (!open && !exporting) onClose(); }}>
     <FormDialogContent hideClose={exporting} className="flex max-h-[94dvh] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85dvh] sm:w-[calc(100vw-4rem)] sm:max-w-5xl sm:rounded-xl">
-      <DialogHeader className="shrink-0 border-b border-edge-subtle px-5 py-4 pr-12 text-left sm:px-6"><DialogTitle className="text-xl">Exportar {demands ? 'ordens de serviço' : 'broncas'}</DialogTitle><DialogDescription className="mt-1 text-xs text-content-secondary">Prepare um relatório com todos os resultados ou com sua seleção.</DialogDescription></DialogHeader>
+      <DialogHeader className="shrink-0 border-b border-edge-subtle px-5 py-4 pr-12 text-left sm:px-6"><DialogTitle className="text-xl">Exportar {demands ? 'ordens de serviço' : 'solicitações'}</DialogTitle><DialogDescription className="mt-1 text-xs text-content-secondary">Prepare um relatório com todos os resultados ou com sua seleção.</DialogDescription></DialogHeader>
       <form onSubmit={download} className="flex min-h-0 flex-col">
         <fieldset disabled={exporting} className="min-h-0 min-w-0 overflow-y-auto px-5 py-4 sm:px-6">
           <div className="mb-4 space-y-3 border-b border-edge-subtle pb-4">
@@ -138,8 +138,8 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
               </div>
               <div className="border-t border-edge-subtle pt-3"><button type="button" aria-expanded={advancedOpen} aria-controls="export-advanced-filters" onClick={() => setAdvancedOpen((current) => !current)} className="flex w-full items-center justify-between rounded py-1 text-xs font-semibold text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span>Mais filtros{advancedCount > 0 ? ` (${advancedCount})` : ''}</span><ChevronDown className={'h-4 w-4 transition-transform ' + (advancedOpen ? 'rotate-180' : '')} /></button>
                 {advancedOpen && <div id="export-advanced-filters" className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-                  {demands ? <SelectField label="Prioridade" value={filters.priority} allLabel="Todas as prioridades" options={DEMAND_PRIORITIES} onChange={(value) => update('priority', value)} /> : <SelectField label="Idade da bronca" value={filters.age} options={REPORT_AGES} onChange={(value) => update('age', value)} />}
-                  <SelectField label={demands ? 'Vínculo com bronca' : 'Ordem de serviço'} value={filters.orderLink} options={orderLinkOptions} onChange={(value) => update('orderLink', value)} />
+                  {demands ? <SelectField label="Prioridade" value={filters.priority} allLabel="Todas as prioridades" options={DEMAND_PRIORITIES} onChange={(value) => update('priority', value)} /> : <SelectField label="Idade da solicitação" value={filters.age} options={REPORT_AGES} onChange={(value) => update('age', value)} />}
+                  <SelectField label={demands ? 'Vínculo com solicitação' : 'Ordem de serviço'} value={filters.orderLink} options={orderLinkOptions} onChange={(value) => update('orderLink', value)} />
                   <SelectField label="Ordenação" value={filters.sort} options={[["recentes", 'Mais recentes'], ['antigas', 'Mais antigas'], ...(demands ? [['prazo', 'Prazo mais próximo']] : [])]} onChange={(value) => update('sort', value)} />
                   {demands && <SelectField label="Fila de atendimento" value={filters.queue} options={EXPORT_QUEUES} onChange={(value) => update('queue', value)} />}
                   <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{demands ? 'Criada a partir de' : 'Publicada a partir de'}<Input type="date" value={filters.dateFrom} onChange={(event) => update('dateFrom', event.target.value)} className={controlClass} /></label>
@@ -150,10 +150,10 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
                 </div>}
               </div>
               {dateError && <p role="alert" className="text-xs text-danger">{dateError}</p>}
-              <p className="text-[11px] leading-5 text-content-tertiary">{demands ? 'Os filtros se aplicam somente ao arquivo exportado.' : 'Responsável e secretaria correspondem à ordem vinculada à bronca.'}</p>
+              <p className="text-[11px] leading-5 text-content-tertiary">{demands ? 'Os filtros se aplicam somente ao arquivo exportado.' : 'Responsável e secretaria correspondem à ordem vinculada à solicitação.'}</p>
             </div>
             <aside className="min-w-0 self-start rounded-lg bg-surface-subtle/70 p-4" aria-live="polite" aria-atomic="true"><h3 className="mb-4 text-sm font-semibold">Resumo da exportação</h3>
-              {busy ? <div role="status" className="flex items-center gap-2 text-xs text-content-secondary"><Loader2 className="h-4 w-4 animate-spin" />{result.progress ? `${result.progress.toLocaleString('pt-BR')} registros consultados…` : 'Preparando prévia…'}</div> : result.error ? <div><p role="alert" className="text-xs text-danger">{result.error}</p><Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</Button></div> : <><p className="text-3xl font-semibold tabular-nums text-content-primary">{result.records.length.toLocaleString('pt-BR')}</p><p className="mt-1 text-xs text-content-secondary">{demands ? 'ordens de serviço' : 'broncas'} serão exportadas</p><p className="mt-2 text-xs font-medium text-content-secondary">{format === 'pdf' ? `PDF · ${layout === 'table' ? 'Visão geral' : 'Fichas com descrição'}` : 'Planilha · CSV'}</p>
+              {busy ? <div role="status" className="flex items-center gap-2 text-xs text-content-secondary"><Loader2 className="h-4 w-4 animate-spin" />{result.progress ? `${result.progress.toLocaleString('pt-BR')} registros consultados…` : 'Preparando prévia…'}</div> : result.error ? <div><p role="alert" className="text-xs text-danger">{result.error}</p><Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</Button></div> : <><p className="text-3xl font-semibold tabular-nums text-content-primary">{result.records.length.toLocaleString('pt-BR')}</p><p className="mt-1 text-xs text-content-secondary">{demands ? 'ordens de serviço' : 'solicitações'} serão exportadas</p><p className="mt-2 text-xs font-medium text-content-secondary">{format === 'pdf' ? `PDF · ${layout === 'table' ? 'Visão geral' : 'Fichas com descrição'}` : 'Planilha · CSV'}</p>
                 {result.records.length === 0 && <p className="mt-3 text-xs leading-5 text-content-secondary">Nenhum resultado. Ajuste os filtros ou sua seleção.</p>}
                 {mainFilters.length > 0 && <div className="mt-4"><p className="mb-2 text-[11px] font-semibold text-content-secondary">Filtros principais</p><ul className="space-y-1 text-xs text-content-secondary">{mainFilters.map((filter) => <li key={filter.key} className="break-words">{filter.label}: {filter.value}</li>)}</ul></div>}
                 {result.records.length > 0 && <div className="mt-4 space-y-2 border-t border-edge-default pt-3"><h4 className="mb-3 text-[11px] font-semibold text-content-secondary">Distribuição</h4>{groupExportRecords(result.records, 'status').map((group) => <p key={group.name} className="flex items-start justify-between gap-3 text-xs text-content-secondary"><span>{group.name}</span><span className="font-medium tabular-nums text-content-primary">{group.rows.length.toLocaleString('pt-BR')}</span></p>)}</div>}

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { validateDemandFields } from '../lib/municipalDemand.js';
 import { canEditDemand, DEMAND_INITIAL_FORM, demandPayload, demandReportLocations, formFromReport, suggestDemandAssignment, validateDemand } from '../lib/municipalDemand.js';
 
 const context = {
@@ -76,6 +77,24 @@ test('ordens podem ser criadas, programadas e iniciadas sem responsável cadastr
   assert.equal(validateDemand({ ...form, status: 'em_andamento' }), '');
   assert.match(validateDemand({ ...form, canal_id: '', status: 'programada', previsto_em: '2026-10-01T10:00' }), /secretaria/);
 });
+test('validação associa cada erro ao campo e remove somente os erros corrigidos', () => {
+  const form = { ...DEMAND_INITIAL_FORM, titulo: '', status: 'programada', canal_id: '' };
+  const errors = validateDemandFields(form);
+  assert.deepEqual(Object.keys(errors), ['titulo', 'canal_id', 'previsto_em']);
+  const corrected = validateDemandFields({ ...form, titulo: 'Trocar luminária', previsto_em: '2026-10-01T10:00' });
+  assert.deepEqual(Object.keys(corrected), ['canal_id']);
+  assert.deepEqual(validateDemandFields({ ...form, status: 'triagem', titulo: 'Trocar luminária' }), {});
+});
+
+test('pendência separa motivo e data de revisão e aponta a coordenada inválida', () => {
+  const form = { ...DEMAND_INITIAL_FORM, titulo: 'Atender solicitação', status: 'aguardando_recurso' };
+  assert.deepEqual(Object.keys(validateDemandFields(form)), ['motivo_pendencia', 'proxima_acao_em']);
+  assert.deepEqual(Object.keys(validateDemandFields({ ...form, motivo_pendencia: 'Material em falta' })), ['proxima_acao_em']);
+  const located = { ...form, status: 'triagem', latitude: 91, longitude: -38 };
+  assert.deepEqual(Object.keys(validateDemandFields(located)), ['latitude']);
+  assert.deepEqual(Object.keys(validateDemandFields({ ...located, latitude: -8, longitude: '' })), ['longitude']);
+});
+
 test('programação e pendências exigem informações de acompanhamento', () => {
   const form = { ...DEMAND_INITIAL_FORM, titulo: 'Atender solicitação', canal_id: 'lighting', atribuido_a: 'technician' };
   assert.match(validateDemand({ ...form, status: 'programada' }), /previsão/);

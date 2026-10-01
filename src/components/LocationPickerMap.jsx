@@ -172,6 +172,8 @@ const LocationPickerMap = ({
   overlayMarkers = [],
   selectedOverlayMarkerId = null,
   onOverlayMarkerSelect,
+  // O consumidor salva a mesma coordenada em onOverlayMarkerSelect.
+  snapToOverlayOnSelect = false,
   focusOverlayOnSelect = true,
   showSatelliteToggle = false,
   showLocateButton = false,
@@ -347,6 +349,7 @@ const LocationPickerMap = ({
               <Marker
                 key={m.id}
                 position={[m.location.lat, m.location.lng]}
+                bubblingMouseEvents={false}
                 icon={createPoleIcon({
                   isSelected: selectedOverlayMarkerId === m.id,
                   distanceLabel: m.distanceLabel,
@@ -354,6 +357,11 @@ const LocationPickerMap = ({
                 })}
                 eventHandlers={{
                   click() {
+                    if (onOverlayMarkerSelect?.(m) === false) return;
+                    if (snapToOverlayOnSelect && !readOnly) {
+                      userMovedRef.current = true;
+                      setPosition(m.location);
+                    }
                     if (focusOverlayOnSelect && mapRef.current) {
                       try {
                         mapRef.current.flyTo(
@@ -363,7 +371,6 @@ const LocationPickerMap = ({
                         );
                       } catch {}
                     }
-                    if (onOverlayMarkerSelect) onOverlayMarkerSelect(m);
                   },
                 }}
               >

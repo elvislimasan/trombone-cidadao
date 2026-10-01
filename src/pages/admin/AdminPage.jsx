@@ -35,7 +35,7 @@ const adminLinks = [
   { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar Pavimentação', description: 'Atualize o status das ruas.', module: 'pavement' },
   { to: '/admin/vereadores', icon: 'Landmark', title: 'Vereadores e vínculos', description: 'Cadastre vereadores e analise solicitações de vínculo de contas.', module: 'pavement' },
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
-  { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Serviços', description: 'Adicione e edite serviços e diretórios.', module: 'services' },
+  { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Guia da Cidade', description: 'Adicione e edite locais do Guia da Cidade.', module: 'services' },
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },
   { to: '/admin/prefeituras', icon: 'Building2', title: 'Prefeituras e acessos', description: 'Aprove cadastros e gerencie administradores municipais.' },
   { to: '/admin/embaixadores', icon: 'ShieldCheck', title: 'Gestão de Embaixadores', description: 'Convites, embaixadores ativos e promoções de masters.' },

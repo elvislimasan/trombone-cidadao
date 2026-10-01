@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { XMLParser } from 'fast-xml-parser';
 import { createClient } from '@supabase/supabase-js';
+import { parsePoleKmzDetails } from './lib/poleKmzDetails.mjs';
+import { normalizeLampType } from '../src/lib/lightingCatalog.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -120,6 +122,7 @@ const walkKml = (node, ctx, out) => {
     if (!point) continue;
 
     const raw = parseExtendedData(pm);
+    const details = parsePoleKmzDetails(pm?.description);
     const name = typeof pm?.name === 'string' ? pm.name.trim() : null;
     const identifier =
       pickFromProps(raw, ['identifier', 'id', 'codigo', 'código', 'poste', 'numero', 'número', 'num_poste', 'n_poste', 'n']) ||
@@ -143,10 +146,12 @@ const walkKml = (node, ctx, out) => {
       identifier: identifier || null,
       plate: plate || null,
       address: address || null,
+      lamp_type: normalizeLampType(details.lamp_type) || null,
+      lamp_power_w: details.lamp_power_w,
       source_layer: layer,
       source_feature_id: featureId,
       source_key: sourceKey,
-      raw_properties: raw,
+      raw_properties: { ...raw, kmz: details.metadata },
     });
   }
 
@@ -162,6 +167,15 @@ const findKmlText = async (kmzBuffer) => {
   if (!all.length) throw new Error('Nenhum .kml encontrado dentro do KMZ');
   const preferred = all.find((f) => f.toLowerCase().endsWith('doc.kml')) || all[0];
   return zip.files[preferred].async('text');
+};
+
+export const collectPolesFromKmz = async (kmzBuffer) => {
+  const kmlText = await findKmlText(kmzBuffer);
+  const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', textNodeName: '#text' });
+  const parsed = parser.parse(kmlText);
+  const collected = [];
+  walkKml(parsed?.kml || parsed, { layer: null }, collected);
+  return collected;
 };
 
 const chunk = (arr, size) => {
@@ -214,13 +228,7 @@ export const main = async () => {
   const kmzBuffer = await fs.readFile(kmzPath);
   const contentHash = crypto.createHash('sha256').update(kmzBuffer).digest('hex');
 
-  const kmlText = await findKmlText(kmzBuffer);
-  const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', textNodeName: '#text' });
-  const parsed = parser.parse(kmlText);
-
-  const root = parsed?.kml || parsed;
-  const collected = [];
-  walkKml(root, { layer: null }, collected);
+  const collected = await collectPolesFromKmz(kmzBuffer);
 
   if (!collected.length) throw new Error('Nenhum Placemark com Point encontrado no KML');
 
@@ -240,6 +248,8 @@ export const main = async () => {
     identifier: p.identifier,
     plate: p.plate,
     address: p.address,
+    lamp_type: p.lamp_type,
+    lamp_power_w: p.lamp_power_w,
     geom: `SRID=4326;POINT(${p.lng} ${p.lat})`,
     latitude: p.lat,
     longitude: p.lng,

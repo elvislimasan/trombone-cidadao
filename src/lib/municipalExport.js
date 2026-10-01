@@ -21,6 +21,7 @@ export function municipalDemandsQuery(client, filters, { head = false, fields = 
   const [sortField, ascending] = sorts[filters.sort] || sorts.recentes;
   let request = client.from('demandas_municipais').select(head ? 'id' : fields, { count, head })
     .eq('prefeitura_id', filters.municipalityId).order(sortField, { ascending, nullsFirst: false }).order('id');
+  if (filters.assignedOnly) request = request.eq('atribuido_a', filters.userId);
   if (filters.status && filters.status !== 'all') request = request.eq('status', filters.status);
   if (filters.statuses?.length) request = request.in('status', filters.statuses);
   if (filters.priority && filters.priority !== 'all') request = request.eq('prioridade', filters.priority);

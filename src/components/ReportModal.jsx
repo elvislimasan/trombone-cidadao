@@ -5,6 +5,7 @@ import React, {
   Suspense,
   useEffect,
   useMemo,
+  useCallback,
 } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -78,7 +79,23 @@ const throwIfSubmissionAborted = (signal) => {
 // Componentes VideoThumbnail e VideoPlayer removidos - não são mais necessários
 // Vídeos serão exibidos apenas como ícone simples sem preview
 
-const ReportModal = ({ onClose, onSubmit }) => {
+function MunicipalVisibilityChoice({ isPublic, onChange }) {
+  return <fieldset className="rounded-xl border border-border bg-muted/20 p-3">
+    <legend className="px-1 text-sm font-semibold">Visibilidade da solicitação</legend>
+    <div className="grid gap-2 sm:grid-cols-2">
+      {[[false, 'Interna', 'Somente a equipe municipal'], [true, 'Pública', 'No feed e no mapa, sem moderação']].map(([value, label, description]) => <label key={label} className={'flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors ' + (isPublic === value ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-background text-muted-foreground hover:bg-muted/40')}>
+        <input type="radio" name="municipal-report-visibility" checked={isPublic === value} onChange={() => onChange(value)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />
+        <span><strong className="block text-foreground">{label}</strong><span className="mt-0.5 block text-xs leading-4">{description}</span></span>
+      </label>)}
+    </div>
+  </fieldset>;
+}
+
+const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
+  const reportCopy = useCallback((value) => municipalMode ? value.replace(/\bbroncas?\b/gi, (word) => {
+    const replacement = word.toLowerCase() === 'broncas' ? 'solicitações' : 'solicitação';
+    return word[0] === word[0].toUpperCase() ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
+  }) : value, [municipalMode]);
   const isNative = Capacitor.isNativePlatform();
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,6 +121,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     issue_type: "",
     is_from_water_utility: false,
     is_anonymous: false,
+    is_public: false,
   });
   const [errors, setErrors] = useState({});
   const { registerUpload, queueWebUpload, failUploadBatch } = useUpload();
@@ -111,7 +129,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // Mesma regra que decide moderation_status no envio: admin/master publicam
   // direto, todo o resto passa pela moderação. Uma constante só, para o aviso
   // na tela nunca contradizer o que o insert realmente faz.
-  const isPublishedDirectly = Boolean(user?.is_admin || user?.is_master);
+  const isPublishedDirectly = Boolean(municipalMode || user?.is_admin || user?.is_master);
   const [anonCaptchaValue, setAnonCaptchaValue] = useState(null);
   const anonRecaptchaRef = useRef(null);
   const draftHydratedRef = useRef(false);
@@ -131,6 +149,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
   // 'unknown' | 'requesting' | 'granted' | 'denied'
   const [locationPermission, setLocationPermission] = useState("unknown");
   const [addressLookupFailed, setAddressLookupFailed] = useState(false);
+  const [isAddressLookupLoading, setIsAddressLookupLoading] = useState(false);
   // O que o assistente sugeriu, para comparar com o que a pessoa escolheu no
   // fim. Guardado aqui, e não no componente da sugestão, porque a medição vale
   // no ENVIO: aceitar e trocar depois de ver a foto não é acerto.
@@ -178,12 +197,16 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }, 100);
   };
   const wizardStepTitles = ["Info", "Local", "Mídia"];
-  const wizardStepTitle = wizardStepTitles[wizardStep] || "Nova Bronca";
+  const wizardStepTitle = wizardStepTitles[wizardStep] || reportCopy("Nova Bronca");
   const wizardProgressPct = Math.round(
     ((wizardStep + 1) / wizardStepTitles.length) * 100
   );
 
   useEffect(() => {
+    if (municipalMode) {
+      draftHydratedRef.current = true;
+      return;
+    }
     const draft = loadReportDraft();
     if (!draft?.data) {
       draftHydratedRef.current = true;
@@ -217,7 +240,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         }));
       })
       .catch(() => {});
-  }, []);
+  }, [municipalMode]);
   // A lista mora em @/lib/reportCategoryFields: o registro em patrulha oferece
   // o mesmo select, e duas cópias divergiriam na primeira vez que um tipo fosse
   // acrescentado aqui — com a bronca da patrulha gravando um valor que esta
@@ -231,6 +254,27 @@ const ReportModal = ({ onClose, onSubmit }) => {
     const s = String(raw || "").trim();
     if (!s) return "";
     return s.replace(/^\s*\d+\s*[-–—]\s*/u, "").trim();
+  };
+
+  const reportLocationForSubmit = async () => {
+    if (formData.category !== "iluminacao" || !formData.pole_id) return formData.location;
+
+    const knownPole = nearbyPoles.find((pole) => String(pole.pole_id) === String(formData.pole_id));
+    let pole = knownPole;
+    if (!pole) {
+      const { data, error } = await supabase.from("poles")
+        .select("latitude, longitude")
+        .eq("id", formData.pole_id)
+        .maybeSingle();
+      if (error) throw error;
+      pole = data;
+    }
+    const lat = pole?.latitude == null ? NaN : Number(pole.latitude);
+    const lng = pole?.longitude == null ? NaN : Number(pole.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error("Não foi possível confirmar a localização do poste selecionado.");
+    }
+    return { lat, lng };
   };
 
   const handleCreatePendingPole = async () => {
@@ -532,7 +576,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       if (error) {
         setDuplicatePoleReports([]);
         setDuplicatePoleReportsError(
-          error.message || "Falha ao buscar broncas existentes"
+          error.message || reportCopy("Falha ao buscar broncas existentes")
         );
         setDuplicatePoleReportsLoading(false);
         return;
@@ -546,7 +590,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [formData.category, formData.pole_id]);
+  }, [formData.category, formData.pole_id, reportCopy]);
 
   useEffect(() => {
     // Quando mudar para categoria não-iluminação, resetar o cache para permitir nova busca de endereço
@@ -558,13 +602,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
   useEffect(() => {
     let cancelled = false;
     // Para categorias não-iluminação: sempre atualiza via reverse geocode (a menos que usuário tenha editado manualmente)
-    // Para iluminação: normalmente só atualiza se endereço estiver vazio, PORQUE o
-    // endereço costuma vir do poste selecionado (dataset de postes, hoje só em
-    // Floresta). Mas sem postes cadastrados na região (nearbyPoles vazio, já
-    // terminou de buscar), não há de onde vir esse endereço — cai para o mesmo
-    // reverse-geocode do pin usado pelas demais categorias.
-    const hasNoPolesNearby = !nearbyPolesLoading && nearbyPoles.length === 0;
-    if (formData.category === "iluminacao" && formData.address?.trim() && !hasNoPolesNearby) return;
+    // Para iluminação com poste selecionado, consultar a coordenada do poste
+    // em nível de rua. O endereço cadastrado pode vir de um prédio em outra via.
+    if (formData.category === "iluminacao" && formData.pole_id && formData.address?.trim()) return;
     if (addressTouchedRef.current) return;
 
     const target = reverseGeocodeTargetRef.current || formData.location;
@@ -578,14 +618,26 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (lastReverseGeocodeKeyRef.current === key) return;
 
     const timer = setTimeout(async () => {
-      const data = await reverseGeocodePin({ lat, lng }, {
-        invoke: supabase.functions.invoke.bind(supabase.functions),
-      });
+      setIsAddressLookupLoading(true);
+      const selectedPole = formData.category === "iluminacao" && Boolean(formData.pole_id);
+      let data = null;
+      let mappedAddress = null;
+      if (selectedPole) {
+        const mapped = await supabase.rpc("mapped_street_address_for_pole", {
+          p_pole_id: formData.pole_id,
+        }).maybeSingle();
+        mappedAddress = mapped.data?.address || null;
+      } else {
+        data = await reverseGeocodePin({ lat, lng }, {
+          invoke: supabase.functions.invoke.bind(supabase.functions),
+        });
+      }
 
       if (cancelled) return;
-      setAddressLookupFailed(!data?.address);
+      setIsAddressLookupLoading(false);
+      setAddressLookupFailed(!(mappedAddress || data?.address));
 
-      const address = data?.address;
+      const address = mappedAddress || data?.address;
       if (typeof address === "string" && address.trim()) {
         lastReverseGeocodeKeyRef.current = key;
         reverseGeocodeTargetRef.current = null;
@@ -621,8 +673,6 @@ const ReportModal = ({ onClose, onSubmit }) => {
     formData.pole_id,
     formData.address,
     formData.category,
-    nearbyPoles,
-    nearbyPolesLoading,
   ]);
 
   // Cleanup de previews de imagens e vídeos quando o componente desmontar
@@ -2698,7 +2748,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     if (stepToValidate === 0) {
       if (!formData.title) {
-        newErrors.title = "Por favor, preencha o título da bronca.";
+        newErrors.title = reportCopy("Por favor, preencha o título da bronca.");
         hasErrors = true;
       }
       if (!formData.category) {
@@ -2716,7 +2766,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     if (stepToValidate === 1) {
       if (!formData.location) {
-        newErrors.location = "Por favor, marque o local da bronca no mapa.";
+        newErrors.location = reportCopy("Por favor, marque o local da bronca no mapa.");
         hasErrors = true;
       }
       if (!formData.address || formData.address.trim() === "") {
@@ -2737,7 +2787,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     if (stepToValidate === 2) {
       if (formData.photos.length + formData.videos.length === 0) {
         newErrors.photos =
-          "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
+          reportCopy("Por favor, adicione pelo menos uma foto ou vídeo da bronca.");
         hasErrors = true;
       }
     }
@@ -2820,7 +2870,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
     if (!formData.title || !formData.category) {
       if (!formData.title)
-        newErrors.title = "Por favor, preencha o título da bronca.";
+        newErrors.title = reportCopy("Por favor, preencha o título da bronca.");
       if (!formData.category)
         newErrors.category = "Por favor, selecione uma categoria.";
       hasErrors = true;
@@ -2833,7 +2883,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       hasErrors = true;
     }
     if (!formData.location) {
-      newErrors.location = "Por favor, marque o local da bronca no mapa.";
+      newErrors.location = reportCopy("Por favor, marque o local da bronca no mapa.");
       hasErrors = true;
     }
     if (!formData.address || formData.address.trim() === "") {
@@ -2842,7 +2892,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
     }
     if (formData.photos.length + formData.videos.length === 0) {
       newErrors.photos =
-        "Por favor, adicione pelo menos uma foto ou vídeo da bronca.";
+        reportCopy("Por favor, adicione pelo menos uma foto ou vídeo da bronca.");
       hasErrors = true;
     }
     if (
@@ -2867,7 +2917,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
         if (duplicatePoleReports.length > 0) {
           newErrors.pole_number =
-            "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
+            reportCopy("Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.");
           hasErrors = true;
         }
       } else if (formData.pole_number?.trim()) {
@@ -2883,7 +2933,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
         if (!error && Array.isArray(data) && data.length > 0) {
           newErrors.pole_number =
-            "Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.";
+            reportCopy("Já existe bronca aberta para este poste. Abra a existente em vez de duplicar.");
           hasErrors = true;
         }
       }
@@ -2930,7 +2980,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         if (!result?.success) {
           throw new Error(
             result?.errors?.[0] ||
-            "Falha ao preparar os anexos. A criação da bronca foi cancelada."
+            reportCopy("Falha ao preparar os anexos. A criação da bronca foi cancelada.")
           );
         }
         return result;
@@ -2947,14 +2997,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
         setIsSubmitting(false);
         showAppInfo({
           title: "Vídeo ainda em preparação",
-          description: "Aguarde o processamento terminar antes de enviar a bronca.",
+          description: reportCopy("Aguarde o processamento terminar antes de enviar a bronca."),
         });
         return;
       }
 
-      // Resolve o city_id SEMPRE a partir do marcador, aguardando se necessário.
-      // Isso garante que a bronca vá para a cidade do marcador (não a do usuário/filtro).
-      const resolvedCityId = await resolveCityIdFromLocation(formData.location);
+      // Para iluminação vinculada, a coordenada persistida é sempre a do poste.
+      const reportLocation = await reportLocationForSubmit();
+      throwIfSubmissionAborted(submissionController.signal);
+      const resolvedCityId = await resolveCityIdFromLocation(reportLocation);
       throwIfSubmissionAborted(submissionController.signal);
       if (resolvedCityId == null) {
         // Nunca salvar city_id nulo — bloqueia o envio e orienta o usuário.
@@ -2973,6 +3024,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
       // adivinhado.
       const finalFormData = {
         ...formData,
+        location: reportLocation,
+        reported_pole_distance_m: formData.pole_id ? 0 : formData.reported_pole_distance_m,
         city_id: resolvedCityId,
         neighborhood: getResolvedNeighborhood(),
       };
@@ -2981,9 +3034,11 @@ const ReportModal = ({ onClose, onSubmit }) => {
       });
       throwIfSubmissionAborted(submissionController.signal);
       if (!submissionResult?.notified && !Capacitor.isNativePlatform()) {
-        showAppNotice({ title: isPublishedDirectly ? 'Bronca publicada' : 'Enviada para análise', description: isPublishedDirectly ? 'Sua bronca já está disponível no feed.' : 'Sua bronca aguarda aprovação antes de aparecer para a comunidade.' });
+        showAppNotice(municipalMode
+          ? { title: 'Solicitação registrada', description: formData.is_public ? 'A solicitação já está visível ao público.' : 'A solicitação está visível apenas para a prefeitura.' }
+          : { title: isPublishedDirectly ? 'Bronca publicada' : 'Enviada para análise', description: isPublishedDirectly ? 'Sua bronca já está disponível no feed.' : 'Sua bronca aguarda aprovação antes de aparecer para a comunidade.' });
       }
-      clearReportDraft();
+      if (!municipalMode) clearReportDraft();
 
       // Limpar previews de forma segura
       try {
@@ -3026,6 +3081,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
           reported_pole_distance_m: null,
           issue_type: "",
           is_from_water_utility: false,
+          is_public: false,
         });
         setWizardStep(0);
       } catch (resetError) {
@@ -3047,7 +3103,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
         return;
       }
       showAppError({
-        title: "Erro ao criar bronca",
+        title: reportCopy("Erro ao criar bronca"),
         description:
           error.message ||
           "Ocorreu um erro ao processar sua solicitação. Tente novamente.",
@@ -3064,17 +3120,57 @@ const ReportModal = ({ onClose, onSubmit }) => {
 
   const handleLocationChange = (newLocation) => {
     userPickedLocationRef.current = true;
+    if (formData.category === "iluminacao" && formData.pole_id) {
+      addressTouchedRef.current = false;
+    }
     // Marcador mudou → invalida qualquer city_id resolvido anteriormente
     reverseGeocodeTargetRef.current = newLocation;
     lastReverseGeocodeKeyRef.current = null;
     resetCityCache();
+    setIsAddressLookupLoading(false);
     setAddressLookupFailed(false);
     setFormData((prev) => ({
       ...prev,
       location: newLocation,
       city_id: undefined,
       address: addressTouchedRef.current ? prev.address : "",
+      ...(prev.category === "iluminacao" && prev.pole_id ? {
+        pole_id: null,
+        pole_number: "",
+        reported_post_identifier: null,
+        reported_plate: null,
+        reported_pole_distance_m: null,
+      } : {}),
     }));
+  };
+
+  const handlePoleSelect = (marker) => {
+    const lat = marker.location?.lat;
+    const lng = marker.location?.lng;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const poleLocation = { lat, lng };
+    userPickedLocationRef.current = true;
+    addressTouchedRef.current = false;
+    reverseGeocodeTargetRef.current = poleLocation;
+    lastReverseGeocodeKeyRef.current = null;
+    resetCityCache();
+    setIsAddressLookupLoading(true);
+    setAddressLookupFailed(false);
+    setFormData((prev) => ({
+      ...prev,
+      location: poleLocation,
+      city_id: undefined,
+      pole_id: marker.id,
+      pole_number: formatPoleLabel(
+        marker.data?.plate || marker.data?.identifier || marker.title || marker.id
+      ),
+      reported_post_identifier: marker.data?.identifier ?? null,
+      reported_plate: marker.data?.plate ?? null,
+      reported_pole_distance_m: 0,
+      address: "",
+    }));
+    setErrors((prev) => ({ ...prev, location: undefined, pole_number: undefined }));
   };
 
   const handleClose = () => {
@@ -3122,6 +3218,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
       reported_pole_distance_m: null,
       issue_type: "",
       is_from_water_utility: false,
+      is_public: false,
     });
     setWizardStep(0);
 
@@ -3220,9 +3317,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
     setIsSubmitting(true);
     setUploadProgress(0);
     try {
-      // city_id SEMPRE a partir do marcador — igual ao fluxo autenticado.
-      // Nunca enviar null: bloqueia se não conseguir resolver a cidade.
-      const anonCityId = await resolveCityIdFromLocation(formData.location);
+      const reportLocation = await reportLocationForSubmit();
+      throwIfSubmissionAborted(submissionController.signal);
+      const anonCityId = await resolveCityIdFromLocation(reportLocation);
       throwIfSubmissionAborted(submissionController.signal);
       if (anonCityId == null) {
         showAppError({
@@ -3240,12 +3337,12 @@ const ReportModal = ({ onClose, onSubmit }) => {
         description: formData.description,
         category: formData.category,
         address: formData.address,
-        location: formData.location,
+        location: reportLocation,
         pole_number: formData.pole_number,
         pole_id: formData.pole_id,
         reported_post_identifier: formData.reported_post_identifier,
         reported_plate: formData.reported_plate,
-        reported_pole_distance_m: formData.reported_pole_distance_m,
+        reported_pole_distance_m: formData.pole_id ? 0 : formData.reported_pole_distance_m,
         issue_type: formData.issue_type,
         is_from_water_utility: formData.is_from_water_utility,
         city_id: anonCityId,
@@ -3544,7 +3641,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               <div className="flex items-center justify-between pt-3">
                 <div className="flex flex-col min-w-0">
                   <h2 className="text-lg font-bold text-foreground truncate">
-                    Nova Bronca
+                    {reportCopy("Nova Bronca")}
                   </h2>
                   <p className="text-xs text-muted-foreground">
                     Etapa {wizardStep + 1} de {wizardStepTitles.length} •{" "}
@@ -3580,7 +3677,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-sm font-medium text-foreground">
-                        Título da Bronca *
+                        {reportCopy("Título da Bronca *")}
                       </label>
                       <span className="text-xs text-muted-foreground">
                         {formData.title.length}/65
@@ -3815,7 +3912,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       Localização *
                     </label>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Ajuste o marcador para o local exato da bronca.
+                      {formData.category === "iluminacao"
+                        ? reportCopy("Selecione o poste: a localização da bronca será a dele.")
+                        : reportCopy("Ajuste o marcador para o local exato da bronca.")}
                     </p>
                   </div>
 
@@ -3845,6 +3944,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           }}
                           initialPosition={formData.location}
                           showLocateButton={true}
+                          snapToOverlayOnSelect={true}
                           overlayMarkers={nearbyPoles
                             .filter(
                               (p) =>
@@ -3863,43 +3963,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                               data: p,
                             }))}
                           selectedOverlayMarkerId={formData.pole_id}
-                          onOverlayMarkerSelect={(m) => {
-                            if (!addressTouchedRef.current) {
-                              const lat = m.data?.latitude;
-                              const lng = m.data?.longitude;
-                              if (
-                                Number.isFinite(lat) &&
-                                Number.isFinite(lng)
-                              ) {
-                                reverseGeocodeTargetRef.current = { lat, lng };
-                                lastReverseGeocodeKeyRef.current = null;
-                              }
-                            }
-
-                            setFormData((prev) => ({
-                              ...prev,
-                              pole_id: m.id,
-                              reported_pole_distance_m:
-                                m.data?.distance_m ?? null,
-                              reported_post_identifier:
-                                m.data?.identifier ?? null,
-                              reported_plate: m.data?.plate ?? null,
-                              pole_number: formatPoleLabel(
-                                m.data?.plate ||
-                                  m.data?.identifier ||
-                                  m.title ||
-                                  m.id
-                              ),
-                              address: addressTouchedRef.current
-                                ? prev.address
-                                : m.data?.address || "",
-                            }));
-                            if (errors.pole_number)
-                              setErrors((prev) => ({
-                                ...prev,
-                                pole_number: undefined,
-                              }));
-                          }}
+                          onOverlayMarkerSelect={handlePoleSelect}
                           showSatelliteToggle={true}
                         />
                       </Suspense>
@@ -3936,7 +4000,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
                         errors.address ? "border-destructive" : "border-input"
                       }`}
-                      placeholder="Endereço de referência (ex: Rua da Floresta, 123)"
+                      placeholder={isAddressLookupLoading && formData.pole_id
+                        ? "Buscando endereço do poste..."
+                        : "Endereço de referência (ex: Rua da Floresta, 123)"}
                       required
                     />
                     {errors.address && (
@@ -3946,7 +4012,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                     )}
                     {addressLookupFailed && !formData.address && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Não foi possível obter o endereço do pin. Informe um endereço de referência para continuar.
+                        Não foi possível obter o endereço {formData.pole_id ? "do poste" : "do pin"}. Informe um endereço de referência para continuar.
                       </p>
                     )}
 
@@ -4055,7 +4121,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             {duplicatePoleReportsLoading && (
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Verificando broncas existentes...
+                                {reportCopy("Verificando broncas existentes...")}
                               </div>
                             )}
 
@@ -4071,9 +4137,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                               duplicatePoleReports.length > 0 && (
                                 <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
                                   <p className="text-xs text-foreground">
-                                    Já existe bronca aberta para este poste. Se
-                                    for o mesmo problema, vale acompanhar em vez
-                                    de duplicar.
+                                    {reportCopy("Já existe bronca aberta para este poste. Se for o mesmo problema, vale acompanhar em vez de duplicar.")}
                                   </p>
                                   <div className="space-y-1">
                                     {duplicatePoleReports.map((r) => (
@@ -4324,7 +4388,8 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       </div>
                     )}
 
-                    {user && (
+                    {municipalMode && <MunicipalVisibilityChoice isPublic={!!formData.is_public} onChange={(value) => setFormData((current) => ({ ...current, is_public: value }))} />}
+                    {user && !municipalMode && (
                       <div className="flex items-start gap-3 bg-muted/40 border border-border rounded-xl p-4 mt-2">
                         <input
                           id="is_anonymous"
@@ -4444,12 +4509,15 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <Button
                     type="button"
                     className="flex-1 bg-primary hover:bg-primary/90"
+                    disabled={wizardStep === 1 && Boolean(formData.pole_id) && isAddressLookupLoading && !formData.address?.trim()}
                     onClick={() => {
                       if (!validateStep(wizardStep)) return;
                       setWizardStep((s) => Math.min(2, s + 1));
                     }}
                   >
-                    Continuar
+                    {wizardStep === 1 && Boolean(formData.pole_id) && isAddressLookupLoading && !formData.address?.trim()
+                      ? "Buscando endereço..."
+                      : "Continuar"}
                   </Button>
                 )}
 
@@ -4461,7 +4529,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         className="flex-1 bg-primary hover:bg-primary/90"
                         disabled={isSubmitting}
                       >
-                        Cadastrar Bronca
+                        {municipalMode ? 'Cadastrar solicitação de serviço' : 'Cadastrar Bronca'}
                       </Button>
                     ) : (
                       <>
@@ -4497,7 +4565,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
             <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold gradient-text">
-                  Nova Bronca
+                  {reportCopy("Nova Bronca")}
                 </h2>
                 <button
                   onClick={handleClose}
@@ -4517,7 +4585,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium text-foreground">
-                    Título da Bronca *
+                    {reportCopy("Título da Bronca *")}
                   </label>
                   <span className="text-xs text-muted-foreground">
                     {formData.title.length}/65
@@ -4736,7 +4804,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   <MapPin className="w-4 h-4" /> Localização *
                 </label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Ajuste o marcador para o local exato da bronca.
+                  {formData.category === "iluminacao"
+                    ? reportCopy("Selecione o poste: a localização da bronca será a dele.")
+                    : reportCopy("Ajuste o marcador para o local exato da bronca.")}
                 </p>
                 <div
                   id="location-picker-map"
@@ -4764,6 +4834,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         }}
                         initialPosition={formData.location}
                         showLocateButton={true}
+                        snapToOverlayOnSelect={true}
                         overlayMarkers={nearbyPoles
                           .filter(
                             (p) =>
@@ -4782,40 +4853,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                             data: p,
                           }))}
                         selectedOverlayMarkerId={formData.pole_id}
-                        onOverlayMarkerSelect={(m) => {
-                          if (!addressTouchedRef.current) {
-                            const lat = m.data?.latitude;
-                            const lng = m.data?.longitude;
-                            if (Number.isFinite(lat) && Number.isFinite(lng)) {
-                              reverseGeocodeTargetRef.current = { lat, lng };
-                              lastReverseGeocodeKeyRef.current = null;
-                            }
-                          }
-
-                          setFormData((prev) => ({
-                            ...prev,
-                            pole_id: m.id,
-                            reported_pole_distance_m:
-                              m.data?.distance_m ?? null,
-                            reported_post_identifier:
-                              m.data?.identifier ?? null,
-                            reported_plate: m.data?.plate ?? null,
-                            pole_number: formatPoleLabel(
-                              m.data?.plate ||
-                                m.data?.identifier ||
-                                m.title ||
-                                m.id
-                            ),
-                            address: addressTouchedRef.current
-                              ? prev.address
-                              : m.data?.address || "",
-                          }));
-                          if (errors.pole_number)
-                            setErrors((prev) => ({
-                              ...prev,
-                              pole_number: undefined,
-                            }));
-                        }}
+                        onOverlayMarkerSelect={handlePoleSelect}
                         showSatelliteToggle={true}
                       />
                     </Suspense>
@@ -4847,7 +4885,9 @@ const ReportModal = ({ onClose, onSubmit }) => {
                   className={`w-full bg-background px-4 py-3 border rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent ${
                     errors.address ? "border-destructive" : "border-input"
                   }`}
-                  placeholder="Endereço de referência (ex: Rua da Floresta, 123)"
+                  placeholder={isAddressLookupLoading && formData.pole_id
+                    ? "Buscando endereço do poste..."
+                    : "Endereço de referência (ex: Rua da Floresta, 123)"}
                   required
                 />
                 {errors.address && (
@@ -4857,7 +4897,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                 )}
                 {addressLookupFailed && !formData.address && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Não foi possível obter o endereço do pin. Informe um endereço de referência para continuar.
+                    Não foi possível obter o endereço {formData.pole_id ? "do poste" : "do pin"}. Informe um endereço de referência para continuar.
                   </p>
                 )}
 
@@ -4929,7 +4969,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                         {duplicatePoleReportsLoading && (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Verificando broncas existentes...
+                            {reportCopy("Verificando broncas existentes...")}
                           </div>
                         )}
 
@@ -4945,9 +4985,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                           duplicatePoleReports.length > 0 && (
                             <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
                               <p className="text-xs text-foreground">
-                                Já existe bronca aberta para este poste. Se for
-                                o mesmo problema, vale acompanhar em vez de
-                                duplicar.
+                                {reportCopy("Já existe bronca aberta para este poste. Se for o mesmo problema, vale acompanhar em vez de duplicar.")}
                               </p>
                               <div className="space-y-1">
                                 {duplicatePoleReports.map((r) => (
@@ -5218,6 +5256,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
               </div>
 
               <div className="flex flex-col space-y-3 pt-4">
+                {municipalMode && <MunicipalVisibilityChoice isPublic={!!formData.is_public} onChange={(value) => setFormData((current) => ({ ...current, is_public: value }))} />}
                 {!isSubmitting && !isPublishedDirectly && (
                   <div className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                     <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
@@ -5247,7 +5286,7 @@ const ReportModal = ({ onClose, onSubmit }) => {
                       className="flex-1 bg-primary hover:bg-primary/90"
                       disabled={isSubmitting}
                     >
-                      Cadastrar Bronca
+                      {reportCopy("Cadastrar Bronca")}
                     </Button>
                   )}
                 </div>

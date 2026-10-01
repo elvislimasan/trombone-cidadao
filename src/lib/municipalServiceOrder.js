@@ -9,7 +9,7 @@ async function selectedReports(client, context, ids, signal) {
   const rows = [];
   for (let start = 0; start < ids.length; start += 100) {
     const batch = ids.slice(start, start + 100);
-    rows.push(...await collectExportRows(() => municipalReportsQuery(client, { cityId: context.municipality.city_id, sort: 'antigas', signal }, REPORT_FIELDS).in('id', batch), { signal }));
+    rows.push(...await collectExportRows(() => municipalReportsQuery(client, { cityId: context.municipality.city_id, includeAllStatuses: true, statuses: OPEN_REPORT_STATUSES, sort: 'antigas', signal }, REPORT_FIELDS).in('id', batch), { signal }));
   }
   return rows;
 }
@@ -45,18 +45,19 @@ async function loadOrderPoles(client, cityId, reports, signal) {
 
 export function serviceOrderDraft(reports, context) {
   const categories = [...new Set(reports.map((report) => report.category_id).filter(Boolean))];
+  const issueTypes = [...new Set(reports.map((report) => report.issue_type).filter(Boolean))];
   const neighborhoods = [...new Set(reports.map((report) => report.neighborhood).filter(Boolean))];
   const categoryId = categories.length === 1 ? categories[0] : '';
   const category = context.categories.find((item) => item.id === categoryId)?.name;
   const title = [category ? `Atendimento de ${category}` : 'Atendimento de ocorrências', neighborhoods.length === 1 ? neighborhoods[0] : `${reports.length} ocorrências`].join(' · ');
-  return { ...DEMAND_INITIAL_FORM, ...suggestDemandAssignment(context, categoryId), titulo: title.slice(0, 180), category_id: categoryId, bairro: neighborhoods.length === 1 ? neighborhoods[0] : '', prioridade: context.serviceRules?.find((rule) => rule.category_id === categoryId)?.prioridade || 'normal', origem: 'bronca' };
+  return { ...DEMAND_INITIAL_FORM, ...suggestDemandAssignment(context, categoryId), titulo: title.slice(0, 180), category_id: categoryId, issue_type: issueTypes.length === 1 ? issueTypes[0] : '', bairro: neighborhoods.length === 1 ? neighborhoods[0] : '', prioridade: context.serviceRules?.find((rule) => rule.category_id === categoryId)?.prioridade || 'normal', origem: 'bronca' };
 }
 
-export async function createMunicipalServiceOrder(client, { context, id, selection, title, channelId, responsibleId, priority, observation }) {
+export async function createMunicipalServiceOrder(client, { context, id, selection, title, channelId, responsibleId, priority, issueType, observation }) {
   if (!context.canEdit || (channelId ? !canEditDemand(context, channelId) : !context.isAdministrator)) throw new Error('Escolha uma secretaria em que você pode registrar o serviço.');
   if (!selection.length || selection.some((item) => !item.report || item.link || !OPEN_REPORT_STATUSES.includes(item.report.status))) throw new Error('Remova as ocorrências indisponíveis ou já vinculadas antes de criar a ordem.');
   if (title.trim().length < 3 || title.trim().length > 180) throw new Error('Informe um título com 3 a 180 caracteres.');
-  const form = { ...serviceOrderDraft(selection.map((item) => item.report), context), titulo: title, canal_id: channelId, atribuido_a: responsibleId || '', prioridade: priority, status: 'aberta', descricao: observation.trim() };
+  const form = { ...serviceOrderDraft(selection.map((item) => item.report), context), titulo: title, canal_id: channelId, atribuido_a: responsibleId || '', prioridade: priority, issue_type: issueType || '', status: 'aberta', descricao: observation.trim() };
   let result;
   try {
     result = await client.rpc('salvar_demanda_municipal', {

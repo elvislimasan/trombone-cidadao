@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
+  ChevronDown,
   ClipboardList,
+  Clock3,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -13,6 +15,7 @@ import {
   Sun,
   MessageSquare,
   LampDesk,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -23,7 +26,7 @@ import useMunicipalityWorkspace, { selectMunicipalityWorkspace } from '@/hooks/u
 
 const navigation = [
   { to: '/prefeitura/visao-geral', label: 'Visão geral', icon: LayoutDashboard, adminOnly: false },
-  { to: '/prefeitura/broncas', label: 'Broncas da cidade', icon: MessageSquare, adminOnly: false },
+  { to: '/prefeitura/broncas', label: 'Solicitações da cidade', icon: MessageSquare, adminOnly: false },
   { to: '/prefeitura/demandas', label: 'Ordens de serviço', icon: ClipboardList, adminOnly: false },
   { to: '/prefeitura/iluminacao', label: 'Iluminação pública', icon: LampDesk, adminOnly: false },
   { to: '/prefeitura/secretarias', label: 'Secretarias', icon: Settings2, adminOnly: true },
@@ -41,10 +44,11 @@ const navClass = ({ isActive }) => [
 export default function MunicipalityLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const contentRef = useRef(null);
-  const { memberships, municipality, isAdministrator } = useMunicipalityWorkspace();
+  const { memberships, municipality, isAdministrator, isElectrician } = useMunicipalityWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(() => pathname.startsWith('/prefeitura/demandas'));
   const [branding, setBranding] = useState({ name: 'Trombone Cidadão', logo: '/logo.png' });
   const { resolved: theme, setPreference } = useTheme();
 
@@ -52,6 +56,14 @@ export default function MunicipalityLayout() {
     contentRef.current?.scrollTo({ top: 0 });
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (pathname.startsWith('/prefeitura/demandas')) setOrdersOpen(true);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (isElectrician && pathname === '/prefeitura/visao-geral') navigate('/prefeitura/demandas', { replace: true });
+  }, [isElectrician, pathname, navigate]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -74,9 +86,28 @@ export default function MunicipalityLayout() {
   const city = municipality?.cidade;
   const locationLabel = [city?.name, city?.states?.uf].filter(Boolean).join(' - ');
   const visibleNavigation = useMemo(
-    () => navigation.filter((item) => !item.adminOnly || isAdministrator),
-    [isAdministrator]
+    () => navigation.filter((item) => (!item.adminOnly || isAdministrator) && (!isElectrician || item.to === '/prefeitura/demandas')),
+    [isAdministrator, isElectrician]
   );
+  const ordersActive = pathname.startsWith('/prefeitura/demandas');
+  const newOrderActive = pathname === '/prefeitura/demandas/nova';
+  const inProgressActive = pathname === '/prefeitura/demandas' && new URLSearchParams(search).get('fila') === 'em_atendimento';
+  const renderNavigation = (mobile = false) => visibleNavigation.map(({ to, label, icon: Icon }) => {
+    if (to !== '/prefeitura/demandas') return <NavLink key={to} to={to} className={({ isActive }) => navClass({ isActive: isActive || (to === '/prefeitura/broncas' && pathname === '/prefeitura/mapa') })} onClick={mobile ? () => setMenuOpen(false) : undefined}>
+      <Icon className="h-4 w-4" /> {label}
+    </NavLink>;
+    const submenuId = mobile ? 'municipality-mobile-orders' : 'municipality-desktop-orders';
+    return <div key={to} className="min-w-0">
+      <div className={'flex items-center rounded-xl transition-colors ' + (ordersActive ? 'bg-brand-subtleBg text-brand-subtleFg ring-1 ring-inset ring-brand/20' : 'text-content-secondary hover:bg-surface-subtle hover:text-content-primary')}>
+        <Link to={to} aria-current={pathname === to && !inProgressActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-l-xl px-3 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><ClipboardList className="h-4 w-4 shrink-0" />{label}</Link>
+        <button type="button" aria-label={ordersOpen ? 'Recolher ordens de serviço' : 'Expandir ordens de serviço'} aria-expanded={ordersOpen} aria-controls={submenuId} onClick={() => setOrdersOpen((value) => !value)} className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><ChevronDown className={'h-4 w-4 transition-transform ' + (ordersOpen ? 'rotate-180' : '')} /></button>
+      </div>
+      {ordersOpen && <div id={submenuId} role="group" aria-label="Opções de ordens de serviço" className="ml-3 mt-1 grid gap-0.5 rounded-r-xl border-l-2 border-brand/60 bg-surface-subtle/70 py-1 pl-2 pr-1">
+        {!isElectrician && <Link to="/prefeitura/demandas/nova" aria-current={newOrderActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (newOrderActive ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Plus className="h-4 w-4 shrink-0" />Nova ordem</Link>}
+        <Link to="/prefeitura/demandas?status=all&fila=em_atendimento" aria-current={inProgressActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (inProgressActive ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Clock3 className="h-4 w-4 shrink-0" />Em andamento</Link>
+      </div>}
+    </div>;
+  });
   const initials = (user?.name || user?.email || 'Servidor')
     .split(/\s+/)
     .filter(Boolean)
@@ -107,7 +138,7 @@ export default function MunicipalityLayout() {
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <Link to="/prefeitura/visao-geral" className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+            <Link to={isElectrician ? '/prefeitura/demandas' : '/prefeitura/visao-geral'} className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
               <img src={branding.logo} alt="" className="h-9 w-9 shrink-0 object-contain" onError={() => setBranding((current) => current.logo === '/logo.png' ? current : { ...current, logo: '/logo.png' })} />
               <div className="min-w-0">
                 <p className="truncate font-display text-sm font-extrabold tracking-tight sm:text-lg">{branding.name}</p>
@@ -123,7 +154,7 @@ export default function MunicipalityLayout() {
             </Button>
             <div className="hidden text-right md:block">
               <p className="max-w-48 truncate text-xs font-bold">{user?.name || user?.email || 'Servidor municipal'}</p>
-              <p className="text-[10px] opacity-75">{isAdministrator ? 'Administrador municipal' : 'Equipe municipal'}</p>
+              <p className="text-[10px] opacity-75">{isAdministrator ? 'Administrador municipal' : isElectrician ? 'Eletricista' : 'Equipe municipal'}</p>
             </div>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-black text-content-onBrand">{initials || 'SM'}</div>
           </div>
@@ -135,11 +166,7 @@ export default function MunicipalityLayout() {
         <div className="absolute inset-x-0 top-16 z-40 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-edge-subtle bg-surface-raised px-4 py-3 shadow-lg lg:hidden">
           <p className="mb-3 px-3 text-xs font-semibold text-content-secondary">{municipality?.nome || 'Gestão municipal'}{locationLabel ? ` · ${locationLabel}` : ''}</p>
           <nav id="municipality-mobile-nav" aria-label="Painel da prefeitura" className="grid gap-1">
-            {visibleNavigation.map(({ to, label, icon: Icon }) => (
-              <NavLink key={to} to={to} className={({ isActive }) => navClass({ isActive: isActive || (to === '/prefeitura/broncas' && pathname === '/prefeitura/mapa') })} onClick={() => setMenuOpen(false)}>
-                <Icon className="h-4 w-4" /> {label}
-              </NavLink>
-            ))}
+            {renderNavigation(true)}
             <button type="button" onClick={handleSignOut} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-brand hover:bg-brand-subtleBg">
               <LogOut className="h-4 w-4" /> Sair
             </button>
@@ -157,11 +184,7 @@ export default function MunicipalityLayout() {
               <p className="mt-1 text-xs leading-5 text-content-secondary">{locationLabel || 'Atendimento às demandas da cidade'}</p>
             </div>
             <nav aria-label="Painel da prefeitura" className="grid min-h-0 content-start gap-1 overflow-y-auto">
-              {visibleNavigation.map(({ to, label, icon: Icon }) => (
-                <NavLink key={to} to={to} className={({ isActive }) => navClass({ isActive: isActive || (to === '/prefeitura/broncas' && pathname === '/prefeitura/mapa') })}>
-                  <Icon className="h-4 w-4" /> {label}
-                </NavLink>
-              ))}
+              {renderNavigation()}
             </nav>
             <div className="mt-auto shrink-0 border-t border-edge-subtle pt-4">
               <button type="button" onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-brand hover:bg-brand-subtleBg">

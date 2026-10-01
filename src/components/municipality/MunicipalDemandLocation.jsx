@@ -9,11 +9,10 @@ import MunicipalDemandReportMarkers from '@/components/municipality/MunicipalDem
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
-export default function MunicipalDemandLocation({ form, reports = [], municipality, editable, busy, onChange, onLocatingChange }) {
+export default function MunicipalDemandLocation({ form, fieldErrors = {}, reports = [], municipality, editable, busy, onChange, onLocatingChange }) {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
-  const [editingAddress, setEditingAddress] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const locations = useMemo(() => demandReportLocations(reports), [reports]);
   const addressCount = locations.filter((location) => location.address).length;
@@ -61,30 +60,36 @@ export default function MunicipalDemandLocation({ form, reports = [], municipali
     onChange({ latitude: '', longitude: '' });
   };
 
-  return <section className="min-w-0 space-y-4 rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm sm:p-5" aria-label="Localização do serviço">
-    <div><h2 className="flex items-center gap-2 text-sm font-bold"><span className="rounded-lg bg-brand-subtleBg p-2 text-brand"><MapPin className="h-4 w-4" /></span>Local do serviço</h2>
-    <p className="mt-1 text-xs leading-5 text-content-secondary">{locations.length ? 'Os locais das broncas vinculadas são carregados automaticamente.' : editable ? 'Clique no mapa ou arraste o pino para localizar a demanda.' : 'Localização registrada para o serviço.'}</p></div>
-    {editable && !locations.length && <label className="block"><span className="sr-only">Endereço ou ponto de referência</span><Input value={form.endereco} onChange={(event) => correct('endereco', event.target.value)} disabled={busy} placeholder="Informe endereço ou ponto de referência…" className="bg-surface-subtle text-xs" /></label>}
-    <div className="isolate h-60 min-w-0 overflow-hidden rounded-lg border border-edge-subtle sm:h-80" style={busy ? { pointerEvents: 'none' } : undefined}>
-      <Suspense fallback={<div className="flex h-full items-center justify-center bg-surface-subtle"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>
-        <LocationPickerMap key={revision} initialPosition={position || locations.find((location) => location.position)?.position} onLocationChange={locate} showMarker={Boolean(position)} readOnly={!editable || busy} showLocateButton={editable} initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: city.states?.uf } : null}>
-          {locations.length > 0 && <MunicipalDemandReportMarkers locations={locations} servicePosition={position} selectedLocation={selectedLocation} />}
-        </LocationPickerMap>
-      </Suspense>
+  return <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm" aria-label="Localização do serviço">
+    <div className="mb-3"><h2 className="flex items-center gap-2 text-sm font-bold"><span className="rounded-lg bg-brand-subtleBg p-2 text-brand"><MapPin className="h-4 w-4" /></span>Local do serviço</h2>
+      <p className="mt-1 text-xs text-content-secondary">{locations.length ? 'Os pontos das solicitações vinculadas aparecem no mapa.' : editable ? 'Clique no mapa ou arraste o pino para localizar a demanda.' : 'Localização registrada para o serviço.'}</p>
     </div>
-    {locations.length > 0 && <div className="space-y-3 text-xs" aria-label="Endereços das broncas vinculadas" aria-live="polite">
-      <div><h3 className="font-semibold">Endereços das broncas ({addressCount})</h3><p className="mt-1 text-content-secondary">{locations.length} {locations.length === 1 ? 'bronca vinculada' : 'broncas vinculadas'} · {mappedCount} {mappedCount === 1 ? 'ponto no mapa' : 'pontos no mapa'}</p></div>
-      <ol className="space-y-2">{locations.map((location, index) => <li key={location.id} className="flex min-w-0 items-start gap-3 rounded-lg border border-edge-subtle bg-surface-subtle p-3">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-subtleBg font-semibold text-brand">{index + 1}</span>
-        <div className="min-w-0 flex-1"><p className="break-words font-semibold">{location.address || 'Endereço não informado'}</p>{location.neighborhood && <p className="mt-1 break-words text-content-secondary">{location.neighborhood}</p>}<p className="mt-1 break-words text-content-secondary">{location.title}</p>{location.position ? <button type="button" className="mt-2 rounded font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" disabled={busy} onClick={() => setSelectedLocation({ ...location })}>Ver no mapa</button> : <p className="mt-2 text-content-tertiary">Sem coordenadas para exibir no mapa.</p>}</div>
-      </li>)}</ol>
-    </div>}
-    {(!locations.length || form.endereco || position || editable) && <div className="rounded-lg border border-edge-subtle bg-surface-subtle p-3 text-xs" aria-live="polite">
-      <p className="mb-2 font-semibold">{locations.length ? 'Referência complementar do serviço (opcional)' : 'Endereço selecionado'}</p>
-      {locating ? <p className="flex items-center gap-2 text-content-secondary"><Loader2 className="h-4 w-4 animate-spin" />Buscando endereço do ponto marcado…</p> : <><p className="break-words font-semibold">{form.endereco || (position ? 'Ponto marcado, endereço não identificado' : locations.length ? 'Os endereços vinculados já definem os locais do serviço.' : 'Marque o local no mapa')}</p>{form.bairro && <p className="mt-1 break-words text-xs text-content-secondary">{form.bairro}</p>}</>}
-      {editable && <Button type="button" size="sm" variant="outline" className="mt-3 h-8 text-xs" disabled={busy} aria-expanded={editingAddress || Boolean(error)} aria-controls="municipal-demand-address" onClick={() => setEditingAddress((value) => !value)}>{editingAddress ? 'Fechar edição' : 'Editar endereço'}</Button>}
-    </div>}
-    {error && <p role="alert" className="text-xs leading-5 text-danger">{error}</p>}
-    {editable && (editingAddress || error) && <div id="municipal-demand-address" className="space-y-3 rounded-lg border border-edge-subtle p-3"><label className="block text-xs font-semibold">Endereço ou referência<Input className="mt-1 text-xs" value={form.endereco} onChange={(event) => correct('endereco', event.target.value)} disabled={busy} placeholder="Rua, número ou ponto de referência" /></label><label className="block text-xs font-semibold">Bairro ou localidade<Input className="mt-1 text-xs" value={form.bairro} onChange={(event) => correct('bairro', event.target.value)} disabled={busy} /></label>{position && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={clear}>Retirar ponto do mapa</Button>}</div>}
+    <div className="grid min-h-0 min-w-0 flex-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)]">
+      <div className="isolate h-60 min-w-0 overflow-hidden rounded-lg border border-edge-subtle sm:h-72 xl:h-full xl:min-h-0" style={busy ? { pointerEvents: 'none' } : undefined}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center bg-surface-subtle"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>
+          <LocationPickerMap key={revision} initialPosition={position || locations.find((location) => location.position)?.position} onLocationChange={locate} showMarker={Boolean(position)} readOnly={!editable || busy} showLocateButton={editable} initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: city.states?.uf } : null}>
+            {locations.length > 0 && <MunicipalDemandReportMarkers locations={locations} servicePosition={position} selectedLocation={selectedLocation} />}
+          </LocationPickerMap>
+        </Suspense>
+      </div>
+      <div className="min-w-0 space-y-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-xs font-semibold sm:col-span-2">Endereço ou referência<Input className="mt-1 bg-surface-subtle text-xs" value={form.endereco || ''} onChange={(event) => correct('endereco', event.target.value)} readOnly={!editable} disabled={busy} placeholder="Rua, número ou ponto de referência" /></label>
+          <label className="min-w-0 text-xs font-semibold sm:col-span-2">Bairro ou localidade<Input className="mt-1 bg-surface-subtle text-xs" value={form.bairro || ''} onChange={(event) => correct('bairro', event.target.value)} readOnly={!editable} disabled={busy} placeholder="Bairro ou localidade" /></label>
+          <label className="min-w-0 text-xs font-semibold">Latitude<Input aria-invalid={Boolean(fieldErrors.latitude)} aria-describedby={fieldErrors.latitude ? 'demand-latitude-error' : undefined} className="mt-1 bg-surface-subtle text-xs tabular-nums" value={position ? position.lat.toFixed(6) : ''} placeholder="Marque no mapa" readOnly />{fieldErrors.latitude && <span id="demand-latitude-error" role="alert" className="mt-1.5 block text-xs font-normal text-danger">{fieldErrors.latitude}</span>}</label>
+          <label className="min-w-0 text-xs font-semibold">Longitude<Input aria-invalid={Boolean(fieldErrors.longitude)} aria-describedby={fieldErrors.longitude ? 'demand-longitude-error' : undefined} className="mt-1 bg-surface-subtle text-xs tabular-nums" value={position ? position.lng.toFixed(6) : ''} placeholder="Marque no mapa" readOnly />{fieldErrors.longitude && <span id="demand-longitude-error" role="alert" className="mt-1.5 block text-xs font-normal text-danger">{fieldErrors.longitude}</span>}</label>
+        </div>
+        {locating && <p role="status" className="flex items-center gap-2 text-xs text-content-secondary"><Loader2 className="h-4 w-4 animate-spin" />Buscando endereço do ponto marcado…</p>}
+        {error && <p role="alert" className="text-xs leading-5 text-danger">{error}</p>}
+        {position && editable && <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={busy} onClick={clear}>Retirar ponto do mapa</Button>}
+        {locations.length > 0 && <div className="min-w-0 border-t border-edge-subtle pt-3 text-xs" aria-label="Endereços das solicitações vinculadas" aria-live="polite">
+          <h3 className="font-semibold">Solicitações vinculadas ({addressCount} endereços)</h3><p className="mt-1 text-content-secondary">{mappedCount} {mappedCount === 1 ? 'ponto no mapa' : 'pontos no mapa'}</p>
+          <ol className="mt-2 max-h-32 space-y-1.5 overflow-y-auto pr-1">{locations.map((location, index) => <li key={location.id} className="flex min-w-0 items-start gap-2 rounded-lg border border-edge-subtle bg-surface-subtle p-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-subtleBg font-semibold text-brand">{index + 1}</span>
+            <div className="min-w-0 flex-1"><p className="break-words font-semibold">{location.address || 'Endereço não informado'}</p><p className="mt-0.5 break-words text-content-secondary">{[location.neighborhood, location.title].filter(Boolean).join(' · ')}</p>{location.position && <button type="button" className="mt-1 rounded font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" disabled={busy} onClick={() => setSelectedLocation({ ...location })}>Ver no mapa</button>}</div>
+          </li>)}</ol>
+        </div>}
+      </div>
+    </div>
   </section>;
 }

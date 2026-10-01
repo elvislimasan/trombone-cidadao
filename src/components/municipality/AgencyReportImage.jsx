@@ -11,5 +11,5 @@ export default function AgencyReportImage({ report, compact = false, thumbnail =
     <Building2 className={compact || thumbnail ? 'h-5 w-5 text-content-tertiary' : 'h-10 w-10 text-content-tertiary/50'} />
   </div>;
 
-  return <img key={src} src={src} alt={compact || thumbnail ? '' : `Foto da bronca: ${report?.title || 'Local da ocorrência'}`} loading={compact || thumbnail ? 'lazy' : 'eager'} decoding="async" className={`block object-cover ${size}`} onError={() => setFailedUrls((urls) => urls.includes(src) ? urls : [...urls, src])} />;
+  return <img key={src} src={src} alt={compact || thumbnail ? '' : `Foto da solicitação: ${report?.title || 'Local da ocorrência'}`} loading={compact || thumbnail ? 'lazy' : 'eager'} decoding="async" className={`block object-cover ${size}`} onError={() => setFailedUrls((urls) => urls.includes(src) ? urls : [...urls, src])} />;
 }

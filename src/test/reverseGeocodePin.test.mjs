@@ -76,3 +76,24 @@ test('compartilha a consulta do mesmo pin entre endereço e cidade', async () =>
   assert.deepEqual(first, second);
   assert.equal(calls, 1);
 });
+
+test('consulta a rua do poste em zoom 17 sem reutilizar endereço de prédio do zoom 18', async () => {
+  const calls = [];
+  const location = { lat: -8.12345, lng: -38.12345 };
+  const options = {
+    invoke: async (_name, { body }) => {
+      calls.push(body.zoom);
+      return { data: {
+        address: body.zoom === 17 ? 'Rua do Poste' : 'Rua de Outro Prédio',
+        city: 'Floresta', state_uf: 'PE',
+      }, error: null };
+    },
+    fetcher: () => { throw new Error('A resposta já está completa'); },
+  };
+
+  const building = await reverseGeocodePin(location, options);
+  const street = await reverseGeocodePin(location, { ...options, zoom: 17 });
+  assert.deepEqual(calls, [18, 17]);
+  assert.equal(building.address, 'Rua de Outro Prédio');
+  assert.equal(street.address, 'Rua do Poste');
+});

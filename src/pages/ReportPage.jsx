@@ -303,7 +303,7 @@ const ReportPage = () => {
   const categories = {
     iluminacao: "Iluminação Pública",
     buracos: "Buracos na Via",
-    esgoto: "Esgoto Entupido",
+    esgoto: "Esgoto",
     limpeza: "Limpeza Urbana",
     poda: "Poda de Árvore",
     "vazamento-de-agua": "Vazamento de Água",

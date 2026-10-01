@@ -15,7 +15,7 @@ export const DEMAND_TONES = {
 };
 export const DEMAND_INITIAL_FORM = {
   titulo: '', descricao: '', bairro: '', endereco: '', latitude: '', longitude: '',
-  category_id: '', prioridade: 'normal', status: 'aberta', canal_id: '', atribuido_a: '',
+  category_id: '', issue_type: '', prioridade: 'normal', status: 'aberta', canal_id: '', atribuido_a: '',
   prazo_em: '', previsto_em: '', primeira_resposta_prazo_em: '', proxima_acao: '', proxima_acao_em: '',
   motivo_pendencia: '', resultado: '', registro_execucao: '', executada_em: '',
   origem: 'interno', protocolo_externo: '', pole_id: '',
@@ -48,7 +48,7 @@ export function formFromReport(report, context, now = new Date()) {
     ...DEMAND_INITIAL_FORM, ...suggestDemandAssignment(context, report.category_id),
     titulo: (report.title || '').slice(0, 180), descricao: report.description || '', bairro: report.neighborhood || '',
     endereco: report.address || '', latitude: Number.isFinite(lat) ? lat : '', longitude: Number.isFinite(lng) ? lng : '',
-    category_id: report.category_id || '', prioridade: rule?.prioridade || 'normal', origem: 'bronca',
+    category_id: report.category_id || '', issue_type: report.issue_type || '', prioridade: rule?.prioridade || 'normal', origem: 'bronca',
     pole_id: report.pole_id || '', prazo_em: deadline(rule?.atendimento_horas), primeira_resposta_prazo_em: deadline(rule?.primeira_resposta_horas),
   };
 }
@@ -59,7 +59,7 @@ export function demandReportLocations(reports = []) {
     const lng = longitude ?? report.location?.lng;
     const valid = (value, limit) => value != null && String(value).trim() !== '' && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= limit;
     return {
-      id: report.id, title: report.title || 'Bronca vinculada',
+      id: report.id, title: report.title || 'Solicitação vinculada',
       address: (report.address || '').trim(), neighborhood: (report.neighborhood || '').trim(),
       position: valid(lat, 90) && valid(lng, 180) ? { lat: Number(lat), lng: Number(lng) } : null,
     };
@@ -75,16 +75,26 @@ export function demandPayload(form) {
   }));
   return result;
 }
-export function validateDemand(form, { previousStatus, reason = '' } = {}) {
-  if ((form.titulo || '').trim().length < 3) return 'Informe um título com pelo menos 3 caracteres.';
-  if ((form.latitude === '') !== (form.longitude === '')) return 'Informe latitude e longitude juntas.';
-  if (form.latitude !== '' && (!Number.isFinite(Number(form.latitude)) || Number(form.latitude) < -90 || Number(form.latitude) > 90 || !Number.isFinite(Number(form.longitude)) || Number(form.longitude) < -180 || Number(form.longitude) > 180)) return 'Informe coordenadas válidas.';
-  if (form.status !== previousStatus && ['programada', 'em_andamento', 'aguardando_confirmacao', 'concluida'].includes(form.status) && !form.canal_id) return 'Defina a secretaria responsável pelo atendimento.';
-  if (form.status === 'programada' && !form.previsto_em) return 'Informe a previsão de execução.';
-  if (['aguardando_informacao', 'aguardando_recurso'].includes(form.status) && ((form.motivo_pendencia || '').trim().length < 5 || !form.proxima_acao_em)) return 'Explique a pendência e informe quando ela será revista.';
-  if (form.status !== previousStatus && ['cancelada', 'recusada'].includes(form.status) && reason.trim().length < 5) return 'Explique o motivo do cancelamento ou da recusa.';
-  if (['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(previousStatus) && OPEN_DEMAND_STATUSES.includes(form.status) && form.status !== 'aguardando_confirmacao' && form.status !== previousStatus && reason.trim().length < 5) return 'Explique o motivo da reabertura.';
-  return '';
+export function validateDemandFields(form, { previousStatus, reason = '' } = {}) {
+  const errors = {};
+  if ((form.titulo || '').trim().length < 3) errors.titulo = 'Informe um título com pelo menos 3 caracteres.';
+  if ((form.latitude === '') !== (form.longitude === '')) errors[form.latitude === '' ? 'latitude' : 'longitude'] = 'Informe latitude e longitude juntas.';
+  for (const [key, limit] of [['latitude', 90], ['longitude', 180]]) {
+    if (form[key] !== '' && (!Number.isFinite(Number(form[key])) || Math.abs(Number(form[key])) > limit)) errors[key] = 'Informe coordenadas válidas.';
+  }
+  if (form.status !== previousStatus && ['programada', 'em_andamento', 'aguardando_confirmacao', 'concluida'].includes(form.status) && !form.canal_id) errors.canal_id = 'Defina a secretaria responsável pelo atendimento.';
+  if (form.status === 'programada' && !form.previsto_em) errors.previsto_em = 'Informe a previsão de execução.';
+  if (['aguardando_informacao', 'aguardando_recurso'].includes(form.status)) {
+    if ((form.motivo_pendencia || '').trim().length < 5) errors.motivo_pendencia = 'Explique a pendência com pelo menos 5 caracteres.';
+    if (!form.proxima_acao_em) errors.proxima_acao_em = 'Informe quando a pendência será revista.';
+  }
+  if (form.status !== previousStatus && ['cancelada', 'recusada'].includes(form.status) && reason.trim().length < 5) errors.reason = 'Explique o motivo do cancelamento ou da recusa.';
+  if (['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(previousStatus) && OPEN_DEMAND_STATUSES.includes(form.status) && form.status !== 'aguardando_confirmacao' && form.status !== previousStatus && reason.trim().length < 5) errors.reason = 'Explique o motivo da reabertura.';
+  if (['concluida', 'aguardando_confirmacao'].includes(form.status) && form.resultado && form.resultado.trim().length < 10) errors.resultado = 'Descreva o resultado com pelo menos 10 caracteres.';
+  return errors;
+}
+export function validateDemand(form, options) {
+  return Object.values(validateDemandFields(form, options))[0] || '';
 }
 export function suggestedPublicResponse(form) {
   const forecast = form.previsto_em ? new Date(form.previsto_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';

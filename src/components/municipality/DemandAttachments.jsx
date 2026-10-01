@@ -25,7 +25,7 @@ export default function DemandAttachments({ files = [], publicView = false }) {
         {file.mime_type?.startsWith('image/') ? <img src={urls[file.storage_path]} alt={file.nome} loading="lazy" className="aspect-[4/3] w-full object-cover" /> : <FileText className="m-4 h-8 w-8 text-brand" />}
         <span className="block break-words p-3 text-xs font-semibold">{file.nome}</span>
       </a> : <p className="flex items-center gap-2 p-3 text-xs">{error ? <FileText className="h-4 w-4 shrink-0" /> : <Loader2 className="h-4 w-4 shrink-0 animate-spin" />}{file.nome}{error && ' · Indisponível'}</p>}
-      {!publicView && file.visibilidade && <p className="px-3 pb-3 text-[11px] text-content-secondary">{file.visibilidade === 'publica' ? 'Compartilhado na bronca pública' : 'Somente equipe municipal'}</p>}
+      {!publicView && file.visibilidade && <p className="px-3 pb-3 text-[11px] text-content-secondary">{file.visibilidade === 'publica' ? 'Compartilhado na solicitação pública' : 'Somente equipe municipal'}</p>}
     </div>)}</div>
   </div>;
 }

@@ -2,14 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { CircleMarker, MapContainer, Marker, ScaleControl, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Crosshair, Loader2, Maximize2, Minimize2, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Crosshair, Loader2, Maximize2, Minimize2, SlidersHorizontal, X } from 'lucide-react';
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { showAppError } from '@/lib/appError';
 
 const COLORS = { aceso: '#16a34a', apagado: '#dc2626', manutencao: '#ca8a04', removido: '#64748b' };
-const LABELS = { aceso: 'Aceso / funcionando', apagado: 'Apagado ou com problema', manutencao: 'Em manutenção', removido: 'Removido' };
+const LABELS = { aceso: 'Sem problema registrado', apagado: 'Apagado ou com problema', manutencao: 'Em manutenção', removido: 'Removido' };
 const BOLT_SYMBOL = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m13.5 2-9 11h6l-1 9 10-12h-6l1-8z"/></svg>';
 const poleIcons = Object.fromEntries(Object.entries(COLORS).map(([status, color]) => [status, L.divIcon({
   className: 'municipal-lighting-icon',
@@ -54,7 +53,7 @@ function MapFrame({ onBounds, onPoint, focus, center }) {
       zoom: map.getZoom(),
     });
   }, [map, onBounds]);
-  useMapEvents({ moveend: reportBounds, click: (event) => onPoint(event.latlng) });
+  useMapEvents({ moveend: reportBounds, click: (event) => onPoint?.(event.latlng) });
   useEffect(() => { reportBounds(); }, [reportBounds]);
   useEffect(() => { if (focus) map.flyTo(focus, Math.max(map.getZoom(), 16)); }, [map, focus]);
   useEffect(() => {
@@ -84,7 +83,7 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, search, onSearch, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters }) {
+export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters }) {
   const frameRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -107,13 +106,13 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
       <LightingMarkers items={located} onSelect={onSelect} />
     </MapContainer> : <div role="status" aria-label="Carregando mapa" className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}
     <div className="pointer-events-none absolute inset-x-4 top-4 z-[500] flex items-start justify-between gap-3">
-      <div className="pointer-events-auto flex min-w-0 flex-1 items-center overflow-hidden rounded-xl border border-edge-default bg-surface-raised shadow-md sm:max-w-md"><label className="relative min-w-0 flex-1"><span className="sr-only">Buscar poste no mapa</span><Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-content-secondary" /><Input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Buscar endereço ou número do poste…" className="h-11 border-0 bg-transparent pl-9 shadow-none focus-visible:ring-inset" /></label><Button variant="ghost" size="icon" aria-label="Abrir filtros do mapa" onClick={onFilters} className="mr-1 h-9 w-9 shrink-0 border-l border-edge-subtle text-content-secondary"><SlidersHorizontal className="h-4 w-4" /></Button></div>
+      <Button variant="outline" size="sm" aria-label="Abrir busca e filtros" onClick={onFilters} className="pointer-events-auto h-11 shrink-0 border-edge-default bg-surface-raised shadow-md"><SlidersHorizontal className="mr-2 h-4 w-4" />Busca e filtros</Button>
       <Button variant="outline" size="icon" aria-label={fullscreen ? 'Sair da tela cheia' : 'Ampliar mapa'} onClick={toggleFullscreen} className="pointer-events-auto h-11 w-11 shrink-0 border-edge-default bg-surface-raised shadow-md">{fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
     </div>
     {placing && <div role="status" className="absolute inset-x-4 top-20 z-[600] flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-surface-raised p-3 text-sm shadow-lg"><span>Toque no mapa para posicionar o poste.</span><Button variant="ghost" size="icon" onClick={onCancelPlacing} aria-label="Cancelar escolha da localização"><X className="h-4 w-4" /></Button></div>}
     <div className="pointer-events-none absolute bottom-7 left-4 right-4 z-[500] sm:right-auto sm:max-w-[calc(100%_-_5rem)]">
       <div aria-label="Legenda do mapa" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-edge-subtle bg-surface-raised/95 px-3 py-2.5 text-[11px] text-content-secondary shadow-sm backdrop-blur-sm">{['aceso', 'apagado', 'manutencao', ...(items.some((item) => Number(item.removido_count) > 0 || item.pole?.lighting_status === 'removido') ? ['removido'] : [])].map((status) => <span key={status} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[status] }} />{status === 'apagado' ? 'Apagado / problema' : LABELS[status]}</span>)}</div>
-      <p role="status" className="mt-2 w-fit rounded-md bg-surface-raised/95 px-2 py-1 text-[10px] text-content-secondary shadow-sm">{loading ? 'Carregando postes…' : `${Number(count).toLocaleString('pt-BR')} postes na área · ${located.length.toLocaleString('pt-BR')} marcadores`}{located.some((item) => Number(item.item_count) > 1) && ' · Clique nos grupos para aproximar'}</p>
+      <p role="status" className="mt-2 w-fit rounded-md bg-surface-raised/95 px-2 py-1 text-[10px] text-content-secondary shadow-sm">{loading ? 'Carregando postes…' : `${Number(count).toLocaleString('pt-BR')} postes visíveis nesta área · ${located.length.toLocaleString('pt-BR')} marcadores`}{located.some((item) => Number(item.item_count) > 1) && ' · Clique nos grupos para aproximar'}</p>
     </div>
   </section>;
 }

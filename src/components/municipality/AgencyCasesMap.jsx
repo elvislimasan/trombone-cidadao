@@ -23,13 +23,13 @@ export function AgencyCaseLocationMap({ item }) {
   const points = useMemo(() => point ? [point] : [], [point?.[0], point?.[1]]);
   if (!point) return null;
 
-  return <div className="relative z-0 h-80 w-full min-w-0 overflow-hidden rounded-xl border border-edge-subtle" aria-label="Localização desta bronca">
+  return <div className="relative z-0 h-80 w-full min-w-0 overflow-hidden rounded-xl border border-edge-subtle" aria-label="Localização desta solicitação">
     <MapContainer center={point} zoom={16} className="h-full w-full" scrollWheelZoom={false}>
       <ThemedTileLayer />
       <Frame points={points} />
       <CircleMarker center={point} radius={9} pathOptions={{ color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }}>
-        <Tooltip>{item.report?.title || 'Local da bronca'}</Tooltip>
-        <Popup><strong>{item.report?.title || 'Bronca sem título'}</strong><p>{item.report?.address || 'Endereço não informado'}</p></Popup>
+        <Tooltip>{item.report?.title || 'Local da solicitação'}</Tooltip>
+        <Popup><strong>{item.report?.title || 'Solicitação sem título'}</strong><p>{item.report?.address || 'Endereço não informado'}</p></Popup>
       </CircleMarker>
     </MapContainer>
   </div>;
@@ -70,7 +70,7 @@ export default function AgencyCasesMap({ cases, query = '', controls, loading = 
                 return <Circle key={area.key} center={area.center} radius={250} pathOptions={{ color: level.color, fillColor: level.color, weight: selected?.key === area.key ? 3 : 1.5, fillOpacity: level.opacity }}><Tooltip>{area.label}: concentração {level.label.toLocaleLowerCase('pt-BR')} · {area.count} abertas · {area.overdue} atrasadas</Tooltip></Circle>;
               })}
               {showPoints && located.map(({ item, point }) => <CircleMarker key={item.report_id} center={point} radius={showAreas ? 5 : 7} pathOptions={{ color: '#fff', weight: 1.5, fillColor: isAgencyCaseOverdue(item) ? '#dc2626' : isAgencyCaseOpen(item) ? '#d97706' : '#64748b', fillOpacity: 1 }}>
-                <Popup><div className="space-y-2"><strong>{item.report?.title || 'Bronca sem título'}</strong><p>{item.report?.address || 'Endereço não informado'}</p><p>{item.report?.category?.name} · {agencyCaseStatus(item).label}</p><p>{item.canal?.nome}</p><Link className="font-bold underline" to={`/prefeitura/broncas/${item.report_id}?${backQuery}`}>Abrir atendimento</Link></div></Popup>
+                <Popup><div className="space-y-2"><strong>{item.report?.title || 'Solicitação sem título'}</strong><p>{item.report?.address || 'Endereço não informado'}</p><p>{item.report?.category?.name} · {agencyCaseStatus(item).label}</p><p>{item.canal?.nome}</p><Link className="font-bold underline" to={`/prefeitura/broncas/${item.report_id}?${backQuery}`}>Abrir atendimento</Link></div></Popup>
               </CircleMarker>)}
             </MapContainer>
           <div className="pointer-events-none absolute bottom-7 left-3 z-[1000] max-w-[calc(100%_-_1.5rem)] rounded-xl border border-edge-subtle bg-surface-raised/85 px-3 py-2 shadow-sm backdrop-blur-md" aria-label="Legenda de concentração de demandas">

@@ -243,7 +243,7 @@ export default function AgencyDashboardPage({ view = 'list' }) {
   return (
     <>
       <Helmet>
-        <title>{mapView ? 'Mapa de broncas' : 'Caixa de entrada'} | Painel da Prefeitura</title>
+        <title>{mapView ? 'Mapa de solicitações' : 'Caixa de entrada'} | Painel da Prefeitura</title>
         <meta name="robots" content="noindex" />
       </Helmet>
 
@@ -251,9 +251,9 @@ export default function AgencyDashboardPage({ view = 'list' }) {
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">Gestão pública</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight">{mapView ? 'Mapa de broncas' : 'Caixa de entrada'}</h1>
+            <h1 className="mt-1 text-3xl font-black tracking-tight">{mapView ? 'Mapa de solicitações' : 'Caixa de entrada'}</h1>
             <p className="mt-2 max-w-3xl text-sm text-content-secondary">
-              Priorize as demandas da cidade e abra cada bronca para distribuir, responder e acompanhar o atendimento.
+              Priorize as demandas da cidade e abra cada solicitação para distribuir, responder e acompanhar o atendimento.
             </p>
           </div>
           <Button variant="outline" size="icon" onClick={() => loadCases({ quiet: true })} disabled={refreshing} title="Atualizar">
@@ -262,7 +262,7 @@ export default function AgencyDashboardPage({ view = 'list' }) {
         </header>
 
         <nav aria-label="Visualização das demandas" className="mt-5 flex gap-2">
-          {[['list', '/prefeitura/broncas', 'Lista de demandas'], ['map', '/prefeitura/mapa', 'Mapa de broncas']].map(([id, path, label]) => <Link key={id} to={`${path}?${currentQuery}`} aria-current={view === id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-sm font-bold ${view === id ? 'bg-brand text-content-onBrand' : 'border border-edge-subtle bg-surface-raised text-content-secondary hover:bg-brand-subtleBg'}`}>{label}</Link>)}
+          {[['list', '/prefeitura/broncas', 'Lista de solicitações'], ['map', '/prefeitura/mapa', 'Mapa de solicitações']].map(([id, path, label]) => <Link key={id} to={`${path}?${currentQuery}`} aria-current={view === id ? 'page' : undefined} className={`rounded-full px-4 py-2 text-sm font-bold ${view === id ? 'bg-brand text-content-onBrand' : 'border border-edge-subtle bg-surface-raised text-content-secondary hover:bg-brand-subtleBg'}`}>{label}</Link>)}
         </nav>
 
         <section className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -313,7 +313,7 @@ export default function AgencyDashboardPage({ view = 'list' }) {
             ['categoria', 'Categoria', category, [['all', 'Todas as categorias'], ...categories.map((item) => [item.id, item.name])]],
             ['prioridade', 'Prioridade', priority, [['all', 'Todas as prioridades'], ['urgente', 'Urgente'], ['alta', 'Alta'], ['normal', 'Normal'], ['baixa', 'Baixa']]],
             ['responsavel', 'Responsável', assignment, [['all', 'Todos os responsáveis'], ['minhas', 'Atribuídas a mim'], ['sem', 'Sem responsável']]],
-            ['idade', 'Tempo desde o registro da bronca', age, [['all', 'Qualquer tempo'], ['7', 'Há pelo menos 7 dias'], ['30', 'Há pelo menos 30 dias'], ['90', 'Há pelo menos 90 dias']]],
+            ['idade', 'Tempo desde o registro da solicitação', age, [['all', 'Qualquer tempo'], ['7', 'Há pelo menos 7 dias'], ['30', 'Há pelo menos 30 dias'], ['90', 'Há pelo menos 90 dias']]],
             ['ordem', 'Ordenar demandas', sort, AGENCY_SORTS.map((item) => [item.id, item.label])],
           ].map(([key, label, value, options]) => <label key={key} className="min-w-0 text-xs font-semibold text-content-secondary">{label}<select value={value} onChange={(event) => updateFilter(key, event.target.value, key === 'ordem' ? 'antigas' : 'all')} className="mt-1 h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-content-primary">{options.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>)}
           <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" className="accent-red-600" checked={overdue} onChange={(event) => updateFilter('atrasadas', event.target.checked ? '1' : '', '')} />Somente atrasadas</label>
@@ -359,12 +359,12 @@ export default function AgencyDashboardPage({ view = 'list' }) {
                         {isAgencyCaseOverdue(item) && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">Prazo vencido</span>}
                       </div>
                       <h3 className="mt-2 line-clamp-2 text-sm font-black leading-5 group-hover:text-brand">
-                        {item.report?.title || 'Bronca sem título'}
+                        {item.report?.title || 'Solicitação sem título'}
                       </h3>
                       <p className="mt-1 truncate text-xs text-content-tertiary">
                         {item.report?.category?.name || item.report?.category_id} · {item.report?.neighborhood || item.report?.address || 'Local não informado'}
                       </p>
-                      <p className="mt-1 text-xs text-content-secondary">Bronca registrada em {fmtDate(item.report?.created_at)}</p>
+                      <p className="mt-1 text-xs text-content-secondary">Solicitação registrada em {fmtDate(item.report?.created_at)}</p>
                     </div>
 
                     <div className="min-w-0 sm:col-start-2 xl:col-start-auto">

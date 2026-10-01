@@ -12,7 +12,7 @@
 export const CATEGORIAS_BRONCA = [
   { id: 'iluminacao', name: 'Iluminação', icon: '💡' },
   { id: 'buracos', name: 'Buracos na Via', icon: '🕳️' },
-  { id: 'esgoto', name: 'Esgoto Entupido', icon: '🚰' },
+  { id: 'esgoto', name: 'Esgoto', icon: '🚰' },
   { id: 'limpeza', name: 'Limpeza Urbana', icon: '🧹' },
   { id: 'poda', name: 'Poda de Árvore', icon: '🌳' },
   { id: 'vazamento-de-agua', name: 'Vazamento de Água', icon: '💧' },

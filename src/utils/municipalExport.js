@@ -12,7 +12,7 @@ const quoteCsv = (value) => {
 export function municipalExportCsv(records, kind, groupBy = 'none') {
   const demands = kind === 'demands';
   const headers = demands
-    ? ['Protocolo', 'Título', 'Descrição', 'Categoria', 'Endereço', 'Bairro', 'Secretaria', 'Responsável', 'Prioridade', 'Status', 'Criada em', 'Prazo', 'Previsão', 'Próxima ação', 'Data da próxima ação', 'Atrasada', 'Revisão pendente', 'Broncas vinculadas', 'Endereços vinculados', 'Bairros vinculados']
+    ? ['Protocolo', 'Título', 'Descrição', 'Categoria', 'Endereço', 'Bairro', 'Secretaria', 'Responsável', 'Prioridade', 'Status', 'Criada em', 'Prazo', 'Previsão', 'Próxima ação', 'Data da próxima ação', 'Atrasada', 'Revisão pendente', 'Solicitações vinculadas', 'Endereços vinculados', 'Bairros vinculados']
     : ['ID', 'Título', 'Descrição', 'Categoria', 'Endereço', 'Bairro', 'Status', 'Publicada em', 'Idade (dias)', 'Ordem de serviço', 'Secretaria', 'Responsável'];
   const rows = groupExportRecords(records, groupBy).flatMap((group) => group.rows).map((item) => demands
     ? [item.reference, item.title, item.description, item.category, item.address, item.neighborhood, item.channel, item.responsible, item.priority, item.status, date(item.createdAt), date(item.dueAt), date(item.forecastAt), item.nextAction, date(item.nextActionAt), item.overdue ? 'Sim' : 'Não', item.review ? 'Sim' : 'Não', item.linkedLocations?.length || 0, (item.linkedLocations || []).map((location, index) => `${index + 1}. ${location.address || 'Endereço não informado'}`).join('\n'), (item.linkedLocations || []).map((location, index) => `${index + 1}. ${location.neighborhood || 'Bairro não informado'}`).join('\n')]
@@ -24,7 +24,7 @@ export async function buildMunicipalExportPdf({ records, kind, municipality, fil
   const [{ jsPDF }, tableModule] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const autoTable = typeof tableModule.default === 'function' ? tableModule.default : tableModule.default.default;
   const demands = kind === 'demands';
-  const title = demands ? 'Ordens de serviço' : 'Broncas da cidade';
+  const title = demands ? 'Ordens de serviço' : 'Solicitações da cidade';
   const doc = new jsPDF({ orientation: layout === 'table' ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
@@ -57,7 +57,7 @@ export async function buildMunicipalExportPdf({ records, kind, municipality, fil
 
   const metrics = demands
     ? [['Ordens encontradas', records.length], ['Com prazo atrasado', records.filter((item) => item.overdue).length], ['Sem responsável', records.filter((item) => item.responsible === 'Sem responsável').length]]
-    : [['Broncas encontradas', records.length], ['Com ordem de serviço', records.filter((item) => item.orderReference !== 'Sem ordem').length], ['Há mais de 30 dias', records.filter((item) => item.age > 30).length]];
+    : [['Solicitações encontradas', records.length], ['Com ordem de serviço', records.filter((item) => item.orderReference !== 'Sem ordem').length], ['Há mais de 30 dias', records.filter((item) => item.age > 30).length]];
   metrics.forEach(([label, value], index) => {
     const x = margin + index * contentWidth / 3;
     doc.setTextColor(...ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text(value.toLocaleString('pt-BR'), x, y + 5);
@@ -111,12 +111,12 @@ export async function buildMunicipalExportPdf({ records, kind, municipality, fil
         if (item.review) details.push(['Revisão', 'Manifestação precisa de revisão']);
         table({ body: details.map((row) => row.map(pdfText)), columnStyles: { 0: { cellWidth: 38, fontStyle: 'bold' } } });
         if (demands && item.linkedLocations?.length) {
-          heading(`Endereços das broncas vinculadas (${item.linkedLocations.length})`, 9);
-          table({ head: [['Bronca', 'Endereço / bairro']], body: item.linkedLocations.map((location, index) => [pdfText(`${index + 1}. ${location.title}`), pdfText(`${location.address || 'Endereço não informado'}\n${location.neighborhood || 'Bairro não informado'}`)]), columnStyles: { 0: { cellWidth: contentWidth * 0.38 } } });
+          heading(`Endereços das solicitações vinculadas (${item.linkedLocations.length})`, 9);
+          table({ head: [['Solicitação', 'Endereço / bairro']], body: item.linkedLocations.map((location, index) => [pdfText(`${index + 1}. ${location.title}`), pdfText(`${location.address || 'Endereço não informado'}\n${location.neighborhood || 'Bairro não informado'}`)]), columnStyles: { 0: { cellWidth: contentWidth * 0.38 } } });
         }
       }
     } else {
-      const headers = demands ? ['Protocolo', 'Serviço / categoria', 'Endereço / bairro', 'Secretaria / responsável', 'Status / prioridade', 'Prazo / previsão'] : ['ID', 'Bronca / categoria', 'Endereço / bairro', 'Status', 'Publicação / idade', 'Ordem de serviço', 'Secretaria / responsável'];
+      const headers = demands ? ['Protocolo', 'Serviço / categoria', 'Endereço / bairro', 'Secretaria / responsável', 'Status / prioridade', 'Prazo / previsão'] : ['ID', 'Solicitação / categoria', 'Endereço / bairro', 'Status', 'Publicação / idade', 'Ordem de serviço', 'Secretaria / responsável'];
       const widths = demands ? [30, 63, 46, 47, 45, 38] : [28, 65, 53, 31, 27, 26, 39];
       const pairs = group.rows.map((item) => demands
         ? [[item.reference, ''], [item.title, item.category], item.linkedLocations?.length ? [`${item.linkedLocations.length} ${item.linkedLocations.length === 1 ? 'local vinculado' : 'locais vinculados'}`, 'Endereços relacionados abaixo' + (item.serviceAddress ? '\nReferência: ' + item.serviceAddress : '')] : [item.address, item.neighborhood], [item.channel, item.responsible], [item.status, `${item.priority}${item.review ? '\nRevisão pendente' : ''}`], [date(item.dueAt) + (item.overdue ? ' · ATRASADA' : ''), 'Previsão: ' + date(item.forecastAt)]]
@@ -148,9 +148,9 @@ export async function buildMunicipalExportPdf({ records, kind, municipality, fil
         },
       });
       if (demands && group.rows.some((item) => item.linkedLocations?.length)) {
-        heading('Endereços das broncas vinculadas', 10);
+        heading('Endereços das solicitações vinculadas', 10);
         // One row per location keeps large orders paginated without oversized summary cells.
-        table({ head: [['Ordem de serviço', 'Bronca', 'Endereço / bairro']],
+        table({ head: [['Ordem de serviço', 'Solicitação', 'Endereço / bairro']],
           body: group.rows.flatMap((item) => (item.linkedLocations || []).map((location, index) => [pdfText(item.reference), pdfText(`${index + 1}. ${location.title}`), pdfText(`${location.address || 'Endereço não informado'}\n${location.neighborhood || 'Bairro não informado'}`)])),
           columnStyles: { 0: { cellWidth: 32, fontStyle: 'bold' }, 1: { cellWidth: 78 } },
         });
@@ -181,7 +181,7 @@ export async function downloadMunicipalExport(options) {
   if (!records.length) throw new Error('Nenhum registro corresponde aos filtros escolhidos.');
   const now = new Date();
   const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const filename = `${kind === 'demands' ? 'ordens-de-servico' : 'broncas'}-${localDate}`;
+  const filename = `${kind === 'demands' ? 'ordens-de-servico' : 'solicitacoes'}-${localDate}`;
   if (format === 'pdf') {
     const doc = await buildMunicipalExportPdf(options);
     doc.save(filename + '.pdf');

@@ -21,6 +21,7 @@ export const AGENCY_PRIORITIES = Object.freeze([
 export const AGENCY_MEMBER_ROLES = Object.freeze([
   { id: 'gestor', label: 'Gestor' },
   { id: 'operador', label: 'Atendente/técnico' },
+  { id: 'eletricista', label: 'Eletricista (execução)' },
   { id: 'leitura', label: 'Somente leitura' },
 ]);
 

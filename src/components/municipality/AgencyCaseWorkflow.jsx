@@ -56,7 +56,7 @@ export default function AgencyCaseWorkflow({ item, form, setForm, canOperate, ci
       </nav>
 
       <div id="agency-step-panel" className="mt-5">
-        {triage && <p className="mt-3 rounded-xl bg-brand-subtleBg p-3 text-xs leading-5 text-content-secondary">Esta bronca está na triagem municipal. {cityAdministrator ? 'Selecione a secretaria na etapa Receber para liberar o atendimento.' : 'Aguarde o administrador encaminhar a bronca para uma secretaria.'}</p>}
+        {triage && <p className="mt-3 rounded-xl bg-brand-subtleBg p-3 text-xs leading-5 text-content-secondary">Esta solicitação está na triagem municipal. {cityAdministrator ? 'Selecione a secretaria na etapa Receber para liberar o atendimento.' : 'Aguarde o administrador encaminhar a solicitação para uma secretaria.'}</p>}
 
         {active === 0 && <div className="mt-4 space-y-4">
           <div>
@@ -69,7 +69,7 @@ export default function AgencyCaseWorkflow({ item, form, setForm, canOperate, ci
               <Button type="button" variant="outline" className="mt-3 h-auto min-h-11 max-w-full gap-2 whitespace-normal" onClick={routeCase} disabled={busy || dirty}>{routing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{routing ? 'Encaminhando...' : 'Confirmar encaminhamento'}</Button>
               {dirty && <p className="mt-2 text-xs text-content-secondary">Salve as alterações pendentes antes de encaminhar.</p>}
             </>}
-            {cityAdministrator && !cityChannels.length && <p className="mt-2 text-xs text-content-secondary">Cadastre e ative uma secretaria para encaminhar esta bronca.</p>}
+            {cityAdministrator && !cityChannels.length && <p className="mt-2 text-xs text-content-secondary">Cadastre e ative uma secretaria para encaminhar esta solicitação.</p>}
           </div>
           <div><Label htmlFor="agency-priority">Prioridade do atendimento</Label><select id="agency-priority" value={form.priority} onChange={(event) => update('priority', event.target.value)} disabled={!canOperate || busy} className={selectClass}>{AGENCY_PRIORITIES.map((priority) => <option key={priority.id} value={priority.id}>{priority.label}</option>)}</select></div>
           <div className="flex flex-wrap gap-2">{statusAction('recebida', 'Registrar recebimento')}{statusAction('triagem', 'Marcar em triagem')}</div>
@@ -103,7 +103,7 @@ export default function AgencyCaseWorkflow({ item, form, setForm, canOperate, ci
       </div>
       <div className="mt-4" hidden={communication !== 'public'}>
         <Label htmlFor="agency-public-response">{form.status === 'recusada' ? 'Justificativa da recusa (obrigatória)' : 'Resposta oficial ao cidadão'}</Label>
-        <p className="mt-1 text-xs leading-5 text-content-secondary">Ao salvar, esta mensagem aparece nos detalhes públicos da bronca, com a identificação da secretaria.</p>
+        <p className="mt-1 text-xs leading-5 text-content-secondary">Ao salvar, esta mensagem aparece nos detalhes públicos da solicitação, com a identificação da secretaria.</p>
         <textarea id="agency-public-response" value={form.publicResponse} onChange={(event) => update('publicResponse', event.target.value)} disabled={!canOperate || busy || triage} rows={5} maxLength={4000} placeholder="Explique a providência, a previsão ou o resultado do atendimento." className="mt-3 w-full resize-y rounded-xl border border-edge-subtle bg-surface-subtle px-3 py-2 text-sm disabled:opacity-60" />
         <p className="text-right text-[11px] text-content-tertiary">{form.publicResponse.length}/4000</p>
       </div>
