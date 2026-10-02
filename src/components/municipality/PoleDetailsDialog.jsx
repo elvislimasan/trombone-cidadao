@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { lightingStatus } from '@/components/municipality/MunicipalLightingMap';
 import { normalizeLampType } from '@/lib/lightingCatalog';
+import { poleDisplayLabel } from '@/lib/poleDisplay';
 
 const STATUS = { aceso: 'Sem problema registrado', apagado: 'Apagado ou com problema', manutencao: 'Em manutenção', removido: 'Removido' };
 const STATUS_COLOR = { aceso: 'bg-success-bg text-success-fg', apagado: 'bg-danger-subtleBg text-danger-subtleFg', manutencao: 'bg-status-pendingBg text-status-pendingFg', removido: 'bg-surface-subtle text-content-secondary' };
@@ -46,7 +47,7 @@ export default function PoleDetailsDialog({ open, onOpenChange, pole, city, rela
         <div className="mt-4 flex min-w-0 items-start gap-3">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-status-pendingBorder bg-gradient-to-br from-status-pendingBg to-surface-raised"><LampDesk className="h-7 w-7 text-status-pendingFg" /></div>
           <div className="min-w-0 flex-1">
-            <h3 className="break-words text-base font-bold leading-6">Ponto de iluminação</h3>
+            <h3 className="break-words text-base font-bold leading-6">{poleDisplayLabel(pole)}</h3>
             <span className={'mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ' + (STATUS_COLOR[status] || STATUS_COLOR.removido)}><span className={'h-2 w-2 shrink-0 rounded-full ' + (STATUS_DOT[status] || STATUS_DOT.removido)} />{STATUS[status] || status}</span>
             {pole.is_broken && pole.lighting_status !== 'apagado' && pole.lighting_status !== 'manutencao' && pole.lighting_status !== 'removido' && <p className="mt-1 text-xs text-danger-subtleFg">Há relato de problema ativo. A situação cadastrada pode ser diferente da exibida no mapa.</p>}
             <p className="mt-2 break-words text-sm leading-5 text-content-secondary">{pole.address || 'Endereço não informado'}</p>
