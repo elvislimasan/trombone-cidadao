@@ -23,9 +23,10 @@ export default function MunicipalityRegisterPage() {
 
   useEffect(() => {
     if (!token) { setInvalid(true); setChecking(false); return; }
-    supabase.rpc('preview_convite_prefeitura', { p_token: token }).then(({ data, error }) => {
+    supabase.rpc('preview_acesso_convite_prefeitura', { p_token: token }).then(({ data, error }) => {
       const row = Array.isArray(data) ? data[0] : data;
       setPreview(row || null);
+      if (row?.email_convidado) setForm((current) => ({ ...current, email: row.email_convidado }));
       setInvalid(Boolean(error || !row));
       setChecking(false);
     });
@@ -49,12 +50,14 @@ export default function MunicipalityRegisterPage() {
     }
 
     setWorking(true);
-    const { error } = await signUp(form.email.trim().toLowerCase(), form.password, {
+    const invitePath = `/prefeitura/convite/${token}`;
+    const { error } = await signUp(preview.email_convidado, form.password, {
       data: {
         name: form.name.trim(),
         contexto_cadastro: 'prefeitura',
         terms_accepted_at: new Date().toISOString(),
       },
+      emailRedirectTo: `${import.meta.env.VITE_APP_URL?.replace(/\/$/, '') || window.location.origin}${invitePath}`,
     });
     if (error) {
       setWorking(false);
@@ -62,7 +65,7 @@ export default function MunicipalityRegisterPage() {
       return;
     }
 
-    const { error: signInError } = await signIn(form.email.trim().toLowerCase(), form.password);
+    const { error: signInError } = await signIn(preview.email_convidado, form.password);
     if (!signInError) {
       await refreshUserProfile();
       navigate(`/prefeitura/convite/${token}`, { replace: true });
@@ -72,9 +75,9 @@ export default function MunicipalityRegisterPage() {
     setWorking(false);
     showAppNotice({
       title: 'Confirme seu e-mail',
-      description: 'Depois da confirmação, entre com a conta institucional para aceitar o convite.',
+      description: 'Depois da confirmação, entre com a conta institucional. O acesso será ativado automaticamente.',
     });
-    navigate('/login', { replace: true, state: { from: { pathname: `/prefeitura/convite/${token}` } } });
+    navigate('/login', { replace: true, state: { email: preview.email_convidado, from: { pathname: invitePath } } });
   };
 
   return (
@@ -99,7 +102,7 @@ export default function MunicipalityRegisterPage() {
 
               <form onSubmit={submit} className="mt-6 grid gap-4">
                 <div><Label htmlFor="municipality-name">Nome completo</Label><Input id="municipality-name" required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></div>
-                <div><Label htmlFor="municipality-email">E-mail do convite</Label><Input id="municipality-email" type="email" required value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder={preview?.email_mascarado || 'servidor@prefeitura.gov.br'} /><p className="mt-1 text-xs text-content-secondary">Use o endereço que recebeu o convite.</p></div>
+                <div><Label htmlFor="municipality-email">E-mail do convite</Label><Input id="municipality-email" type="email" required readOnly value={form.email} /><p className="mt-1 text-xs text-content-secondary">Endereço definido no convite.</p></div>
                 <div>
                   <Label htmlFor="municipality-password">Senha</Label>
                   <div className="relative"><Input id="municipality-password" type={showPassword ? 'text' : 'password'} required minLength={6} value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} className="pr-10" /><button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary focus-visible:ring-2 focus-visible:ring-brand" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
@@ -109,7 +112,7 @@ export default function MunicipalityRegisterPage() {
                 <Button type="submit" disabled={working}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar conta institucional</Button>
               </form>
 
-              <p className="mt-6 text-center text-sm text-content-secondary">Já possui acesso institucional? <Link to="/login" state={{ from: { pathname: `/prefeitura/convite/${token}` } }} className="font-bold text-brand hover:underline">Entrar</Link></p>
+              <p className="mt-6 text-center text-sm text-content-secondary">Já possui uma conta com este e-mail? <Link to="/login" state={{ email: preview.email_convidado, from: { pathname: `/prefeitura/convite/${token}` } }} className="font-bold text-brand hover:underline">Entrar</Link></p>
             </>
           )}
         </section>

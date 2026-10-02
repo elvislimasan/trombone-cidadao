@@ -14,6 +14,10 @@ import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
 
 const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform();
 const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
+const loginDestination = (user, target) =>
+  target?.startsWith('/prefeitura/convite/')
+    ? target
+    : (hasMunicipalityPanelAccess(user) ? '/prefeitura/broncas' : (target || postAuthFallback));
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -24,6 +28,17 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, signInWithGoogle, signInWithApple, refreshUserProfile, user } = useAuth();
+
+  useEffect(() => {
+    if (location.state?.email) setEmail(location.state.email);
+  }, [location.state?.email]);
+
+  const rememberInviteRedirect = () => {
+    const from = location.state?.from;
+    if (from?.pathname?.startsWith('/prefeitura/convite/')) {
+      try { sessionStorage.setItem('tc_post_login_redirect', `${from.pathname}${from.search || ''}`); } catch {}
+    }
+  };
 
   // Reseta loading quando o browser OAuth fecha sem completar o login
   useEffect(() => {
@@ -46,11 +61,12 @@ const LoginPage = () => {
       if (!target && from?.pathname) {
         target = `${from.pathname}${from.search || ''}`;
       }
-      navigate(hasMunicipalityPanelAccess(user) ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
+      navigate(loginDestination(user, target), { replace: true });
     }
   }, [user, navigate, location.state]);
 
   const handleAppleLogin = async () => {
+    rememberInviteRedirect();
     setIsLoading(true);
     try {
       const { data, error } = await signInWithApple();
@@ -65,7 +81,7 @@ const LoginPage = () => {
       } catch {}
       const from = location.state?.from;
       if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-      navigate(hasMunicipalityPanelAccess(refreshedUser) ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
+      navigate(loginDestination(refreshedUser, target), { replace: true });
     } catch (error) {
       // Código 1001 = usuário cancelou o painel da Apple — ignorar silenciosamente
       const cancelled =
@@ -86,6 +102,7 @@ const LoginPage = () => {
   };
 
   const handleGoogleLogin = async () => {
+    rememberInviteRedirect();
     setIsLoading(true);
     try {
       const { error } = await signInWithGoogle();
@@ -148,7 +165,7 @@ const LoginPage = () => {
           } catch {}
           const from = location.state?.from;
           if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-          navigate(hasMunicipalityPanelAccess(refreshedUser) ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
+          navigate(loginDestination(refreshedUser, target), { replace: true });
       } else {
           setErrors({
             email: '',
@@ -195,7 +212,7 @@ const LoginPage = () => {
         } catch {}
         const from = location.state?.from;
         if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-        navigate(hasMunicipalityPanelAccess(refreshedUser) ? '/prefeitura/broncas' : (target || postAuthFallback), { replace: true });
+        navigate(loginDestination(refreshedUser, target), { replace: true });
       }
     } catch (error) {
       setErrors({

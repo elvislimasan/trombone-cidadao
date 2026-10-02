@@ -372,7 +372,7 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUserProfile, _handleAuthCallback]);
 
   const signUp = useCallback(async (email, password, meta) => {
-    const redirectTo = `${getSiteUrl()}/perfil`;
+    const redirectTo = meta?.emailRedirectTo || `${getSiteUrl()}/perfil`;
     const { data: { user: authUser }, error } = await supabase.auth.signUp({ 
       email, 
       password, 
@@ -395,8 +395,8 @@ export const AuthProvider = ({ children }) => {
     return { error };
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
-    let redirectTo = getSiteUrl();
+  const signInWithGoogle = useCallback(async (returnPath) => {
+    let redirectTo = `${getSiteUrl()}${returnPath?.startsWith('/prefeitura/convite/') ? returnPath : ''}`;
 
     // Ajuste para redirecionamento em App Nativo (Capacitor)
     if (Capacitor.isNativePlatform()) {
@@ -443,7 +443,7 @@ export const AuthProvider = ({ children }) => {
     return { data, error };
   }, []);
 
-  const signInWithApple = useCallback(async () => {
+  const signInWithApple = useCallback(async (returnPath) => {
     if (Capacitor.isNativePlatform()) {
       try {
         const rawNonce = _generateNonce();
@@ -497,7 +497,7 @@ export const AuthProvider = ({ children }) => {
         return { data: null, error };
       }
     } else {
-      const redirectTo = getSiteUrl();
+      const redirectTo = `${getSiteUrl()}${returnPath?.startsWith('/prefeitura/convite/') ? returnPath : ''}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: { redirectTo },
