@@ -3,7 +3,7 @@ import { collectExportRows } from './municipalExport.js';
 import { municipalReportsQuery, OPEN_REPORT_STATUSES } from './municipalReports.js';
 
 export const SERVICE_ORDER_INSTRUCTION = 'Realizar vistoria/ronda nos locais relacionados abaixo e executar ou avaliar os serviços necessários.';
-const REPORT_FIELDS = 'id,protocol,title,description,address,neighborhood,created_at,status,category_id,location,issue_type,pole_number,pole_id,category:categories(name)';
+const REPORT_FIELDS = 'id,protocol,title,description,address,reference_point,neighborhood,created_at,status,category_id,location,issue_type,pole_number,pole_id,category:categories(name)';
 
 async function selectedReports(client, context, ids, signal) {
   const rows = [];

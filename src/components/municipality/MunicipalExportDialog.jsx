@@ -44,7 +44,7 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
     const timer = window.setTimeout(async () => {
       try {
         const allRecords = await loadMunicipalExport(supabase, {
-          kind, municipalityId: context.municipality.id, cityId: context.municipality.city_id, userId: context.userId,
+          kind, municipalityId: context.municipality.id, cityId: context.municipality.city_id, userId: context.userId, enabledCategoryIds: context.enabledCategoryIds,
           filters, scope: 'filtered', signal: controller.signal,
           onProgress: (progress) => { if (!controller.signal.aborted) setResult((current) => ({ ...current, progress })); },
         });
@@ -56,7 +56,7 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
       }
     }, 350);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [kind, context.municipality.id, context.municipality.city_id, context.userId, filters, scope, selectedIds, revision]);
+  }, [kind, context.municipality.id, context.municipality.city_id, context.userId, context.enabledCategoryIds, filters, scope, selectedIds, revision]);
 
   const dateError = filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo ? 'A data final deve ser igual ou posterior à data inicial.' : '';
   const filterSummary = () => {

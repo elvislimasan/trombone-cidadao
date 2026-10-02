@@ -91,7 +91,7 @@ function MunicipalVisibilityChoice({ isPublic, onChange }) {
   </fieldset>;
 }
 
-const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
+const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCategoryIds }) => {
   const reportCopy = useCallback((value) => municipalMode ? value.replace(/\bbroncas?\b/gi, (word) => {
     const replacement = word.toLowerCase() === 'broncas' ? 'solicitações' : 'solicitação';
     return word[0] === word[0].toUpperCase() ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
@@ -110,6 +110,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
     description: "",
     category: "",
     address: "",
+    reference_point: "",
     location: null,
     photos: [],
     videos: [],
@@ -1011,7 +1012,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
   // A lista mora em @/lib/reportCategories: a sinalização rápida do modo
   // patrulha oferece as mesmas categorias, e duas cópias divergiriam na
   // primeira vez que uma fosse acrescentada aqui.
-  const categories = CATEGORIAS_BRONCA;
+  const categories = municipalMode
+    ? CATEGORIAS_BRONCA.filter((category) => (municipalCategoryIds || ['iluminacao']).includes(category.id))
+    : CATEGORIAS_BRONCA;
 
   // FUNÇÃO CRÍTICA: Processamento otimizado para câmeras de alta resolução com limite de 10MB
   const processHighResolutionImage = async (
@@ -2123,7 +2126,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
     // Limite de tamanho para imagens (100MB - permite 50MP+ RAW/PNG)
     const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB
 
-    for (const file of files) {
+    for (let file of files) {
+      // Alguns seletores de arquivos devolvem WebP sem MIME, apesar da extensão correta.
+      if (/\.webp$/i.test(file.name) && (!file.type || file.type === 'application/octet-stream')) file = new File([file], file.name, { type: 'image/webp', lastModified: file.lastModified });
       // Validar tipo
       if (fileType === "photos" && !validImageTypes.includes(file.type)) {
         showAppError({
@@ -2219,7 +2224,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                     ...prev[fileType],
                     {
                       file: null,
-                      name: file.name,
+                      name: outPath === uri ? file.name : file.name.replace(/\.[^.]+$/, '') + '.jpg',
                       nativePath: outPath,
                       preview: null,
                       size: file.size,
@@ -2652,7 +2657,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                   filePath: finalPath,
                   uploadUrl: uploadUrl,
                   headers: {
-                    "Content-Type": "image/jpeg",
+                    "Content-Type": /\.webp(?:\?|$)/i.test(finalPath) ? "image/webp" : "image/jpeg",
                     "x-upsert": "false",
                   },
                   skipCompression: true,
@@ -2755,6 +2760,10 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
         newErrors.category = "Por favor, selecione uma categoria.";
         hasErrors = true;
       }
+      if (municipalMode && formData.category && !(municipalCategoryIds || ['iluminacao']).includes(formData.category)) {
+        newErrors.category = 'Esta categoria não está habilitada para a prefeitura.';
+        hasErrors = true;
+      }
       if (
         ["iluminacao", "esgoto"].includes(formData.category) &&
         (!formData.issue_type || formData.issue_type.trim() === "")
@@ -2785,7 +2794,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
     }
 
     if (stepToValidate === 2) {
-      if (formData.photos.length + formData.videos.length === 0) {
+      if (!municipalMode && formData.photos.length + formData.videos.length === 0) {
         newErrors.photos =
           reportCopy("Por favor, adicione pelo menos uma foto ou vídeo da bronca.");
         hasErrors = true;
@@ -2875,6 +2884,10 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
         newErrors.category = "Por favor, selecione uma categoria.";
       hasErrors = true;
     }
+    if (municipalMode && formData.category && !(municipalCategoryIds || ['iluminacao']).includes(formData.category)) {
+      newErrors.category = 'Esta categoria não está habilitada para a prefeitura.';
+      hasErrors = true;
+    }
     if (
       ["iluminacao", "esgoto"].includes(formData.category) &&
       (!formData.issue_type || formData.issue_type.trim() === "")
@@ -2890,7 +2903,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
       newErrors.address = "Por favor, preencha o endereço de referência.";
       hasErrors = true;
     }
-    if (formData.photos.length + formData.videos.length === 0) {
+    if (!municipalMode && formData.photos.length + formData.videos.length === 0) {
       newErrors.photos =
         reportCopy("Por favor, adicione pelo menos uma foto ou vídeo da bronca.");
       hasErrors = true;
@@ -3071,6 +3084,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
           description: "",
           category: "",
           address: "",
+          reference_point: "",
           location: null,
           photos: [],
           videos: [],
@@ -3210,6 +3224,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
       description: "",
       category: "",
       address: "",
+      reference_point: "",
       location: null,
       photos: [],
       videos: [],
@@ -3335,6 +3350,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
       const payload = {
         title: formData.title,
         description: formData.description,
+        reference_point: formData.reference_point,
         category: formData.category,
         address: formData.address,
         location: reportLocation,
@@ -4006,6 +4022,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                         : "Endereço de referência (ex: Rua da Floresta, 123)"}
                       required
                     />
+                    <label className="mt-3 block text-sm font-medium text-foreground">Ponto de referência (opcional)<input type="text" maxLength={240} value={formData.reference_point || ''} onChange={(event) => setFormData((current) => ({ ...current, reference_point: event.target.value }))} placeholder="Ex.: próximo ao mercado de Francisco" className="mt-1 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm" /></label>
                     {isAddressLookupLoading && !addressTouchedRef.current && (
                       <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -4195,7 +4212,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-sm font-medium text-foreground">
-                        Mídia <span className="text-destructive">*</span>
+                        Mídia {municipalMode ? <span className="text-muted-foreground">(opcional)</span> : <span className="text-destructive">*</span>}
                       </label>
                       {(formData.photos.length > 0 ||
                         formData.videos.length > 0) && (
@@ -4216,7 +4233,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                       formData.videos.length === 0 &&
                       !errors.photos && (
                         <p className="text-xs text-muted-foreground mb-2">
-                          Adicione pelo menos uma foto ou vídeo
+                          {municipalMode ? 'Você pode adicionar fotos ou vídeos, se tiver.' : 'Adicione pelo menos uma foto ou vídeo'}
                         </p>
                       )}
                     <div className="space-y-3" data-error-field="photos">
@@ -4898,6 +4915,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                     : "Endereço de referência (ex: Rua da Floresta, 123)"}
                   required
                 />
+                <label className="mt-3 block text-sm font-medium text-foreground">Ponto de referência (opcional)<input type="text" maxLength={240} value={formData.reference_point || ''} onChange={(event) => setFormData((current) => ({ ...current, reference_point: event.target.value }))} placeholder="Ex.: próximo ao mercado de Francisco" className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-3 text-sm" /></label>
                 {isAddressLookupLoading && !addressTouchedRef.current && (
                   <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -5032,7 +5050,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium text-foreground">
-                    Mídia <span className="text-destructive">*</span>
+                    Mídia {municipalMode ? <span className="text-muted-foreground">(opcional)</span> : <span className="text-destructive">*</span>}
                   </label>
                   {(formData.photos.length > 0 ||
                     formData.videos.length > 0) && (
@@ -5053,7 +5071,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false }) => {
                   formData.videos.length === 0 &&
                   !errors.photos && (
                     <p className="text-xs text-muted-foreground mb-2">
-                      Adicione pelo menos uma foto ou vídeo
+                      {municipalMode ? 'Você pode adicionar fotos ou vídeos, se tiver.' : 'Adicione pelo menos uma foto ou vídeo'}
                     </p>
                   )}
                 <div className="space-y-3" data-error-field="photos">

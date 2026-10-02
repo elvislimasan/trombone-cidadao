@@ -40,7 +40,7 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
       throwIfAborted(signal);
       if (!user) throw new Error(`Sua sessão expirou. Entre novamente para enviar a ${municipalMode ? 'solicitação' : 'bronca'}.`);
       const {
-        title, description, category, address, location,
+        title, description, category, address, reference_point, location,
         pole_number, pole_id, reported_pole_distance_m,
         issue_type, reported_post_identifier, reported_plate,
         is_from_water_utility,
@@ -74,6 +74,7 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
           description,
           category_id: category,
           address,
+          reference_point: reference_point?.trim() || null,
           location: `POINT(${location.lng} ${location.lat})`,
           author_id: user.id,
           ...(municipalMode ? { created_by_municipality: municipalityId } : {}),
@@ -102,7 +103,7 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
           moderation_status: municipalMode ? (is_public === true ? 'approved' : 'internal') : user?.is_admin || user?.is_master ? 'approved' : 'pending_approval',
           city_id: cityId,
         })
-        .select('id,protocol,title,description,category_id,issue_type,pole_number,is_from_water_utility,address,created_at,location,is_public,created_by_municipality')
+        .select('id,protocol,title,description,category_id,issue_type,pole_number,is_from_water_utility,address,reference_point,created_at,location,is_public,created_by_municipality')
         .single();
 
       if (signal && typeof insertQuery.abortSignal === 'function') {

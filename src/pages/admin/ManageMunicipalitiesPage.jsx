@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
+import { enabledMunicipalCategories } from '@/lib/municipalCategories';
 
 const cityName = (city) => city ? `${city.name}${city.states?.uf ? ` - ${city.states.uf}` : ''}` : '—';
 
@@ -17,6 +18,7 @@ export default function ManageMunicipalitiesPage() {
   const { cities } = useCity();
   const [requests, setRequests] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(null);
@@ -30,22 +32,24 @@ export default function ManageMunicipalitiesPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [requestResult, municipalityResult, inviteResult] = await Promise.all([
+    const [requestResult, municipalityResult, inviteResult, categoryResult] = await Promise.all([
       supabase.from('prefeitura_solicitacoes')
         .select('id, user_id, prefeitura_nome, cargo, email_institucional, telefone, mensagem, status, motivo, created_at, cidade:cities(name, states(uf)), perfil:profiles!prefeitura_solicitacoes_user_id_fkey(name)')
         .order('created_at', { ascending: false }),
       supabase.from('prefeituras')
-        .select('id, city_id, nome, status, created_at, cidade:cities(name, states(uf)), membros:prefeitura_membros(id, papel, ativo, perfil:profiles!prefeitura_membros_user_id_fkey(id, name))')
+        .select('id, city_id, nome, status, categorias_habilitadas, created_at, cidade:cities(name, states(uf)), membros:prefeitura_membros(id, papel, ativo, perfil:profiles!prefeitura_membros_user_id_fkey(id, name))')
         .order('created_at', { ascending: false }),
       supabase.from('prefeitura_convites')
         .select('id, email_convidado, status, token, expires_at, created_at, prefeitura:prefeituras(nome, cidade:cities(name, states(uf)))')
         .order('created_at', { ascending: false }).limit(100),
+      supabase.from('categories').select('id,name').order('name'),
     ]);
-    const error = requestResult.error || municipalityResult.error || inviteResult.error;
+    const error = requestResult.error || municipalityResult.error || inviteResult.error || categoryResult.error;
     if (error) showAppError({ title: 'Não foi possível carregar as prefeituras', description: error.message, variant: 'destructive' });
     setRequests(requestResult.data || []);
     setMunicipalities(municipalityResult.data || []);
     setInvites(inviteResult.data || []);
+    setCategories(categoryResult.data || []);
     setLoading(false);
   }, []);
 
@@ -121,6 +125,22 @@ export default function ManageMunicipalitiesPage() {
     load();
   };
 
+  const toggleCategory = async (municipality, categoryId) => {
+    const current = enabledMunicipalCategories(municipality);
+    const next = current.includes(categoryId) ? current.filter((id) => id !== categoryId) : [...current, categoryId];
+    setWorking(`${municipality.id}:${categoryId}`);
+    const { error } = await supabase.from('prefeituras')
+      .update({ categorias_habilitadas: next, updated_at: new Date().toISOString() })
+      .eq('id', municipality.id);
+    setWorking(null);
+    if (error) {
+      showAppError({ title: 'Não foi possível alterar as categorias', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setMunicipalities((items) => items.map((item) => item.id === municipality.id ? { ...item, categorias_habilitadas: next } : item));
+    showAppNotice({ title: 'Categorias da prefeitura atualizadas' });
+  };
+
   return <div className="page-shell-fluid py-8">
     <Helmet><title>Prefeituras | Administração</title><meta name="robots" content="noindex" /></Helmet>
     <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-content-secondary"><ArrowLeft className="h-4 w-4" /> Voltar ao painel administrativo</Link>
@@ -147,6 +167,23 @@ export default function ManageMunicipalitiesPage() {
     <section className="mt-6 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm">
       <div className="border-b border-edge-subtle px-5 py-4"><h2 className="flex items-center gap-2 text-lg font-black"><Building2 className="h-5 w-5 text-brand" /> Prefeituras cadastradas</h2></div>
       <div className="grid gap-4 p-4 md:grid-cols-2 2xl:grid-cols-3">{municipalities.map((municipality) => <article key={municipality.id} className="rounded-xl border border-edge-subtle p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-black">{municipality.nome}</h3><p className="mt-1 text-xs text-content-tertiary">{cityName(municipality.cidade)}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${municipality.status === 'ativa' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{municipality.status}</span></div><div className="mt-4 space-y-2">{(municipality.membros || []).map((member) => <div key={member.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface-subtle px-2.5 py-2"><p className={`min-w-0 truncate text-xs ${member.ativo ? 'text-content-secondary' : 'text-content-tertiary line-through'}`}>{member.perfil?.name || 'Perfil sem nome'} · {member.papel}</p><Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[10px]" disabled={working === member.id} onClick={() => toggleMember(member)}>{member.ativo ? 'Suspender' : 'Reativar'}</Button></div>)}</div><Button type="button" size="sm" variant="outline" className="mt-4" disabled={working === municipality.id} onClick={() => toggleMunicipality(municipality)}>{municipality.status === 'ativa' ? <PowerOff className="mr-2 h-3.5 w-3.5" /> : <Power className="mr-2 h-3.5 w-3.5" />}{municipality.status === 'ativa' ? 'Suspender cadastro' : 'Reativar cadastro'}</Button></article>)}</div>
+    </section>
+
+    <section className="mt-6 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
+      <h2 className="text-lg font-black">Categorias atendidas pelas prefeituras</h2>
+      <p className="mt-1 text-sm text-content-secondary">Cada prefeitura começa atendendo somente iluminação. As alterações ficam disponíveis no painel municipal após atualizar a página.</p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        {municipalities.map((municipality) => <div key={municipality.id} className="min-w-0 rounded-xl border border-edge-subtle p-4">
+          <h3 className="font-bold">{municipality.nome}</h3>
+          <p className="mt-1 text-xs text-content-secondary">{cityName(municipality.cidade)}</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {categories.map((category) => <label key={category.id} className="flex min-w-0 items-center gap-2 text-sm">
+              <input type="checkbox" className="accent-brand" checked={enabledMunicipalCategories(municipality).includes(category.id)} disabled={Boolean(working)} onChange={() => toggleCategory(municipality, category.id)} />
+              <span className="truncate">{category.name}</span>
+            </label>)}
+          </div>
+        </div>)}
+      </div>
     </section>
 
     {invites.some((invite) => invite.status === 'pendente') && <section className="mt-6 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm"><h2 className="font-black">Convites pendentes</h2><div className="mt-3 grid gap-2">{invites.filter((invite) => invite.status === 'pendente').map((invite) => { const link = `${window.location.origin}/prefeitura/convite/${invite.token}`; return <div key={invite.id} className="flex flex-col gap-2 rounded-xl border p-3 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{invite.email_convidado}</p><p className="text-xs text-content-tertiary">{invite.prefeitura?.nome} · expira em {new Date(invite.expires_at).toLocaleDateString('pt-BR')}</p></div><Button size="sm" variant="outline" onClick={() => copyLink(link)}><Copy className="mr-2 h-3.5 w-3.5" /> Copiar</Button></div>; })}</div></section>}

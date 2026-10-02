@@ -55,7 +55,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     (async () => {
       const [reportResult, linkedResult, stepsResult, updatesResult] = await Promise.all([
         supabase.from('reports')
-          .select('id,title,description,address,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
+          .select('id,title,description,address,reference_point,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
           .eq('id', reportId).eq('city_id', context.municipality.city_id)
           .or(`moderation_status.eq.approved,moderation_status.eq.internal,moderation_status.is.null,created_by_municipality.eq.${context.municipality.id}`)
           .or('is_petition.eq.false,is_petition.is.null').maybeSingle(),
@@ -216,6 +216,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
             <dl className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2">
               <div className="min-w-0"><dt className="text-xs text-content-tertiary">Localidade</dt><dd className="mt-1 break-words text-sm font-medium">{neighborhood || place || 'Não informada'}</dd><button type="button" onClick={() => setTab('localizacao')} className="mt-1 text-xs font-semibold text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Ver endereço e mapa</button></div>
               <div className="min-w-0"><dt className="text-xs text-content-tertiary">Protocolo público</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{report.protocol || '—'}</dd></div>
+              {report.reference_point && <div className="min-w-0 sm:col-span-2"><dt className="text-xs text-content-tertiary">Ponto de referência</dt><dd className="mt-1 break-words text-sm font-medium">{report.reference_point}</dd></div>}
               {(report.pole_number || report.issue_type) && <div className="min-w-0 sm:col-span-2"><dt className="text-xs text-content-tertiary">Detalhes do problema</dt><dd className="mt-1 break-words text-sm font-medium">{[report.issue_type && rotuloDoTipoDeProblema(report.category_id, report.issue_type), report.pole_number && `Poste ${report.pole_number}`].filter(Boolean).join(' · ')}</dd></div>}
             </dl>
           </section>

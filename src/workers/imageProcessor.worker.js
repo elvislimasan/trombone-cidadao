@@ -40,7 +40,7 @@ workerScope.onmessage = function(e) {
                 buffer: buffer,
                 width: width,
                 height: height,
-                fileName: fileName.replace(/\.jpe?g$/i, '.webp'),
+                fileName: /\.webp$/i.test(fileName) ? fileName : fileName.replace(/\.[^.]+$/, '') + '.webp',
                 size: blob.size,
                 mime: 'image/webp'
               });

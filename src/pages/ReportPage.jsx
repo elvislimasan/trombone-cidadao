@@ -1765,6 +1765,7 @@ const ReportPage = () => {
                   <ReportLocation
                     location={report.location}
                     address={report.address}
+                    referencePoint={report.reference_point}
                     onNavigate={handleNavigateToReport}
                     variant="mobile"
                   />
@@ -1917,6 +1918,7 @@ const ReportPage = () => {
                 <ReportLocation
                   location={report.location}
                   address={report.address}
+                  referencePoint={report.reference_point}
                   onNavigate={handleNavigateToReport}
                   variant="desktop"
                 />

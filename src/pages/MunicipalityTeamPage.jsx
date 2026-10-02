@@ -260,7 +260,7 @@ export default function MunicipalityTeamPage() {
                 { key: 'secretaria', label: 'Secretaria', width: '18%', value: (member) => channelName(member.canal_id) },
                 { key: 'role', label: 'Acesso', value: (member) => roleLabel(member.papel) },
                 { key: 'status', label: 'Situação', value: (member) => member.ativo ? 'Ativo' : 'Suspenso', render: (member) => <span className={`rounded-full px-2 py-1 text-xs font-semibold ${member.ativo ? 'bg-success-bg text-success-fg' : 'bg-surface-subtle text-content-secondary'}`}>{member.ativo ? 'Ativo' : 'Suspenso'}</span> },
-                { key: 'date', label: 'Na secretaria desde', value: (member) => member.created_at || '', render: (member) => memberDate(member.created_at) },
+                { key: 'date', label: 'Na plataforma desde', value: (member) => member.created_at || '', render: (member) => memberDate(member.created_at) },
               ]} />
             <MunicipalDrawer open={Boolean(selected)} onClose={() => setSelected(null)} busy={saving} title={selected?.perfil?.name || 'Funcionário'} description={channelName(selected?.canal_id)}
               footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={saving} onClick={() => setSelected(null)}>Cancelar</Button><Button onClick={updateMember} disabled={saving || (editRole === selected?.papel && editActive === selected?.ativo)}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
@@ -268,7 +268,7 @@ export default function MunicipalityTeamPage() {
                 <dl className="space-y-4 text-sm">
                   <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><Mail className="h-4 w-4" />E-mail da conta</dt><dd className="mt-1 break-all">{selected.email ? <a href={`mailto:${selected.email}`} className="text-brand underline">{selected.email}</a> : 'Não informado'}</dd></div>
                   <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><Phone className="h-4 w-4" />Telefone</dt><dd className="mt-1">{selected.perfil?.phone ? <a href={`tel:${selected.perfil.phone.replace(/[^\d+]/g, '')}`}>{selected.perfil.phone}</a> : 'Não informado'}</dd></div>
-                  <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><CalendarDays className="h-4 w-4" />Na secretaria desde</dt><dd className="mt-1">{memberDate(selected.created_at)}</dd></div>
+                  <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><CalendarDays className="h-4 w-4" />Na plataforma desde</dt><dd className="mt-1">{memberDate(selected.created_at)}</dd></div>
                 </dl>
                 <p className="text-xs leading-5 text-content-secondary">Os dados pessoais são mantidos pelo próprio usuário no perfil. Aqui você gerencia o acesso à secretaria.</p>
                 <div className="border-t border-edge-subtle pt-4"><Label htmlFor="edit-member-role">Nível de acesso</Label><select id="edit-member-role" value={editRole} disabled={saving} onChange={(event) => setEditRole(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-edge-subtle bg-surface-raised px-3">{AGENCY_MEMBER_ROLES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>

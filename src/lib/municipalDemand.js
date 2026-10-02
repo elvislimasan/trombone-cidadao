@@ -15,7 +15,7 @@ export const DEMAND_TONES = {
 };
 export const DEMAND_INITIAL_FORM = {
   titulo: '', descricao: '', bairro: '', endereco: '', latitude: '', longitude: '',
-  category_id: '', issue_type: '', prioridade: 'normal', status: 'aberta', canal_id: '', atribuido_a: '',
+  category_id: '', issue_type: '', service_type: '', prioridade: 'normal', status: 'aberta', canal_id: '', atribuido_a: '',
   prazo_em: '', previsto_em: '', primeira_resposta_prazo_em: '', proxima_acao: '', proxima_acao_em: '',
   motivo_pendencia: '', resultado: '', registro_execucao: '', executada_em: '',
   origem: 'interno', protocolo_externo: '', pole_id: '',

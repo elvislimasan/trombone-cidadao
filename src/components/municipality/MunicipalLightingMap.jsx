@@ -17,7 +17,8 @@ const poleIcons = Object.fromEntries(Object.entries(COLORS).map(([status, color]
 })]));
 
 export function lightingStatus(pole) {
-  if (['removido', 'manutencao'].includes(pole.lighting_status)) return pole.lighting_status;
+  if (pole.lighting_status === 'removido') return 'removido';
+  if (pole.lighting_status === 'manutencao') return 'apagado';
   return pole.is_broken || pole.lighting_status === 'apagado' ? 'apagado' : 'aceso';
 }
 
@@ -25,8 +26,7 @@ function clusterIcon(item) {
   const total = Number(item.item_count).toLocaleString('pt-BR');
   const counts = [
     ['aceso', Number(item.aceso_count)],
-    ['apagado', Number(item.apagado_count)],
-    ['manutencao', Number(item.manutencao_count)],
+    ['apagado', Number(item.apagado_count) + Number(item.manutencao_count)],
     ['removido', Number(item.removido_count)],
   ].filter(([key, count]) => key === 'aceso' || key === 'apagado' || count > 0);
   const width = Math.max(70, 12 + counts.reduce((sum, [, count]) => sum + 10 + count.toLocaleString('pt-BR').length * 7, 0));
@@ -69,7 +69,7 @@ function LightingMarkers({ items, onSelect }) {
   return items.filter((item) => Number.isFinite(item.cluster_lat) && Number.isFinite(item.cluster_lng)).map((item, index) => {
     if (Number(item.item_count) === 1 && item.pole) {
       const pole = item.pole;
-      return <Marker key={`pole-${pole.id}`} position={[item.cluster_lat, item.cluster_lng]} icon={poleIcons[lightingStatus(pole)]} title={`Poste ${pole.identifier || pole.plate || pole.id} · ${LABELS[lightingStatus(pole)]}`} eventHandlers={{ click: () => onSelect(pole) }} />;
+      return <Marker key={`pole-${pole.id}`} position={[item.cluster_lat, item.cluster_lng]} icon={poleIcons[lightingStatus(pole)]} title={`Ponto de iluminação · ${LABELS[lightingStatus(pole)]}`} eventHandlers={{ click: () => onSelect(pole) }} />;
     }
     const zoomToCluster = () => {
       if (item.south !== item.north || item.west !== item.east) {
@@ -78,7 +78,7 @@ function LightingMarkers({ items, onSelect }) {
         map.flyTo([item.cluster_lat, item.cluster_lng], Math.min(map.getZoom() + 2, map.getMaxZoom()));
       }
     };
-    const detail = [`${item.aceso_count} acesos`, `${item.apagado_count} apagados`, `${item.manutencao_count} em manutenção`, Number(item.removido_count) && `${item.removido_count} removidos`].filter(Boolean).join(', ');
+    const detail = [`${item.aceso_count} acesos`, `${Number(item.apagado_count) + Number(item.manutencao_count)} apagados ou com problema`, Number(item.removido_count) && `${item.removido_count} removidos`].filter(Boolean).join(', ');
     return <Marker key={`cluster-${index}`} position={[item.cluster_lat, item.cluster_lng]} icon={clusterIcon(item)} title={`${Number(item.item_count).toLocaleString('pt-BR')} postes · ${detail}. Clique para aproximar.`} eventHandlers={{ click: zoomToCluster }} />;
   });
 }
@@ -111,7 +111,7 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
     </div>
     {placing && <div role="status" className="absolute inset-x-4 top-20 z-[600] flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-surface-raised p-3 text-sm shadow-lg"><span>Toque no mapa para posicionar o poste.</span><Button variant="ghost" size="icon" onClick={onCancelPlacing} aria-label="Cancelar escolha da localização"><X className="h-4 w-4" /></Button></div>}
     <div className="pointer-events-none absolute bottom-7 left-4 right-4 z-[500] sm:right-auto sm:max-w-[calc(100%_-_5rem)]">
-      <div aria-label="Legenda do mapa" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-edge-subtle bg-surface-raised/95 px-3 py-2.5 text-[11px] text-content-secondary shadow-sm backdrop-blur-sm">{['aceso', 'apagado', 'manutencao', ...(items.some((item) => Number(item.removido_count) > 0 || item.pole?.lighting_status === 'removido') ? ['removido'] : [])].map((status) => <span key={status} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[status] }} />{status === 'apagado' ? 'Apagado / problema' : LABELS[status]}</span>)}</div>
+      <div aria-label="Legenda do mapa" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-edge-subtle bg-surface-raised/95 px-3 py-2.5 text-[11px] text-content-secondary shadow-sm backdrop-blur-sm">{['aceso', 'apagado', ...(items.some((item) => Number(item.removido_count) > 0 || item.pole?.lighting_status === 'removido') ? ['removido'] : [])].map((status) => <span key={status} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[status] }} />{status === 'apagado' ? 'Apagado / problema' : LABELS[status]}</span>)}</div>
       <p role="status" className="mt-2 w-fit rounded-md bg-surface-raised/95 px-2 py-1 text-[10px] text-content-secondary shadow-sm">{loading ? 'Carregando postes…' : `${Number(count).toLocaleString('pt-BR')} postes visíveis nesta área · ${located.length.toLocaleString('pt-BR')} marcadores`}{located.some((item) => Number(item.item_count) > 1) && ' · Clique nos grupos para aproximar'}</p>
     </div>
   </section>;

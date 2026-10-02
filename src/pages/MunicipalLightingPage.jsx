@@ -20,18 +20,18 @@ import { normalizeLampType, isStandardLampType } from '@/lib/lightingCatalog';
 import { OPEN_DEMAND_STATUSES } from '@/lib/municipalDemand';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 
-const STATUS = [['aceso', 'Aceso / funcionando'], ['apagado', 'Apagado'], ['manutencao', 'Em manutenção'], ['removido', 'Removido']];
+const STATUS = [['aceso', 'Aceso / funcionando'], ['apagado', 'Apagado ou com problema'], ['removido', 'Removido']];
 const POLE_OPTIONS = { point_type: ['POSTE COMUM'], network_type: ['AEREA MULTIPLEX'] };
 const empty = { id: null, identifier: '', address: '', lamp_type: '', lamp_power_w: '', lighting_status: 'aceso', latitude: '', longitude: '', ...emptyPoleTechnicalDetails };
 const EMPTY_FILTERS = { status: 'all', removed: false };
 const POLE_FIELDS = 'id,identifier,plate,address,latitude,longitude,lamp_type,lamp_power_w,lighting_status,is_broken,updated_at,raw_properties';
 const inputClass = 'mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm';
 const cleanTerm = (value) => value.trim().replace(/[%,()"'\\]/g, '');
-const STATUS_STYLES = { aceso: 'bg-success-bg text-success-fg', apagado: 'bg-danger-subtleBg text-danger-subtleFg', manutencao: 'bg-status-pendingBg text-status-pendingFg', removido: 'bg-surface-subtle text-content-secondary' };
-const STATUS_DOTS = { aceso: 'bg-green-600', apagado: 'bg-red-600', manutencao: 'bg-yellow-500', removido: 'bg-slate-500' };
+const STATUS_STYLES = { aceso: 'bg-success-bg text-success-fg', apagado: 'bg-danger-subtleBg text-danger-subtleFg', removido: 'bg-surface-subtle text-content-secondary' };
+const STATUS_DOTS = { aceso: 'bg-green-600', apagado: 'bg-red-600', removido: 'bg-slate-500' };
 function filterPoles(request, filters) {
   if (!filters.removed && filters.status !== 'removido') request = request.neq('lighting_status', 'removido');
-  if (filters.status === 'apagado') request = request.neq('lighting_status', 'removido').neq('lighting_status', 'manutencao').or('lighting_status.eq.apagado,is_broken.eq.true');
+  if (filters.status === 'apagado') request = request.neq('lighting_status', 'removido').or('lighting_status.eq.apagado,lighting_status.eq.manutencao,is_broken.eq.true');
   else if (filters.status === 'aceso') request = request.or('lighting_status.eq.aceso,lighting_status.eq.nao_informado').or('is_broken.eq.false,is_broken.is.null');
   else if (filters.status !== 'all') {
     request = request.eq('lighting_status', filters.status);
@@ -47,7 +47,7 @@ function poleForm(pole) {
   return {
     id: pole.id, identifier: pole.identifier || pole.plate || '', address: pole.address || '',
     lamp_type: normalizeLampType(pole.lamp_type), lamp_power_w: pole.lamp_power_w ?? '',
-    lighting_status: pole.lighting_status === 'nao_informado' ? 'aceso' : pole.lighting_status || 'aceso',
+    lighting_status: pole.lighting_status === 'manutencao' ? 'apagado' : pole.lighting_status === 'nao_informado' ? 'aceso' : pole.lighting_status || 'aceso',
     latitude: pole.latitude, longitude: pole.longitude,
     ...poleTechnicalDetailsFromRecord(pole),
   };
@@ -166,7 +166,7 @@ export default function MunicipalLightingPage() {
     setSummary(null); setSummaryError('');
     (async () => {
       try {
-        const counts = await Promise.all(['all', 'aceso', 'apagado', 'manutencao'].map(async (status) => {
+        const counts = await Promise.all(['all', 'aceso', 'apagado'].map(async (status) => {
           const { count, error: failure } = await filterPoles(supabase.from('poles').select('id', { count: 'exact', head: true }).eq('city_id', cityId), { ...EMPTY_FILTERS, status });
           if (failure) throw failure;
           return [status, count ?? 0];
@@ -319,15 +319,15 @@ export default function MunicipalLightingPage() {
   };
 
   const continuePoleForm = () => {
-    if (formStep === 0 && creating && (!form.identifier.trim() || !polePosition(form))) {
+    if (formStep === 1 && creating && (!form.identifier.trim() || !polePosition(form))) {
       showAppError({ title: 'Informe número e localização', description: 'Marque o pin no mapa e informe o número do poste.', variant: 'destructive' });
       return;
     }
-    if (formStep === 1 && !isStandardLampType(form.lamp_type)) {
+    if (formStep === 0 && !isStandardLampType(form.lamp_type)) {
       showAppError({ title: 'Escolha um tipo de lâmpada padronizado', description: 'Selecione uma opção do catálogo ou “Não informado” antes de continuar.', variant: 'destructive' });
       return;
     }
-    if (formStep === 1) {
+    if (formStep === 0) {
       const detailsError = validatePoleTechnicalDetails({ ...poleTechnicalDetailsPayload(form), luminaires: [] });
       if (detailsError) {
         showAppError({ title: 'Confira os pontos de luz', description: detailsError, variant: 'destructive' });
@@ -347,19 +347,19 @@ export default function MunicipalLightingPage() {
   const save = async (action = 'updated') => {
     if (!context.canEditLighting || saveLock.current) return;
     if (action !== 'removed' && !isStandardLampType(form.lamp_type)) {
-      setFormStep(1);
+      setFormStep(0);
       showAppError({ title: 'Escolha um tipo de lâmpada padronizado', description: 'O valor antigo foi preservado para consulta. Selecione uma opção do catálogo ou “Não informado” antes de salvar.', variant: 'destructive' });
       return;
     }
     if (action === 'created' && (!form.identifier.trim() || !polePosition(form))) {
-      setFormStep(0);
+      setFormStep(1);
       showAppError({ title: 'Informe número e localização', description: 'Marque o pin no mapa e informe o número do poste.', variant: 'destructive' });
       return;
     }
     const details = poleTechnicalDetailsPayload(form);
     const detailsError = action === 'removed' ? null : validatePoleTechnicalDetails({ ...details, luminaires: [] });
     if (detailsError) {
-      setFormStep(1);
+      setFormStep(0);
       showAppError({ title: 'Confira os pontos de luz', description: detailsError, variant: 'destructive' });
       return;
     }
@@ -440,6 +440,7 @@ export default function MunicipalLightingPage() {
 
   if (context.loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!context.municipality) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Acesso institucional necessário</h1></div>;
+  if (!context.enabledCategoryIds?.includes('iluminacao')) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Iluminação indisponível</h1><p className="mt-2 text-sm text-content-secondary">Esta categoria está desativada para a prefeitura.</p></div>;
   const updateFilters = (next) => { setFilters(next); setDraftFilters(next); setSelected(null); setDetailsOpen(false); };
   const clearFilters = () => { updateFilters(EMPTY_FILTERS); setSearch(''); };
   const activeFilterCount = Number(filters.status !== 'all') + Number(filters.removed);
@@ -447,12 +448,11 @@ export default function MunicipalLightingPage() {
     ['all', 'Postes cadastrados', LampDesk, 'bg-surface-subtle text-content-primary', 'border-edge-default'],
     ['aceso', 'Sem problema registrado', Lightbulb, 'bg-success-bg text-success-fg', 'border-success-border'],
     ['apagado', 'Apagados / com problema', Circle, 'bg-danger-subtleBg text-danger-subtleFg', 'border-brand/20'],
-    ['manutencao', 'Em manutenção', Wrench, 'bg-status-pendingBg text-status-pendingFg', 'border-status-pendingBorder'],
   ];
   return <div className="page-shell-fluid min-w-0 pb-8 pt-6 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
     <Helmet><title>Mapa de iluminação | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
     <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Infraestrutura da cidade</p><h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">Iluminação pública</h1><p className="mt-2 text-sm text-content-secondary">Localize postes, acompanhe as lâmpadas e organize a manutenção.</p></div><div className="flex flex-wrap items-center gap-2"><Button variant="outline" onClick={() => setPendingOpen(true)}><Wrench className="mr-2 h-4 w-4" />Pendências{pendingCount > 0 && <span className="ml-2 rounded-full bg-danger-subtleBg px-2 py-0.5 text-xs font-semibold text-danger-subtleFg">{pendingCount}</span>}</Button>{context.canEditLighting && <Button onClick={() => newPole()}><Plus className="mr-2 h-4 w-4" />Adicionar poste</Button>}</div></header>
-    <section aria-label="Indicadores de iluminação da cidade" className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">{lightingMetrics.map(([status, label, Icon, tone, border]) => <button key={status} type="button" onClick={() => updateFilters({ ...filters, status })} aria-pressed={filters.status === status} className={'flex min-w-0 items-start gap-3 rounded-xl border bg-surface-raised p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (filters.status === status && status !== 'all' ? border + ' ring-1 ring-inset ring-edge-default' : 'border-edge-subtle')}><span className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + tone}><Icon className={'h-5 w-5 ' + (Icon === Circle ? 'fill-current' : '')} /></span><span className="min-w-0"><strong className="block text-2xl font-bold tabular-nums tracking-tight">{summary?.[status]?.toLocaleString('pt-BR') ?? '—'}</strong><span className="mt-0.5 block text-xs font-medium text-content-secondary">{label}</span><span className="mt-1 block text-[11px] tabular-nums text-content-secondary">{status === 'all' ? 'No cadastro ativo da cidade' : summary ? (summary.all ? (summary[status] / summary.all * 100) : 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% do total' : 'Carregando…'}</span></span></button>)}</section>
+    <section aria-label="Indicadores de iluminação da cidade" className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">{lightingMetrics.map(([status, label, Icon, tone, border]) => <button key={status} type="button" onClick={() => updateFilters({ ...filters, status })} aria-pressed={filters.status === status} className={'flex min-w-0 items-start gap-3 rounded-xl border bg-surface-raised p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (filters.status === status && status !== 'all' ? border + ' ring-1 ring-inset ring-edge-default' : 'border-edge-subtle')}><span className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + tone}><Icon className={'h-5 w-5 ' + (Icon === Circle ? 'fill-current' : '')} /></span><span className="min-w-0"><strong className="block text-2xl font-bold tabular-nums tracking-tight">{summary?.[status]?.toLocaleString('pt-BR') ?? '—'}</strong><span className="mt-0.5 block text-xs font-medium text-content-secondary">{label}</span><span className="mt-1 block text-[11px] tabular-nums text-content-secondary">{status === 'all' ? 'No cadastro ativo da cidade' : summary ? (summary.all ? (summary[status] / summary.all * 100) : 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% do total' : 'Carregando…'}</span></span></button>)}</section>
     <p className="mt-2 text-xs text-content-secondary">Indicadores de toda a cidade. “Sem problema registrado” não significa funcionamento verificado em campo.</p>
     {summaryError && <p role="status" className="mt-2 text-xs text-danger">Não foi possível carregar os indicadores. <button type="button" onClick={() => setRevision((value) => value + 1)} className="underline">Tentar novamente</button></p>}
     <section className="mt-5 grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] 4xl:grid-cols-[minmax(0,1fr)_25rem]">
@@ -474,7 +474,7 @@ export default function MunicipalLightingPage() {
       <LightingPendingPanel municipalityId={context.municipality.id} cityId={cityId} revision={revision} showHeading={false} />
     </MunicipalDrawer>
     <PoleDetailsDialog open={detailsOpen && Boolean(selected)} onOpenChange={setDetailsOpen} pole={selected} city={context.municipality.cidade} related={related} canEdit={context.canEdit} canEditLighting={context.canEditLighting} editingLoading={editingLoading} onEdit={beginEditPole} />
-    <MunicipalDrawer open={drawerOpen} onClose={closePoleForm} busy={saving} variant="lighting" placement="center" bodyScroll={formStep !== 0}
+    <MunicipalDrawer open={drawerOpen} onClose={closePoleForm} busy={saving} variant="lighting" placement="center" bodyScroll={formStep !== 1}
       title={creating ? 'Novo poste' : selected ? `Poste ${selected.identifier || selected.plate || selected.id}` : 'Poste'}
       description={creating ? 'Cadastre o poste em etapas.' : 'Atualize o poste em etapas.'}
       activeSection={formStep}

@@ -112,6 +112,7 @@ import MunicipalDemandsPage from '@/pages/MunicipalDemandsPage';
 import MunicipalOverviewPage from '@/pages/MunicipalOverviewPage';
 import MunicipalReportsPage from '@/pages/MunicipalReportsPage';
 import MunicipalLightingPage from '@/pages/MunicipalLightingPage';
+import MunicipalLightingStatsPage from '@/pages/MunicipalLightingStatsPage';
 import MunicipalServiceSettingsPage from '@/pages/MunicipalServiceSettingsPage';
 import MunicipalityAccessPage from '@/pages/MunicipalityAccessPage';
 import MunicipalityInvitePage from '@/pages/MunicipalityInvitePage';
@@ -773,6 +774,7 @@ function AppShell() {
                 <Route path="/prefeitura/mapa" element={<MunicipalReportsPage view="map" />} />
                 <Route path="/prefeitura/broncas/:reportId" element={<MunicipalReportsPage />} />
                 <Route path="/prefeitura/iluminacao" element={<MunicipalLightingPage />} />
+                <Route path="/prefeitura/iluminacao/estatisticas" element={<MunicipalLightingStatsPage />} />
                 <Route path="/prefeitura/configuracoes" element={<MunicipalServiceSettingsPage />} />
                 <Route path="/prefeitura/secretarias" element={<ManageAgencyChannelsPage />} />
                 <Route path="/prefeitura/equipe" element={<MunicipalityTeamPage />} />

@@ -15,7 +15,7 @@ export default function MunicipalServiceSettingsPage() {
   const context = useMunicipalityWorkspace();
   const [rules, setRules] = useState([]);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setRules(context.serviceRules.map((rule) => ({ ...rule, key: rule.category_id, canal_id: rule.canal_id || '', atendimento_horas: rule.atendimento_horas ?? '', primeira_resposta_horas: rule.primeira_resposta_horas ?? '' }))); }, [context.serviceRules]);
+  useEffect(() => { setRules(context.serviceRules.filter((rule) => context.enabledCategoryIds?.includes(rule.category_id)).map((rule) => ({ ...rule, key: rule.category_id, canal_id: rule.canal_id || '', atendimento_horas: rule.atendimento_horas ?? '', primeira_resposta_horas: rule.primeira_resposta_horas ?? '' }))); }, [context.serviceRules, context.enabledCategoryIds]);
   const update = (key, values) => setRules((current) => current.map((rule) => rule.key === key ? { ...rule, ...values } : rule));
   const save = async (event) => {
     event.preventDefault();
@@ -25,7 +25,7 @@ export default function MunicipalServiceSettingsPage() {
     try {
       const { error } = await supabase.rpc('salvar_configuracao_atendimento', {
         p_prefeitura: context.municipality.id,
-        p_regras: rules.map((rule) => ({ category_id: rule.category_id, canal_id: rule.canal_id || null, prioridade: rule.prioridade,
+        p_regras: [...context.serviceRules.filter((rule) => !context.enabledCategoryIds?.includes(rule.category_id)), ...rules].map((rule) => ({ category_id: rule.category_id, canal_id: rule.canal_id || null, prioridade: rule.prioridade,
           atendimento_horas: rule.atendimento_horas === '' ? null : Number(rule.atendimento_horas),
           primeira_resposta_horas: rule.primeira_resposta_horas === '' ? null : Number(rule.primeira_resposta_horas) })),
       });

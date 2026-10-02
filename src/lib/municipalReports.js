@@ -1,3 +1,5 @@
+import { applyMunicipalCategoryFilter } from './municipalCategories.js';
+
 export const REPORT_STATUSES = [['pending', 'Aberta'], ['in-progress', 'Em andamento'], ['pending_resolution', 'Aguardando confirmação'], ['resolved', 'Resolvida']];
 export const OPEN_REPORT_STATUSES = ['pending', 'in-progress'];
 export const REPORT_PHASES = [
@@ -9,7 +11,7 @@ export const REPORT_AGES = [['all', 'Todas'], ['7', 'Até 7 dias'], ['15', '8–
 export const REPORT_PAGE_SIZES = [20, 50, 100];
 const DAY = 86400000;
 const BATCH_SIZE = 500;
-const REPORT_FIELDS = 'id,title,protocol,address,neighborhood,created_at,status,category_id,issue_type,is_public,created_by_municipality,author_id,featured_image_url,report_media(url,type,created_at),category:categories(name)';
+const REPORT_FIELDS = 'id,title,protocol,address,reference_point,neighborhood,created_at,status,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,author_id,featured_image_url,report_media(url,type,created_at),category:categories(name)';
 
 export function canChangeMunicipalReportVisibility(report, context) {
   return Boolean(context?.canEdit && context?.municipality?.id
@@ -41,6 +43,7 @@ export function municipalReportsQuery(client, filters, fields = REPORT_FIELDS, o
   let request = client.from('reports').select(fields, options)
     .eq('city_id', filters.cityId)
     .or('is_petition.eq.false,is_petition.is.null');
+  request = applyMunicipalCategoryFilter(request, 'category_id', filters.enabledCategoryIds);
   if (filters.visibility === 'internal') request = request.eq('is_public', false);
   else if (filters.visibility === 'public') request = request.eq('is_public', true).or('moderation_status.eq.approved,moderation_status.is.null');
   else request = request.or('moderation_status.eq.approved,moderation_status.eq.internal,moderation_status.is.null' + (filters.municipalityId ? `,created_by_municipality.eq.${filters.municipalityId}` : ''));
@@ -157,7 +160,7 @@ export async function loadMunicipalReportPage(client, filters, page, pageSize) {
   return { reports: result.data || [], total, links };
 }
 
-export async function loadPendingMapReports(client, filters, fields = 'id,title,address,neighborhood,location,created_at,status,category:categories(name)') {
+export async function loadPendingMapReports(client, filters, fields = 'id,title,protocol,address,neighborhood,location,created_at,status,category:categories(name)') {
   const reports = [];
   for (let from = 0; ; from += BATCH_SIZE) {
     const result = await municipalReportsQuery(client, filters, fields).range(from, from + BATCH_SIZE - 1);

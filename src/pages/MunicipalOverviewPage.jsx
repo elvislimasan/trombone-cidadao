@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import MunicipalReportCreateDialog from '@/components/municipality/MunicipalReportCreateDialog';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
+import { applyMunicipalCategoryFilter } from '@/lib/municipalCategories';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const number = (value) => Number(value || 0);
@@ -137,13 +138,15 @@ export default function MunicipalOverviewPage() {
       .catch((error) => { if (active) setSummaryError(error.message); })
       .finally(() => { if (active) setLoading(false); });
     Promise.all(dates.map(async (day) => {
-      const { count, error } = await supabase.from('demandas_municipais').select('id', { count: 'exact', head: true })
-        .eq('prefeitura_id', municipalityId).gte('created_at', day.start).lt('created_at', day.end);
+      const { count, error } = await applyMunicipalCategoryFilter(
+        supabase.from('demandas_municipais').select('id', { count: 'exact', head: true })
+          .eq('prefeitura_id', municipalityId).gte('created_at', day.start).lt('created_at', day.end),
+        'category_id', context.enabledCategoryIds);
       if (error) throw error;
       return { ...day, value: count ?? 0 };
     })).then((result) => { if (active) setDays(result); }).catch(() => { if (active) setWeekError(true); }).finally(() => { if (active) setWeekLoading(false); });
     return () => { active = false; };
-  }, [municipalityId, revision]);
+  }, [municipalityId, context.enabledCategoryIds, revision]);
 
   if (context.loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!context.municipality) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Acesso institucional necessário</h1><p className="mt-2 text-sm text-content-secondary">{context.error || 'Sua conta não está vinculada a uma prefeitura ativa.'}</p></div>;
@@ -165,6 +168,6 @@ export default function MunicipalOverviewPage() {
       <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2"><Distribution summary={summary} /><WeeklyChart days={days} error={weekError} loading={weekLoading} onRetry={() => setRevision((value) => value + 1)} /></div>
       <Attention summary={summary} />
     </>}
-    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
+    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} enabledCategoryIds={context.enabledCategoryIds} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
   </div>;
 }

@@ -15,6 +15,8 @@ import {
   Sun,
   MessageSquare,
   LampDesk,
+  BarChart3,
+  Map as MapIcon,
   Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,9 +48,10 @@ export default function MunicipalityLayout() {
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const contentRef = useRef(null);
-  const { memberships, municipality, isAdministrator, isElectrician } = useMunicipalityWorkspace();
+  const { memberships, municipality, enabledCategoryIds, isAdministrator, isElectrician } = useMunicipalityWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(() => pathname.startsWith('/prefeitura/demandas'));
+  const [lightingOpen, setLightingOpen] = useState(() => pathname.startsWith('/prefeitura/iluminacao'));
   const [branding, setBranding] = useState({ name: 'Trombone Cidadão', logo: '/logo.png' });
   const { resolved: theme, setPreference } = useTheme();
 
@@ -59,6 +62,7 @@ export default function MunicipalityLayout() {
 
   useEffect(() => {
     if (pathname.startsWith('/prefeitura/demandas')) setOrdersOpen(true);
+    if (pathname.startsWith('/prefeitura/iluminacao')) setLightingOpen(true);
   }, [pathname]);
 
   useEffect(() => {
@@ -86,13 +90,27 @@ export default function MunicipalityLayout() {
   const city = municipality?.cidade;
   const locationLabel = [city?.name, city?.states?.uf].filter(Boolean).join(' - ');
   const visibleNavigation = useMemo(
-    () => navigation.filter((item) => (!item.adminOnly || isAdministrator) && (!isElectrician || item.to === '/prefeitura/demandas')),
-    [isAdministrator, isElectrician]
+    () => navigation.filter((item) => (!item.adminOnly || isAdministrator) && (!isElectrician || item.to === '/prefeitura/demandas')
+      && (item.to !== '/prefeitura/iluminacao' || enabledCategoryIds?.includes('iluminacao'))),
+    [isAdministrator, isElectrician, enabledCategoryIds]
   );
   const ordersActive = pathname.startsWith('/prefeitura/demandas');
   const newOrderActive = pathname === '/prefeitura/demandas/nova';
   const inProgressActive = pathname === '/prefeitura/demandas' && new URLSearchParams(search).get('fila') === 'em_atendimento';
   const renderNavigation = (mobile = false) => visibleNavigation.map(({ to, label, icon: Icon }) => {
+    if (to === '/prefeitura/iluminacao') {
+      const submenuId = mobile ? 'municipality-mobile-lighting' : 'municipality-desktop-lighting';
+      const active = pathname.startsWith(to);
+      return <div key={to} className="min-w-0">
+        <div className={'flex items-center rounded-xl transition-colors ' + (active ? 'bg-brand-subtleBg text-brand-subtleFg ring-1 ring-inset ring-brand/20' : 'text-content-secondary hover:bg-surface-subtle hover:text-content-primary')}>
+          <Link to={to} onClick={mobile ? () => setMenuOpen(false) : undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-l-xl px-3 py-2.5 text-sm font-semibold"><LampDesk className="h-4 w-4 shrink-0" />{label}</Link>
+          <button type="button" aria-label={lightingOpen ? 'Recolher iluminação pública' : 'Expandir iluminação pública'} aria-expanded={lightingOpen} aria-controls={submenuId} onClick={() => setLightingOpen((value) => !value)} className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand"><ChevronDown className={'h-4 w-4 transition-transform ' + (lightingOpen ? 'rotate-180' : '')} /></button>
+        </div>
+        {lightingOpen && <div id={submenuId} role="group" aria-label="Opções de iluminação pública" className="ml-3 mt-1 grid gap-0.5 rounded-r-xl border-l-2 border-brand/60 bg-surface-subtle/70 py-1 pl-2 pr-1">
+          {[[to, 'Mapa', MapIcon], [`${to}/estatisticas`, 'Estatísticas', BarChart3]].map(([href, title, SubIcon]) => <Link key={href} to={href} aria-current={pathname === href ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ' + (pathname === href ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><SubIcon className="h-4 w-4 shrink-0" />{title}</Link>)}
+        </div>}
+      </div>;
+    }
     if (to !== '/prefeitura/demandas') return <NavLink key={to} to={to} className={({ isActive }) => navClass({ isActive: isActive || (to === '/prefeitura/broncas' && pathname === '/prefeitura/mapa') })} onClick={mobile ? () => setMenuOpen(false) : undefined}>
       <Icon className="h-4 w-4" /> {label}
     </NavLink>;

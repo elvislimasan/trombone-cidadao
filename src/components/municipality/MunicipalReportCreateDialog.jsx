@@ -5,7 +5,7 @@ import { useCreateReport } from '@/hooks/useCreateReport';
 import { supabase } from '@/lib/customSupabaseClient';
 import { saveMunicipalReportReceipt } from '@/lib/municipalReportReceipt';
 
-export default function MunicipalReportCreateDialog({ open, onClose, onCreated, onReceiptClose, municipalityId }) {
+export default function MunicipalReportCreateDialog({ open, onClose, onCreated, onReceiptClose, municipalityId, enabledCategoryIds }) {
   const [receipt, setReceipt] = useState(null);
   const [receiptImageStatus, setReceiptImageStatus] = useState('');
   const pendingReceipt = useRef(null);
@@ -32,7 +32,7 @@ export default function MunicipalReportCreateDialog({ open, onClose, onCreated, 
   };
 
   return <>
-    {open && <ReportModal onClose={closeForm} onSubmit={createReport} municipalMode />}
+    {open && <ReportModal onClose={closeForm} onSubmit={createReport} municipalMode municipalCategoryIds={enabledCategoryIds} />}
     <ReportReceipt report={receipt} imageStatus={receiptImageStatus} onClose={() => { setReceipt(null); onReceiptClose?.(receipt); }} />
   </>;
 }

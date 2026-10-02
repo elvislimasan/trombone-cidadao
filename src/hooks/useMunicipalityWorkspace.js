@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { enabledMunicipalCategories, filterMunicipalCategories } from '@/lib/municipalCategories';
 
-const empty = { loading: true, municipality: null, memberships: [], channels: [], categories: [], categoryChannels: [], members: [], serviceRules: [], editableChannelIds: [], electricianChannelIds: [], isElectrician: false, isAdministrator: false, canEdit: false, canEditLighting: false, error: '' };
+const empty = { loading: true, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], editableChannelIds: [], electricianChannelIds: [], isElectrician: false, isAdministrator: false, canEdit: false, canEditLighting: false, error: '' };
 export const WORKSPACE_EVENT = 'municipality-workspace-changed';
 const workspaceKey = (userId) => 'municipality-workspace:' + userId;
 export function selectMunicipalityWorkspace(userId, id) {
@@ -27,7 +28,7 @@ export default function useMunicipalityWorkspace() {
     (async () => {
       try {
         const { data: memberships, error } = await supabase.from('prefeitura_membros')
-          .select('papel, prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(id,city_id,nome,status,cidade:cities(name,states(uf)))')
+          .select('papel, prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(id,city_id,nome,status,categorias_habilitadas,cidade:cities(name,states(uf)))')
           .eq('user_id', user.id).eq('ativo', true);
         if (error) throw error;
         const available = (memberships || []).filter((item) => item.prefeitura?.status === 'ativa');
@@ -54,11 +55,13 @@ export default function useMunicipalityWorkspace() {
         const electricianChannelIds = roles.filter((role) => role.papel === 'eletricista').map((role) => String(role.canal_id));
         if (active) setState({
           loading: false, userId: user.id, municipality: membership.prefeitura, memberships: available,
-          channels: channels.data || [], categories: categories.data || [], categoryChannels: mappings.data || [], members: cityMembers,
+          channels: channels.data || [], categories: filterMunicipalCategories(categories.data, membership.prefeitura),
+          enabledCategoryIds: enabledMunicipalCategories(membership.prefeitura), categoryChannels: mappings.data || [], members: cityMembers,
           serviceRules: rules.data || [], isAdministrator, editableChannelIds, electricianChannelIds,
           isElectrician: !isAdministrator && editableChannelIds.length === 0 && electricianChannelIds.length > 0,
           canEdit: isAdministrator || editableChannelIds.length > 0,
-          canEditLighting: isAdministrator || roles.some((role) => lightingIds.has(String(role.canal_id)) && role.papel === 'gestor'), error: '',
+          canEditLighting: enabledMunicipalCategories(membership.prefeitura).includes('iluminacao')
+            && (isAdministrator || roles.some((role) => lightingIds.has(String(role.canal_id)) && role.papel === 'gestor')), error: '',
         });
       } catch (error) {
         if (active) setState({ ...empty, loading: false, userId: user.id, error: ['42P01', 'PGRST205'].includes(error.code) ? 'O banco precisa da atualização do fluxo de atendimento municipal (migração 275).' : error.message });

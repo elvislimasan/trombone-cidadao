@@ -180,12 +180,12 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
       try {
         const { data, error: failure } = await supabase.rpc('buscar_broncas_para_demanda', { p_prefeitura: municipalityId, p_busca: search.trim() });
         if (failure) throw failure;
-        if (active) setMatches((data || []).filter((report) => !reports.some((linked) => linked.id === report.id)));
+        if (active) setMatches((data || []).filter((report) => context.enabledCategoryIds?.includes(report.category_id) && !reports.some((linked) => linked.id === report.id)));
       } catch (failure) { if (active) setFormError(failure.message); }
       finally { if (active) setSearching(false); }
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [open, municipalityId, search, reports]);
+  }, [open, municipalityId, context.enabledCategoryIds, search, reports]);
 
   const update = (key, value) => { setForm((current) => ({ ...current, [key]: value })); setFormError(''); };
   const addReport = async (report) => {
@@ -195,6 +195,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
       const { data, error: failure } = await supabase.from('reports').select(reportFields).eq('id', report.id).eq('city_id', context.municipality.city_id).maybeSingle();
       if (failure) throw failure;
       if (!data) throw new Error('Solicitação indisponível para vínculo nesta cidade.');
+      if (!context.enabledCategoryIds?.includes(data.category_id)) throw new Error('Esta categoria não está habilitada para a prefeitura.');
       setReports((current) => current.some((linked) => linked.id === data.id) ? current : [...current, { ...data, newLink: true }]);
       setSearch(''); setFormError('');
     } catch (failure) { setFormError(failure.message); }
@@ -205,7 +206,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     const assignment = suggestDemandAssignment(context, categoryId, item && !context.isAdministrator ? form.canal_id : '');
     const assignedElectrician = context.members.some((member) => member.user_id === form.atribuido_a && member.papel === 'eletricista');
     setForm((current) => ({
-      ...current, category_id: categoryId, issue_type: '', pole_id: categoryId === 'iluminacao' ? current.pole_id : '', ...assignment,
+      ...current, category_id: categoryId, issue_type: '', service_type: categoryId === 'iluminacao' ? current.service_type : '', pole_id: categoryId === 'iluminacao' ? current.pole_id : '', ...assignment,
       atribuido_a: categoryId !== 'iluminacao' && assignedElectrician ? '' : assignment.canal_id === current.canal_id ? current.atribuido_a || assignment.atribuido_a : assignment.atribuido_a,
       prioridade: item ? current.prioridade : rule?.prioridade || current.prioridade,
       prazo_em: current.prazo_em || (rule?.atendimento_horas ? localDateTime(new Date(Date.now() + rule.atendimento_horas * 3600000)) : ''),
@@ -247,6 +248,11 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     event.preventDefault();
     if (!editable || saving || locating || registering) return;
     if (isNew && stepIndex < visibleTabs.length - 1) { continueForm(); return; }
+    if (!context.enabledCategoryIds?.includes(form.category_id)) {
+      setTab('dados');
+      setFormError('Selecione uma categoria habilitada para a prefeitura.');
+      return;
+    }
     setValidationScope('all');
     if (Object.keys(validationErrors).length) {
       setFormError('');
@@ -337,10 +343,11 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
               {waiting && <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field error={fieldErrors.motivo_pendencia} title="Motivo da pendência *"><textarea className={selectClass + ' min-h-24 py-3'} value={form.motivo_pendencia} onChange={(event) => update('motivo_pendencia', event.target.value)} disabled={!editable} /></Field><Field error={fieldErrors.proxima_acao_em} title="Revisar pendência em *"><Input type="datetime-local" value={form.proxima_acao_em} onChange={(event) => update('proxima_acao_em', event.target.value)} disabled={!editable} /></Field></div>}
               {mustExplain && <div className="mt-4"><Field error={fieldErrors.reason} title="Motivo da alteração *"><textarea className={selectClass + ' min-h-24 py-3'} minLength={5} maxLength={4000} value={reason} onChange={(event) => setReason(event.target.value)} disabled={!editable} /></Field></div>}
               {execution && <div className="mt-5 space-y-4 border-t border-edge-subtle pt-5">
+                {form.category_id === 'iluminacao' && <Field title="Serviço executado (para estatísticas)"><select className={selectClass} value={form.service_type || ''} onChange={(event) => update('service_type', event.target.value)} disabled={!editable}><option value="">Não informado</option><option value="lamp_replacement">Troca de lâmpada</option><option value="arm_installation">Instalação de braço de luz</option><option value="other">Outro serviço</option></select></Field>}
                 <Field error={fileErrors.conclusao} title="Foto do serviço (opcional)"><input type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-xs file:mr-3 file:rounded-lg file:border file:border-edge-default file:bg-surface-subtle file:px-3 file:py-2 file:font-semibold" onChange={(event) => addFiles(event, 'conclusao')} disabled={!editable || saving} /></Field>
                 {pendingFiles.filter((file) => file.tipo === 'conclusao').map((file) => <div key={file.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-subtle p-3 text-xs"><span className="min-w-0 flex-1 break-words font-semibold">{file.file.name}</span>{reports.length > 0 && <label className="flex items-center gap-1.5"><input type="checkbox" checked={file.visibilidade === 'publica'} onChange={(event) => setPendingFiles((current) => current.map((entry) => entry.id === file.id ? { ...entry, visibilidade: event.target.checked ? 'publica' : 'interna' } : entry))} disabled={!editable} />Mostrar na solicitação</label>}<Button type="button" variant="ghost" size="icon" aria-label={'Retirar foto ' + file.file.name} onClick={() => setPendingFiles((current) => current.filter((entry) => entry.id !== file.id))}><X className="h-4 w-4" /></Button></div>)}
-                <Field error={fieldErrors.resultado} title="Resultado do serviço *"><textarea className={selectClass + ' min-h-24 py-3'} minLength={10} maxLength={4000} value={form.resultado} onChange={(event) => update('resultado', event.target.value)} disabled={!editable} /></Field>
-                {electricianMode && <Field error={fieldErrors.registro_execucao} title="Registro técnico (se não anexar foto)"><textarea className={selectClass + ' min-h-24 py-3'} minLength={20} maxLength={4000} value={form.registro_execucao} onChange={(event) => update('registro_execucao', event.target.value)} disabled={!editable} /></Field>}
+                <Field error={fieldErrors.resultado} title="Resultado do serviço (opcional)"><textarea className={selectClass + ' min-h-24 py-3'} minLength={10} maxLength={4000} value={form.resultado} onChange={(event) => update('resultado', event.target.value)} disabled={!editable} /></Field>
+                {electricianMode && <Field error={fieldErrors.registro_execucao} title="Registro técnico (opcional)"><textarea className={selectClass + ' min-h-24 py-3'} minLength={20} maxLength={4000} value={form.registro_execucao} onChange={(event) => update('registro_execucao', event.target.value)} disabled={!editable} /></Field>}
               </div>}
             </div>
             {!electricianMode && <div className={'min-w-0 ' + (inline ? 'xl:border-l xl:border-edge-subtle xl:pl-4' : 'border-t border-edge-subtle pt-4')}>

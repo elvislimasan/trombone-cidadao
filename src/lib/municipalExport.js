@@ -1,5 +1,6 @@
 import { DEMAND_PRIORITIES, DEMAND_STATUSES, OPEN_DEMAND_STATUSES, demandReportLocations } from './municipalDemand.js';
 import { municipalReportsQuery, REPORT_STATUSES, reportAge } from './municipalReports.js';
+import { applyMunicipalCategoryFilter } from './municipalCategories.js';
 
 export const DEMAND_LIST_FIELDS = 'id,protocolo,titulo,bairro,endereco,prioridade,status,created_at,updated_at,prazo_em,previsto_em,primeira_resposta_prazo_em,primeira_resposta_em,report_id,atribuido_a,canal_id,revisao_pendente,proxima_acao,proxima_acao_em,category:categories(name),responsavel:profiles!demandas_municipais_atribuido_a_fkey(name),secretaria:orgao_canais(nome)';
 export const EXPORT_DEFAULT_FILTERS = { query: '', statuses: [], responsible: 'all', channel: 'all', category: 'all', neighborhood: '', priority: 'all', age: 'all', orderLink: 'all', queue: 'all', overdue: false, dueToday: false, dateFrom: '', dateTo: '', sort: 'recentes' };
@@ -21,6 +22,7 @@ export function municipalDemandsQuery(client, filters, { head = false, fields = 
   const [sortField, ascending] = sorts[filters.sort] || sorts.recentes;
   let request = client.from('demandas_municipais').select(head ? 'id' : fields, { count, head })
     .eq('prefeitura_id', filters.municipalityId).order(sortField, { ascending, nullsFirst: false }).order('id');
+  request = applyMunicipalCategoryFilter(request, 'category_id', filters.enabledCategoryIds);
   if (filters.assignedOnly) request = request.eq('atribuido_a', filters.userId);
   if (filters.status && filters.status !== 'all') request = request.eq('status', filters.status);
   if (filters.statuses?.length) request = request.in('status', filters.statuses);
@@ -72,8 +74,8 @@ export async function collectExportRows(makeRequest, { signal, onProgress } = {}
   return rows;
 }
 
-export async function loadMunicipalExport(client, { kind, municipalityId, cityId, userId, filters, selectedIds = [], scope = 'filtered', signal, onProgress }) {
-  const snapshot = { ...filters, municipalityId, cityId, userId, signal, now: new Date() };
+export async function loadMunicipalExport(client, { kind, municipalityId, cityId, userId, enabledCategoryIds, filters, selectedIds = [], scope = 'filtered', signal, onProgress }) {
+  const snapshot = { ...filters, municipalityId, cityId, userId, enabledCategoryIds, signal, now: new Date() };
   if (scope === 'selected' && !selectedIds.length) return [];
   // Chunk selected IDs as well, keeping request URLs below the gateway limit.
   const selectedChunks = scope === 'selected' ? Array.from({ length: Math.ceil(selectedIds.length / 100) }, (_, index) => selectedIds.slice(index * 100, index * 100 + 100)) : [null];

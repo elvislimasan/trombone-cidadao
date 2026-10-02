@@ -227,6 +227,7 @@ serve(async (req) => {
       description,
       category_id: category,
       address,
+      reference_point: String(report?.reference_point || '').trim().slice(0, 240) || null,
       location: `POINT(${lng} ${lat})`,
       author_id: null,
       protocol: `TROMB-${Date.now()}`,

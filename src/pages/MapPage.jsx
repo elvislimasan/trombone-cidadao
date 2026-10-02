@@ -258,7 +258,7 @@ export default function MapPage() {
     if (!term) { setSearchMatches(null); return undefined; }
     let cancelled = false;
     setSearchMatches(null);
-    const columns = ['title', 'pole_number', 'reported_plate', 'reported_post_identifier'];
+    const columns = ['title', 'protocol', 'pole_number', 'reported_plate', 'reported_post_identifier'];
     Promise.all(columns.map((column) => {
       let q = supabase.from('reports').select('id, location')
         .eq('moderation_status', 'approved').neq('status', 'duplicate')
@@ -1088,7 +1088,7 @@ export default function MapPage() {
                   value={titleSearchInput}
                   onChange={e => setTitleSearchInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-                  placeholder="Título ou número do poste"
+                  placeholder="Título, protocolo ou número do poste"
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none"
                 />
                 {titleSearchInput && (
@@ -1217,7 +1217,7 @@ export default function MapPage() {
                 value={titleSearchInput}
                 onChange={e => setTitleSearchInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-                placeholder="Título ou número do poste"
+                placeholder="Título, protocolo ou número do poste"
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none"
               />
               {titleSearchInput && (
@@ -1407,7 +1407,7 @@ export default function MapPage() {
             value={titleSearchInput}
             onChange={e => setTitleSearchInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleTitleSearch(); }}
-            placeholder="Título ou número do poste"
+            placeholder="Título, protocolo ou número do poste"
             className="bg-transparent outline-none text-sm flex-1 min-w-0"
           />
           {titleSearchInput && (

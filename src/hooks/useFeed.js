@@ -131,7 +131,22 @@ export function useFeed(tab = 'recent', cityId = null, userCoords = null) {
           .order('created_at', { ascending: false });
       }
 
-      const { data, error } = await q;
+      let { data, error } = await q;
+      // A projeção completa incorpora perfis e contagens. Se uma dessas relações
+      // não puder ser lida por visitantes, mantenha a lista pública disponível.
+      if (error && !user) {
+        let fallback = supabase.from('reports')
+          .select('id,title,description,status,created_at,address,category_id,is_recurrent,author_id,views,is_anonymous')
+          .eq('moderation_status', 'approved').neq('status', 'duplicate');
+        fallback = nearbyIds ? fallback.in('id', nearbyIds) : fallback.range(from, to);
+        if (cityId !== null && cityId !== undefined) fallback = fallback.eq('city_id', cityId);
+        if (tab === 'nearby') fallback = fallback.in('status', ['pending', 'in-progress']);
+        else if (tab === 'resolved') fallback = fallback.eq('status', 'resolved').order('created_at', { ascending: false });
+        else if (tab === 'trending') fallback = fallback.in('status', ['pending', 'in-progress']).order('views', { ascending: false }).order('created_at', { ascending: false });
+        else fallback = fallback.in('status', ['pending', 'in-progress']).order('created_at', { ascending: false });
+        const retry = await fallback;
+        if (!retry.error) { data = retry.data; error = null; }
+      }
       if (error) throw error;
 
       const items = data || [];

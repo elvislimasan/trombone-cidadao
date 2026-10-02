@@ -84,12 +84,6 @@ function DemandStatusTabs({ status, counts, onSelect }) {
   </nav>;
 }
 
-function todayRange() {
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const end = new Date(start); end.setDate(end.getDate() + 1);
-  return [start.toISOString(), end.toISOString()];
-}
-
 function DemandDeadline({ demand }) {
   const due = demand.prazo_em ? new Date(demand.prazo_em) : null;
   const open = OPEN_DEMAND_STATUSES.includes(demand.status);
@@ -137,10 +131,10 @@ export default function MunicipalDemandsPage({ view = 'list' }) {
 
   const requestForFilters = useCallback((requestedStatus, { head = false } = {}) => {
     return municipalDemandsQuery(supabase, {
-      municipalityId: context.municipality.id, userId: context.userId, assignedOnly: context.isElectrician,
+      municipalityId: context.municipality.id, userId: context.userId, enabledCategoryIds: context.enabledCategoryIds, assignedOnly: context.isElectrician,
       ...(view === 'overview' ? { sort: 'recentes' } : { status: requestedStatus, priority, channel, category, queue, overdue, linked, dueToday, query, sort }),
     }, { head });
-  }, [context.municipality?.id, context.userId, context.isElectrician, view, priority, channel, category, queue, overdue, linked, dueToday, query, sort]);
+  }, [context.municipality?.id, context.userId, context.enabledCategoryIds, context.isElectrician, view, priority, channel, category, queue, overdue, linked, dueToday, query, sort]);
 
   const loadCounts = useCallback(async () => {
     if (!context.municipality?.id || view === 'overview') return;
@@ -161,11 +155,10 @@ export default function MunicipalDemandsPage({ view = 'list' }) {
     const token = ++generation.current;
     setLoading(true); setError('');
     try {
-      const [start, end] = todayRange();
       const [result, summaryResult, dueTodayResult] = await Promise.all([
         requestForFilters(status).range((page - 1) * pageSize, page * pageSize - 1),
         supabase.rpc('resumo_demandas_municipais', { p_prefeitura: context.municipality.id }).maybeSingle(),
-        supabase.from('demandas_municipais').select('id', { count: 'exact', head: true }).eq('prefeitura_id', context.municipality.id).in('status', OPEN_DEMAND_STATUSES).gte('prazo_em', start).lt('prazo_em', end),
+        municipalDemandsQuery(supabase, { municipalityId: context.municipality.id, enabledCategoryIds: context.enabledCategoryIds, statuses: OPEN_DEMAND_STATUSES, dueToday: true }, { head: true }),
       ]);
       if (token !== generation.current) return;
       if (result.error || summaryResult.error) throw result.error || summaryResult.error;
@@ -175,7 +168,7 @@ export default function MunicipalDemandsPage({ view = 'list' }) {
       if (view !== 'overview' && page > lastPage) setParams((current) => { const next = new URLSearchParams(current); next.set('pagina', String(lastPage)); return next; }, { replace: true });
     } catch (failure) { if (token === generation.current) setError(failure.message); }
     finally { if (token === generation.current) setLoading(false); }
-  }, [context.municipality?.id, page, pageSize, status, view, setParams, requestForFilters]);
+  }, [context.municipality?.id, context.enabledCategoryIds, page, pageSize, status, view, setParams, requestForFilters]);
   useEffect(() => {
     const requestGeneration = generation;
     const timer = window.setTimeout(load, query ? 250 : 0);
