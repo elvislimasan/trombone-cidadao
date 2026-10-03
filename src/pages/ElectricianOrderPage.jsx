@@ -248,9 +248,6 @@ export default function ElectricianOrderPage() {
       if (!['lamp_replacement', 'arm_installation', 'other'].includes(serviceType)) {
         setFormError('Selecione o serviço executado antes de resolver.'); return;
       }
-      if (result.trim().length < 10) {
-        setFormError('Descreva o resultado do serviço com pelo menos 10 caracteres.'); return;
-      }
       try { poleData = electricianPolePayload(poleForm); }
       catch (cause) { setFormError(cause.message); return; }
     }

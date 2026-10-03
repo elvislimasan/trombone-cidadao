@@ -83,7 +83,16 @@ export default function MunicipalityRegisterPage() {
   return (
     <div className="min-h-screen bg-surface-base text-content-primary">
       <Helmet><title>Criar conta institucional | Painel da Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-      <div className="page-shell-fluid grid min-h-screen min-w-0 items-center gap-6 py-6 sm:py-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <div className="
+    page-shell-fluid
+    grid
+    min-h-screen
+    grid-cols-1
+    gap-8
+    py-6
+    lg:grid-cols-[0.9fr_1.1fr]
+    lg:items-stretch
+  ">
         <aside className="hidden h-full min-h-[36rem] flex-col justify-between rounded-2xl bg-brand-subtleBg p-8 lg:flex xl:p-12" aria-label="Informações do convite">
           <div>
             <img src="/logo.png" alt="" className="h-14 w-14 object-contain" />

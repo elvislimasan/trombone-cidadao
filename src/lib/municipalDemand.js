@@ -91,7 +91,6 @@ export function validateDemandFields(form, { previousStatus, reason = '', electr
   if (form.status !== previousStatus && ['cancelada', 'recusada'].includes(form.status) && reason.trim().length < 5) errors.reason = 'Explique o motivo do cancelamento ou da recusa.';
   if (['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(previousStatus) && OPEN_DEMAND_STATUSES.includes(form.status) && form.status !== 'aguardando_confirmacao' && form.status !== previousStatus && reason.trim().length < 5) errors.reason = 'Explique o motivo da reabertura.';
   if (electricianMode && form.status === 'concluida' && form.category_id === 'iluminacao' && !['lamp_replacement', 'arm_installation', 'other'].includes(form.service_type)) errors.service_type = 'Selecione o serviço executado.';
-  if (['concluida', 'aguardando_confirmacao'].includes(form.status) && form.resultado && form.resultado.trim().length > 0 && form.resultado.trim().length < 10) errors.resultado = 'Descreva o resultado com pelo menos 10 caracteres.';
   return errors;
 }
 export function validateDemand(form, options) {
