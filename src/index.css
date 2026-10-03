@@ -16,6 +16,11 @@
   top: 72px;
   left: 6px;
 }
+.electrician-lighting-map .municipal-lighting-map .leaflet-top.leaflet-left {
+  top: 112px;
+  left: auto;
+  right: 6px;
+}
 .municipal-lighting-map .leaflet-control-zoom {
   overflow: hidden;
   border: 1px solid rgb(var(--border-default));

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatDistance, offerKey, orderStage, sortElectricianOffers } from '@/lib/electricianPanel';
+import { distanceBetweenPoints, formatDistance, offerKey, orderStage, sortElectricianOffers } from '@/lib/electricianPanel';
 
 test('urgent service stays ahead of orders and requests even in nearby mode', () => {
   const items = [
@@ -25,4 +25,11 @@ test('assigned orders appear in the correct work stage', () => {
   assert.equal(orderStage({ status: 'em_andamento' }), 'execucao');
   assert.equal(orderStage({ status: 'aguardando_confirmacao' }), 'conferencia');
   assert.equal(orderStage({ status: 'concluida' }), 'historico');
+});
+
+test('distance from the order pin is available only for valid coordinates', () => {
+  const pin = { latitude: -8, longitude: -38 };
+  assert.equal(distanceBetweenPoints(pin, pin), 0);
+  assert.ok(distanceBetweenPoints(pin, { latitude: -7.999, longitude: -38 }) > 100);
+  assert.equal(distanceBetweenPoints(pin, { latitude: null, longitude: -38 }), null);
 });

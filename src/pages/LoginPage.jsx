@@ -15,7 +15,7 @@ import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
 const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform();
 const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
 const loginDestination = (user, target) =>
-  target?.startsWith('/prefeitura/convite/')
+  (target?.startsWith('/prefeitura/convite/') || target?.startsWith('/prefeitura/eletricista'))
     ? target
     : (hasMunicipalityPanelAccess(user) ? '/prefeitura/broncas' : (target || postAuthFallback));
 
@@ -35,9 +35,11 @@ const LoginPage = () => {
 
   const rememberInviteRedirect = () => {
     const from = location.state?.from;
-    if (from?.pathname?.startsWith('/prefeitura/convite/')) {
+    if (from?.pathname?.startsWith('/prefeitura/convite/') || from?.pathname?.startsWith('/prefeitura/eletricista')) {
       try { sessionStorage.setItem('tc_post_login_redirect', `${from.pathname}${from.search || ''}`); } catch {}
+      return `${from.pathname}${from.search || ''}`;
     }
+    return undefined;
   };
 
   // Reseta loading quando o browser OAuth fecha sem completar o login
@@ -66,10 +68,10 @@ const LoginPage = () => {
   }, [user, navigate, location.state]);
 
   const handleAppleLogin = async () => {
-    rememberInviteRedirect();
+    const invitePath = rememberInviteRedirect();
     setIsLoading(true);
     try {
-      const { data, error } = await signInWithApple();
+      const { error } = await signInWithApple(invitePath);
       if (error) throw error;
       // signInWithIdToken pode não disparar onAuthStateChange no Capacitor,
       // então força atualização do perfil e redireciona explicitamente
@@ -102,10 +104,10 @@ const LoginPage = () => {
   };
 
   const handleGoogleLogin = async () => {
-    rememberInviteRedirect();
+    const invitePath = rememberInviteRedirect();
     setIsLoading(true);
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle(invitePath);
       if (error) throw error;
     } catch (error) {
       setErrors({
@@ -183,9 +185,9 @@ const LoginPage = () => {
         const isCredentialError = 
           errorMsgLower.includes('invalid login credentials') ||
           errorMsgLower.includes('invalid credentials') ||
-          errorMsgLower.includes('email') && errorMsgLower.includes('password') ||
+          (errorMsgLower.includes('email') && errorMsgLower.includes('password')) ||
           errorMsgLower.includes('credenciais inválidas') ||
-          errorMsgLower.includes('wrong') && (errorMsgLower.includes('password') || errorMsgLower.includes('email'));
+          (errorMsgLower.includes('wrong') && (errorMsgLower.includes('password') || errorMsgLower.includes('email')));
         
         if (isCredentialError) {
           // Erro de credenciais: mostrar abaixo do campo de senha

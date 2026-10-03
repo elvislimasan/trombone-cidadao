@@ -85,7 +85,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   const mustExplain = (['cancelada', 'recusada'].includes(form.status) && form.status !== item?.status)
     || (item && ['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(item.status) && !['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(form.status))
     || (item && form.canal_id !== (item.canal_id || ''));
-  const validationErrors = validateDemandFields(form, { previousStatus: item?.status, reason });
+  const validationErrors = validateDemandFields(form, { previousStatus: item?.status, reason, electricianMode });
   if (mustExplain && reason.trim().length < 5 && !validationErrors.reason) validationErrors.reason = 'Explique o motivo desta alteração.';
   const fieldErrors = validationScope === 'all' ? validationErrors : validationScope === 'title' && validationErrors.titulo ? { titulo: validationErrors.titulo } : {};
   useEffect(() => {
@@ -256,7 +256,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     setValidationScope('all');
     if (Object.keys(validationErrors).length) {
       setFormError('');
-      setTab(validationErrors.titulo ? 'dados' : validationErrors.latitude || validationErrors.longitude ? 'local' : 'atendimento');
+      setTab(validationErrors.titulo ? 'dados' : validationErrors.latitude || validationErrors.longitude ? 'local' : validationErrors.service_type || validationErrors.resultado ? 'anexos' : 'atendimento');
       setFocusAttempt((value) => value + 1);
       return;
     }
@@ -343,7 +343,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
               {waiting && <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field error={fieldErrors.motivo_pendencia} title="Motivo da pendência *"><textarea className={selectClass + ' min-h-24 py-3'} value={form.motivo_pendencia} onChange={(event) => update('motivo_pendencia', event.target.value)} disabled={!editable} /></Field><Field error={fieldErrors.proxima_acao_em} title="Revisar pendência em *"><Input type="datetime-local" value={form.proxima_acao_em} onChange={(event) => update('proxima_acao_em', event.target.value)} disabled={!editable} /></Field></div>}
               {mustExplain && <div className="mt-4"><Field error={fieldErrors.reason} title="Motivo da alteração *"><textarea className={selectClass + ' min-h-24 py-3'} minLength={5} maxLength={4000} value={reason} onChange={(event) => setReason(event.target.value)} disabled={!editable} /></Field></div>}
               {execution && <div className="mt-5 space-y-4 border-t border-edge-subtle pt-5">
-                {form.category_id === 'iluminacao' && <Field title="Serviço executado (para estatísticas)"><select className={selectClass} value={form.service_type || ''} onChange={(event) => update('service_type', event.target.value)} disabled={!editable}><option value="">Não informado</option><option value="lamp_replacement">Troca de lâmpada</option><option value="arm_installation">Instalação de braço de luz</option><option value="other">Outro serviço</option></select></Field>}
+                {form.category_id === 'iluminacao' && <Field error={fieldErrors.service_type} title={<>Serviço executado (para estatísticas) {electricianMode && form.status === 'concluida' && <span className="text-danger">*</span>}</>}><select className={selectClass} value={form.service_type || ''} onChange={(event) => update('service_type', event.target.value)} disabled={!editable}><option value="">Não informado</option><option value="lamp_replacement">Troca de lâmpada</option><option value="arm_installation">Instalação de braço de luz</option><option value="other">Outro serviço</option></select></Field>}
                 <Field error={fileErrors.conclusao} title="Foto do serviço (opcional)"><input type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-xs file:mr-3 file:rounded-lg file:border file:border-edge-default file:bg-surface-subtle file:px-3 file:py-2 file:font-semibold" onChange={(event) => addFiles(event, 'conclusao')} disabled={!editable || saving} /></Field>
                 {pendingFiles.filter((file) => file.tipo === 'conclusao').map((file) => <div key={file.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-subtle p-3 text-xs"><span className="min-w-0 flex-1 break-words font-semibold">{file.file.name}</span>{reports.length > 0 && <label className="flex items-center gap-1.5"><input type="checkbox" checked={file.visibilidade === 'publica'} onChange={(event) => setPendingFiles((current) => current.map((entry) => entry.id === file.id ? { ...entry, visibilidade: event.target.checked ? 'publica' : 'interna' } : entry))} disabled={!editable} />Mostrar na solicitação</label>}<Button type="button" variant="ghost" size="icon" aria-label={'Retirar foto ' + file.file.name} onClick={() => setPendingFiles((current) => current.filter((entry) => entry.id !== file.id))}><X className="h-4 w-4" /></Button></div>)}
                 <Field error={fieldErrors.resultado} title="Resultado do serviço (opcional)"><textarea className={selectClass + ' min-h-24 py-3'} minLength={10} maxLength={4000} value={form.resultado} onChange={(event) => update('resultado', event.target.value)} disabled={!editable} /></Field>

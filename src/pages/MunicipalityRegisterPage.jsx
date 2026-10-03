@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Building2, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -81,15 +81,26 @@ export default function MunicipalityRegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-base px-4 py-8 text-content-primary sm:py-12">
+    <div className="min-h-screen bg-surface-base text-content-primary">
       <Helmet><title>Criar conta institucional | Painel da Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-      <div className="mx-auto w-full max-w-lg">
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-content-onBrand"><Building2 className="h-6 w-6" /></span>
-          <div><p className="font-black">Painel da Prefeitura</p><p className="text-xs text-content-secondary">Acesso institucional</p></div>
+      <div className="page-shell-fluid grid min-h-screen min-w-0 items-center gap-6 py-6 sm:py-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <aside className="hidden h-full min-h-[36rem] flex-col justify-between rounded-2xl bg-brand-subtleBg p-8 lg:flex xl:p-12" aria-label="Informações do convite">
+          <div>
+            <img src="/logo.png" alt="" className="h-14 w-14 object-contain" />
+            <p className="mt-9 text-xs font-black uppercase tracking-widest text-brand">Convite da prefeitura</p>
+            <h2 className="mt-3 max-w-lg font-display text-3xl font-extrabold leading-tight xl:text-4xl">Seu trabalho começa com um acesso seguro.</h2>
+            <p className="mt-4 max-w-lg text-sm leading-6 text-content-secondary">Crie sua conta para atender os serviços atribuídos pela equipe municipal.</p>
+          </div>
+          {preview && <div className="border-t border-brand/20 pt-5"><p className="font-bold">{preview.prefeitura_nome}</p><p className="mt-1 text-sm text-content-secondary">{preview.cidade_nome}{preview.cidade_uf ? ` · ${preview.cidade_uf}` : ''}</p></div>}
+        </aside>
+        <div className="w-full min-w-0 max-w-xl justify-self-center">
+          <div className="mb-5 flex items-center gap-3 lg:hidden">
+            <img src="/logo.png" alt="" className="h-10 w-10 object-contain" />
+            <div><p className="font-display text-sm font-extrabold">Trombone Cidadão</p><p className="text-xs text-content-secondary">Acesso institucional</p></div>
+          </div>
         </div>
 
-        <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-8">
+        <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-8">
           {checking || authLoading ? (
             <div className="py-12 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-brand" /><p className="mt-3 text-sm text-content-secondary">Verificando convite...</p></div>
           ) : invalid ? (

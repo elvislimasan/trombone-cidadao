@@ -5,7 +5,7 @@ import { alertApp } from '@/lib/appConfirm';
 const mockReports = [
   {
     id: 1,
-    title: "Buraco na Rua Principal",
+    title: "Poste apagado na Rua principal",
     description: "Grande buraco causando acidentes",
     status: "pending",
     upvotes: 45,

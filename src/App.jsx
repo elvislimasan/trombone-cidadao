@@ -113,6 +113,10 @@ import MunicipalOverviewPage from '@/pages/MunicipalOverviewPage';
 import MunicipalReportsPage from '@/pages/MunicipalReportsPage';
 import MunicipalLightingPage from '@/pages/MunicipalLightingPage';
 import MunicipalLightingStatsPage from '@/pages/MunicipalLightingStatsPage';
+import ElectricianPanelPage from '@/pages/ElectricianPanelPage';
+import ElectricianStatsPage from '@/pages/ElectricianStatsPage';
+import ElectricianOrderPage from '@/pages/ElectricianOrderPage';
+import ElectricianProfilePage from '@/pages/ElectricianProfilePage';
 import MunicipalServiceSettingsPage from '@/pages/MunicipalServiceSettingsPage';
 import MunicipalityAccessPage from '@/pages/MunicipalityAccessPage';
 import MunicipalityInvitePage from '@/pages/MunicipalityInvitePage';
@@ -766,6 +770,11 @@ function AppShell() {
               <Route path="/prefeitura/convite/:token" element={<MunicipalityInvitePage />} />
               <Route path="/prefeitura/convite/:token/cadastro" element={<MunicipalityRegisterPage />} />
               <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
+                <Route path="/prefeitura/eletricista" element={<ElectricianPanelPage />} />
+                <Route path="/prefeitura/eletricista/hoje" element={<Navigate to="/prefeitura/eletricista" replace />} />
+                <Route path="/prefeitura/eletricista/estatisticas" element={<ElectricianStatsPage />} />
+                <Route path="/prefeitura/eletricista/ordem/:id" element={<ElectricianOrderPage />} />
+                <Route path="/prefeitura/eletricista/perfil" element={<ElectricianProfilePage />} />
                 <Route path="/prefeitura/visao-geral" element={<MunicipalOverviewPage />} />
                 <Route path="/prefeitura/demandas" element={<MunicipalDemandsPage />} />
                 <Route path="/prefeitura/demandas/nova" element={<MunicipalDemandsPage view="form" />} />

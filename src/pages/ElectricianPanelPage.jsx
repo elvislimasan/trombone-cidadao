@@ -1,40 +1,50 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Clock3, MapPin, Navigation, RotateCcw, Search } from 'lucide-react';
+import { ArrowRight, Clock3, MapPin, Navigation, RotateCcw, Search, Zap } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
-import { MunicipalEmptyState, MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
+import ElectricianServicesMap from '@/components/municipality/ElectricianServicesMap';
+import ElectricianLightingMap from '@/components/municipality/ElectricianLightingMap';
+import { MunicipalEmptyState } from '@/components/municipality/MunicipalPageUi';
 import { supabase } from '@/lib/customSupabaseClient';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES } from '@/lib/municipalDemand';
 import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 import { formatDistance, offerGroup, offerKey, orderStage, sortElectricianOffers } from '@/lib/electricianPanel';
+import { compactPoleReference } from '@/lib/electricianPole';
 
 const OFFER_PAGE_SIZE = 60;
-const orderFields = 'id,protocolo,titulo,descricao,endereco,bairro,issue_type,prioridade,status,prazo_em,previsto_em,created_at,latitude,longitude,pole_id,revisao_pendente';
+const orderFields = 'id,protocolo,titulo,descricao,endereco,bairro,issue_type,prioridade,status,prazo_em,previsto_em,created_at,latitude,longitude,pole_id,report_id';
 const priorityLabel = (value) => DEMAND_PRIORITIES.find(([id]) => id === value)?.[1] || 'Normal';
 const statusLabel = (value) => DEMAND_STATUSES.find(([id]) => id === value)?.[1] || value;
 const dateLabel = (value) => value ? new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
-function ServiceCard({ item, mine = false, onSelect }) {
+function ServiceCard({ item, mine = false, cover, onSelect }) {
   const urgent = item.prioridade === 'urgente';
   const group = mine ? null : offerGroup(item);
-  return <button type="button" onClick={onSelect} className={'group w-full min-w-0 rounded-2xl border bg-surface-raised p-4 text-left shadow-sm transition hover:border-brand/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (urgent ? 'border-danger/50' : 'border-edge-subtle')}>
-    <span className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
-      <span className={urgent ? 'text-danger' : 'text-brand'}>{mine ? statusLabel(item.status) : group === 0 ? 'Urgente' : group === 1 ? 'Ordem de serviço' : 'Solicitação pendente'}</span>
-      <span className="text-content-secondary">{item.protocolo || 'Sem protocolo'}</span>
+  const problemLabel = item.descricao?.trim()
+    || (item.issue_type?.trim() ? rotuloDoTipoDeProblemaIluminacao(item.issue_type) : 'Não informado');
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [cover]);
+  return <button type="button" onClick={onSelect} className={'group flex h-full w-full min-w-0 flex-col rounded-xl border bg-surface-raised text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:rounded-2xl ' + (urgent ? 'border-danger/40' : 'border-edge-subtle')}>
+    <span className="flex min-w-0 flex-1 flex-col px-3 pb-0 pt-2.5 sm:px-5 sm:pt-4">
+      <span className="flex min-w-0 items-center justify-between gap-2">
+        <span className={'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold leading-none sm:text-xs ' + (urgent ? 'bg-danger-subtleBg text-danger' : 'bg-brand-subtleBg text-brand')}><Zap className="h-3 w-3" />{mine ? statusLabel(item.status) : group === 0 ? 'Urgente' : group === 1 ? 'Ordem de serviço' : 'Solicitação pendente'}</span>
+        <span className="min-w-0 truncate text-right text-[9px] font-medium text-content-tertiary sm:text-xs">{item.protocolo || 'Sem protocolo'}</span>
+      </span>
+      <span className="mt-2 flex min-w-0 items-start gap-2.5 sm:mt-4 sm:gap-3">
+        <span className="min-w-0 flex-1"><strong className="block break-words font-display text-[13px] font-extrabold leading-[1.2] text-content-primary sm:text-lg">{compactPoleReference(item.titulo)}</strong><span className="mt-1 line-clamp-2 break-words text-[11px] leading-[1.3] text-content-secondary sm:mt-1.5 sm:text-sm">{problemLabel}</span></span>
+        {cover && !imageFailed && <img src={cover} alt="Foto da ocorrência" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="h-[60px] w-[60px] shrink-0 rounded-lg bg-surface-subtle object-cover sm:h-24 sm:w-24 sm:rounded-xl" />}
+      </span>
+      <span className="mt-1.5 flex min-w-0 items-start gap-1.5 text-[10px] leading-[1.25] text-content-secondary sm:mt-4 sm:gap-2 sm:text-sm"><MapPin className="h-3 w-3 shrink-0 text-danger sm:mt-0.5 sm:h-4 sm:w-4" /><span className="line-clamp-2 break-words">{[item.endereco, item.bairro].filter(Boolean).join(' · ') || 'Local a confirmar'}</span></span>
+      {(item.prazo_em || item.distancia_m != null || (!mine && item.tipo === 'ordem')) && <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-content-secondary sm:mt-3 sm:gap-x-3 sm:text-xs">
+        {item.prazo_em && <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />Até {dateLabel(item.prazo_em)}</span>}
+        {item.distancia_m != null && <span>{formatDistance(item.distancia_m)} de você</span>}
+        {!mine && item.tipo === 'ordem' && <span>Prioridade {priorityLabel(item.prioridade).toLowerCase()}</span>}
+      </span>}
+      <span className="mt-auto flex items-center justify-between gap-2 border-t border-edge-subtle py-2 text-[11px] font-bold text-danger sm:mt-4 sm:py-4 sm:text-sm"><span>{mine ? 'Abrir ordem' : 'Ver detalhes'}</span><ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" /></span>
     </span>
-    <strong className="mt-2 block break-words text-base leading-snug">{item.titulo}</strong>
-    <span className="mt-2 block text-sm text-content-secondary">{rotuloDoTipoDeProblemaIluminacao(item.issue_type)}</span>
-    <span className="mt-3 flex items-start gap-1.5 text-sm text-content-primary"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" /><span className="break-words">{[item.endereco, item.bairro].filter(Boolean).join(' · ') || 'Local a confirmar'}</span></span>
-    <span className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-content-secondary">
-      {item.prazo_em && <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />Até {dateLabel(item.prazo_em)}</span>}
-      {item.distancia_m != null && <span>{formatDistance(item.distancia_m)} de você</span>}
-      {!mine && item.tipo === 'ordem' && <span>Prioridade {priorityLabel(item.prioridade).toLowerCase()}</span>}
-      {mine && item.revisao_pendente && <span className="font-semibold text-danger">Precisa de revisão</span>}
-    </span>
-    <span className="mt-4 flex items-center justify-end gap-1 text-xs font-bold text-brand">{mine ? 'Abrir serviço' : 'Ver oportunidade'}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" /></span>
   </button>;
 }
 
@@ -42,17 +52,18 @@ export default function ElectricianPanelPage() {
   const context = useOutletContext();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('aba') === 'minhas' ? 'minhas' : 'disponiveis';
+  const tab = params.get('aba') === 'disponiveis' ? 'disponiveis' : 'minhas';
   const selectedKey = params.get('oferta');
   const [offers, setOffers] = useState([]);
   const [mine, setMine] = useState([]);
+  const [reportCovers, setReportCovers] = useState({});
   const [preview, setPreview] = useState(null);
   const [query, setQuery] = useState('');
   const [stage, setStage] = useState('fazer');
+  const view = params.get('vista') === 'mapa' ? 'map' : 'cards';
+  const mapMode = view === 'map';
   const [deferred, setDeferred] = useState([]);
   const [showDeferred, setShowDeferred] = useState(false);
-  const [position, setPosition] = useState(null);
-  const [locating, setLocating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [moreLoading, setMoreLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -64,11 +75,35 @@ export default function ElectricianPanelPage() {
 
   const offerArgs = useCallback((offset = 0) => ({
     p_prefeitura: municipalityId, p_limit: OFFER_PAGE_SIZE, p_offset: offset,
-    p_latitude: position?.latitude ?? null, p_longitude: position?.longitude ?? null,
-  }), [municipalityId, position]);
+  }), [municipalityId]);
+
+  const loadReportCovers = useCallback(async (items) => {
+    const ids = [...new Set(items.map((item) => item.tipo === 'solicitacao' ? item.id : item.report_id).filter(Boolean))];
+    if (!ids.length) return;
+    const batches = Array.from({ length: Math.ceil(ids.length / 50) }, (_, index) => ids.slice(index * 50, (index + 1) * 50));
+    const results = await Promise.allSettled(batches.map((batch) => supabase.from('reports')
+      .select('id,featured_image_url,report_media(url,type,is_resolution_proof,created_at)')
+      .in('id', batch)));
+    const covers = {};
+    results.forEach((result, index) => {
+      if (result.status !== 'fulfilled' || result.value.error) return;
+      batches[index].forEach((id) => { covers[id] = null; });
+      for (const report of result.value.data || []) {
+        const photos = report.report_media || [];
+        covers[report.id] = report.featured_image_url?.trim()
+          || photos.find((media) => media.type === 'photo' && !media.is_resolution_proof)?.url?.trim()
+          || photos.find((media) => media.type === 'photo')?.url?.trim()
+          || null;
+      }
+    });
+    if (Object.keys(covers).length) {
+      setReportCovers((current) => ({ ...current, ...covers }));
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!municipalityId) return;
+    if (mapMode) { setLoading(false); return; }
     setLoading(true); setError('');
     const [available, assigned] = await Promise.all([
       supabase.rpc('listar_ofertas_eletricista', offerArgs()),
@@ -77,13 +112,17 @@ export default function ElectricianPanelPage() {
         .eq('category_id', 'iluminacao').order('updated_at', { ascending: false }).limit(200),
     ]);
     if (available.error || assigned.error) setError((available.error || assigned.error).message);
-    else {
+    if (!available.error) {
       setOffers(available.data || []);
-      setMine(assigned.data || []);
       setHasMore((available.data || []).length === OFFER_PAGE_SIZE);
     }
+    if (!assigned.error) setMine(assigned.data || []);
+    void loadReportCovers([
+      ...(!available.error ? available.data || [] : []),
+      ...(!assigned.error ? assigned.data || [] : []),
+    ]);
     setLoading(false);
-  }, [municipalityId, context.userId, offerArgs]);
+  }, [municipalityId, context.userId, offerArgs, loadReportCovers, mapMode]);
 
   useEffect(() => { refresh(); }, [refresh]);
   useEffect(() => {
@@ -100,6 +139,7 @@ export default function ElectricianPanelPage() {
     const [tipo, id] = selectedKey.split(':');
     const existing = offers.find((item) => offerKey(item) === selectedKey);
     if (existing) { setPreview(existing); return undefined; }
+    setPreview(null);
     if (!['ordem', 'solicitacao'].includes(tipo) || !id) return undefined;
     let active = true;
     supabase.rpc('listar_ofertas_eletricista', { ...offerArgs(), p_limit: 1, p_tipo: tipo, p_id: id })
@@ -144,53 +184,54 @@ export default function ElectricianPanelPage() {
     if (failure) { setError(failure.message); return; }
     setOffers((current) => [...current, ...(data || [])]);
     setHasMore((data || []).length === OFFER_PAGE_SIZE);
+    void loadReportCovers(data || []);
   };
-  const enableNear = () => {
-    if (position) { setPosition(null); return; }
-    if (!navigator.geolocation) { setError('Localização indisponível neste aparelho.'); return; }
-    setLocating(true); setError('');
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setPosition({ latitude: coords.latitude, longitude: coords.longitude }); setLocating(false); },
-      () => { setError('Não foi possível acessar sua localização. Confira a permissão do app.'); setLocating(false); },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
-    );
-  };
-
   const normalized = query.trim().toLocaleLowerCase('pt-BR');
-  const visibleOffers = useMemo(() => sortElectricianOffers(offers, Boolean(position)).filter((item) =>
+  const visibleOffers = useMemo(() => sortElectricianOffers(offers).filter((item) =>
     (showDeferred || !deferred.includes(offerKey(item))) &&
     (!normalized || [item.titulo, item.protocolo, item.endereco, item.bairro].some((value) => value?.toLocaleLowerCase('pt-BR').includes(normalized)))
-  ), [offers, position, deferred, showDeferred, normalized]);
+  ), [offers, deferred, showDeferred, normalized]);
   const visibleMine = useMemo(() => mine.filter((item) => orderStage(item) === stage &&
     (!normalized || [item.titulo, item.protocolo, item.endereco, item.bairro].some((value) => value?.toLocaleLowerCase('pt-BR').includes(normalized)))
   ), [mine, stage, normalized]);
+  const visibleItems = tab === 'disponiveis' ? visibleOffers : visibleMine;
+  const stageCounts = useMemo(() => Object.fromEntries(['fazer', 'execucao', 'conferencia', 'historico'].map((key) => [key, mine.filter((item) => orderStage(item) === key).length])), [mine]);
+  const openItem = (item) => tab === 'disponiveis'
+    ? openOffer(item) : navigate('/prefeitura/eletricista/ordem/' + item.id);
+  const groups = tab === 'disponiveis' && view === 'cards'
+    ? [['Urgentes', 0], ['Ordens de serviço', 1], ['Solicitações', 2]].map(([label, group]) => ({ label, items: visibleOffers.filter((item) => offerGroup(item) === group) })).filter(({ items }) => items.length)
+    : [];
 
-  return <div className="page-shell-fluid min-w-0 py-5 pb-8 sm:py-8">
+  return <div className={mapMode ? 'flex h-full min-h-0 min-w-0 flex-col overflow-hidden' : 'page-shell-fluid min-w-0 pb-8 pt-3 sm:py-8'}>
     <Helmet><title>Painel do eletricista | Trombone Cidadão</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Iluminação pública" title="Seu painel de serviços" description="Encontre oportunidades e acompanhe os atendimentos que você assumiu." action={<Button type="button" variant="outline" size="sm" onClick={refresh} disabled={loading}><RotateCcw className="mr-2 h-4 w-4" />Atualizar</Button>} />
-    <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Serviços do eletricista">
-      {[['disponiveis', 'Disponíveis'], ['minhas', 'Minhas ordens']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setParams((current) => { const next = new URLSearchParams(current); if (key === 'minhas') next.set('aba', key); else next.delete('aba'); next.delete('oferta'); return next; })} className={'min-h-11 rounded-xl px-4 text-sm font-semibold ' + (tab === key ? 'bg-brand text-content-onBrand' : 'border border-edge-subtle bg-surface-raised text-content-secondary')}>{label}</button>)}
-    </div>
-    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <label className="relative min-w-0 flex-1"><span className="sr-only">Buscar serviço</span><Search className="absolute left-3 top-3 h-4 w-4 text-content-secondary" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Protocolo, endereço ou serviço" className="pl-9" /></label>
-      {tab === 'disponiveis' && <Button type="button" variant={position ? 'default' : 'outline'} onClick={enableNear} disabled={locating}><Navigation className="mr-2 h-4 w-4" />{locating ? 'Localizando…' : position ? 'Perto de mim ativo' : 'Perto de mim'}</Button>}
-    </div>
-    {tab === 'disponiveis' && deferred.length > 0 && <label className="mt-3 flex items-center gap-2 text-xs text-content-secondary"><input type="checkbox" checked={showDeferred} onChange={(event) => setShowDeferred(event.target.checked)} className="h-4 w-4 accent-brand" />Mostrar serviços deixados para depois ({deferred.length})</label>}
-    {tab === 'minhas' && <div className="mt-4 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Etapa das minhas ordens">{[['fazer', 'Para fazer'], ['execucao', 'Em execução'], ['conferencia', 'Em conferência'], ['historico', 'Histórico']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={stage === key} onClick={() => setStage(key)} className={'min-h-10 shrink-0 rounded-lg px-3 text-xs font-semibold ' + (stage === key ? 'bg-brand-subtleBg text-brand' : 'bg-surface-raised text-content-secondary')}>{label} <span className="ml-1 tabular-nums">{mine.filter((item) => orderStage(item) === key).length}</span></button>)}</div>}
+    <section className={mapMode ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'min-w-0'} aria-label={mapMode ? 'Mapa de iluminação pública' : tab === 'minhas' ? 'Minhas ordens' : 'Oportunidades disponíveis'}>
+      {!mapMode && <>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-danger sm:text-xs">{tab === 'minhas' ? 'Acompanhe sua execução' : 'Escolha o próximo serviço'}</p>
+        <h1 className="mt-0.5 font-display text-xl font-extrabold leading-tight sm:mt-1 sm:text-2xl">{tab === 'minhas' ? 'Minhas ordens' : 'Serviços disponíveis'}</h1>
+        <p className="mt-0.5 text-xs text-content-secondary sm:mt-1 sm:text-sm">{tab === 'minhas' ? 'Veja o que fazer agora e acompanhe os serviços concluídos.' : 'Encontre o serviço no mapa e abra o atendimento.'}</p>
+      </div>
+      <div className="mt-3 flex min-w-0 items-center gap-1.5 sm:mt-5 sm:gap-3">
+        <label className="relative min-w-0 flex-1"><span className="sr-only">Buscar serviço</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-secondary" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar protocolo, endereço ou serviço" className="h-9 rounded-lg bg-surface-raised pl-9 text-xs sm:h-10 sm:text-sm" /></label>
+        <Button type="button" variant="outline" size="icon" onClick={refresh} disabled={loading} aria-label="Atualizar serviços" title="Atualizar serviços" className="h-9 w-9 shrink-0 rounded-lg bg-surface-raised sm:h-10 sm:w-10"><RotateCcw className={'h-4 w-4 ' + (loading ? 'animate-spin' : '')} /></Button>
+      </div>
+      {tab === 'disponiveis' && deferred.length > 0 && <label className="mt-3 flex min-h-10 items-center gap-2 text-xs text-content-secondary"><input type="checkbox" checked={showDeferred} onChange={(event) => setShowDeferred(event.target.checked)} className="h-4 w-4 accent-brand" />Mostrar serviços deixados para depois ({deferred.length})</label>}
+      {tab === 'minhas' && <div className="mt-4 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Etapa das minhas ordens">{[['fazer', 'Para fazer'], ['execucao', 'Em execução'], ['conferencia', 'Aguardando'], ['historico', 'Histórico']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={stage === key} onClick={() => setStage(key)} className={'flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ' + (stage === key ? 'border-brand/30 bg-brand-subtleBg text-brand' : 'border-edge-subtle bg-surface-raised text-content-secondary hover:border-brand/30 hover:text-content-primary')}>{label}<span className={'rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ' + (stage === key ? 'bg-surface-raised text-brand' : 'bg-surface-subtle text-content-secondary')}>{stageCounts[key]}</span></button>)}</div>}
     {error && <p role="alert" className="mt-4 rounded-xl border border-danger/30 bg-danger-subtleBg p-3 text-sm text-danger">{error}</p>}
-    {loading ? <p role="status" className="mt-8 text-sm text-content-secondary">Carregando serviços…</p> : <>
-      {tab === 'disponiveis' ? visibleOffers.length ? <div className="mt-5 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visibleOffers.map((item) => <ServiceCard key={offerKey(item)} item={item} onSelect={() => openOffer(item)} />)}</div> : <div className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised"><MunicipalEmptyState title="Nenhuma oportunidade nesta lista" description={deferred.length && !showDeferred ? 'Veja também os serviços deixados para depois.' : 'Novos serviços de iluminação aparecerão aqui.'} /></div> : visibleMine.length ? <div className="mt-5 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{visibleMine.map((item) => <ServiceCard key={item.id} item={item} mine onSelect={() => navigate('/prefeitura/eletricista/ordem/' + item.id)} />)}</div> : <div className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised"><MunicipalEmptyState title="Nenhuma ordem nesta etapa" description="As ordens que você aceitar ou receber aparecerão aqui." /></div>}
+    {loading ? <div role="status" className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3"><span className="h-56 animate-pulse rounded-2xl bg-surface-subtle" /><span className="hidden h-56 animate-pulse rounded-2xl bg-surface-subtle md:block" /><span className="hidden h-56 animate-pulse rounded-2xl bg-surface-subtle xl:block" /><span className="sr-only">Carregando serviços…</span></div> : <>
+      {visibleItems.length ? tab === 'disponiveis' ? <div className="mt-2.5 space-y-5 sm:mt-5 sm:space-y-7">{groups.map(({ label, items }) => <section key={label} aria-label={label}><div className="mb-1.5 flex items-baseline gap-1.5 sm:mb-3 sm:gap-2"><h3 className="font-display text-sm font-extrabold text-content-primary sm:text-lg">{label}</h3><span className="text-[11px] font-semibold tabular-nums text-content-tertiary sm:text-xs">{items.length}</span></div><div className="grid min-w-0 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3 2xl:grid-cols-4">{items.map((item) => <ServiceCard key={`${item.tipo || 'ordem'}:${item.id}`} item={item} cover={reportCovers[item.tipo === 'solicitacao' ? item.id : item.report_id]} onSelect={() => openItem(item)} />)}</div></section>)}</div> : <div className="mt-5 grid min-w-0 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3 2xl:grid-cols-4">{visibleItems.map((item) => <ServiceCard key={`${item.tipo || 'ordem'}:${item.id}`} item={item} cover={reportCovers[item.report_id]} mine onSelect={() => openItem(item)} />)}</div> : <div className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised"><MunicipalEmptyState title={normalized ? 'Nenhum resultado para esta busca' : tab === 'minhas' ? 'Nenhuma ordem nesta etapa' : 'Nenhuma oportunidade nesta lista'} description={normalized ? 'Tente outro protocolo, endereço ou nome de serviço.' : tab === 'minhas' ? 'As ordens que você aceitar ou receber aparecerão aqui.' : deferred.length && !showDeferred ? 'Veja também os serviços deixados para depois.' : 'Novos serviços de iluminação aparecerão aqui.'} /></div>}
       {tab === 'disponiveis' && hasMore && <div className="mt-5 flex justify-center"><Button type="button" variant="outline" onClick={loadMore} disabled={moreLoading}>{moreLoading ? 'Carregando…' : 'Carregar mais serviços'}</Button></div>}
     </>}
-    <MunicipalDrawer open={Boolean(selectedKey)} onClose={closeOffer} title={preview?.titulo || 'Oportunidade de serviço'} description={preview?.protocolo || 'Confira os dados antes de aceitar.'} variant="electrician" busy={accepting} footer={preview && <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={deferOffer} disabled={accepting}>Agora não</Button><Button type="button" onClick={acceptOffer} disabled={accepting}>{accepting ? 'Aceitando…' : 'Aceitar serviço'}</Button></div>}>
+    </>}
+    {mapMode && <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden"><ElectricianLightingMap municipality={context.municipality} /></div>}
+    </section>
+    <MunicipalDrawer open={Boolean(selectedKey)} onClose={closeOffer} title={compactPoleReference(preview?.titulo || 'Oportunidade de serviço')} description={preview?.protocolo || 'Confira os dados antes de aceitar.'} variant="electrician" busy={accepting} footer={preview && <div className="grid w-full gap-2 sm:flex sm:justify-end"><Button type="button" variant="outline" onClick={deferOffer} disabled={accepting}>Deixar para depois</Button><Button type="button" onClick={acceptOffer} disabled={accepting}>{accepting ? 'Aceitando…' : 'Aceitar serviço'}</Button></div>}>
       {preview ? <div className="space-y-4 text-sm">
-        <p className="font-semibold text-brand">{preview.tipo === 'ordem' ? 'Ordem de serviço' : 'Solicitação de iluminação'} · Prioridade {priorityLabel(preview.prioridade).toLowerCase()}</p>
-        <p>{rotuloDoTipoDeProblemaIluminacao(preview.issue_type)}</p>
-        {preview.descricao && <p className="whitespace-pre-line break-words text-content-secondary">{preview.descricao}</p>}
-        <p className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />{[preview.endereco, preview.bairro].filter(Boolean).join(' · ') || 'Local a confirmar'}</p>
-        {preview.distancia_m != null && <p>Distância aproximada: {formatDistance(preview.distancia_m)}</p>}
-        {preview.prazo_em && <p>Prazo: {dateLabel(preview.prazo_em)}</p>}
-        <p className="rounded-xl bg-surface-subtle p-3 text-xs text-content-secondary">O serviço será atribuído a você somente após confirmar o aceite.</p>
+        <div className="flex flex-wrap gap-2"><span className="rounded-full bg-brand-subtleBg px-3 py-1.5 text-xs font-bold text-brand">{preview.tipo === 'ordem' ? 'Ordem de serviço' : 'Solicitação de iluminação'}</span><span className={'rounded-full px-3 py-1.5 text-xs font-bold ' + (preview.prioridade === 'urgente' ? 'bg-danger-subtleBg text-danger' : 'bg-surface-subtle text-content-secondary')}>Prioridade {priorityLabel(preview.prioridade).toLowerCase()}</span></div>
+        <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4"><h3 className="text-xs font-bold uppercase tracking-widest text-content-tertiary">O que aconteceu</h3>{(preview.issue_type?.trim() || !preview.descricao?.trim()) && <p className="mt-2 font-semibold text-content-primary">{rotuloDoTipoDeProblemaIluminacao(preview.issue_type)}</p>}{preview.descricao?.trim() && <p className="mt-2 whitespace-pre-line break-words leading-6 text-content-secondary">{preview.descricao}</p>}</section>
+        <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4"><h3 className="text-xs font-bold uppercase tracking-widest text-content-tertiary">Onde e quando</h3><p className="mt-3 flex items-start gap-2 font-medium"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" /><span>{[preview.endereco, preview.bairro].filter(Boolean).join(' · ') || 'Local a confirmar'}</span></p>{preview.distancia_m != null && <p className="mt-2 text-content-secondary">Distância aproximada: {formatDistance(preview.distancia_m)}</p>}{preview.prazo_em && <p className="mt-2 flex items-center gap-2 text-content-secondary"><Clock3 className="h-4 w-4 text-brand" />Prazo: {dateLabel(preview.prazo_em)}</p>}</section>
+        {preview.latitude != null && preview.longitude != null && <section aria-label="Local da oportunidade no mapa"><h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-content-tertiary">Local no mapa</h3><ElectricianServicesMap compact items={[preview]} /><Button asChild variant="outline" size="sm" className="mt-3"><a href={`https://www.google.com/maps/dir/?api=1&destination=${preview.latitude},${preview.longitude}`} target="_blank" rel="noopener noreferrer"><Navigation className="mr-2 h-4 w-4" />Ver rota</a></Button></section>}
+        <p className="rounded-xl bg-brand-subtleBg p-3 text-xs leading-5 text-brand">Ao aceitar, esta ordem passa para suas ordens e você pode iniciar o atendimento.</p>
         {actionError && <p role="alert" className="text-sm text-danger">{actionError}</p>}
       </div> : <p className="text-sm text-content-secondary">Esta oportunidade não está mais disponível. Atualize a lista.</p>}
     </MunicipalDrawer>

@@ -1,16 +1,15 @@
 // Web Worker para processamento pesado de imagens
 // Evita travar a UI durante processamento
 
-const workerScope = Function("return this")();
+// eslint-disable-next-line no-restricted-globals
+const workerScope = self;
 
 workerScope.onmessage = function(e) {
   const { imageData, maxWidth, maxHeight, quality, fileName } = e.data;
   
   try {
-    // Criar imagem a partir dos dados
-    const img = new Image();
-    
-    img.onload = function() {
+    // Image não existe em Web Workers. Decodifique o arquivo com createImageBitmap.
+    fetch(imageData).then((response) => response.blob()).then(createImageBitmap).then((img) => {
       try {
         // Calcular dimensões mantendo proporção
         let width = img.width;
@@ -29,20 +28,23 @@ workerScope.onmessage = function(e) {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
+        img.close();
         
         // Converter para WEBP (melhor relação tamanho/qualidade)
         canvas.convertToBlob({ type: 'image/webp', quality: quality })
           .then(blob => {
+            const mime = blob.type || 'image/png';
+            const extension = mime === 'image/webp' ? 'webp' : mime === 'image/png' ? 'png' : 'jpg';
             // Converter blob para ArrayBuffer para enviar de volta
-            blob.arrayBuffer().then(buffer => {
+            return blob.arrayBuffer().then(buffer => {
               workerScope.postMessage({
                 success: true,
                 buffer: buffer,
                 width: width,
                 height: height,
-                fileName: /\.webp$/i.test(fileName) ? fileName : fileName.replace(/\.[^.]+$/, '') + '.webp',
+                fileName: fileName.replace(/\.[^.]+$/, '') + '.' + extension,
                 size: blob.size,
-                mime: 'image/webp'
+                mime
               });
             });
           })
@@ -58,17 +60,12 @@ workerScope.onmessage = function(e) {
           error: error.message
         });
       }
-    };
-    
-    img.onerror = function() {
+    }).catch(() => {
       workerScope.postMessage({
         success: false,
         error: 'Erro ao carregar imagem no worker'
       });
-    };
-    
-    // Carregar imagem
-    img.src = imageData;
+    });
     
   } catch (error) {
     workerScope.postMessage({

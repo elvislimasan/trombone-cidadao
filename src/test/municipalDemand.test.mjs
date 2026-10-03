@@ -69,6 +69,17 @@ test('ordem concluída aceita foto e observação opcionais e mantém a secretar
   assert.match(validateDemand({ ...form, status: 'triagem' }, { previousStatus: 'concluida' }), /reabertura/);
 });
 
+test('eletricista informa serviço executado e pode deixar o resultado vazio ao concluir', () => {
+  const form = { ...DEMAND_INITIAL_FORM, titulo: 'Trocar luminária', category_id: 'iluminacao', status: 'concluida', canal_id: 'lighting' };
+  assert.deepEqual(Object.keys(validateDemandFields(form, { electricianMode: true })), ['service_type']);
+  assert.deepEqual(validateDemandFields({ ...form, service_type: 'lamp_replacement' }, { electricianMode: true }), {});
+  assert.deepEqual(validateDemandFields({ ...form, service_type: 'lamp_replacement', resultado: '   ' }, { electricianMode: true }), {});
+  assert.deepEqual(Object.keys(validateDemandFields({ ...form, service_type: 'lamp_replacement', resultado: 'Curto' }, { electricianMode: true })), ['resultado']);
+  assert.deepEqual(validateDemandFields({ ...form, service_type: 'lamp_replacement', resultado: 'Luminária substituída.' }, { electricianMode: true }), {});
+  assert.deepEqual(validateDemandFields({ ...form, status: 'em_andamento' }, { electricianMode: true }), {});
+  assert.deepEqual(validateDemandFields(form), {});
+});
+
 test('ordens podem ser criadas, programadas e iniciadas sem responsável cadastrado', () => {
   const form = { ...DEMAND_INITIAL_FORM, titulo: 'Manutenção pela equipe da secretaria', canal_id: 'lighting', atribuido_a: '' };
   assert.equal(validateDemand(form), '');

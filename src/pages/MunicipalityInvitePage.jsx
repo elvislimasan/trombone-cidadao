@@ -69,10 +69,59 @@ export default function MunicipalityInvitePage() {
     if (signOutError) setError(signOutError.message);
   };
 
+  const matchingAccount = Boolean(
+    user?.email && preview?.email_convidado &&
+    user.email.trim().toLowerCase() === preview.email_convidado.toLowerCase()
+  );
+
   return <div className="page-shell-fluid flex min-h-[70vh] items-center justify-center py-8 sm:py-12">
     <Helmet><title>Acesso à Prefeitura | Trombone Cidadão</title><meta name="robots" content="noindex" /></Helmet>
     <section className="w-full max-w-xl rounded-3xl border border-edge-subtle bg-surface-raised p-5 text-center shadow-sm sm:p-8">
-      {loading || authLoading ? <><Loader2 className="mx-auto h-10 w-10 animate-spin text-brand" /><p className="mt-3 text-sm text-content-secondary">Verificando convite...</p></> : !preview ? <><ShieldCheck className="mx-auto h-12 w-12 text-content-tertiary" /><h1 className="mt-4 text-2xl font-black">Convite inválido ou expirado</h1><p className="mt-2 text-sm text-content-secondary">Peça ao administrador responsável um novo convite.</p></> : <><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-content-onBrand"><Building2 className="h-7 w-7" /></span><h1 className="mt-5 text-2xl font-black">{preview.prefeitura_nome}</h1><p className="mt-2 text-sm text-content-secondary">{preview.cidade_nome}{preview.cidade_uf ? ` - ${preview.cidade_uf}` : ''}</p>{user?.email?.trim().toLowerCase() !== preview.email_convidado.toLowerCase() ? <><p className="mt-5 text-sm text-content-secondary">Este acesso foi enviado para {preview.email_convidado}. Entre com essa conta para continuar.</p>{error && <p className="mt-3 text-sm text-destructive">{error}</p>}<Button className="mt-6" onClick={switchAccount}>Trocar de conta</Button></> : error ? <><p className="mt-5 text-sm text-destructive">{error}</p><Button className="mt-6" onClick={() => { accepting.current = false; setError(''); setAttempt((value) => value + 1); }}>Tentar novamente</Button></> : <><Loader2 className="mx-auto mt-6 h-7 w-7 animate-spin text-brand" /><p className="mt-2 text-sm text-content-secondary">Ativando seu acesso...</p></>}</>}
+      {loading || authLoading ? (
+        <>
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand" />
+          <p className="mt-3 text-sm text-content-secondary">Verificando convite...</p>
+        </>
+      ) : !preview ? (
+        <>
+          <ShieldCheck className="mx-auto h-12 w-12 text-content-tertiary" />
+          <h1 className="mt-4 text-2xl font-black">Convite inválido ou expirado</h1>
+          <p className="mt-2 text-sm text-content-secondary">Peça ao administrador responsável um novo convite.</p>
+        </>
+      ) : (
+        <>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-content-onBrand">
+            <Building2 className="h-7 w-7" />
+          </span>
+          <h1 className="mt-5 text-2xl font-black">{preview.prefeitura_nome}</h1>
+          <p className="mt-2 text-sm text-content-secondary">
+            {preview.cidade_nome}{preview.cidade_uf ? ` - ${preview.cidade_uf}` : ''}
+          </p>
+          {!matchingAccount ? (
+            <>
+              <p className="mt-5 text-sm text-content-secondary">
+                Este acesso foi enviado para {preview.email_convidado}. Entre com essa conta para continuar.
+              </p>
+              {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+              {user && <Button className="mt-6" onClick={switchAccount}>Trocar de conta</Button>}
+            </>
+          ) : error ? (
+            <>
+              <p className="mt-5 text-sm text-destructive">{error}</p>
+              <Button className="mt-6" onClick={() => {
+                accepting.current = false;
+                setError('');
+                setAttempt((value) => value + 1);
+              }}>Tentar novamente</Button>
+            </>
+          ) : (
+            <>
+              <Loader2 className="mx-auto mt-6 h-7 w-7 animate-spin text-brand" />
+              <p className="mt-2 text-sm text-content-secondary">Ativando seu acesso...</p>
+            </>
+          )}
+        </>
+      )}
     </section>
   </div>;
 }

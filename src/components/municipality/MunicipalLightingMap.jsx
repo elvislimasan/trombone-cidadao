@@ -83,7 +83,7 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters }) {
+export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false }) {
   const frameRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -98,17 +98,17 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
     } catch { showAppError({ title: 'Não foi possível ampliar o mapa', description: 'Tente novamente no seu navegador.' }); }
   };
   const located = items.filter((item) => Number.isFinite(item.cluster_lat) && Number.isFinite(item.cluster_lng));
-  return <section aria-label="Mapa de iluminação pública" ref={frameRef} className="municipal-lighting-map relative isolate h-[58dvh] min-h-[26rem] min-w-0 overflow-hidden rounded-2xl border border-edge-default bg-surface-subtle shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]">
+  return <section aria-label="Mapa de iluminação pública" ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
     {center ? <MapContainer center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
       <ThemedTileLayer /><ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
       <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} />
       {selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude) && <CircleMarker center={[selected.latitude, selected.longitude]} radius={16} interactive={false} pathOptions={{ color: COLORS[lightingStatus(selected)], weight: 2, fillColor: COLORS[lightingStatus(selected)], fillOpacity: 0.18 }} />}
       <LightingMarkers items={located} onSelect={onSelect} />
     </MapContainer> : <div role="status" aria-label="Carregando mapa" className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}
-    <div className="pointer-events-none absolute inset-x-4 top-4 z-[500] flex items-start justify-between gap-3">
+    {!fullBleed && <div className="pointer-events-none absolute inset-x-4 top-4 z-[500] flex items-start justify-between gap-3">
       <Button variant="outline" size="sm" aria-label="Abrir busca e filtros" onClick={onFilters} className="pointer-events-auto h-11 shrink-0 border-edge-default bg-surface-raised shadow-md"><SlidersHorizontal className="mr-2 h-4 w-4" />Busca e filtros</Button>
       <Button variant="outline" size="icon" aria-label={fullscreen ? 'Sair da tela cheia' : 'Ampliar mapa'} onClick={toggleFullscreen} className="pointer-events-auto h-11 w-11 shrink-0 border-edge-default bg-surface-raised shadow-md">{fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button>
-    </div>
+    </div>}
     {placing && <div role="status" className="absolute inset-x-4 top-20 z-[600] flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-surface-raised p-3 text-sm shadow-lg"><span>Toque no mapa para posicionar o poste.</span><Button variant="ghost" size="icon" onClick={onCancelPlacing} aria-label="Cancelar escolha da localização"><X className="h-4 w-4" /></Button></div>}
     <div className="pointer-events-none absolute bottom-7 left-4 right-4 z-[500] sm:right-auto sm:max-w-[calc(100%_-_5rem)]">
       <div aria-label="Legenda do mapa" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-edge-subtle bg-surface-raised/95 px-3 py-2.5 text-[11px] text-content-secondary shadow-sm backdrop-blur-sm">{['aceso', 'apagado', ...(items.some((item) => Number(item.removido_count) > 0 || item.pole?.lighting_status === 'removido') ? ['removido'] : [])].map((status) => <span key={status} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[status] }} />{status === 'apagado' ? 'Apagado / problema' : LABELS[status]}</span>)}</div>

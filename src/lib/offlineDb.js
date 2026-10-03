@@ -20,10 +20,11 @@
 // em qualquer versão anterior, inclusive a zero.
 
 const NOME = 'tc_offline';
-const VERSAO = 2;
+const VERSAO = 3;
 
 export const LOJA_FILA = 'fila_v1';
 export const LOJA_CORREDOR = 'corredor_v1';
+export const LOJA_RASCUNHO_ELETRICISTA = 'rascunho_eletricista_v1';
 
 export const indexedDbDisponivel = () => typeof indexedDB !== 'undefined';
 
@@ -44,6 +45,10 @@ export const abrirBanco = () =>
 
       if (!db.objectStoreNames.contains(LOJA_CORREDOR)) {
         db.createObjectStore(LOJA_CORREDOR, { keyPath: 'categoria' });
+      }
+
+      if (!db.objectStoreNames.contains(LOJA_RASCUNHO_ELETRICISTA)) {
+        db.createObjectStore(LOJA_RASCUNHO_ELETRICISTA, { keyPath: 'id' });
       }
     };
 

@@ -6,8 +6,9 @@ export default function MunicipalDrawer({ open, onClose, title, description, chi
   const isDemand = variant === 'demand';
   const isReport = variant === 'report';
   const isLighting = variant === 'lighting';
+  const isElectrician = variant === 'electrician';
   const isPoleDetails = variant === 'poleDetails';
-  const isMunicipalDetail = isDemand || isReport || isLighting;
+  const isMunicipalDetail = isDemand || isReport || isLighting || isElectrician;
   const bodyRef = useRef(null);
   useEffect(() => {
     if (open && bodyRef.current) bodyRef.current.scrollTop = 0;
@@ -17,7 +18,7 @@ export default function MunicipalDrawer({ open, onClose, title, description, chi
         <header className={'relative shrink-0 border-b border-edge-subtle bg-surface-raised ' + (inline ? 'px-4 pb-4 pr-14 pt-5 sm:px-6 sm:pr-16' : placement === 'center' ? 'px-4 pb-3 pr-14 pt-4 sm:px-6 sm:pb-4 sm:pr-16 sm:pt-5' : isPoleDetails ? 'px-4 py-4 pr-14 sm:px-5 sm:pr-14' : 'px-5 pb-5 pr-14 pt-7 sm:px-8 sm:pb-6 sm:pt-8 ' + (isReport ? 'sm:pr-8' : 'sm:pr-16'))}>
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              {!isPoleDetails && <p className={(inline || placement === 'center' ? 'mb-1.5 ' : 'mb-3 ') + 'flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.17em] text-brand'}>{isDemand ? <ClipboardList className="h-4 w-4" /> : isReport ? <MessageSquare className="h-4 w-4" /> : null}{isDemand ? 'Ordem de serviço' : isReport ? 'Solicitação da cidade' : isLighting ? 'Iluminação pública' : 'Gestão municipal'}</p>}
+              {!isPoleDetails && <p className={(inline || placement === 'center' ? 'mb-1.5 ' : 'mb-3 ') + 'flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.17em] text-brand'}>{isDemand ? <ClipboardList className="h-4 w-4" /> : isReport ? <MessageSquare className="h-4 w-4" /> : null}{isDemand ? 'Ordem de serviço' : isReport ? 'Solicitação da cidade' : isLighting ? 'Iluminação pública' : isElectrician ? 'Oportunidade de serviço' : 'Gestão municipal'}</p>}
               {inline ? <h1 className="break-words font-display text-xl font-black tracking-tight sm:text-2xl">{title}</h1> : <DialogPrimitive.Title className="break-words font-display text-xl font-black tracking-tight sm:text-2xl">{title}</DialogPrimitive.Title>}
               {inline ? <p className="mt-1 break-words text-xs leading-5 text-content-secondary sm:text-sm">{description}</p> : <DialogPrimitive.Description className={placement === 'center' ? 'sr-only' : isPoleDetails ? 'mt-1 break-words text-sm text-content-secondary' : 'mt-2 text-sm leading-6 text-content-secondary'}>{description}</DialogPrimitive.Description>}
             </div>

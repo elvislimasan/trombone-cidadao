@@ -28,7 +28,7 @@ export default function MunicipalPoleFormSteps({ step, form, setForm, creating, 
 
   if (step === 1) return <div className="flex h-full min-h-0 flex-col gap-3">
     <div className="grid shrink-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-      <label className="text-sm font-semibold">Número do poste <span className="text-brand">*</span><Input className="mt-1" value={form.identifier} onChange={(event) => update('identifier', event.target.value)} disabled={saving} placeholder="Ex.: 1024" /></label>
+      <label className="text-sm font-semibold">Identificador do poste no mapa <span className="text-brand">*</span><Input className="mt-1" maxLength={200} value={form.identifier} onChange={(event) => update('identifier', event.target.value)} disabled={saving} placeholder="Ex.: 9 - X097074" /><span className="mt-1 block text-xs font-normal text-content-secondary">É o código exibido nas ordens; a plaqueta é cadastrada separadamente.</span></label>
       <span className="flex items-center gap-1.5 pb-2 text-xs text-content-secondary"><MapPin className="h-4 w-4 text-brand" />{creating ? 'Toque no mapa para marcar; depois arraste o pin.' : 'Localização cadastrada do poste.'}</span>
     </div>
     <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-edge-subtle bg-surface-subtle">

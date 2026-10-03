@@ -14,6 +14,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { confirmApp } from '@/lib/appConfirm';
 import { polePosition } from '@/lib/poleAddress';
+import { poleDisplayLabel } from '@/lib/poleDisplay';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { emptyPoleTechnicalDetails, poleTechnicalDetailsFromRecord, poleTechnicalDetailsPayload, validatePoleTechnicalDetails } from '@/lib/poleTechnicalDetails';
 import { normalizeLampType, isStandardLampType } from '@/lib/lightingCatalog';
@@ -142,7 +143,7 @@ export default function MunicipalLightingPage() {
     Promise.all([
       supabase.from('demandas_municipais').select('id,protocolo,titulo,status,prazo_em').eq('prefeitura_id', context.municipality.id).eq('pole_id', selected.id).order('created_at', { ascending: false }).limit(8),
       supabase.from('reports').select('id,title,status').eq('city_id', cityId).eq('pole_id', selected.id).or('moderation_status.eq.approved,moderation_status.is.null').or('is_petition.eq.false,is_petition.is.null').order('created_at', { ascending: false }).limit(8),
-      supabase.from('pole_lighting_changes').select('id,changed_at,old_status,new_status,new_power_w,new_lamp_type,action').eq('city_id', cityId).eq('pole_id', selected.id).order('changed_at', { ascending: false }).limit(5),
+      supabase.from('pole_lighting_changes').select('id,changed_at,old_status,new_status,new_power_w,new_lamp_type,action,descricao_servico').eq('city_id', cityId).eq('pole_id', selected.id).order('changed_at', { ascending: false }).limit(5),
     ]).then(([orders, reports, history]) => {
       if (active) setRelated({ orders: orders.data || [], reports: reports.data || [], history: history.data || [], loading: false, error: orders.error?.message || reports.error?.message || history.error?.message || '' });
     });
@@ -252,7 +253,7 @@ export default function MunicipalLightingPage() {
         .then(({ data }) => { if (data) setSelected((current) => current?.id === pole.id ? data : current); });
     }
   };
-  const beginEditPole = async () => {
+  const beginEditPole = async (step = 0) => {
     if (!selected?.id || editingLoading || saveLock.current) return;
     setEditingLoading(true);
     try {
@@ -265,7 +266,7 @@ export default function MunicipalLightingPage() {
       addressEdited.current = false;
       setLocatingAddress(false);
       setAddressLookupFailed(false);
-      setFormStep(0);
+      setFormStep(step);
       setDetailsOpen(false);
       setDrawerOpen(true);
     } catch (cause) {
@@ -465,7 +466,7 @@ export default function MunicipalLightingPage() {
             <label className="block text-xs font-semibold">Status<select id="lighting-status-filter" className={inputClass + ' text-xs'} value={draftFilters.status} onChange={(event) => setDraftFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">Todos os status</option>{STATUS.map(([key, label]) => <option key={key} value={key}>{key === 'apagado' ? 'Apagado ou com problema' : label}</option>)}</select></label>
             <label className="flex items-center gap-2 text-xs text-content-secondary"><input type="checkbox" checked={draftFilters.removed} onChange={(event) => setDraftFilters((current) => ({ ...current, removed: event.target.checked }))} className="h-3.5 w-3.5 accent-brand" />Incluir postes removidos</label>
             <div className="grid grid-cols-2 gap-2"><Button size="sm" onClick={() => updateFilters(draftFilters)} className="text-xs"><Search className="mr-1.5 h-3.5 w-3.5" />Aplicar filtros</Button><Button size="sm" variant="outline" onClick={clearFilters} className="text-xs"><RotateCcw className="mr-1.5 h-3.5 w-3.5" />Limpar</Button></div>
-            {search.trim() && <div aria-label="Resultados de postes" aria-live="polite" className="max-h-72 divide-y divide-edge-subtle overflow-y-auto border-t border-edge-subtle">{searching ? <p className="py-3 text-xs text-content-secondary">Buscando postes…</p> : results.length ? <><p className="py-2 text-[11px] text-content-secondary">{searchCount.toLocaleString('pt-BR')} encontrado(s){searchCount > results.length ? ` · exibindo os primeiros ${results.length}. Refine a busca para localizar o poste.` : ''}. A busca não altera o total do mapa.</p>{results.map((pole) => <button key={pole.id} type="button" onClick={() => editPole(pole)} className="block w-full rounded-lg px-1 py-3 text-left hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center justify-between gap-2"><strong className="text-xs">Poste {pole.identifier || pole.plate || pole.id}</strong><ArrowRight className="h-3.5 w-3.5 shrink-0 text-content-secondary" /></span><span className="mt-1 block text-xs text-content-secondary">{pole.address || 'Sem endereço'}</span><span className="mt-1.5 block"><PoleStatus pole={pole} /></span></button>)}</> : <p className="py-3 text-xs text-content-secondary">Nenhum poste encontrado. Tente outro número ou endereço.</p>}</div>}
+            {search.trim() && <div aria-label="Resultados de postes" aria-live="polite" className="max-h-72 divide-y divide-edge-subtle overflow-y-auto border-t border-edge-subtle">{searching ? <p className="py-3 text-xs text-content-secondary">Buscando postes…</p> : results.length ? <><p className="py-2 text-[11px] text-content-secondary">{searchCount.toLocaleString('pt-BR')} encontrado(s){searchCount > results.length ? ` · exibindo os primeiros ${results.length}. Refine a busca para localizar o poste.` : ''}. A busca não altera o total do mapa.</p>{results.map((pole) => <button key={pole.id} type="button" onClick={() => editPole(pole)} className="block w-full rounded-lg px-1 py-3 text-left hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center justify-between gap-2"><strong className="text-xs">{poleDisplayLabel(pole)}</strong><ArrowRight className="h-3.5 w-3.5 shrink-0 text-content-secondary" /></span><span className="mt-1 block text-xs text-content-secondary">{pole.address || 'Sem endereço'}</span><span className="mt-1.5 block"><PoleStatus pole={pole} /></span></button>)}</> : <p className="py-3 text-xs text-content-secondary">Nenhum poste encontrado. Tente outro número ou endereço.</p>}</div>}
           </div> : <div id="lighting-panel-report" role="tabpanel" aria-labelledby="lighting-tab-report" className="space-y-4 p-4"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><History className="h-5 w-5" /></div><div><h2 className="text-sm font-semibold">Histórico de iluminação</h2><p className="mt-1 text-xs leading-5 text-content-secondary">Exporte as alterações de status, lâmpada e potência registradas no período.</p></div><div className="grid grid-cols-2 gap-2"><label className="min-w-0 text-xs font-semibold">De<Input type="date" className="mt-1 w-full min-w-0 px-2 text-xs" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label><label className="min-w-0 text-xs font-semibold">Até<Input type="date" className="mt-1 w-full min-w-0 px-2 text-xs" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label></div><div className="grid grid-cols-2 gap-2"><Button size="sm" variant="outline" disabled={exporting} onClick={() => exportChanges('pdf')}><Download className="mr-1.5 h-3.5 w-3.5" />PDF</Button><Button size="sm" variant="outline" disabled={exporting} onClick={() => exportChanges('csv')} className="text-xs"><Download className="mr-1.5 h-3.5 w-3.5" />Planilha CSV</Button></div><p className="text-[11px] text-content-secondary">Relatório da cidade, independente dos filtros do mapa.</p></div>}
         </section>
       </aside>
@@ -475,7 +476,7 @@ export default function MunicipalLightingPage() {
     </MunicipalDrawer>
     <PoleDetailsDialog open={detailsOpen && Boolean(selected)} onOpenChange={setDetailsOpen} pole={selected} city={context.municipality.cidade} related={related} canEdit={context.canEdit} canEditLighting={context.canEditLighting} editingLoading={editingLoading} onEdit={beginEditPole} />
     <MunicipalDrawer open={drawerOpen} onClose={closePoleForm} busy={saving} variant="lighting" placement="center" bodyScroll={formStep !== 1}
-      title={creating ? 'Novo poste' : selected ? `Poste ${selected.identifier || selected.plate || selected.id}` : 'Poste'}
+      title={creating ? 'Novo poste' : selected ? poleDisplayLabel(selected) : 'Poste'}
       description={creating ? 'Cadastre o poste em etapas.' : 'Atualize o poste em etapas.'}
       activeSection={formStep}
       navigation={<div aria-label="Etapas do cadastro do poste"><div className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-brand">Etapa {formStep + 1} de {POLE_FORM_STEPS.length}</span><span className="font-medium text-content-secondary">{POLE_FORM_STEPS[formStep]}</span></div><ol className="mt-2 grid grid-cols-4 gap-1.5">{POLE_FORM_STEPS.map((label, index) => <li key={label} aria-current={index === formStep ? 'step' : undefined} aria-label={`${index + 1}. ${label}`} className={'h-1.5 rounded-full ' + (index <= formStep ? 'bg-brand' : 'bg-surface-subtle')} />)}</ol></div>}

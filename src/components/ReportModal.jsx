@@ -1166,7 +1166,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                 // Se temos overrides, não tentamos ajustar automaticamente o tamanho
                 if (overrideWidth && overrideHeight && overrideQuality) {
                   //                    console.log(`✅ Tamanho final (override): ${blobSizeMB.toFixed(2)}MB`);
-                  const file = new File([blob], fileName, {
+                  const file = new File([blob], fileName.replace(/\.[^.]+$/, '') + '.jpg', {
                     type: "image/jpeg",
                   });
                   cleanup();
@@ -1202,7 +1202,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
 
                 // Tamanho ideal encontrado
                 //                 console.log(`✅ Tamanho final: ${blobSizeMB.toFixed(2)}MB (Ultra HD: ${isUltraHD ? 'Sim' : 'Não'})`);
-                const file = new File([blob], fileName, { type: "image/jpeg" });
+                const file = new File([blob], fileName.replace(/\.[^.]+$/, '') + '.jpg', { type: "image/jpeg" });
                 cleanup();
                 resolve(file);
               },
@@ -1409,7 +1409,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
               ...prev.photos,
               {
                 file: optimizedFile,
-                name: fileName,
+                name: optimizedFile.name,
                 preview: previewUrl,
               },
             ],
@@ -1445,7 +1445,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
               ...prev.photos,
               {
                 file: optimizedFile,
-                name: fileName,
+                name: optimizedFile.name,
                 preview: previewUrl,
               },
             ],
@@ -2192,7 +2192,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                     ? base64String.split(",")[1]
                     : base64String;
                 const ts = Date.now();
-                const relPath = `temp/gallery_${ts}.webp`;
+                const originalExtension = file.type === 'image/webp' ? 'webp' : file.type === 'image/png' ? 'png' : file.type === 'image/gif' ? 'gif' : 'jpg';
+                const relPath = `temp/gallery_${ts}.${originalExtension}`;
                 await Filesystem.writeFile({
                   path: relPath,
                   data: base64Data,
@@ -2684,7 +2685,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                 const b = await r.blob();
                 throwIfSubmissionAborted(signal);
                 fileToUpload = new File([b], media.name, {
-                  type: media.type === "video" ? "video/mp4" : "image/jpeg",
+                  type: media.type === "video" ? "video/mp4" : (/\.webp$/i.test(media.name || '') ? "image/webp" : "image/jpeg"),
                 });
               } catch (e) {
                 console.error("Falha ao recuperar arquivo para upload web:", e);
@@ -3550,7 +3551,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
             filePath: finalPath,
             uploadUrl: item.signedUrl,
             headers: {
-              "Content-Type": isVideo ? "video/mp4" : "image/jpeg",
+              "Content-Type": isVideo ? "video/mp4" : (/\.webp(?:\?|$)/i.test(finalPath) ? "image/webp" : "image/jpeg"),
               "x-upsert": "false",
             },
             skipCompression: !isVideo,
@@ -3712,7 +3713,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                       className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
                         errors.title ? "border-destructive" : "border-input"
                       }`}
-                      placeholder="Ex: Buraco na Rua Principal"
+                      placeholder="Ex: Poste apagado na Rua principal"
                       required
                     />
                     {errors.title && (
@@ -4628,7 +4629,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                   className={`w-full bg-background px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
                     errors.title ? "border-destructive" : "border-input"
                   }`}
-                  placeholder="Ex: Buraco na Rua Principal"
+                  placeholder="Ex: Poste apagado na Rua principal"
                   required
                 />
                 {errors.title && (

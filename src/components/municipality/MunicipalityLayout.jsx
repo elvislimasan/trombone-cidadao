@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
   ChevronDown,
@@ -25,6 +25,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import useMunicipalityWorkspace, { selectMunicipalityWorkspace } from '@/hooks/useMunicipalityWorkspace';
+import ElectricianLayout from '@/components/municipality/ElectricianLayout';
 
 const navigation = [
   { to: '/prefeitura/visao-geral', label: 'Visão geral', icon: LayoutDashboard, adminOnly: false },
@@ -48,7 +49,8 @@ export default function MunicipalityLayout() {
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const contentRef = useRef(null);
-  const { memberships, municipality, enabledCategoryIds, isAdministrator, isElectrician } = useMunicipalityWorkspace();
+  const workspace = useMunicipalityWorkspace();
+  const { memberships, municipality, enabledCategoryIds, isAdministrator, isElectrician } = workspace;
   const [menuOpen, setMenuOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(() => pathname.startsWith('/prefeitura/demandas'));
   const [lightingOpen, setLightingOpen] = useState(() => pathname.startsWith('/prefeitura/iluminacao'));
@@ -64,10 +66,6 @@ export default function MunicipalityLayout() {
     if (pathname.startsWith('/prefeitura/demandas')) setOrdersOpen(true);
     if (pathname.startsWith('/prefeitura/iluminacao')) setLightingOpen(true);
   }, [pathname]);
-
-  useEffect(() => {
-    if (isElectrician && pathname === '/prefeitura/visao-geral') navigate('/prefeitura/demandas', { replace: true });
-  }, [isElectrician, pathname, navigate]);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -138,6 +136,17 @@ export default function MunicipalityLayout() {
     await signOut();
     navigate('/login', { replace: true });
   };
+
+  if (workspace.loading) return <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base text-sm text-content-secondary">Abrindo painel…</div>;
+  if (isElectrician) {
+    if (pathname === '/prefeitura/demandas/nova') return <Navigate to="/prefeitura/eletricista" replace />;
+    if (pathname.startsWith('/prefeitura/demandas/')) {
+      return <Navigate to={'/prefeitura/eletricista/ordem/' + pathname.split('/').at(-1)} replace />;
+    }
+    if (!pathname.startsWith('/prefeitura/eletricista')) return <Navigate to="/prefeitura/eletricista" replace />;
+    return <ElectricianLayout context={workspace} branding={branding} />;
+  }
+  if (pathname.startsWith('/prefeitura/eletricista')) return <Navigate to="/prefeitura/visao-geral" replace />;
 
   return (
     <div className="relative flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-surface-base text-content-primary">
