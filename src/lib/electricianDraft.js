@@ -4,7 +4,7 @@ import { electricianPoleForm } from '@/lib/electricianPole';
 const orderFields = [
   'id', 'prefeitura_id', 'atribuido_a', 'protocolo', 'titulo', 'descricao',
   'endereco', 'bairro', 'issue_type', 'prioridade', 'status', 'prazo_em',
-  'previsto_em', 'latitude', 'longitude', 'pole_id', 'resultado', 'service_type',
+  'previsto_em', 'latitude', 'longitude', 'pole_id', 'resultado', 'service_type', 'service_types',
   'registro_execucao', 'revisao_pendente', 'versao',
 ];
 const poleFields = ['id', 'identifier', 'plate', 'address', 'latitude', 'longitude', 'lamp_type', 'lamp_power_w', 'raw_properties', 'updated_at'];
@@ -28,14 +28,14 @@ const inOrder = (key, work) => {
   return next;
 };
 
-export function serializeElectricianDraft(scope, { result = '', serviceType = '', technicalNote = '', files = [], order = null, pole = null, poleForm = null }) {
+export function serializeElectricianDraft(scope, { result = '', serviceType = '', serviceTypes = [], technicalNote = '', files = [], order = null, pole = null, poleForm = null, activeReportId = null }) {
   const id = electricianDraftKey(scope);
   if (files.some((item) => !(item.file instanceof Blob))) {
     throw new Error('Uma das fotos não pode ser guardada neste aparelho');
   }
   return {
     id, userId: scope.userId, municipalityId: scope.municipalityId, orderId: scope.orderId,
-    savedAt: new Date().toISOString(), result, serviceType, technicalNote, poleForm,
+    savedAt: new Date().toISOString(), result, serviceType, serviceTypes, technicalNote, poleForm, activeReportId,
     photos: files.map(({ id: photoId, file }) => ({
       id: photoId, blob: file, name: file.name || 'foto.jpg',
       type: file.type || 'image/jpeg', lastModified: file.lastModified || Date.now(),
@@ -59,18 +59,19 @@ export async function loadElectricianDraft(scope) {
   if (!record || record.userId !== scope.userId || record.municipalityId !== scope.municipalityId
     || record.orderId !== scope.orderId) return null;
   return {
-    result: record.result || '', serviceType: record.serviceType || '', technicalNote: record.technicalNote || '',
+    result: record.result || '', serviceType: record.serviceType || '', serviceTypes: record.serviceTypes || [], technicalNote: record.technicalNote || '',
     files: (record.photos || []).filter((item) => item.blob instanceof Blob).map((item) => ({
       id: item.id,
       file: new File([item.blob], item.name, { type: item.type, lastModified: item.lastModified }),
     })),
-    order: record.order || null, pole: record.pole || null, poleForm: record.poleForm || null, savedAt: record.savedAt,
+    order: record.order || null, pole: record.pole || null, poleForm: record.poleForm || null,
+    activeReportId: record.activeReportId || null, savedAt: record.savedAt,
   };
 }
 
 export function electricianDraftHasWork(record) {
   if (!record) return false;
-  return Boolean(record.result?.trim() || record.serviceType || record.technicalNote?.trim() || record.photos?.length
+  return Boolean(record.result?.trim() || record.serviceTypes?.length || record.serviceType || record.technicalNote?.trim() || record.photos?.length
     || (record.poleForm && JSON.stringify(record.poleForm) !== JSON.stringify(electricianPoleForm(record.pole, record.order?.titulo))));
 }
 

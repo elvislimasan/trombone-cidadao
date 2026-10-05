@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { lightingStatus } from '@/components/municipality/MunicipalLightingMap';
 import { normalizeLampType } from '@/lib/lightingCatalog';
-import { poleDisplayLabel } from '@/lib/poleDisplay';
+import { poleCode, poleDisplayLabel, poleReferenceText } from '@/lib/poleDisplay';
 
 const STATUS = { aceso: 'Sem problema registrado', apagado: 'Apagado ou com problema', manutencao: 'Em manutenção', removido: 'Removido' };
 const STATUS_COLOR = { aceso: 'bg-success-bg text-success-fg', apagado: 'bg-danger-subtleBg text-danger-subtleFg', manutencao: 'bg-status-pendingBg text-status-pendingFg', removido: 'bg-surface-subtle text-content-secondary' };
@@ -25,7 +25,7 @@ export default function PoleDetailsDialog({ open, onOpenChange, pole, city, rela
     ? { ...pole.raw_properties?.kmz, ...pole.raw_properties?.municipal } : null;
   const plate = technical?.source_plate || pole.plate;
   const fields = [
-    ['Código', technical?.source_code], ['Plaqueta', plate], ['Pontos de luz', technical?.lamp_count],
+    ['Código', technical?.source_code && poleCode(technical.source_code)], ['Pontos de luz', technical?.lamp_count],
     ['Alimentador', technical?.feeder], ['Transformador', technical?.transformer_code],
     ['Tipo de ponto', technical?.point_type], ['Tipo de rede', technical?.network_type],
     ['Chave', technical?.switch_code === plate ? null : technical?.switch_code],
@@ -76,7 +76,7 @@ export default function PoleDetailsDialog({ open, onOpenChange, pole, city, rela
 
         {historyOpen && <section className="mt-4 space-y-3 border-t border-edge-subtle pt-3"><h3 className="text-xs font-semibold">Últimas alterações</h3>{related.loading ? <p className="text-xs text-content-secondary">Carregando histórico…</p> : related.error ? <p role="alert" className="text-xs text-danger">{related.error}</p> : related.history.length ? related.history.map((entry) => <div key={entry.id} className="border-l-2 border-status-progressBorder pl-3"><p className="text-[11px] text-content-secondary">{formatDate(entry.changed_at)}</p><p className="mt-1 text-xs font-medium">{STATUS[entry.new_status] || entry.new_status} · {formatPower(entry.new_power_w)}{entry.new_lamp_type && ' · ' + entry.new_lamp_type}</p>{entry.descricao_servico && <p className="mt-1 whitespace-pre-line text-xs text-content-secondary">{entry.descricao_servico}</p>}</div>) : <p className="text-xs text-content-secondary">Nenhuma alteração registrada para este poste.</p>}</section>}
 
-        {(related.loading || related.error || related.orders.length > 0 || related.reports.length > 0) && <section className="mt-4 space-y-2 border-t border-edge-subtle pt-3"><h3 className="text-xs font-semibold">Serviços e relatos deste poste</h3>{related.loading && <p className="text-xs text-content-secondary">Consultando vínculos…</p>}{related.error && <p role="alert" className="text-xs text-danger">{related.error}</p>}{related.orders.map((order) => <Link key={order.id} to={`/prefeitura/demandas/${order.id}`} className="block rounded-lg border border-edge-subtle p-3 text-xs text-brand hover:bg-surface-subtle">{order.protocolo} · {order.titulo}<span className="mt-1 block text-content-secondary">{order.status === 'concluida' ? 'Concluída' : order.status === 'cancelada' ? 'Cancelada' : order.status === 'recusada' ? 'Recusada' : 'Em aberto'}{order.prazo_em ? ` · Prazo ${new Date(order.prazo_em).toLocaleDateString('pt-BR')}` : ''}</span></Link>)}{related.reports.map((report) => <Link key={report.id} to={`/prefeitura/broncas/${report.id}`} className="block rounded-lg border border-edge-subtle p-3 text-xs text-brand hover:bg-surface-subtle">Solicitação: {report.title}</Link>)}</section>}
+        {(related.loading || related.error || related.orders.length > 0 || related.reports.length > 0) && <section className="mt-4 space-y-2 border-t border-edge-subtle pt-3"><h3 className="text-xs font-semibold">Serviços e relatos deste poste</h3>{related.loading && <p className="text-xs text-content-secondary">Consultando vínculos…</p>}{related.error && <p role="alert" className="text-xs text-danger">{related.error}</p>}{related.orders.map((order) => <Link key={order.id} to={`/prefeitura/demandas/${order.id}`} className="block rounded-lg border border-edge-subtle p-3 text-xs text-brand hover:bg-surface-subtle">{order.protocolo} · {poleReferenceText(order.titulo)}<span className="mt-1 block text-content-secondary">{order.status === 'concluida' ? 'Concluída' : order.status === 'cancelada' ? 'Cancelada' : order.status === 'recusada' ? 'Recusada' : 'Em aberto'}{order.prazo_em ? ` · Prazo ${new Date(order.prazo_em).toLocaleDateString('pt-BR')}` : ''}</span></Link>)}{related.reports.map((report) => <Link key={report.id} to={`/prefeitura/broncas/${report.id}`} className="block rounded-lg border border-edge-subtle p-3 text-xs text-brand hover:bg-surface-subtle">Solicitação: {poleReferenceText(report.title)}</Link>)}</section>}
       </div>
     </DialogContent>
   </Dialog>;

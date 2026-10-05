@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { distanceBetweenPoints, formatDistance, offerKey, orderStage, sortElectricianOffers } from '@/lib/electricianPanel';
+import { canResumeElectricianOrder, distanceBetweenPoints, formatDistance, offerKey, orderStage, sortElectricianOffers } from '@/lib/electricianPanel';
 
 test('urgent service stays ahead of orders and requests even in nearby mode', () => {
   const items = [
@@ -25,6 +25,14 @@ test('assigned orders appear in the correct work stage', () => {
   assert.equal(orderStage({ status: 'em_andamento' }), 'execucao');
   assert.equal(orderStage({ status: 'aguardando_confirmacao' }), 'conferencia');
   assert.equal(orderStage({ status: 'concluida' }), 'historico');
+  assert.equal(orderStage({ status: 'aguardando_informacao' }), 'conferencia');
+  assert.equal(orderStage({ status: 'aguardando_recurso' }), 'conferencia');
+  assert.equal(orderStage({ status: 'concluida', revisao_pendente: true }), 'conferencia');
+});
+
+test('retomada não permite reabrir uma ordem encerrada ou em conferência sem a gestão', () => {
+  for (const status of ['aberta', 'triagem', 'programada', 'aguardando_informacao', 'aguardando_recurso']) assert.equal(canResumeElectricianOrder({ status }), true);
+  for (const status of ['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao', 'em_andamento']) assert.equal(canResumeElectricianOrder({ status }), false);
 });
 
 test('distance from the order pin is available only for valid coordinates', () => {

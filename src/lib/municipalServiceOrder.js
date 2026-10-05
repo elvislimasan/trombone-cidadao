@@ -9,7 +9,7 @@ async function selectedReports(client, context, ids, signal) {
   const rows = [];
   for (let start = 0; start < ids.length; start += 100) {
     const batch = ids.slice(start, start + 100);
-    rows.push(...await collectExportRows(() => municipalReportsQuery(client, { cityId: context.municipality.city_id, includeAllStatuses: true, statuses: OPEN_REPORT_STATUSES, sort: 'antigas', signal }, REPORT_FIELDS).in('id', batch), { signal }));
+    rows.push(...await collectExportRows(() => municipalReportsQuery(client, { cityId: context.municipality.city_id, municipalityId: context.municipality.id, includeAllStatuses: true, statuses: OPEN_REPORT_STATUSES, sort: 'antigas', signal }, REPORT_FIELDS).in('id', batch), { signal }));
   }
   return rows;
 }

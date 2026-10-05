@@ -1,6 +1,7 @@
 export const ELECTRICIAN_SERVICE_LABELS = {
   lamp_replacement: 'Troca de lâmpada',
   arm_installation: 'Instalação de braço de luz',
+  relay_replacement: 'Troca de relé',
   other: 'Outro serviço',
   unknown: 'Não informado',
 };
@@ -13,8 +14,11 @@ export function summarizeElectricianWork(orders, now = new Date()) {
   let thisMonth = 0;
 
   for (const order of completed) {
-    const type = Object.hasOwn(ELECTRICIAN_SERVICE_LABELS, order.service_type) ? order.service_type : 'unknown';
-    serviceCounts[type] += 1;
+    const types = order.service_types?.length ? order.service_types : [order.service_type];
+    for (const service of new Set(types)) {
+      const type = Object.hasOwn(ELECTRICIAN_SERVICE_LABELS, service) ? service : 'unknown';
+      serviceCounts[type] += 1;
+    }
     const neighborhood = order.bairro?.trim();
     if (neighborhood) neighborhoodCounts.set(neighborhood, (neighborhoodCounts.get(neighborhood) || 0) + 1);
     const date = order.concluida_em ? new Date(order.concluida_em) : null;

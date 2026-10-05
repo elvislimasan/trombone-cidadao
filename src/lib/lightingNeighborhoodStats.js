@@ -2,7 +2,7 @@ const cleanNeighborhood = (value) => typeof value === 'string' ? value.trim() : 
 const fromProperties = (properties) => Object.entries(properties || {})
   .find(([key, value]) => /^(bairro|neighbou?rhood)$/i.test(key) && cleanNeighborhood(value))?.[1];
 
-export function problemPolesByNeighborhood(poles, orders, reports = []) {
+export function problemPolesByNeighborhood(poles, orders, reports = [], includePoleIds = false) {
   const neighborhoodByPole = new Map();
   const latestByPole = (rows, field) => {
     const found = new Map();
@@ -33,8 +33,9 @@ export function problemPolesByNeighborhood(poles, orders, reports = []) {
       || neighborhoodByPole.get(String(pole.id))
       || 'Bairro não informado';
     const key = name.toLocaleLowerCase('pt-BR');
-    const row = counts.get(key) || { name, count: 0 };
+    const row = counts.get(key) || { name, count: 0, ...(includePoleIds ? { poleIds: [] } : {}) };
     row.count += 1;
+    if (includePoleIds) row.poleIds.push(pole.id);
     counts.set(key, row);
   }
   return [...counts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pt-BR'));

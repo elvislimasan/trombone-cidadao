@@ -1,3 +1,4 @@
+import { poleCode, poleReferenceText } from '@/lib/poleDisplay';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES } from '../lib/municipalDemand.js';
 import { exportLabel } from '../lib/municipalExport.js';
 import { SERVICE_ORDER_INSTRUCTION, serviceOrderCoordinates } from '../lib/municipalServiceOrder.js';
@@ -27,7 +28,7 @@ export async function buildServiceOrderPdf({ order, reports = [], municipality, 
   const ink = [30, 41, 59];
   const gray = [100, 116, 139];
   const services = reports.length ? reports : [{ id: order.id, protocol: order.protocolo, title: order.titulo, description: order.descricao, address: order.endereco, neighborhood: order.bairro, created_at: order.created_at, category: order.category, location: { lat: order.latitude, lng: order.longitude }, pole_id: order.pole_id, pole: order.pole }];
-  doc.setProperties({ title: `Ordem de serviço ${order.protocolo}`, subject: order.titulo, author: order.criador?.name || creatorName || municipality.nome, creator: 'Trombone Cidadão' });
+  doc.setProperties({ title: `Ordem de serviço ${order.protocolo}`, subject: poleReferenceText(order.titulo), author: order.criador?.name || creatorName || municipality.nome, creator: 'Trombone Cidadão' });
   let y = 44;
   const ensureSpace = (space) => { if (y + space > height - 17) { doc.addPage(); y = 44; } };
   const paragraph = (value, { size = 9, bold = false } = {}) => {
@@ -40,7 +41,7 @@ export async function buildServiceOrderPdf({ order, reports = [], municipality, 
     autoTable(doc, { startY: y, margin: { left: margin, right: margin, top: 44, bottom: 17 }, styles: { font: 'helvetica', fontSize: 8, cellPadding: 2.5, textColor: ink, lineColor: [203, 213, 225], lineWidth: 0.15, overflow: 'linebreak' }, headStyles: { fillColor: ink, textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [248, 250, 252] }, rowPageBreak: 'avoid', ...options });
     y = doc.lastAutoTable.finalY + 7;
   };
-  paragraph(order.titulo, { size: 12, bold: true });
+  paragraph(poleReferenceText(order.titulo), { size: 12, bold: true });
   const types = [...new Set(services.map((report) => report.category?.name || 'Não informado'))].join(', ');
   const neighborhoods = [...new Set(services.map((report) => report.neighborhood || 'Não informado'))].join(', ');
   table({ theme: 'grid', body: [
@@ -58,8 +59,8 @@ export async function buildServiceOrderPdf({ order, reports = [], municipality, 
     head: [['Nº', 'ID da demanda', 'Tipo', 'Endereço / local', 'Bairro', 'Referência / poste', 'Solicitada em', 'Problema / descrição', 'Prioridade', 'Coordenadas']],
     body: services.map((report, index) => {
       const pole = report.pole;
-      const reference = [report.reference_point || report.reference, report.pole_id != null ? 'Poste: ' + (pole?.identifier || report.pole_number || report.pole_id) : report.pole_number ? 'Poste: ' + report.pole_number : '', pole?.plate ? 'Placa: ' + pole.plate : ''].filter(Boolean).join('\n') || 'Não informado';
-      return [String(index + 1), report.protocol ? `${report.protocol}\n${report.id}` : report.id, report.category?.name || 'Não informado', report.address || pole?.address || 'Não informado', report.neighborhood || 'Não informado', reference, date(report.created_at), [report.title, report.issue_type && rotuloDoTipoDeProblema(report.category_id, report.issue_type), report.description].filter(Boolean).join('\n'), exportLabel(DEMAND_PRIORITIES, report.priority || order.prioridade), serviceOrderCoordinates(report)].map(text);
+      const reference = [report.reference_point || report.reference, report.pole_id != null ? 'Poste: ' + poleCode(pole?.identifier || report.pole_number || report.pole_id) : report.pole_number ? 'Poste: ' + poleCode(report.pole_number) : '', pole?.plate ? 'Placa: ' + poleCode(pole.plate) : ''].filter(Boolean).join('\n') || 'Não informado';
+      return [String(index + 1), report.protocol ? `${report.protocol}\n${report.id}` : report.id, report.category?.name || 'Não informado', report.address || pole?.address || 'Não informado', report.neighborhood || 'Não informado', reference, date(report.created_at), [poleReferenceText(report.title), report.issue_type && rotuloDoTipoDeProblema(report.category_id, report.issue_type), report.description].filter(Boolean).join('\n'), exportLabel(DEMAND_PRIORITIES, report.priority || order.prioridade), serviceOrderCoordinates(report)].map(text);
     }),
     styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 2, textColor: ink, lineColor: [203, 213, 225], lineWidth: 0.15, overflow: 'linebreak', valign: 'top' },
     columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 31 }, 2: { cellWidth: 22 }, 3: { cellWidth: 43 }, 4: { cellWidth: 23 }, 5: { cellWidth: 24 }, 6: { cellWidth: 22 }, 7: { cellWidth: 48 }, 8: { cellWidth: 18 }, 9: { cellWidth: 30 } },

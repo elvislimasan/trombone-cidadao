@@ -20,7 +20,7 @@ export default function ElectricianLayout({ context, branding }) {
   const activeTab = params.get('aba') === 'disponiveis' ? 'disponiveis' : 'minhas';
   const mapActive = location.pathname === panelPath && params.get('vista') === 'mapa';
   const profileActive = location.pathname === panelPath + '/perfil';
-  const statsActive = location.pathname === panelPath + '/estatisticas';
+  const statsActive = location.pathname.startsWith(panelPath + '/estatisticas');
   const ordersActive = location.pathname.startsWith(panelPath + '/ordem/') || (location.pathname === panelPath && activeTab === 'minhas' && !mapActive);
   const city = context.municipality?.cidade;
   const cityName = [city?.name, city?.states?.uf].filter(Boolean).join(' · ');

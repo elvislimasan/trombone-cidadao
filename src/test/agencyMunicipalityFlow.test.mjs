@@ -5,15 +5,17 @@ import { readFile } from 'node:fs/promises';
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 
 test('demandas têm rota, tabela própria e vínculo opcional com bronca', async () => {
-  const [app, page, drawer, migration] = await Promise.all([
+  const [app, page, drawer, migration, queries] = await Promise.all([
     read('src/App.jsx'),
     read('src/pages/MunicipalDemandsPage.jsx'),
     read('src/components/municipality/MunicipalDemandDrawer.jsx'),
     read('supabase/migrations/274_demandas_municipais_iluminacao.sql'),
+    read('src/lib/municipalExport.js'),
   ]);
   assert.match(app, /path="\/prefeitura\/visao-geral"/);
   assert.match(app, /path="\/prefeitura\/demandas\/nova"/);
-  assert.match(page, /from\('demandas_municipais'\)/);
+  assert.match(page, /municipalDemandsQuery/);
+  assert.match(queries, /from\('demandas_municipais'\)/);
   assert.match(page, /MunicipalDemandDrawer/);
   assert.match(drawer, /p_reports: reports\.map/);
   assert.match(drawer, /rpc\('salvar_demanda_municipal'/);

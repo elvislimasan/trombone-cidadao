@@ -1,3 +1,4 @@
+import { poleCode, poleReferenceText } from '@/lib/poleDisplay';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, Download, FileText, Link2, Loader2, Lock, MapPin, MessageSquare, Paperclip, Play, RotateCcw, Search, Trash2, UserPlus, X } from 'lucide-react';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { confirmApp } from '@/lib/appConfirm';
-import { DEMAND_INITIAL_FORM, DEMAND_STATUSES, DEMAND_PRIORITIES, canEditDemand, demandPayload, evidenceError, formFromReport, localDateTime, suggestDemandAssignment, suggestedPublicResponse, validateDemandFields } from '@/lib/municipalDemand';
+import { DEMAND_INITIAL_FORM, DEMAND_STATUSES, DEMAND_PRIORITIES, canEditDemand, demandConclusionBlocked, demandPayload, evidenceError, formFromReport, localDateTime, suggestDemandAssignment, suggestedPublicResponse, validateDemandFields } from '@/lib/municipalDemand';
 import { loadMunicipalServiceOrder } from '@/lib/municipalServiceOrder';
 import { collectExportRows } from '@/lib/municipalExport';
 import { TIPOS_DE_PROBLEMA_ESGOTO, TIPOS_DE_PROBLEMA_ILUMINACAO } from '@/lib/reportCategoryFields';
@@ -85,19 +86,22 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   const mustExplain = (['cancelada', 'recusada'].includes(form.status) && form.status !== item?.status)
     || (item && ['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(item.status) && !['concluida', 'cancelada', 'recusada', 'aguardando_confirmacao'].includes(form.status))
     || (item && form.canal_id !== (item.canal_id || ''));
-  const validationErrors = validateDemandFields(form, { previousStatus: item?.status, reason, electricianMode });
+  const conclusionBlocked = demandConclusionBlocked(form, reports);
+  const validationErrors = validateDemandFields(form, { previousStatus: item?.status, reason, electricianMode, reports });
   if (mustExplain && reason.trim().length < 5 && !validationErrors.reason) validationErrors.reason = 'Explique o motivo desta alteração.';
   const fieldErrors = validationScope === 'all' ? validationErrors : validationScope === 'title' && validationErrors.titulo ? { titulo: validationErrors.titulo } : {};
   useEffect(() => {
     if (focusAttempt) document.getElementById('municipal-demand-form')?.querySelector('[aria-invalid="true"]')?.focus();
   }, [focusAttempt]);
   const execution = ['concluida', 'aguardando_confirmacao'].includes(form.status);
+  const preparingLinkedResolution = !electricianMode && item && form.category_id === 'iluminacao'
+    && !['concluida', 'cancelada', 'recusada'].includes(form.status) && reports.some((report) => report.status !== 'resolved');
   const canPublishConclusion = execution && reports.length > 0;
   const waiting = ['aguardando_informacao', 'aguardando_recurso'].includes(form.status);
   const requiresChannel = !context.isAdministrator || ['programada', 'em_andamento', 'aguardando_confirmacao', 'concluida'].includes(form.status);
   const isNew = !demandId || demandId === 'nova';
   const visibleTabs = tabs.filter(([key]) => electricianMode ? ['atendimento', 'anexos', 'historico'].includes(key) : key !== 'historico' || !isNew);
-  const statusOptions = electricianMode ? DEMAND_STATUSES.filter(([value]) => ['concluida', 'cancelada', 'recusada'].includes(item.status) ? value === item.status : [form.status, 'em_andamento', 'aguardando_confirmacao', 'concluida'].includes(value)) : DEMAND_STATUSES;
+  const statusOptions = electricianMode ? DEMAND_STATUSES.filter(([value]) => ['concluida', 'cancelada', 'recusada'].includes(item.status) ? value === item.status : [form.status, 'em_andamento', 'concluida'].includes(value)) : DEMAND_STATUSES;
   const stepIndex = visibleTabs.findIndex(([key]) => key === tab);
   const continueForm = () => {
     if (tab === 'dados' && form.titulo.trim().length < 3) { setValidationScope('title'); setFocusAttempt((value) => value + 1); return; }
@@ -126,11 +130,12 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
           if (failure) throw failure;
           if (!detail.data) throw new Error('Demanda não encontrada ou sem acesso à sua secretaria.');
           next = Object.fromEntries(Object.keys(DEMAND_INITIAL_FORM).map((key) => [key, detail.data[key] ?? DEMAND_INITIAL_FORM[key]]));
+          next.titulo = poleReferenceText(next.titulo);
           dateFields.forEach((key) => { next[key] = localDateTime(detail.data[key]); });
           if (active) { setItem(detail.data); if (context.isElectrician && detail.data.atribuido_a === context.userId) setTab('atendimento'); setReports((links.data || []).map((link) => link.report).filter(Boolean)); setEvents(history.data || []); setAttachments(files.data || []); }
         } else if (reportId) {
           const result = await supabase.from('reports').select(reportFields).eq('id', reportId).eq('city_id', context.municipality.city_id)
-            .or('moderation_status.eq.approved,moderation_status.is.null').or('is_petition.eq.false,is_petition.is.null').maybeSingle();
+            .or(`moderation_status.eq.approved,moderation_status.is.null,and(created_by_municipality.eq.${municipalityId},moderation_status.eq.internal)`).or('is_petition.eq.false,is_petition.is.null').maybeSingle();
           if (result.error) throw result.error;
           if (!result.data || result.data.status === 'duplicate') throw new Error('Solicitação indisponível para vínculo nesta cidade.');
           next = formFromReport(result.data, context);
@@ -154,7 +159,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
             if (linksError) throw linksError;
             (data || []).forEach((link) => linkedIds.add(link.report_id));
           }
-          next = { ...next, ...suggestDemandAssignment(context, 'iluminacao'), titulo: 'Manutenção do poste ' + (pole.identifier || pole.plate || pole.id), category_id: 'iluminacao', endereco: pole.address || '', latitude: pole.latitude ?? '', longitude: pole.longitude ?? '', pole_id: pole.id, origem: 'vistoria' };
+          next = { ...next, ...suggestDemandAssignment(context, 'iluminacao'), titulo: 'Manutenção do poste ' + poleCode(pole.identifier || pole.plate || pole.id), category_id: 'iluminacao', endereco: pole.address || '', latitude: pole.latitude ?? '', longitude: pole.longitude ?? '', pole_id: pole.id, origem: 'vistoria' };
           if (active) setReports(poleReports.filter((report) => !linkedIds.has(report.id)).map((report) => ({ ...report, newLink: true })));
         }
         if (active) { setForm(next); setBaseline(JSON.stringify(next)); }
@@ -180,12 +185,12 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
       try {
         const { data, error: failure } = await supabase.rpc('buscar_broncas_para_demanda', { p_prefeitura: municipalityId, p_busca: search.trim() });
         if (failure) throw failure;
-        if (active) setMatches((data || []).filter((report) => context.enabledCategoryIds?.includes(report.category_id) && !reports.some((linked) => linked.id === report.id)));
+        if (active) setMatches((data || []).filter((report) => context.enabledCategoryIds?.includes(report.category_id) && (form.category_id !== 'iluminacao' || report.category_id === 'iluminacao') && !reports.some((linked) => linked.id === report.id)));
       } catch (failure) { if (active) setFormError(failure.message); }
       finally { if (active) setSearching(false); }
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [open, municipalityId, context.enabledCategoryIds, search, reports]);
+  }, [open, municipalityId, context.enabledCategoryIds, search, reports, form.category_id]);
 
   const update = (key, value) => { setForm((current) => ({ ...current, [key]: value })); setFormError(''); };
   const addReport = async (report) => {
@@ -196,17 +201,21 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
       if (failure) throw failure;
       if (!data) throw new Error('Solicitação indisponível para vínculo nesta cidade.');
       if (!context.enabledCategoryIds?.includes(data.category_id)) throw new Error('Esta categoria não está habilitada para a prefeitura.');
+      if (form.category_id === 'iluminacao' && data.category_id !== 'iluminacao') throw new Error('Ordens de iluminação só podem receber solicitações de iluminação.');
       setReports((current) => current.some((linked) => linked.id === data.id) ? current : [...current, { ...data, newLink: true }]);
       setSearch(''); setFormError('');
     } catch (failure) { setFormError(failure.message); }
     finally { setLinkingReport(false); }
   };
   const changeCategory = (categoryId) => {
+    if (categoryId === 'iluminacao' && reports.some((report) => report.category_id !== 'iluminacao')) {
+      setFormError('Retire as solicitações de outras categorias antes de escolher iluminação.'); return;
+    }
     const rule = context.serviceRules.find((item) => item.category_id === categoryId);
     const assignment = suggestDemandAssignment(context, categoryId, item && !context.isAdministrator ? form.canal_id : '');
     const assignedElectrician = context.members.some((member) => member.user_id === form.atribuido_a && member.papel === 'eletricista');
     setForm((current) => ({
-      ...current, category_id: categoryId, issue_type: '', service_type: categoryId === 'iluminacao' ? current.service_type : '', pole_id: categoryId === 'iluminacao' ? current.pole_id : '', ...assignment,
+      ...current, category_id: categoryId, issue_type: '', service_type: categoryId === 'iluminacao' ? current.service_type : '', service_types: categoryId === 'iluminacao' ? current.service_types : [], pole_id: categoryId === 'iluminacao' ? current.pole_id : '', ...assignment,
       atribuido_a: categoryId !== 'iluminacao' && assignedElectrician ? '' : assignment.canal_id === current.canal_id ? current.atribuido_a || assignment.atribuido_a : assignment.atribuido_a,
       prioridade: item ? current.prioridade : rule?.prioridade || current.prioridade,
       prazo_em: current.prazo_em || (rule?.atendimento_horas ? localDateTime(new Date(Date.now() + rule.atendimento_horas * 3600000)) : ''),
@@ -218,10 +227,27 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     setForm((current) => ({ ...current, canal_id: channelId, atribuido_a: channelId ? assignment.atribuido_a : '' }));
   };
   const advance = (status, showDetails = true) => {
+    if (status === 'concluida' && conclusionBlocked) { setTab('vinculos'); setFormError('Registre a resolução de cada solicitação vinculada antes de concluir a ordem.'); return; }
     setForm((current) => ({ ...current, status, executada_em: ['aguardando_confirmacao', 'concluida'].includes(status) ? current.executada_em || localDateTime(new Date()) : current.executada_em }));
     if (!['aguardando_confirmacao', 'concluida'].includes(status)) setPendingFiles((current) => current.map((file) => ({ ...file, visibilidade: 'interna' })));
     if (showDetails || ['cancelada', 'recusada', 'programada', 'aguardando_informacao', 'aguardando_recurso', 'concluida', 'aguardando_confirmacao'].includes(status)) setTab('atendimento');
     setFormError('');
+  };
+  const resolveLinkedReport = async (report) => {
+    if (!item || dirty || saving || !editable || electricianMode) return;
+    if (!await confirmApp({ title: 'Registrar resolução desta solicitação?', description: `Confirme que o problema de “${report.title}” foi resolvido. O resultado e os serviços salvos na ordem serão registrados para esta solicitação. A última resolução conclui a ordem.`, confirmLabel: 'Registrar resolução' })) return;
+    setSaving(true); setFormError('');
+    try {
+      const { data, error: failure } = await supabase.rpc('registrar_resolucao_solicitacao_municipal', {
+        p_prefeitura: municipalityId, p_ordem: item.id, p_report: report.id, p_versao: item.versao,
+        p_resultado: form.resultado.trim() || null,
+        p_servicos: form.service_types?.length ? form.service_types : form.service_type ? [form.service_type] : [],
+      });
+      if (failure) throw failure;
+      showAppNotice({ title: data.status === 'concluida' ? 'Solicitação resolvida e ordem concluída' : 'Solicitação resolvida' });
+      setRevision((value) => value + 1); onSaved(data.id);
+    } catch (failure) { setFormError(failure.message); }
+    finally { setSaving(false); }
   };
   const removeOrder = async () => {
     if (!canDeleteOrder || !deletableStatus || saving) return;
@@ -256,7 +282,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
     setValidationScope('all');
     if (Object.keys(validationErrors).length) {
       setFormError('');
-      setTab(validationErrors.titulo ? 'dados' : validationErrors.latitude || validationErrors.longitude ? 'local' : validationErrors.service_type || validationErrors.resultado ? 'anexos' : 'atendimento');
+      setTab(validationErrors.titulo || validationErrors.category_id ? 'dados' : validationErrors.latitude || validationErrors.longitude ? 'local' : validationErrors.service_type || validationErrors.resultado ? 'anexos' : 'atendimento');
       setFocusAttempt((value) => value + 1);
       return;
     }
@@ -277,7 +303,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
       });
       if (saveError) throw saveError;
       setBaseline(''); setPendingFiles([]);
-      showAppNotice({ title: item ? 'Ordem de serviço atualizada' : 'Ordem de serviço criada', description: data.status === 'concluida' && reports.length ? 'Serviço concluído. A resolução das solicitações segue sua própria verificação.' : undefined });
+      showAppNotice({ title: item ? 'Ordem de serviço atualizada' : 'Ordem de serviço criada', description: data.status === 'concluida' && reports.length ? 'Ordem concluída após a resolução das solicitações vinculadas.' : undefined });
       onSaved(data.id);
     } catch (saveError) {
       if (uploaded.length) await supabase.storage.from('municipal-demand-files').remove(uploaded.map((file) => file.storage_path)).catch(() => {});
@@ -301,7 +327,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
   return <MunicipalDrawer open={open} onClose={close} busy={saving || registering} variant="demand" inline={inline} activeSection={tab}
     title={item?.protocolo || (demandId && demandId !== 'nova' ? 'Ordem de serviço' : 'Nova ordem de serviço')}
     description={item ? <span className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-status-progressBg px-2 py-0.5 text-xs font-bold text-status-progressFg">{DEMAND_STATUSES.find(([key]) => key === form.status)?.[1] || 'Em atendimento'}</span><span className="text-xs">{context.channels.find((channel) => String(channel.id) === String(form.canal_id))?.nome || 'Aguardando secretaria'}</span>{dirty && <span className="inline-flex items-center gap-1.5 rounded-md bg-status-pendingBg px-2 py-0.5 text-xs font-semibold text-status-pendingFg"><span className="h-1.5 w-1.5 rounded-full bg-current" />Não salvo</span>}</span> : 'Registre o serviço em etapas: dados, local, atendimento, anexos, comunicação e vínculos.'}
-    headerAction={item && editable && <div className="flex flex-wrap items-center gap-2"><label className="text-xs font-semibold">Status da ordem<select aria-label="Alterar status da ordem" className={selectClass + ' mt-1 min-w-40'} value={form.status} onChange={(event) => advance(event.target.value, false)} disabled={saving}>{statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{dirty && <Button type="submit" form="municipal-demand-form" className="min-w-32 shadow-sm" disabled={saving || locating || registering || !form.titulo.trim()}>{saving ? 'Salvando…' : 'Salvar ordem'}</Button>}{canDeleteOrder && <Button type="button" variant="outline" size="sm" disabled={saving || !deletableStatus} title={!deletableStatus ? 'Cancele e salve a ordem antes de excluí-la.' : undefined} onClick={removeOrder}><Trash2 className="mr-1.5 h-4 w-4" />Excluir ordem</Button>}</div>}
+    headerAction={item && editable && <div className="flex flex-wrap items-center gap-2"><label className="text-xs font-semibold">Status da ordem<select aria-label="Alterar status da ordem" className={selectClass + ' mt-1 min-w-40'} value={form.status} onChange={(event) => advance(event.target.value, false)} disabled={saving}>{statusOptions.map(([value, label]) => <option key={value} value={value} disabled={value === 'concluida' && conclusionBlocked}>{label}</option>)}</select></label>{dirty && <Button type="submit" form="municipal-demand-form" className="min-w-32 shadow-sm" disabled={saving || locating || registering || !form.titulo.trim()}>{saving ? 'Salvando…' : 'Salvar ordem'}</Button>}{canDeleteOrder && <Button type="button" variant="outline" size="sm" disabled={saving || !deletableStatus} title={!deletableStatus ? 'Cancele e salve a ordem antes de excluí-la.' : undefined} onClick={removeOrder}><Trash2 className="mr-1.5 h-4 w-4" />Excluir ordem</Button>}</div>}
     navigation={!loading && !error && (inline && isNew ? <nav aria-label="Etapas da ordem de serviço"><ol className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{visibleTabs.map(([key, title], index) => { const { icon: Icon, detail } = tabDetails[key]; const selected = tab === key; return <li key={key} className="min-w-0"><button type="button" aria-current={selected ? 'step' : undefined} disabled={locating || saving || registering} onClick={() => { setTab(key); setFormError(''); }} className={'flex min-h-16 w-full min-w-0 flex-col justify-between gap-1 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 ' + (selected ? 'border-brand bg-brand text-content-onBrand shadow-sm' : 'border-edge-subtle bg-surface-subtle text-content-primary hover:border-brand/40 hover:bg-brand-subtleBg')}><span className="flex w-full min-w-0 items-center justify-between gap-2 text-xs font-bold"><span className="truncate">{title}{key === 'vinculos' && reports.length ? ` (${reports.length})` : ''}</span><Icon className="h-4 w-4 shrink-0" /></span><span className={'line-clamp-2 text-[11px] leading-4 ' + (selected ? 'text-content-onBrand/80' : 'text-content-secondary')}>{String(index + 1).padStart(2, '0')} · {detail}</span></button></li>; })}</ol></nav> : <nav aria-label="Seções do atendimento" className="overflow-x-auto"><div className="flex min-w-max gap-1.5 rounded-xl bg-surface-subtle p-1.5">{visibleTabs.map(([key, title], index) => { const { icon: Icon } = tabDetails[key]; const selected = tab === key; return <button key={key} type="button" aria-current={selected ? (isNew ? 'step' : 'page') : undefined} disabled={locating || saving || registering} onClick={() => { setTab(key); setFormError(''); }} className={'group flex min-h-10 min-w-max items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50 ' + (selected ? 'border-edge-subtle bg-surface-raised text-brand-subtleFg shadow-sm' : 'border-transparent text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Icon className="h-4 w-4 shrink-0" /><span>{title}{key === 'vinculos' && reports.length ? ` (${reports.length})` : ''}</span>{isNew && <span className="text-[10px] tabular-nums text-content-tertiary">{String(index + 1).padStart(2, '0')}</span>}</button>; })}</div></nav>)}
     footer={isNew && !loading && !error && <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
       {stepIndex > 0 && <Button type="button" variant="ghost" disabled={saving || locating || registering} onClick={() => setTab(visibleTabs[stepIndex - 1][0])}><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Button>}
@@ -320,7 +346,7 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
               <SectionHeading icon={FileText} title="Informações do serviço" description="Comece pelo que precisa ser feito e pela prioridade." />
               <div className={'grid min-w-0 gap-3 sm:grid-cols-2 ' + (inline ? 'xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]' : '')}>
                 <Field error={fieldErrors.titulo} className={'sm:col-span-2 ' + (inline ? 'xl:col-span-1' : '')} title={<>Título <span className="text-danger">*</span></>}><Input placeholder="Ex.: Correção de buraco na rua…" minLength={3} maxLength={180} value={form.titulo} onChange={(event) => update('titulo', event.target.value)} disabled={!editable} /></Field>
-                <Field title="Categoria"><select className={selectClass} value={form.category_id} onChange={(event) => changeCategory(event.target.value)} disabled={!editable}><option value="">Selecione a categoria</option>{context.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
+                <Field error={fieldErrors.category_id} title="Categoria"><select className={selectClass} value={form.category_id} onChange={(event) => changeCategory(event.target.value)} disabled={!editable}><option value="">Selecione a categoria</option>{context.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></Field>
                 <Field title="Prioridade"><select className={selectClass} value={form.prioridade} onChange={(event) => update('prioridade', event.target.value)} disabled={!editable}>{DEMAND_PRIORITIES.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
                 <Field title="Origem do pedido"><select className={selectClass} value={form.origem} onChange={(event) => update('origem', event.target.value)} disabled={!editable || Boolean(reports.length)}>{[['interno','Registro interno'],['bronca','Solicitação pública'],['telefone','Telefone'],['presencial','Atendimento presencial'],['vistoria','Vistoria']].map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
                 <Field title="Protocolo externo"><Input className="h-10" placeholder="Opcional" value={form.protocolo_externo} onChange={(event) => update('protocolo_externo', event.target.value)} disabled={!editable} /></Field>
@@ -334,18 +360,22 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
             <div className="min-w-0">
               <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                 <Field error={fieldErrors.canal_id} title={<>Secretaria {requiresChannel && <span className="text-danger">*</span>}</>}><select className={selectClass} value={form.canal_id} onChange={(event) => changeChannel(event.target.value)} disabled={!editable || Boolean(item && !context.isAdministrator)}><option value="">Aguardando distribuição</option>{availableChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></Field>
-                <Field title="Etapa do serviço"><select aria-label="Etapa do serviço" className={selectClass} value={form.status} onChange={(event) => advance(event.target.value)} disabled={!editable}>{statusOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+                <Field error={fieldErrors.status} title="Etapa do serviço"><select aria-label="Etapa do serviço" className={selectClass} value={form.status} onChange={(event) => advance(event.target.value)} disabled={!editable}>{statusOptions.map(([value,label]) => <option key={value} value={value} disabled={value === 'concluida' && conclusionBlocked}>{label}</option>)}</select></Field>
               </div>
               {editable && item && !electricianMode && <div className="mt-4 flex flex-wrap gap-2">
-                {!['concluida','cancelada','recusada'].includes(form.status) ? <><Button type="button" variant="outline" size="sm" onClick={() => advance('em_andamento')} disabled={form.status === 'em_andamento'}><Play className="mr-1 h-4 w-4" />Iniciar</Button><Button type="button" size="sm" onClick={() => advance('concluida')}><CheckCircle2 className="mr-1 h-4 w-4" />Concluir serviço</Button><Button type="button" variant="outline" size="sm" onClick={() => advance('cancelada')}>Cancelar ordem</Button></> : <Button type="button" variant="outline" size="sm" onClick={() => advance('triagem')}><RotateCcw className="mr-1 h-4 w-4" />Reabrir atendimento</Button>}
+                {!['concluida','cancelada','recusada'].includes(form.status) ? <><Button type="button" variant="outline" size="sm" onClick={() => advance('em_andamento')} disabled={form.status === 'em_andamento'}><Play className="mr-1 h-4 w-4" />Iniciar</Button><Button type="button" size="sm" onClick={() => advance('concluida')} disabled={conclusionBlocked}><CheckCircle2 className="mr-1 h-4 w-4" />Concluir serviço</Button><Button type="button" variant="outline" size="sm" onClick={() => advance('cancelada')}>Cancelar ordem</Button></> : <Button type="button" variant="outline" size="sm" onClick={() => advance('triagem')}><RotateCcw className="mr-1 h-4 w-4" />Reabrir atendimento</Button>}
               </div>}
+              {conclusionBlocked && <p className="mt-3 text-xs text-content-secondary">Há solicitações pendentes. Registre cada resolução na aba Vínculos; a última conclui a ordem automaticamente.</p>}
               {form.status === 'programada' && <div className="mt-4"><Field error={fieldErrors.previsto_em} title="Previsão de execução *"><Input aria-label="Previsão de execução" className="h-10" type="datetime-local" value={form.previsto_em} onChange={(event) => update('previsto_em', event.target.value)} disabled={!editable} /></Field></div>}
               {waiting && <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field error={fieldErrors.motivo_pendencia} title="Motivo da pendência *"><textarea className={selectClass + ' min-h-24 py-3'} value={form.motivo_pendencia} onChange={(event) => update('motivo_pendencia', event.target.value)} disabled={!editable} /></Field><Field error={fieldErrors.proxima_acao_em} title="Revisar pendência em *"><Input type="datetime-local" value={form.proxima_acao_em} onChange={(event) => update('proxima_acao_em', event.target.value)} disabled={!editable} /></Field></div>}
               {mustExplain && <div className="mt-4"><Field error={fieldErrors.reason} title="Motivo da alteração *"><textarea className={selectClass + ' min-h-24 py-3'} minLength={5} maxLength={4000} value={reason} onChange={(event) => setReason(event.target.value)} disabled={!editable} /></Field></div>}
-              {execution && <div className="mt-5 space-y-4 border-t border-edge-subtle pt-5">
-                {form.category_id === 'iluminacao' && <Field error={fieldErrors.service_type} title={<>Serviço executado (para estatísticas) {electricianMode && form.status === 'concluida' && <span className="text-danger">*</span>}</>}><select className={selectClass} value={form.service_type || ''} onChange={(event) => update('service_type', event.target.value)} disabled={!editable}><option value="">Não informado</option><option value="lamp_replacement">Troca de lâmpada</option><option value="arm_installation">Instalação de braço de luz</option><option value="other">Outro serviço</option></select></Field>}
+              {(execution || preparingLinkedResolution) && <div className="mt-5 space-y-4 border-t border-edge-subtle pt-5">
+                {preparingLinkedResolution && <p className="text-xs text-content-secondary">Informe os serviços e o resultado deste atendimento, salve a ordem e registre a resolução da solicitação na aba Vínculos.</p>}
+                {form.category_id === 'iluminacao' && <Field error={fieldErrors.service_type} title={<>Serviços executados {electricianMode && form.status === 'concluida' && <span className="text-danger">*</span>}</>}><div className="grid gap-2">{[['lamp_replacement','Troca de lâmpada'],['arm_installation','Instalação de braço de luz'],['relay_replacement','Troca de relé'],['other','Outro serviço']].map(([key,label]) => <label key={key} className="flex min-h-9 items-center gap-2 rounded-lg border border-edge-subtle px-3 text-xs"><input type="checkbox" checked={(form.service_types?.length ? form.service_types : form.service_type ? [form.service_type] : []).includes(key)} onChange={(event) => { const current = form.service_types?.length ? form.service_types : form.service_type ? [form.service_type] : []; const next = event.target.checked ? [...current,key] : current.filter((value) => value !== key); setForm((state) => ({ ...state, service_types: next, service_type: next[0] || '' })); setFormError(''); }} disabled={!editable} className="h-4 w-4 accent-brand" />{label}</label>)}</div></Field>}
+                {execution && <>
                 <Field error={fileErrors.conclusao} title="Foto do serviço (opcional)"><input type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-xs file:mr-3 file:rounded-lg file:border file:border-edge-default file:bg-surface-subtle file:px-3 file:py-2 file:font-semibold" onChange={(event) => addFiles(event, 'conclusao')} disabled={!editable || saving} /></Field>
                 {pendingFiles.filter((file) => file.tipo === 'conclusao').map((file) => <div key={file.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-subtle p-3 text-xs"><span className="min-w-0 flex-1 break-words font-semibold">{file.file.name}</span>{reports.length > 0 && <label className="flex items-center gap-1.5"><input type="checkbox" checked={file.visibilidade === 'publica'} onChange={(event) => setPendingFiles((current) => current.map((entry) => entry.id === file.id ? { ...entry, visibilidade: event.target.checked ? 'publica' : 'interna' } : entry))} disabled={!editable} />Mostrar na solicitação</label>}<Button type="button" variant="ghost" size="icon" aria-label={'Retirar foto ' + file.file.name} onClick={() => setPendingFiles((current) => current.filter((entry) => entry.id !== file.id))}><X className="h-4 w-4" /></Button></div>)}
+                </>}
                 <Field error={fieldErrors.resultado} title="Resultado do serviço (opcional)"><textarea className={selectClass + ' min-h-24 py-3'} minLength={10} maxLength={4000} value={form.resultado} onChange={(event) => update('resultado', event.target.value)} disabled={!editable} /></Field>
                 {electricianMode && <Field error={fieldErrors.registro_execucao} title="Registro técnico (opcional)"><textarea className={selectClass + ' min-h-24 py-3'} minLength={20} maxLength={4000} value={form.registro_execucao} onChange={(event) => update('registro_execucao', event.target.value)} disabled={!editable} /></Field>}
               </div>}
@@ -367,17 +397,17 @@ export default function MunicipalDemandDrawer({ open, demandId, reportId, poleId
             <div className="flex min-w-0 flex-col gap-3"><SectionHeading icon={MessageSquare} title="Comunicação com o cidadão" description="Opcional. Use quando houver uma solicitação vinculada." tone="blue" /><Field className="min-h-0 flex-1" title="Resposta oficial" hint={reports.length ? 'Será publicada nas solicitações vinculadas, com a identificação da secretaria.' : 'Vincule uma solicitação na próxima etapa para habilitar a resposta.'}><textarea className={textAreaClass + ' min-h-32 flex-1 resize-y'} maxLength={4000} placeholder="Informe o andamento do serviço ao cidadão…" value={publicResponse} onChange={(event) => setPublicResponse(event.target.value)} disabled={!editable || !reports.length} /></Field>{editable && reports.length > 0 && <Button type="button" variant="outline" size="sm" onClick={() => setPublicResponse(suggestedPublicResponse(form))} disabled={!suggestedPublicResponse(form)}>Usar sugestão da etapa</Button>}</div>
             <div className="flex min-w-0 flex-col gap-3 lg:border-l lg:border-edge-subtle lg:pl-4"><SectionHeading icon={Lock} title="Anotações da equipe" description="Opcional. Visível apenas para a equipe municipal." tone="neutral" /><Field className="min-h-0 flex-1" title="Nota interna" hint="Registre orientações, contatos ou observações para a equipe."><textarea className={textAreaClass + ' min-h-32 flex-1 resize-y'} maxLength={4000} placeholder="O que a equipe precisa saber?" value={internalNote} onChange={(event) => setInternalNote(event.target.value)} disabled={!editable} /></Field></div>
           </div></section>}
-          {tab === 'vinculos' && <section className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm"><div className={'grid h-full min-w-0 items-stretch gap-4 ' + (isNew ? 'xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]' : '')}>{isNew && <div className="min-w-0 xl:border-r xl:border-edge-subtle xl:pr-4"><SectionHeading icon={CheckCircle2} title="Confira a ordem antes de criar" description="A ordem pode ser criada sem responsável na plataforma e sem solicitação vinculada." tone="blue" /><h3 className="break-words text-base font-semibold">{form.titulo || 'Informe o título do serviço'}</h3><dl className="mt-3 grid grid-cols-2 gap-3">{[
+          {tab === 'vinculos' && <section className="min-w-0 flex-1 rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm"><div className={'grid h-full min-w-0 items-stretch gap-4 ' + (isNew ? 'xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]' : '')}>{isNew && <div className="min-w-0 xl:border-r xl:border-edge-subtle xl:pr-4"><SectionHeading icon={CheckCircle2} title="Confira a ordem antes de criar" description="A ordem pode ser criada sem responsável na plataforma e sem solicitação vinculada." tone="blue" /><h3 className="break-words text-base font-semibold">{poleReferenceText(form.titulo || 'Informe o título do serviço')}</h3><dl className="mt-3 grid grid-cols-2 gap-3">{[
             ['Secretaria', context.channels.find((channel) => channel.id === form.canal_id)?.nome || 'Aguardando distribuição'],
             ['Responsável', eligibleMembers.find((member) => member.user_id === form.atribuido_a)?.perfil?.name || (form.atribuido_a ? item?.responsavel?.name || 'Responsável selecionado' : 'Definir depois')],
             ['Prioridade', DEMAND_PRIORITIES.find(([key]) => key === form.prioridade)?.[1]],
             ['Etapa', DEMAND_STATUSES.find(([key]) => key === form.status)?.[1]],
           ].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words text-sm font-medium">{value}</dd></div>)}</dl></div>}
           <div className="min-w-0 space-y-3">
-            <SectionHeading icon={Link2} title="Solicitações vinculadas (opcional)" description="Agrupe relatos sobre o mesmo problema. Cada solicitação mantém suas fotos, apoios e verificação." tone="neutral" />
+            <SectionHeading icon={Link2} title="Solicitações vinculadas (opcional)" description="Cada solicitação mantém suas fotos, apoios e andamento próprio. O eletricista pode resolvê-las uma por vez." tone="neutral" />
             {!reports.length && <p className="text-sm text-content-tertiary">Nenhuma solicitação vinculada.</p>}
-            <div className="max-h-40 space-y-2 overflow-y-auto pr-1">{reports.map((report) => <div key={report.id} className="flex min-w-0 items-start gap-3 rounded-xl border border-edge-subtle p-3"><div className="min-w-0 flex-1"><Link to={'/prefeitura/broncas?bronca=' + report.id} className="break-words text-sm font-bold text-brand">{report.title}</Link><p className="mt-1 text-xs text-content-secondary">{[report.address, report.neighborhood].filter(Boolean).join(' · ')}</p><p className="mt-1 text-xs">{report.newLink ? 'Será vinculada ao salvar' : report.status === 'resolved' ? 'Resolução verificada' : 'Relato ainda não resolvido'}</p></div>{report.newLink && <Button type="button" size="icon" variant="ghost" aria-label={'Retirar vínculo de ' + report.title} onClick={() => setReports((current) => current.filter((entry) => entry.id !== report.id))}><X className="h-4 w-4" /></Button>}</div>)}</div>
-            {editable && !['concluida','cancelada','recusada'].includes(form.status) && <><label className="relative block"><span className="sr-only">Buscar solicitações para vincular</span><Search className="absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Buscar solicitação por título, endereço ou bairro" /></label>{searching ? <p className="text-sm text-content-secondary">Buscando relatos…</p> : search && !matches.length ? <p className="text-sm text-content-tertiary">Nenhuma solicitação disponível para este vínculo.</p> : <div className="max-h-40 space-y-2 overflow-y-auto pr-1">{matches.map((report) => <button key={report.id} type="button" disabled={linkingReport} className="block w-full rounded-xl border border-edge-subtle p-3 text-left hover:bg-surface-subtle disabled:opacity-60" onClick={() => addReport(report)}><strong className="block break-words text-sm">{report.title}</strong><span className="mt-1 block text-xs text-content-secondary">{report.address || report.neighborhood || 'Sem endereço'}</span><span className="mt-2 block text-xs font-bold text-brand">{linkingReport ? 'Carregando local…' : 'Vincular ao atendimento'}</span></button>)}</div>}</>}
+            <div className="max-h-40 space-y-2 overflow-y-auto pr-1">{reports.map((report) => <div key={report.id} className="flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-edge-subtle p-3"><div className="min-w-0 flex-1"><Link to={'/prefeitura/broncas?bronca=' + report.id} className="break-words text-sm font-bold text-brand">{poleReferenceText(report.title)}</Link><p className="mt-1 text-xs text-content-secondary">{[report.address, report.neighborhood].filter(Boolean).join(' · ')}</p><p className="mt-1 text-xs">{report.newLink ? 'Será vinculada ao salvar' : report.status === 'resolved' ? 'Solicitação resolvida' : 'Relato ainda não resolvido'}</p></div>{item && editable && !electricianMode && form.category_id === 'iluminacao' && !report.newLink && report.status !== 'resolved' && !['concluida','cancelada','recusada'].includes(item.status) && <Button type="button" size="sm" disabled={saving || dirty} title={dirty ? 'Salve as alterações antes de registrar a resolução' : 'Registrar o atendimento desta solicitação'} onClick={() => resolveLinkedReport(report)}>Registrar resolução</Button>}{report.newLink && <Button type="button" size="icon" variant="ghost" aria-label={'Retirar vínculo de ' + poleReferenceText(report.title)} onClick={() => setReports((current) => current.filter((entry) => entry.id !== report.id))}><X className="h-4 w-4" /></Button>}</div>)}</div>
+            {editable && !['concluida','cancelada','recusada'].includes(form.status) && <><label className="relative block"><span className="sr-only">Buscar solicitações para vincular</span><Search className="absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Buscar solicitação por título, endereço ou bairro" /></label>{searching ? <p className="text-sm text-content-secondary">Buscando relatos…</p> : search && !matches.length ? <p className="text-sm text-content-tertiary">Nenhuma solicitação disponível para este vínculo.</p> : <div className="max-h-40 space-y-2 overflow-y-auto pr-1">{matches.map((report) => <button key={report.id} type="button" disabled={linkingReport} className="block w-full rounded-xl border border-edge-subtle p-3 text-left hover:bg-surface-subtle disabled:opacity-60" onClick={() => addReport(report)}><strong className="block break-words text-sm">{poleReferenceText(report.title)}</strong><span className="mt-1 block text-xs text-content-secondary">{report.address || report.neighborhood || 'Sem endereço'}</span><span className="mt-2 block text-xs font-bold text-brand">{linkingReport ? 'Carregando local…' : 'Vincular ao atendimento'}</span></button>)}</div>}</>}
           </div></div></section>}
           {tab === 'historico' && <MunicipalDemandHistory events={events} context={context} />}
           </fieldset>

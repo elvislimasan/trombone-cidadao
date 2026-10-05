@@ -68,7 +68,7 @@ export function municipalReportsQuery(client, filters, fields = REPORT_FIELDS, o
     request = request.lt('created_at', end.toISOString());
   }
   const term = (filters.query || '').trim().replace(/[%,()"'\\]/g, '');
-  if (term) request = request.or(['protocol', 'title', 'address', 'neighborhood', 'description'].map((field) => `${field}.ilike.%${term}%`).join(','));
+  if (term) request = request.or(['protocol', 'title', 'address', 'neighborhood', 'description', 'pole_number', 'reported_post_identifier'].map((field) => `${field}.ilike.%${term}%`).join(','));
   request = filters.sort === 'status_asc' || filters.sort === 'status_desc'
     ? request.order('status', { ascending: filters.sort === 'status_asc' }).order('created_at', { ascending: false }).order('id')
     : request.order('created_at', { ascending: filters.sort === 'antigas' }).order('id');

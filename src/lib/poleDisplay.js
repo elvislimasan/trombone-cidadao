@@ -1,10 +1,17 @@
-const withoutSequence = (value) => String(value ?? '').trim().replace(/^\d+\s*[-–—]\s*(?=\S)/, '');
+export function poleCode(value) {
+  return String(value ?? '').trim().replace(/^(?:poste\s+)?\d+\s*[-–—]\s*(?=\S)/iu, '');
+}
+
+export function poleReferenceText(value) {
+  return String(value ?? '')
+    .replace(/\b(poste\s+)\d+\s*[-–—]\s*(\d[\p{L}\p{N}._-]*)\b/giu, (_, label, code) => label + code)
+    .replace(/\b\d+\s*[-–—]\s*([A-Z]{1,4}\d[\p{L}\p{N}._-]*)\b/giu, (_, code) => code.toUpperCase());
+}
 
 export function poleDisplayCode(pole) {
   const identifier = String(pole?.identifier ?? '').trim();
   const plate = pole?.plate || pole?.raw_properties?.municipal?.source_plate || pole?.raw_properties?.kmz?.source_plate;
-  const source = /^\d+\s*[-–—]\s*\S/.test(identifier) ? identifier : plate || identifier;
-  return withoutSequence(source);
+  return poleCode(identifier || plate);
 }
 
 export function poleDisplayLabel(pole) {

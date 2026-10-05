@@ -1,3 +1,4 @@
+import { poleReferenceText } from '@/lib/poleDisplay';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES, OPEN_DEMAND_STATUSES, demandReportLocations } from './municipalDemand.js';
 import { municipalReportsQuery, REPORT_STATUSES, reportAge } from './municipalReports.js';
 import { applyMunicipalCategoryFilter } from './municipalCategories.js';
@@ -159,7 +160,7 @@ export function normalizeExportRecord(item, kind, now = new Date()) {
   const linkedLocations = demand ? item.linkedLocations || [] : [];
   return {
     id: item.id, reference: demand ? item.protocolo : item.protocol || item.id,
-    title: (demand ? item.titulo : item.title) || 'Sem título',
+    title: poleReferenceText((demand ? item.titulo : item.title) || 'Sem título'),
     description: (demand ? item.descricao : item.description) || '',
     address: (demand ? item.endereco : item.address) || [...new Set(linkedLocations.map((location) => location.address).filter(Boolean))].join('; ') || 'Endereço não informado',
     neighborhood: (demand ? item.bairro : item.neighborhood) || [...new Set(linkedLocations.map((location) => location.neighborhood).filter(Boolean))].join('; ') || 'Bairro não informado',

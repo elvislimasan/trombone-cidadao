@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Marker, ScaleControl, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, CircleMarker, MapContainer, Marker, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Crosshair, Loader2, Maximize2, Minimize2, SlidersHorizontal, X } from 'lucide-react';
+import { Crosshair, Layers, Loader2, LocateFixed, Maximize2, Minimize2, SlidersHorizontal, X } from 'lucide-react';
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import { Button } from '@/components/ui/button';
 import { showAppError } from '@/lib/appError';
@@ -38,8 +38,10 @@ function clusterIcon(item) {
   });
 }
 
-function MapFrame({ onBounds, onPoint, focus, center }) {
+function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, startAtCurrentLocation }) {
   const map = useMap();
+  const [locating, setLocating] = useState(false);
+  const [position, setPosition] = useState(null);
   const reportBounds = useCallback(() => {
     const bounds = map.getBounds();
     const size = map.getSize();
@@ -61,7 +63,45 @@ function MapFrame({ onBounds, onPoint, focus, center }) {
     observer.observe(map.getContainer());
     return () => observer.disconnect();
   }, [map, reportBounds]);
-  return <button type="button" onClick={() => map.flyTo(center, 14)} aria-label="Voltar ao centro da cidade" className="absolute left-4 top-40 z-[500] flex h-9 w-9 items-center justify-center rounded-lg border border-edge-default bg-surface-raised text-content-primary shadow-md hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand"><Crosshair className="h-4 w-4" /></button>;
+  const locate = useCallback((automatic = false) => {
+    if (!navigator.geolocation) {
+      if (!automatic) showAppError({ title: 'Localização indisponível' });
+      return undefined;
+    }
+    let active = true;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      if (!active) return;
+      const nextCenter = [coords.latitude, coords.longitude];
+      setPosition({ center: nextCenter, accuracy: coords.accuracy });
+      if (automatic) map.setView(nextCenter, 17);
+      else map.flyTo(nextCenter, 17);
+      setLocating(false);
+    }, () => {
+      if (!active) return;
+      setLocating(false);
+      if (!automatic) showAppError({ title: 'Não foi possível obter sua localização', description: 'Confira a permissão de localização do aplicativo e tente novamente.' });
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    return () => { active = false; };
+  }, [map]);
+  useEffect(() => {
+    if (startAtCurrentLocation) return locate(true);
+    return undefined;
+  }, [startAtCurrentLocation, locate]);
+  const control = 'flex h-9 w-9 items-center justify-center rounded-lg border border-edge-default bg-surface-raised text-content-primary shadow-md hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand';
+  return <>
+    {position && <>
+      {Number.isFinite(position.accuracy) && position.accuracy > 0 && <Circle center={position.center} radius={position.accuracy} interactive={false} pathOptions={{ color: '#2563eb', weight: 1, fillColor: '#2563eb', fillOpacity: 0.1 }} />}
+      <CircleMarker center={position.center} radius={8} pathOptions={{ color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 }}>
+        <Tooltip permanent direction="top" offset={[0, -10]}>Você está aqui</Tooltip>
+      </CircleMarker>
+    </>}
+    <div className="absolute left-4 top-40 z-[500] flex flex-col gap-2">
+      <button type="button" onClick={() => map.flyTo(center, 14)} aria-label="Voltar ao centro da cidade" className={control}><Crosshair className="h-4 w-4" /></button>
+      <button type="button" onClick={() => locate()} disabled={locating} aria-label="Minha localização atual" title="Mostrar minha posição no mapa" aria-busy={locating} className={control}><LocateFixed className={'h-4 w-4 ' + (locating ? 'animate-pulse' : '')} /></button>
+      <button type="button" onClick={onSatellite} aria-label={satellite ? 'Mostrar mapa de ruas' : 'Mostrar mapa de satélite'} aria-pressed={satellite} className={control}><Layers className="h-4 w-4" /></button>
+    </div>
+  </>;
 }
 
 function LightingMarkers({ items, onSelect }) {
@@ -83,9 +123,10 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false }) {
+export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, startAtCurrentLocation = false }) {
   const frameRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [satellite, setSatellite] = useState(false);
   useEffect(() => {
     const changed = () => setFullscreen(document.fullscreenElement === frameRef.current);
     document.addEventListener('fullscreenchange', changed);
@@ -100,8 +141,8 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
   const located = items.filter((item) => Number.isFinite(item.cluster_lat) && Number.isFinite(item.cluster_lng));
   return <section aria-label="Mapa de iluminação pública" ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
     {center ? <MapContainer center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
-      <ThemedTileLayer /><ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
-      <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} />
+      {satellite ? <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
+      <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} startAtCurrentLocation={startAtCurrentLocation} />
       {selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude) && <CircleMarker center={[selected.latitude, selected.longitude]} radius={16} interactive={false} pathOptions={{ color: COLORS[lightingStatus(selected)], weight: 2, fillColor: COLORS[lightingStatus(selected)], fillOpacity: 0.18 }} />}
       <LightingMarkers items={located} onSelect={onSelect} />
     </MapContainer> : <div role="status" aria-label="Carregando mapa" className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}

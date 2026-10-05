@@ -18,3 +18,13 @@ test('electrician statistics count completed orders and distinct serviced poles'
   assert.deepEqual(result.topNeighborhoods[0], { name: 'Centro', count: 2 });
   assert.deepEqual(result.recent.map(({ id }) => id), ['3', '1', '2']);
 });
+
+test('one completed visit counts each selected service once', () => {
+  const result = summarizeElectricianWork([{
+    id: 'visit', status: 'concluida', pole_id: 12, service_type: 'lamp_replacement',
+    service_types: ['lamp_replacement', 'relay_replacement'],
+  }]);
+  assert.equal(result.completed, 1);
+  assert.deepEqual(result.services.map(({ key, count }) => [key, count]),
+    [['lamp_replacement', 1], ['relay_replacement', 1]]);
+});

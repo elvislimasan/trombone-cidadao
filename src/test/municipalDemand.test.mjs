@@ -112,3 +112,12 @@ test('programação e pendências exigem informações de acompanhamento', () =>
   assert.match(validateDemand({ ...form, status: 'aguardando_recurso', motivo_pendencia: 'Material em falta' }), /revista/);
   assert.equal(validateDemand({ ...form, status: 'aguardando_recurso', motivo_pendencia: 'Material em falta', proxima_acao_em: '2026-10-01T10:00' }), '');
 });
+
+test('conclusão de iluminação depende das solicitações e rejeita vínculos de outras categorias', () => {
+  const form = { ...DEMAND_INITIAL_FORM, titulo: 'Manutenção de iluminação', category_id: 'iluminacao', canal_id: 'lighting', status: 'concluida' };
+  const pending = { category_id: 'iluminacao', status: 'in-progress' };
+  assert.match(validateDemandFields(form, { reports: [pending] }).status, /cada solicitação/);
+  assert.deepEqual(validateDemandFields(form, { reports: [{ ...pending, status: 'resolved' }] }), {});
+  assert.match(validateDemandFields(form, { reports: [{ category_id: 'esgoto', status: 'resolved' }] }).category_id, /iluminação/);
+  assert.equal(validateDemandFields({ ...form, category_id: 'esgoto' }, { reports: [pending] }).status, undefined);
+});

@@ -26,7 +26,7 @@ test('mostra verificação feita depois como etapa independente', () => {
     event('verificada', 'resolucao_confirmada', {}, '2026-10-05T21:57:06Z'),
     event('concluida', 'atualizada', { alteracoes: { status: { antes: 'em_andamento', depois: 'concluida' } } }),
   ];
-  assert.deepEqual(electricianTimeline(events).map(({ title }) => title), ['Resolução verificada', 'Poste consertado']);
+  assert.deepEqual(electricianTimeline(events).map(({ title }) => title), ['Resolução verificada', 'Ordem concluída']);
 });
 
 test('mantém conclusões de ciclos diferentes após reabertura', () => {
@@ -36,6 +36,17 @@ test('mantém conclusões de ciclos diferentes após reabertura', () => {
     event('conclusao-anterior', 'atualizada', { alteracoes: { status: { antes: 'em_andamento', depois: 'concluida' } } }, '2026-10-01T19:00:00Z'),
   ];
   assert.deepEqual(electricianTimeline(events).map(({ title }) => title), [
-    'Poste consertado', 'Atendimento reaberto', 'Poste consertado',
+    'Ordem concluída', 'Atendimento reaberto', 'Ordem concluída',
+  ]);
+});
+
+test('mantém cada solicitação atendida mesmo quando duas são resolvidas no mesmo minuto', () => {
+  const events = [
+    event('segunda', 'solicitacao_atendida', { report_id: '2', titulo: 'Poste 22' }),
+    event('primeira', 'solicitacao_atendida', { report_id: '1', titulo: 'Poste 21' }),
+    event('concluida', 'atualizada', { alteracoes: { status: { antes: 'em_andamento', depois: 'concluida' } } }),
+  ];
+  assert.deepEqual(electricianTimeline(events).map(({ title }) => title), [
+    'Solicitação resolvida: Poste 22', 'Solicitação resolvida: Poste 21', 'Ordem concluída',
   ]);
 });

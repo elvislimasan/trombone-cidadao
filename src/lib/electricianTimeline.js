@@ -1,3 +1,4 @@
+import { poleReferenceText } from '@/lib/poleDisplay';
 const statusSteps = {
   aberta: ['reopened', 'Atendimento reaberto'],
   triagem: ['triage', 'Em triagem'],
@@ -6,7 +7,7 @@ const statusSteps = {
   aguardando_informacao: ['waiting_info', 'Aguardando informação'],
   aguardando_recurso: ['waiting_resource', 'Aguardando recurso'],
   aguardando_confirmacao: ['waiting_review', 'Aguardando conferência'],
-  concluida: ['completed', 'Poste consertado'],
+  concluida: ['completed', 'Ordem concluída'],
   recusada: ['rejected', 'Atendimento recusado'],
   cancelada: ['canceled', 'Ordem cancelada'],
 };
@@ -14,6 +15,10 @@ const statusSteps = {
 function stepFor(event) {
   const changes = event.detalhes?.alteracoes || {};
   if (event.tipo === 'criada') return { phase: 'created', title: 'Ordem criada' };
+  if (event.tipo === 'solicitacao_atendida') return {
+    phase: `report:${event.detalhes?.report_id || event.id}`,
+    title: `Solicitação resolvida: ${poleReferenceText(event.detalhes?.titulo || 'sem título')}`,
+  };
   if (event.tipo === 'resolucao_confirmada') return { phase: 'verified', title: 'Resolução verificada' };
   if (event.tipo === 'contestacao') return { phase: 'contested', title: 'Resolução contestada' };
   if (event.tipo === 'reaberta') return { phase: 'reopened', title: 'Atendimento reaberto' };

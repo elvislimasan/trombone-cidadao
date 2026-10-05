@@ -63,6 +63,8 @@ import {
 } from "@/utils/videoProcessor";
 import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 import { notifyNative } from '@/lib/nativeNotification';
+import PoleNumberSearch from '@/components/report/PoleNumberSearch';
+import { createReportPole, mergeNearbyReportPoles } from '@/lib/reportPole';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
@@ -91,7 +93,7 @@ function MunicipalVisibilityChoice({ isPublic, onChange }) {
   </fieldset>;
 }
 
-const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCategoryIds }) => {
+const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId, municipalCategoryIds }) => {
   const reportCopy = useCallback((value) => municipalMode ? value.replace(/\bbroncas?\b/gi, (word) => {
     const replacement = word.toLowerCase() === 'broncas' ? 'solicitações' : 'solicitação';
     return word[0] === word[0].toUpperCase() ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
@@ -279,6 +281,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
   };
 
   const handleCreatePendingPole = async () => {
+    if (isCreatingPendingPole || formData.pole_id) return;
     if (!user) {
       showAppError({
         title: "Acesso restrito",
@@ -319,20 +322,11 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
 
     setIsCreatingPendingPole(true);
     try {
-      const { data, error } = await supabase.rpc("create_pending_pole", {
-        p_lat: lat,
-        p_lng: lng,
-        p_identifier: normalizedIdentifier,
-        p_address: formData.address || null,
-        p_plate: null,
+      const cityId = await resolveCityIdFromLocation({ lat, lng });
+      const createdPole = await createReportPole({
+        client: supabase, cityId, location: { lat, lng },
+        identifier: normalizedIdentifier, address: formData.address,
       });
-
-      if (error) throw error;
-
-      const createdPole = Array.isArray(data) ? data[0] : data;
-      if (!createdPole?.pole_id) {
-        throw new Error("Não foi possível obter o ID do poste criado.");
-      }
 
       const localMarker = {
         pole_id: createdPole.pole_id,
@@ -341,7 +335,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
         address: createdPole.address || formData.address || null,
         latitude: createdPole.latitude ?? lat,
         longitude: createdPole.longitude ?? lng,
-        is_broken: false,
+        is_broken: createdPole.is_broken,
         distance_m: 0,
       };
 
@@ -502,32 +496,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
       if (cancelled) return;
 
       if (error) {
-        setNearbyPoles([]);
+        setNearbyPoles(mergeNearbyReportPoles([], localPendingPoles, { lat, lng }));
         setNearbyPolesError(error.message || "Falha ao buscar postes próximos");
         setNearbyPolesLoading(false);
         return;
       }
 
-      const remote = Array.isArray(data) ? data : [];
-      const local = localPendingPoles.filter((p) => {
-        const pLat = p?.latitude;
-        const pLng = p?.longitude;
-        return (
-          Number.isFinite(pLat) &&
-          Number.isFinite(pLng) &&
-          Math.abs(pLat - lat) < 0.002 &&
-          Math.abs(pLng - lng) < 0.002
-        );
-      });
-      const seen = new Set();
-      const merged = [];
-      for (const p of [...local, ...remote]) {
-        const key = String(p?.pole_id ?? "");
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        merged.push(p);
-      }
-      setNearbyPoles(merged);
+      setNearbyPoles(mergeNearbyReportPoles(Array.isArray(data) ? data : [], localPendingPoles, { lat, lng }));
       setNearbyPolesLoading(false);
     }, 350);
 
@@ -3165,6 +3140,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     const poleLocation = { lat, lng };
+    setNearbyPoles((current) => current.some((pole) => String(pole.pole_id) === String(marker.id))
+      ? current : [...current, { ...marker.data, pole_id: marker.id, latitude: lat, longitude: lng }]);
     userPickedLocationRef.current = true;
     addressTouchedRef.current = false;
     reverseGeocodeTargetRef.current = poleLocation;
@@ -3178,12 +3155,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
       city_id: undefined,
       pole_id: marker.id,
       pole_number: formatPoleLabel(
-        marker.data?.plate || marker.data?.identifier || marker.title || marker.id
+        marker.data?.identifier || marker.data?.plate || marker.title || marker.id
       ),
       reported_post_identifier: marker.data?.identifier ?? null,
       reported_plate: marker.data?.plate ?? null,
       reported_pole_distance_m: 0,
-      address: "",
+      address: marker.data?.address || "",
     }));
     setErrors((prev) => ({ ...prev, location: undefined, pole_number: undefined }));
   };
@@ -3924,6 +3901,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                   )}
 
                   <div className="px-4 pt-4">
+                    {formData.category === 'iluminacao' && <PoleNumberSearch cityId={municipalCityId || formData.city_id} selectedId={formData.pole_id} onSelect={handlePoleSelect} />}
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-1">
                       <MapPin className="w-4 h-4" />
                       Localização *
@@ -3960,6 +3938,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                               }));
                           }}
                           initialPosition={formData.location}
+                          focusPosition={formData.pole_id ? formData.location : undefined}
                           showLocateButton={true}
                           snapToOverlayOnSelect={true}
                           overlayMarkers={nearbyPoles
@@ -3971,7 +3950,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                             .map((p) => ({
                               id: p.pole_id,
                               title:
-                                formatPoleLabel(p.plate || p.identifier) ||
+                                formatPoleLabel(p.identifier || p.plate) ||
                                 `Poste ${p.pole_id}`,
                               distanceLabel:
                                 p.distance_m != null ? `${p.distance_m}m` : "",
@@ -4125,6 +4104,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                             onClick={handleCreatePendingPole}
                             disabled={
                               isCreatingPendingPole ||
+                              !!formData.pole_id ||
                               !formData.location ||
                               !formatPoleLabel(formData.pole_number)
                             }
@@ -4828,6 +4808,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                 <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
                   <MapPin className="w-4 h-4" /> Localização *
                 </label>
+                {formData.category === 'iluminacao' && <PoleNumberSearch cityId={municipalCityId || formData.city_id} selectedId={formData.pole_id} onSelect={handlePoleSelect} />}
                 <p className="text-xs text-muted-foreground mb-2">
                   {formData.category === "iluminacao"
                     ? reportCopy("Selecione o poste: a localização da bronca será a dele.")
@@ -4858,6 +4839,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                             }));
                         }}
                         initialPosition={formData.location}
+                        focusPosition={formData.pole_id ? formData.location : undefined}
                         showLocateButton={true}
                         snapToOverlayOnSelect={true}
                         overlayMarkers={nearbyPoles
@@ -4869,7 +4851,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                           .map((p) => ({
                             id: p.pole_id,
                             title:
-                              formatPoleLabel(p.plate || p.identifier) ||
+                              formatPoleLabel(p.identifier || p.plate) ||
                               `Poste ${p.pole_id}`,
                             distanceLabel:
                               p.distance_m != null ? `${p.distance_m}m` : "",
@@ -4981,6 +4963,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCatego
                         onClick={handleCreatePendingPole}
                         disabled={
                           isCreatingPendingPole ||
+                          !!formData.pole_id ||
                           !formData.location ||
                           !formatPoleLabel(formData.pole_number)
                         }

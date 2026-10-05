@@ -1,5 +1,10 @@
+import { poleCode } from '@/lib/poleDisplay';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
+import { Link } from 'react-router-dom';
+import { CircleMarker, MapContainer, Tooltip, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import ThemedTileLayer from '@/components/map/ThemedTileLayer';
 import { CalendarDays, CheckCircle2, ChevronDown, ClipboardList, Clock3, Info, LampDesk, Lightbulb, List, Loader2, PieChart, RotateCcw, Wrench, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -53,6 +58,26 @@ async function loadAll(table, fields, apply) {
   }
 }
 
+async function loadElectricianStatisticRows(functionName, municipalityId) {
+  const rows = [];
+  for (let start = 0; ; start += BATCH) {
+    const { data, error } = await supabase.rpc(functionName, { p_prefeitura: municipalityId }).range(start, start + BATCH - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < BATCH) return rows;
+  }
+}
+
+function FocusNeighborhood({ poles }) {
+  const map = useMap();
+  useEffect(() => {
+    const points = poles.map((pole) => [Number(pole.latitude), Number(pole.longitude)]);
+    if (points.length === 1) map.setView(points[0], 17);
+    else if (points.length > 1) map.fitBounds(points, { padding: [24, 24], maxZoom: 17 });
+  }, [map, poles]);
+  return null;
+}
+
 function SparkBars({ color }) {
   return <span aria-hidden="true" className="flex h-9 items-end justify-end gap-1 opacity-75">{[9, 15, 12, 22, 18, 27, 14].map((height, index) => <i key={index} className={'w-[3px] rounded-full ' + color} style={{ height }} />)}</span>;
 }
@@ -88,6 +113,7 @@ export default function MunicipalLightingStatsPage() {
   const [period, setPeriod] = useState('30');
   const [lampView, setLampView] = useState('list');
   const [serviceView, setServiceView] = useState('table');
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
   const cityId = context.municipality?.city_id;
   const municipalityId = context.municipality?.id;
 
@@ -96,14 +122,14 @@ export default function MunicipalLightingStatsPage() {
     let active = true;
     setLoading(true); setError(''); setData(null);
     Promise.all([
-      loadAll('poles', 'id,lamp_type,lamp_power_w,lighting_status,is_broken,raw_properties', (query) => query.eq('city_id', cityId).neq('lighting_status', 'removido').order('id')),
-      loadAll('demandas_municipais', 'id,protocolo,titulo,issue_type,service_type,status,created_at,executada_em,concluida_em,bairro,pole_id', (query) => query.eq('prefeitura_id', municipalityId).eq('category_id', 'iluminacao').order('id')),
-      loadAll('reports', 'id,pole_id,neighborhood,created_at', (query) => query.eq('city_id', cityId).eq('category_id', 'iluminacao').not('pole_id', 'is', null).order('id')),
+      loadAll('poles', 'id,identifier,latitude,longitude,lamp_type,lamp_power_w,lighting_status,is_broken,raw_properties', (query) => query.eq('city_id', cityId).neq('lighting_status', 'removido').order('id')),
+      context.isElectrician ? loadElectricianStatisticRows('ordens_estatisticas_iluminacao', municipalityId) : loadAll('demandas_municipais', 'id,protocolo,titulo,issue_type,service_type,service_types,status,created_at,executada_em,concluida_em,bairro,pole_id', (query) => query.eq('prefeitura_id', municipalityId).eq('category_id', 'iluminacao').order('id')),
+      context.isElectrician ? loadElectricianStatisticRows('solicitacoes_estatisticas_iluminacao', municipalityId) : loadAll('reports', 'id,pole_id,neighborhood,created_at,status', (query) => query.eq('city_id', cityId).eq('category_id', 'iluminacao').order('id')),
     ]).then(([poles, orders, reports]) => { if (active) setData({ poles, orders, reports }); })
       .catch((cause) => { if (active) setError(cause.message || 'Não foi possível carregar os dados.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [cityId, municipalityId, revision]);
+  }, [cityId, municipalityId, context.isElectrician, revision]);
 
   const stats = useMemo(() => {
     if (!data) return null;
@@ -118,7 +144,7 @@ export default function MunicipalLightingStatsPage() {
     }
     const resolved = orders.filter(completed);
     const durations = resolved.map(hoursToComplete).filter((value) => value != null);
-    const forService = (service) => resolved.filter((order) => order.service_type === service).map(hoursToComplete).filter((value) => value != null);
+    const forService = (service) => resolved.filter((order) => (order.service_types?.length ? order.service_types : [order.service_type]).includes(service)).map(hoursToComplete).filter((value) => value != null);
     const categories = new Map();
     for (const order of orders) {
       const key = order.issue_type || 'Não informado';
@@ -129,7 +155,9 @@ export default function MunicipalLightingStatsPage() {
     }
     return {
       lampCounts: [...lampCounts].sort((a, b) => b[1] - a[1]), problems,
-      neighborhoodCounts: problemPolesByNeighborhood(data.poles, data.orders, data.reports),
+      neighborhoodCounts: problemPolesByNeighborhood(data.poles, data.orders, data.reports, true),
+      requests: data.reports.filter((report) => cutoff == null || Date.parse(report.created_at) >= cutoff).length,
+      requestsResolved: data.reports.filter((report) => report.status === 'resolved' && (cutoff == null || Date.parse(report.created_at) >= cutoff)).length,
       completed: resolved.length, open: orders.length - resolved.length,
       overall: average(durations), lamp: average(forService('lamp_replacement')),
       arm: average(forService('arm_installation')),
@@ -150,11 +178,14 @@ export default function MunicipalLightingStatsPage() {
   }, { offset: 0, stops: [] }).stops || [];
   const maxService = stats?.categories[0]?.total || 1;
   const maxNeighborhood = stats?.neighborhoodCounts[0]?.count || 1;
+  const selectedNeighborhoodRow = stats?.neighborhoodCounts.find((row) => row.name === selectedNeighborhood);
+  const selectedIds = new Set(selectedNeighborhoodRow?.poleIds || []);
+  const selectedPoles = data?.poles.filter((pole) => selectedIds.has(pole.id) && Number.isFinite(Number(pole.latitude)) && Number.isFinite(Number(pole.longitude))) || [];
   return <div className="page-shell-fluid min-w-0 pb-8 pt-5 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2.5rem)' }}>
     <Helmet><title>Estatísticas de iluminação | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-surface-base to-blue-50/30 p-4 shadow-sm dark:border-edge-subtle dark:from-slate-950 dark:via-surface-base dark:to-slate-950 sm:p-5">
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-red-600">Iluminação pública</p><h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">Estatísticas de manutenção</h1><p className="mt-1 text-xs text-content-secondary sm:text-sm">Inventário dos postes e ordens de serviço de iluminação da cidade.</p></div>
+        <div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-red-600">Iluminação pública</p><h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">Estatísticas de manutenção</h1><p className="mt-1 text-xs text-content-secondary sm:text-sm">Solicitações de iluminação, atendimentos e inventário dos postes da cidade.</p>{context.isElectrician && <Link to="/prefeitura/eletricista/estatisticas" className="mt-2 inline-block text-xs font-bold text-brand underline">Ver minha produção e ranking</Link>}</div>
         <div className="flex flex-wrap items-center gap-2.5"><label className="relative flex h-10 items-center rounded-lg border border-edge-subtle bg-surface-raised shadow-sm"><CalendarDays className="pointer-events-none ml-3 h-4 w-4 text-content-secondary" /><span className="sr-only">Período das ordens de serviço</span><select aria-label="Período das ordens de serviço" value={period} onChange={(event) => setPeriod(event.target.value)} className="h-full min-w-40 appearance-none bg-transparent pl-2 pr-9 text-xs font-semibold text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">{periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-content-secondary" /></label><Button variant="outline" onClick={() => setRevision((value) => value + 1)} disabled={loading} className="h-10 border-edge-subtle bg-surface-raised px-4 text-xs font-semibold shadow-sm"><RotateCcw className={'mr-2 h-4 w-4 ' + (loading ? 'animate-spin' : '')} />Atualizar</Button></div>
       </header>
       {loading && <p role="status" className="mt-8 flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Carregando estatísticas…</p>}
@@ -162,8 +193,8 @@ export default function MunicipalLightingStatsPage() {
       {stats && !loading && <>
         <section aria-label="Indicadores de manutenção" className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2 min-[1360px]:grid-cols-4">
           <MetricCard label="Postes ativos" value={totalLamps.toLocaleString('pt-BR')} detail={`${stats.problems.toLocaleString('pt-BR')} apagados ou com problema`} tone="green" icon={LampDesk} />
-          <MetricCard label="Ordens em aberto" value={stats.open.toLocaleString('pt-BR')} detail="Demandas de iluminação ainda não concluídas" tone="orange" icon={ClipboardList} />
-          <MetricCard label="Ordens concluídas" value={stats.completed.toLocaleString('pt-BR')} detail={`${stats.measured} com tempo de atendimento calculável`} tone="blue" icon={CheckCircle2} />
+          <MetricCard label="Solicitações recebidas" value={stats.requests.toLocaleString('pt-BR')} detail={`${stats.open.toLocaleString('pt-BR')} ordens em aberto`} tone="orange" icon={ClipboardList} />
+          <MetricCard label="Solicitações resolvidas" value={stats.requestsResolved.toLocaleString('pt-BR')} detail={`${stats.completed.toLocaleString('pt-BR')} ordens concluídas`} tone="blue" icon={CheckCircle2} />
           <MetricCard label="Tempo médio geral" value={duration(stats.overall)} detail="Da abertura à execução ou conclusão" tone="purple" icon={Clock3} />
         </section>
         <section aria-label="Tempo médio por serviço" className="mt-3 grid min-w-0 gap-3 md:grid-cols-2">
@@ -186,8 +217,9 @@ export default function MunicipalLightingStatsPage() {
             <div className="min-w-0"><h2 id="lighting-neighborhoods-title" className="text-base font-extrabold">Postes apagados por bairro</h2><p className="mt-0.5 text-[11px] text-content-secondary">Situação atual dos postes apagados, em manutenção ou com relato ativo. Bairros vêm do cadastro do poste, da ordem de serviço ou de broncas vinculadas.</p></div>
           </header>
           {stats.neighborhoodCounts.length ? <div className="mt-5 grid min-w-0 gap-x-8 gap-y-3.5 lg:grid-cols-2" role="list" aria-label="Postes com problema por bairro">
-            {stats.neighborhoodCounts.map(({ name, count }) => <div key={name} role="listitem" className="min-w-0"><div className="mb-1 flex items-baseline justify-between gap-3 text-xs"><span className="min-w-0 truncate font-semibold" title={name}>{name}</span><strong className="shrink-0 tabular-nums">{count.toLocaleString('pt-BR')}</strong></div><div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full rounded-full bg-red-500" style={{ width: `${count / maxNeighborhood * 100}%` }} /></div></div>)}
+            {stats.neighborhoodCounts.map(({ name, count }) => <div key={name} role="listitem"><button type="button" aria-pressed={selectedNeighborhood === name} onClick={() => setSelectedNeighborhood(name)} className="w-full min-w-0 rounded-lg p-1 text-left hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand"><span className="mb-1 flex items-baseline justify-between gap-3 text-xs"><span className="min-w-0 truncate font-semibold" title={name}>{name}</span><strong className="shrink-0 tabular-nums">{count.toLocaleString('pt-BR')}</strong></span><span className="block h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><span className="block h-full rounded-full bg-red-500" style={{ width: `${count / maxNeighborhood * 100}%` }} /></span></button></div>)}
           </div> : <p className="py-8 text-center text-sm text-content-secondary">Nenhum poste apagado ou com problema cadastrado.</p>}
+          {selectedNeighborhoodRow && <div className="mt-5"><h3 className="mb-2 text-sm font-bold">{selectedNeighborhoodRow.count} postes com problema em {selectedNeighborhood}</h3>{selectedPoles.length ? <div className="h-80 overflow-hidden rounded-xl border border-edge-subtle"><MapContainer key={selectedNeighborhood} center={[Number(selectedPoles[0].latitude), Number(selectedPoles[0].longitude)]} zoom={15} scrollWheelZoom={false} className="h-full w-full"><ThemedTileLayer /><FocusNeighborhood poles={selectedPoles} />{selectedPoles.map((pole) => <CircleMarker key={pole.id} center={[Number(pole.latitude), Number(pole.longitude)]} radius={8} pathOptions={{ color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }}><Tooltip>Poste {poleCode(pole.identifier || pole.id)}</Tooltip></CircleMarker>)}</MapContainer></div> : <p className="text-xs text-content-secondary">Os postes deste bairro não têm coordenadas cadastradas.</p>}</div>}
         </section>
         <p className="mt-4 text-[11px] leading-4 text-content-secondary">O período selecionado filtra ordens pela data de abertura. O inventário de postes mostra a situação atual. Os tempos usam ordens concluídas com data de execução ou conclusão; médias por serviço dependem do campo “Serviço executado”.</p>
       </>}

@@ -3,7 +3,8 @@ import Icon from "@/design-system/icons";
 import TimeAgo from "@/components/TimeAgo";
 
 // Extraido de src/pages/ReportPage.jsx (refatoracao pura, task 2 da fase 2).
-// Redesenhado na task 4 da fase 2: titulo em font-display, endereco com icone
+// O titulo fica acima da capa em ReportPage; este bloco mostra os metadados.
+// Redesenhado na task 4 da fase 2: endereco com icone
 // "location" em text-brand, e a secao de autor -- "Denunciado por <nome>" com
 // avatar -- que ate entao nao existia aqui apesar de authorName/authorAvatar
 // ja virem preenchidos de ReportPage (fetchReport). E adicao, nao
@@ -30,7 +31,6 @@ const AuthorAvatar = ({ name, avatarUrl }) => {
 };
 
 const ReportSummary = ({
-  title,
   address,
   createdAt,
   protocol,
@@ -45,10 +45,6 @@ const ReportSummary = ({
 
   return (
     <div className="space-y-3">
-      <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-content-primary leading-tight">
-        {title}
-      </h1>
-
       {address && (
         <div className="flex items-start gap-1.5 text-sm text-content-secondary">
           <Icon name="location" size={16} className="flex-shrink-0 mt-0.5 text-brand" />

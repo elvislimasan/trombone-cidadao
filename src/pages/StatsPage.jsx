@@ -1,3 +1,4 @@
+import { poleCode } from '@/lib/poleDisplay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -510,7 +511,7 @@ const ReportsStats = () => {
               return [...common, title, origem, ...end];
             }
             if (isIluminacao) {
-              const poste = String(report.pole_number || report.reported_plate || report.reported_post_identifier || '').trim() || '—';
+              const poste = poleCode(report.pole_number || report.reported_plate || report.reported_post_identifier) || '—';
               return [...common, poste, doc.splitTextToSize(report.title, 50), ...end];
             }
             return [...common, doc.splitTextToSize(report.title, 60), ...end];

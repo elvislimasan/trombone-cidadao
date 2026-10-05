@@ -773,6 +773,7 @@ function AppShell() {
                 <Route path="/prefeitura/eletricista" element={<ElectricianPanelPage />} />
                 <Route path="/prefeitura/eletricista/hoje" element={<Navigate to="/prefeitura/eletricista" replace />} />
                 <Route path="/prefeitura/eletricista/estatisticas" element={<ElectricianStatsPage />} />
+                <Route path="/prefeitura/eletricista/estatisticas/geral" element={<MunicipalLightingStatsPage />} />
                 <Route path="/prefeitura/eletricista/ordem/:id" element={<ElectricianOrderPage />} />
                 <Route path="/prefeitura/eletricista/perfil" element={<ElectricianProfilePage />} />
                 <Route path="/prefeitura/visao-geral" element={<MunicipalOverviewPage />} />

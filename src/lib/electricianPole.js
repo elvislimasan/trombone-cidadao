@@ -1,10 +1,15 @@
 import { normalizeLampType, isStandardLampType } from '@/lib/lightingCatalog';
 import { poleTechnicalDetailsFromRecord } from '@/lib/poleTechnicalDetails';
+import { poleReferenceText } from '@/lib/poleDisplay';
 
-const numberedPoleCode = /\b\d+\s*[-–—]\s*(X[\p{L}\p{N}._-]+)\b/iu;
+const numberedPoleCode = /\b\d+\s*[-–—]\s*([A-Z]{1,4}\d[\p{L}\p{N}._-]*)\b/iu;
 
 export function compactPoleReference(value) {
-  return String(value ?? '').replace(new RegExp(numberedPoleCode.source, 'giu'), (_, code) => code.toUpperCase());
+  return poleReferenceText(value);
+}
+
+export function electricianVisitTitle(value) {
+  return compactPoleReference(value).replace(/^Serviço no poste\b/iu, 'Atendimento no poste');
 }
 
 export function poleIdentifierFromTitle(title) {
@@ -13,8 +18,8 @@ export function poleIdentifierFromTitle(title) {
 
 export function cleanPoleIdentifier(value) {
   const identifier = String(value ?? '').trim();
-  const numbered = identifier.match(/^(?:poste\s+)?\d+\s*[-–—]\s*(X[\p{L}\p{N}._-]+)$/iu);
-  return numbered ? numbered[1].toUpperCase() : /^X[\p{L}\p{N}._-]+$/iu.test(identifier) ? identifier.toUpperCase() : identifier;
+  const numbered = identifier.match(/^(?:poste\s+)?\d+\s*[-–—]\s*([A-Z]{1,4}\d[\p{L}\p{N}._-]*)$/iu);
+  return numbered ? numbered[1].toUpperCase() : /^[A-Z]{1,4}\d[\p{L}\p{N}._-]*$/iu.test(identifier) ? identifier.toUpperCase() : identifier;
 }
 
 export function electricianPoleForm(pole, orderTitle = '') {
@@ -22,7 +27,7 @@ export function electricianPoleForm(pole, orderTitle = '') {
   const details = poleTechnicalDetailsFromRecord(pole);
   return {
     id: pole.id, identifier: cleanPoleIdentifier(pole.identifier) || poleIdentifierFromTitle(orderTitle),
-    updated_at: pole.updated_at, lamp_type: normalizeLampType(pole.lamp_type),
+    updated_at: pole.updated_at, lamp_type: normalizeLampType(pole.lamp_type) || 'LED',
     lamp_power_w: pole.lamp_power_w ?? '', lamp_count: details.lamp_count,
     source_plate: details.source_plate, point_type: details.point_type,
     network_type: details.network_type, feeder: details.feeder,
@@ -40,7 +45,7 @@ export function electricianPolePayload(form) {
   if (!form?.id) throw new Error('Selecione o poste atendido antes de resolver o serviço.');
   const identifier = cleanPoleIdentifier(form.identifier);
   if (!identifier || identifier.length > 200) throw new Error('Informe um identificador do poste com até 200 caracteres.');
-  if (!isStandardLampType(form.lamp_type)) throw new Error('Selecione o tipo de lâmpada instalado.');
+  if (form.lamp_type && !isStandardLampType(form.lamp_type)) throw new Error('Selecione um tipo de lâmpada válido.');
   const power = form.lamp_power_w === '' ? null : Number(form.lamp_power_w);
   const count = form.lamp_count === '' ? null : Number(form.lamp_count);
   if (power != null && (!Number.isFinite(power) || power <= 0 || power > 999999.99)) throw new Error('Informe uma potência válida em watts.');

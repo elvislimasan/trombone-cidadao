@@ -27,10 +27,14 @@ export function sortElectricianOffers(offers, nearby = false) {
 }
 
 export function orderStage(order) {
-  if (order.status === 'aguardando_confirmacao') return 'conferencia';
+  if (order.revisao_pendente || ['aguardando_confirmacao', 'aguardando_informacao', 'aguardando_recurso'].includes(order.status)) return 'conferencia';
   if (order.status === 'em_andamento') return 'execucao';
   if (ELECTRICIAN_ACTIVE_STATUSES.includes(order.status)) return 'fazer';
   return 'historico';
+}
+
+export function canResumeElectricianOrder(order) {
+  return ['aberta', 'triagem', 'programada', 'aguardando_informacao', 'aguardando_recurso'].includes(order?.status);
 }
 
 export function formatDistance(meters) {

@@ -1,3 +1,4 @@
+import { poleReferenceText } from '@/lib/poleDisplay';
 import React, {
   useState,
   useEffect,
@@ -189,7 +190,7 @@ const ReportPage = () => {
     }
     const { lat, lng } = report.location;
     const label = encodeURIComponent(
-      report.address || report.title || "Bronca"
+      report.address || poleReferenceText(report.title) || "Bronca"
     );
 
     if (Capacitor.isNativePlatform()) {
@@ -501,7 +502,7 @@ const ReportPage = () => {
     if (!report) return;
     const shareUrl = getReportShareUrl(report.id);
     const shareText = `*Trombone Cidadão*\n\n*${
-      report.title || "Bronca"
+      poleReferenceText(report.title || "Bronca")
     }*\n\nVeja em:\n${shareUrl}`;
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
       shareText
@@ -514,7 +515,7 @@ const ReportPage = () => {
     const shareUrl = getReportShareUrl(report.id);
     const title = "Trombone Cidadão";
     const shareText = `*Trombone Cidadão*\n\n*${
-      report.title || "Bronca"
+      poleReferenceText(report.title || "Bronca")
     }*\n\nVeja em:\n${shareUrl}`;
     try {
       if (
@@ -1453,7 +1454,7 @@ const ReportPage = () => {
         navigate("/", { replace: true });
       }
     });
-    setTitle(report?.title ? report.title : "Detalhes da Bronca");
+    setTitle(poleReferenceText(report?.title || "Detalhes da Bronca"));
 
     if (!report) {
       setActions([]);
@@ -1545,7 +1546,7 @@ const ReportPage = () => {
                   <span className="opacity-50">›</span>
                   <span>Broncas</span>
                   <span className="opacity-50">›</span>
-                  <span className="text-content-primary truncate">{report.title}</span>
+                  <span className="text-content-primary truncate">{poleReferenceText(report.title)}</span>
                 </div>
               </div>
             </>
@@ -1560,6 +1561,9 @@ const ReportPage = () => {
                 )}
                 <div className="space-y-4">
                   <div className="bg-surface-raised shadow-elevation-1 rounded-2xl overflow-hidden">
+                    <h1 className="px-4 py-4 font-display text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-content-primary leading-tight break-words">
+                      {poleReferenceText(report.title)}
+                    </h1>
                     <ReportMediaHero
                       viewerMedia={viewerMedia}
                       getCategoryName={getCategoryName}
@@ -1573,7 +1577,6 @@ const ReportPage = () => {
                   {/* summary */}
                   <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
                     <ReportSummary
-                      title={report.title}
                       address={report.address}
                       createdAt={report.created_at}
                       protocol={report.protocol}

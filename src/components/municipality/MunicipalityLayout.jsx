@@ -47,7 +47,7 @@ const navClass = ({ isActive }) => [
 export default function MunicipalityLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const contentRef = useRef(null);
   const workspace = useMunicipalityWorkspace();
   const { memberships, municipality, enabledCategoryIds, isAdministrator, isElectrician } = workspace;
@@ -94,7 +94,7 @@ export default function MunicipalityLayout() {
   );
   const ordersActive = pathname.startsWith('/prefeitura/demandas');
   const newOrderActive = pathname === '/prefeitura/demandas/nova';
-  const inProgressActive = pathname === '/prefeitura/demandas' && new URLSearchParams(search).get('fila') === 'em_atendimento';
+  const ordersListActive = pathname === '/prefeitura/demandas';
   const renderNavigation = (mobile = false) => visibleNavigation.map(({ to, label, icon: Icon }) => {
     if (to === '/prefeitura/iluminacao') {
       const submenuId = mobile ? 'municipality-mobile-lighting' : 'municipality-desktop-lighting';
@@ -115,12 +115,12 @@ export default function MunicipalityLayout() {
     const submenuId = mobile ? 'municipality-mobile-orders' : 'municipality-desktop-orders';
     return <div key={to} className="min-w-0">
       <div className={'flex items-center rounded-xl transition-colors ' + (ordersActive ? 'bg-brand-subtleBg text-brand-subtleFg ring-1 ring-inset ring-brand/20' : 'text-content-secondary hover:bg-surface-subtle hover:text-content-primary')}>
-        <Link to={to} aria-current={pathname === to && !inProgressActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-l-xl px-3 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><ClipboardList className="h-4 w-4 shrink-0" />{label}</Link>
+        <Link to={to} onClick={mobile ? () => setMenuOpen(false) : undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-l-xl px-3 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><ClipboardList className="h-4 w-4 shrink-0" />{label}</Link>
         <button type="button" aria-label={ordersOpen ? 'Recolher ordens de serviço' : 'Expandir ordens de serviço'} aria-expanded={ordersOpen} aria-controls={submenuId} onClick={() => setOrdersOpen((value) => !value)} className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><ChevronDown className={'h-4 w-4 transition-transform ' + (ordersOpen ? 'rotate-180' : '')} /></button>
       </div>
       {ordersOpen && <div id={submenuId} role="group" aria-label="Opções de ordens de serviço" className="ml-3 mt-1 grid gap-0.5 rounded-r-xl border-l-2 border-brand/60 bg-surface-subtle/70 py-1 pl-2 pr-1">
         {!isElectrician && <Link to="/prefeitura/demandas/nova" aria-current={newOrderActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (newOrderActive ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Plus className="h-4 w-4 shrink-0" />Nova ordem</Link>}
-        <Link to="/prefeitura/demandas?status=all&fila=em_atendimento" aria-current={inProgressActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (inProgressActive ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Clock3 className="h-4 w-4 shrink-0" />Em andamento</Link>
+        <Link to="/prefeitura/demandas" aria-current={ordersListActive ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (ordersListActive ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><Clock3 className="h-4 w-4 shrink-0" />Em andamento</Link>
       </div>}
     </div>;
   });
