@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Drawer,
-  DrawerContent,
+  BottomSheetContent,
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
@@ -181,7 +181,7 @@ const FeedCommentsSheet = ({
       )}
 
       <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[80vh]">
+      <BottomSheetContent aria-describedby={undefined}>
         <DrawerHeader className="border-b border-edge-subtle pb-3">
           <DrawerTitle className="text-base">
             Comentários
@@ -194,7 +194,7 @@ const FeedCommentsSheet = ({
           )}
         </DrawerHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-3">
           {loading ? (
             <div className="flex justify-center py-8">
               <TromboneSpinner size={22} className="text-content-secondary" />
@@ -308,7 +308,7 @@ const FeedCommentsSheet = ({
         </div>
 
         <div
-          className="border-t border-edge-subtle p-3"
+          className="shrink-0 border-t border-edge-subtle p-3"
           style={{ paddingBottom: 'calc(0.75rem + var(--safe-area-bottom, 0px))' }}
         >
           {user ? (
@@ -339,7 +339,7 @@ const FeedCommentsSheet = ({
             </p>
           )}
         </div>
-      </DrawerContent>
+      </BottomSheetContent>
 
       {/* Sai por cima da folha: o Dialog é z-[10000] e o Drawer, z-[3001]. */}
       <Dialog open={Boolean(aExcluir)} onOpenChange={(aberto) => { if (!aberto) setAExcluir(null); }}>

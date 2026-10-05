@@ -38,7 +38,7 @@ function clusterIcon(item) {
   });
 }
 
-function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, startAtCurrentLocation }) {
+function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, showCurrentLocation }) {
   const map = useMap();
   const [locating, setLocating] = useState(false);
   const [position, setPosition] = useState(null);
@@ -74,8 +74,7 @@ function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, st
       if (!active) return;
       const nextCenter = [coords.latitude, coords.longitude];
       setPosition({ center: nextCenter, accuracy: coords.accuracy });
-      if (automatic) map.setView(nextCenter, 17);
-      else map.flyTo(nextCenter, 17);
+      if (!automatic) map.flyTo(nextCenter, 17);
       setLocating(false);
     }, () => {
       if (!active) return;
@@ -85,9 +84,9 @@ function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, st
     return () => { active = false; };
   }, [map]);
   useEffect(() => {
-    if (startAtCurrentLocation) return locate(true);
+    if (showCurrentLocation) return locate(true);
     return undefined;
-  }, [startAtCurrentLocation, locate]);
+  }, [showCurrentLocation, locate]);
   const control = 'flex h-9 w-9 items-center justify-center rounded-lg border border-edge-default bg-surface-raised text-content-primary shadow-md hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand';
   return <>
     {position && <>
@@ -123,7 +122,7 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, startAtCurrentLocation = false }) {
+export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, showCurrentLocation = false }) {
   const frameRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [satellite, setSatellite] = useState(false);
@@ -142,7 +141,7 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
   return <section aria-label="Mapa de iluminação pública" ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
     {center ? <MapContainer center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
       {satellite ? <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
-      <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} startAtCurrentLocation={startAtCurrentLocation} />
+      <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} showCurrentLocation={showCurrentLocation} />
       {selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude) && <CircleMarker center={[selected.latitude, selected.longitude]} radius={16} interactive={false} pathOptions={{ color: COLORS[lightingStatus(selected)], weight: 2, fillColor: COLORS[lightingStatus(selected)], fillOpacity: 0.18 }} />}
       <LightingMarkers items={located} onSelect={onSelect} />
     </MapContainer> : <div role="status" aria-label="Carregando mapa" className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}

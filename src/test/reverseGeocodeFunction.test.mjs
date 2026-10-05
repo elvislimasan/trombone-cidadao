@@ -68,6 +68,26 @@ test('resposta válida do Nominatim continua sendo usada', async () => {
   assert.equal(calls.length, 1);
 });
 
+test('campo suburb vazio não oculta bairro em neighbourhood', async () => {
+  const handler = makeHandler(async () => Response.json({ address: {
+    road: 'Rua A', suburb: ' ', neighbourhood: 'Três Marias', city: 'Floresta',
+    county: 'Floresta', state: 'Pernambuco',
+  } }));
+  const response = await handler(request());
+  assert.equal((await response.json()).suburb, 'Três Marias');
+});
+
+test('bairro retornado como city continua associado ao município de county', async () => {
+  const handler = makeHandler(async (url) => Response.json({ address: {
+    road: 'Rua A', city: new URL(url).searchParams.get('zoom') === '10' ? 'Floresta' : 'Três Marias',
+    county: 'Floresta', state: 'Pernambuco',
+  } }));
+  const response = await handler(request());
+  const data = await response.json();
+  assert.equal(data.city, 'Floresta');
+  assert.equal(data.suburb, 'Três Marias');
+});
+
 test('Photon escolhe a rua mais próxima e ignora uma rua distante que veio primeiro', async () => {
   const handler = makeHandler(async (url) => {
     if (String(url).includes('nominatim')) return new Response('Access denied', { status: 403 });

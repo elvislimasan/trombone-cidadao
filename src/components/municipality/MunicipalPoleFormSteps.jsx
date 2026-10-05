@@ -1,8 +1,10 @@
 import { poleCode } from '@/lib/poleDisplay';
-import React from 'react';
+import React, { useState } from 'react';
 import { LampDesk, Loader2, MapPin } from 'lucide-react';
 import LocationPickerMap from '@/components/LocationPickerMap';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import PoleCoordinateFields from './PoleCoordinateFields';
 import { polePosition } from '@/lib/poleAddress';
 import { LAMP_TYPES, isStandardLampType } from '@/lib/lightingCatalog';
 
@@ -11,24 +13,25 @@ const statuses = [['aceso', 'Sem problema registrado'], ['apagado', 'Apagado ou 
 
 export const POLE_FORM_STEPS = ['Lâmpada', 'Localização'];
 
-export default function MunicipalPoleFormSteps({ step, form, setForm, creating, selected, saving, locatingAddress, addressLookupFailed, center, city, onLocationChange, onAddressChange }) {
+export default function MunicipalPoleFormSteps({ step, form, setForm, creating, selected, saving, canEditLocation = false, locatingAddress, addressLookupFailed, center, city, onLocationChange, onAddressChange, onCoordinatesPendingChange }) {
+  const [mapFocus, setMapFocus] = useState(null);
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
   const position = polePosition(form);
   const mapCenter = position || (center ? { lat: center[0], lng: center[1] } : null);
 
-  if (step === 1) return <div className="flex h-full min-h-0 flex-col gap-3">
+  if (step === 1) return <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
     <div className="grid shrink-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
       <label className="text-sm font-semibold">Código do poste <span className="text-brand">*</span><Input className="mt-1" maxLength={200} value={form.identifier} onChange={(event) => update('identifier', event.target.value)} onBlur={() => update('identifier', poleCode(form.identifier))} disabled={saving} placeholder="Ex.: X097074" /><span className="mt-1 block text-xs font-normal text-content-secondary">Código exibido no mapa e nas ordens.</span></label>
-      <span className="flex items-center gap-1.5 pb-2 text-xs text-content-secondary"><MapPin className="h-4 w-4 text-brand" />{creating ? 'Toque no mapa para marcar; depois arraste o pin.' : 'Localização cadastrada do poste.'}</span>
+      <span className="flex items-center gap-1.5 pb-2 text-xs text-content-secondary"><MapPin className="h-4 w-4 text-brand" />{canEditLocation ? 'Toque no mapa ou arraste o pin para corrigir.' : 'Localização cadastrada do poste.'}</span>
     </div>
-    <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-edge-subtle bg-surface-subtle">
-      <LocationPickerMap initialPosition={mapCenter} initialZoom={position ? 17 : 14} fallbackCityCenter={city?.name ? { name: city.name, uf: city.states?.uf } : null} onLocationChange={onLocationChange} showMarker={Boolean(position)} readOnly={!creating} showLocateButton={creating} showSatelliteToggle />
+    <div className="relative min-h-[180px] flex-1 shrink-0 overflow-hidden rounded-xl border border-edge-subtle bg-surface-subtle">
+      <div className="absolute inset-0"><LocationPickerMap initialPosition={mapCenter} focusPosition={mapFocus} initialZoom={position ? 17 : 14} fallbackCityCenter={city?.name ? { name: city.name, uf: city.states?.uf } : null} onLocationChange={(point) => { setMapFocus(null); onLocationChange(point); }} showMarker={Boolean(position)} readOnly={!canEditLocation || saving} showLocateButton={canEditLocation && !saving} showSatelliteToggle /></div>
     </div>
+    {canEditLocation && <PoleCoordinateFields position={position} disabled={saving} onPendingChange={onCoordinatesPendingChange} onApply={(point) => { setMapFocus({ ...point, nonce: Date.now() }); onLocationChange(point); }} />}
     <div className="shrink-0">
-      <label className="text-sm font-semibold" htmlFor="lighting-pole-address">Endereço</label>
+      <div className="flex items-center justify-between gap-2"><label className="text-sm font-semibold" htmlFor="lighting-pole-address">Endereço</label>{canEditLocation && <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={saving || locatingAddress || !position} onClick={() => onLocationChange(position)}>Buscar endereço do pin</Button>}</div>
       <div className="relative mt-1"><Input id="lighting-pole-address" value={form.address} onChange={(event) => onAddressChange(event.target.value)} disabled={saving} placeholder={locatingAddress ? 'Buscando endereço do pin…' : 'Rua e número, se disponíveis'} className="pr-10" />{locatingAddress && <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-content-secondary" />}</div>
       {addressLookupFailed && !form.address && <p role="status" className="mt-1 text-xs text-content-secondary">Endereço não encontrado para o pin. Informe uma referência acima.</p>}
-      {creating && <p className="mt-1 text-xs text-content-secondary">{position ? `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)} · Confira o endereço antes de continuar.` : 'Marque a posição do poste para continuar.'}</p>}
     </div>
   </div>;
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { resolveRegisteredNeighborhood } from "../_shared/reportNeighborhoods.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,14 +152,12 @@ serve(async (req) => {
       });
     }
 
-    // A geo de Floresta pode devolver "DNER" ou "São Francisco de Assis - DNER".
-    // No cadastro municipal os dois nomes são o mesmo bairro.
-    if (cityId === 64 && neighborhood) {
-      const area = neighborhood.normalize("NFD").replace(/\p{M}/gu, "")
-        .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      if (area === "dner" || area === "sao francisco de assis dner") {
-        neighborhood = "São Francisco de Assis (DNER)";
-      }
+    // Usa o cadastro da cidade resolvida, sem depender do id de Floresta em
+    // um ambiente específico. Também recupera bairro explícito no endereço.
+    const { data: neighborhoods, error: neighborhoodsError } = await supabaseAdmin
+      .from("bairros").select("name").eq("city_id", cityId);
+    if (!neighborhoodsError && neighborhoods) {
+      neighborhood = resolveRegisteredNeighborhood({ neighborhood, address }, neighborhoods);
     }
 
     const isLighting = category === "iluminacao";

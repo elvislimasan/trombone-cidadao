@@ -122,10 +122,11 @@ export default function MunicipalLightingStatsPage() {
     let active = true;
     setLoading(true); setError(''); setData(null);
     Promise.all([
-      loadAll('poles', 'id,identifier,latitude,longitude,lamp_type,lamp_power_w,lighting_status,is_broken,raw_properties', (query) => query.eq('city_id', cityId).neq('lighting_status', 'removido').order('id')),
+      loadAll('poles', 'id,identifier,address,latitude,longitude,lamp_type,lamp_power_w,lighting_status,is_broken,raw_properties', (query) => query.eq('city_id', cityId).neq('lighting_status', 'removido').order('id')),
       context.isElectrician ? loadElectricianStatisticRows('ordens_estatisticas_iluminacao', municipalityId) : loadAll('demandas_municipais', 'id,protocolo,titulo,issue_type,service_type,service_types,status,created_at,executada_em,concluida_em,bairro,pole_id', (query) => query.eq('prefeitura_id', municipalityId).eq('category_id', 'iluminacao').order('id')),
-      context.isElectrician ? loadElectricianStatisticRows('solicitacoes_estatisticas_iluminacao', municipalityId) : loadAll('reports', 'id,pole_id,neighborhood,created_at,status', (query) => query.eq('city_id', cityId).eq('category_id', 'iluminacao').order('id')),
-    ]).then(([poles, orders, reports]) => { if (active) setData({ poles, orders, reports }); })
+      context.isElectrician ? loadElectricianStatisticRows('solicitacoes_estatisticas_iluminacao', municipalityId) : loadAll('reports', 'id,pole_id,neighborhood,created_at,status,moderation_status', (query) => query.eq('city_id', cityId).eq('category_id', 'iluminacao').order('id')),
+      loadAll('bairros', 'id,name', (query) => query.eq('city_id', cityId).order('id')),
+    ]).then(([poles, orders, reports, neighborhoods]) => { if (active) setData({ poles, orders, reports, neighborhoods }); })
       .catch((cause) => { if (active) setError(cause.message || 'Não foi possível carregar os dados.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -155,7 +156,7 @@ export default function MunicipalLightingStatsPage() {
     }
     return {
       lampCounts: [...lampCounts].sort((a, b) => b[1] - a[1]), problems,
-      neighborhoodCounts: problemPolesByNeighborhood(data.poles, data.orders, data.reports, true),
+      neighborhoodCounts: problemPolesByNeighborhood(data.poles, data.orders, data.reports, true, data.neighborhoods),
       requests: data.reports.filter((report) => cutoff == null || Date.parse(report.created_at) >= cutoff).length,
       requestsResolved: data.reports.filter((report) => report.status === 'resolved' && (cutoff == null || Date.parse(report.created_at) >= cutoff)).length,
       completed: resolved.length, open: orders.length - resolved.length,

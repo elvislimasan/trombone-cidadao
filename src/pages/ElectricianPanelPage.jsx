@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Clock3, MapPin, Navigation, RotateCcw, Search, Zap } from 'lucide-react';
+import { ArrowRight, Clock3, MapPin, Navigation, RotateCcw, Search, X, Zap } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
+import { Drawer, BottomSheetContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import ElectricianServicesMap from '@/components/municipality/ElectricianServicesMap';
 import ElectricianLightingMap from '@/components/municipality/ElectricianLightingMap';
 import { MunicipalEmptyState } from '@/components/municipality/MunicipalPageUi';
@@ -247,7 +247,6 @@ export default function ElectricianPanelPage() {
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase tracking-widest text-danger sm:text-xs">{tab === 'minhas' ? 'Acompanhe sua execução' : 'Escolha o próximo serviço'}</p>
         <h1 className="mt-0.5 font-display text-xl font-extrabold leading-tight sm:mt-1 sm:text-2xl">{tab === 'minhas' ? 'Minhas ordens' : 'Serviços disponíveis'}</h1>
-        <p className="mt-0.5 text-xs text-content-secondary sm:mt-1 sm:text-sm">{tab === 'minhas' ? 'Veja o que fazer agora e acompanhe os serviços concluídos.' : 'Encontre o serviço no mapa e abra o atendimento.'}</p>
       </div>
       <div className="mt-3 flex min-w-0 items-center gap-1.5 sm:mt-5 sm:gap-3">
         <label className="relative min-w-0 flex-1"><span className="sr-only">Buscar serviço</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-secondary" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Número do poste, protocolo ou endereço" className="h-9 rounded-lg bg-surface-raised pl-9 text-xs sm:h-10 sm:text-sm" /></label>
@@ -264,7 +263,17 @@ export default function ElectricianPanelPage() {
     </>}
     {mapMode && <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden"><ElectricianLightingMap municipality={context.municipality} /></div>}
     </section>
-    <MunicipalDrawer open={Boolean(selectedKey)} onClose={closeOffer} title={preview?.tipo === 'ordem' ? electricianVisitTitle(preview.titulo) : compactPoleReference(preview?.titulo || 'Oportunidade de serviço')} description={preview?.protocolo || 'Confira os dados antes de aceitar.'} variant="electrician" busy={accepting} footer={preview && <div className="grid w-full gap-2 sm:flex sm:justify-end"><Button type="button" variant="outline" onClick={deferOffer} disabled={accepting}>Deixar para depois</Button><Button type="button" onClick={acceptOffer} disabled={accepting}>{accepting ? 'Aceitando…' : 'Aceitar serviço'}</Button></div>}>
+    <Drawer open={Boolean(selectedKey)} onOpenChange={(open) => { if (!open && !accepting) closeOffer(); }} dismissible={!accepting}>
+      <BottomSheetContent>
+        <DrawerHeader className="shrink-0 flex-row items-start justify-between gap-3 border-b border-edge-subtle px-4 pb-3 text-left">
+          <div className="min-w-0 text-left">
+            <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.17em] text-brand">Oportunidade de serviço</p>
+            <DrawerTitle className="break-words font-display text-lg font-extrabold">{preview?.tipo === 'ordem' ? electricianVisitTitle(preview.titulo) : compactPoleReference(preview?.titulo || 'Oportunidade de serviço')}</DrawerTitle>
+            <DrawerDescription className="mt-1 break-words text-xs text-content-secondary">{preview?.protocolo || 'Confira os dados antes de aceitar.'}</DrawerDescription>
+          </div>
+          <DrawerClose asChild><button type="button" disabled={accepting} aria-label="Fechar oportunidade" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50"><X className="h-5 w-5" /></button></DrawerClose>
+        </DrawerHeader>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
       {preview ? <div className="space-y-4 text-sm">
         <div className="flex flex-wrap gap-2"><span className="rounded-full bg-brand-subtleBg px-3 py-1.5 text-xs font-bold text-brand">{preview.tipo === 'ordem' ? 'Ordem de serviço' : 'Solicitação de iluminação'}</span><span className={'rounded-full px-3 py-1.5 text-xs font-bold ' + (preview.prioridade === 'urgente' ? 'bg-danger-subtleBg text-danger' : 'bg-surface-subtle text-content-secondary')}>Prioridade {priorityLabel(preview.prioridade).toLowerCase()}</span></div>
         <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4"><h3 className="text-xs font-bold uppercase tracking-widest text-content-tertiary">O que aconteceu</h3>{(preview.issue_type?.trim() || !preview.descricao?.trim()) && <p className="mt-2 font-semibold text-content-primary">{rotuloDoTipoDeProblemaIluminacao(preview.issue_type)}</p>}{preview.descricao?.trim() && <p className="mt-2 whitespace-pre-line break-words leading-6 text-content-secondary">{preview.descricao}</p>}</section>
@@ -273,6 +282,9 @@ export default function ElectricianPanelPage() {
         <p className="rounded-xl bg-brand-subtleBg p-3 text-xs leading-5 text-brand">Ao aceitar, a ordem passa para suas ordens em execução e você já pode registrar o atendimento.</p>
         {actionError && <p role="alert" className="text-sm text-danger">{actionError}</p>}
       </div> : <p className="text-sm text-content-secondary">Esta oportunidade não está mais disponível. Atualize a lista.</p>}
-    </MunicipalDrawer>
+        </div>
+        {preview && <footer className="shrink-0 border-t border-edge-subtle bg-surface-raised px-4 pt-3 pb-[max(1rem,var(--safe-area-bottom,0px))]"><div className="grid w-full gap-2 sm:grid-cols-2"><Button type="button" variant="outline" onClick={deferOffer} disabled={accepting} className="min-h-12">Deixar para depois</Button><Button type="button" onClick={acceptOffer} disabled={accepting} className="min-h-12">{accepting ? 'Aceitando…' : 'Aceitar serviço'}</Button></div></footer>}
+      </BottomSheetContent>
+    </Drawer>
   </div>;
 }

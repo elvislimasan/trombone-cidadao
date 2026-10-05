@@ -19,6 +19,7 @@ test('usa o município quando o detalhe chama um bairro de cidade', () => {
     address: { city: 'Boa Vista', county: 'Recife', state: 'Pernambuco' },
   });
   assert.equal(result.city, 'Recife');
+  assert.equal(result.suburb, 'Boa Vista');
 });
 
 test('consulta direta também reconhece city_district como bairro', () => {

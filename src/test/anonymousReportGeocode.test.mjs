@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { resolveRegisteredNeighborhood } from '../../supabase/functions/_shared/reportNeighborhoods.js';
 
 const source = readFileSync(new URL('../../supabase/functions/create-anonymous-report/index.ts', import.meta.url), 'utf8')
   .replace(/^import .+\r?\n/gm, '');
@@ -24,8 +25,9 @@ const makeHandler = ({ geo, cityId }) => {
       const query = {
         insert(value) { if (table === 'reports') inserts.push(value); return query; },
         select() { return query; },
+        eq() { return query; },
         single: async () => ({ data: { id: 'created-report' }, error: null }),
-        then(resolve, reject) { return Promise.resolve({ error: null }).then(resolve, reject); },
+        then(resolve, reject) { return Promise.resolve({ error: null, data: table === 'bairros' ? [{ name: 'Centro' }, { name: 'Três Marias' }, { name: 'São Francisco de Assis (DNER)' }] : null }).then(resolve, reject); },
       };
       return query;
     },
@@ -34,11 +36,12 @@ const makeHandler = ({ geo, cityId }) => {
       createSignedUploadUrl: async () => ({ data: { signedUrl: 'https://example.test/upload' } }),
     }) },
   };
-  new Function('serve', 'createClient', 'Deno', 'fetch', code)(
+  new Function('serve', 'createClient', 'Deno', 'fetch', 'resolveRegisteredNeighborhood', code)(
     (fn) => { handler = fn; },
     () => client,
     { env: { get: () => 'configured' } },
     async () => Response.json({ tokenProperties: { valid: true }, riskAnalysis: { score: 0.9 } }),
+    resolveRegisteredNeighborhood,
   );
   return { handler, calls, inserts };
 };

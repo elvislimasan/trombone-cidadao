@@ -45,6 +45,7 @@
     "poles:addresses": "node scripts/backfill-pole-addresses.mjs",
     "poles:kmz-details": "node scripts/backfill-pole-kmz-details.mjs",
     "reports:neighborhoods": "node scripts/backfill-report-neighborhoods.mjs",
+    "poles:neighborhoods": "node scripts/backfill-pole-neighborhoods.mjs",
     "link:dev": "supabase link --project-ref xxdletrjyjajtrmhwzev",
     "link:prod": "supabase link --project-ref mrejgpcxaevooofyenzq"
   },

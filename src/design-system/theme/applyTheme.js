@@ -7,12 +7,7 @@ const THEME_COLOR = {
 };
 
 export function resolveTheme(preference) {
-  if (preference === 'light' || preference === 'dark') return preference;
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  } catch {
-    return 'light';
-  }
+  return preference === 'dark' ? 'dark' : 'light';
 }
 
 function applyMetaThemeColor(resolved) {

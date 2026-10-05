@@ -91,6 +91,7 @@ export default function MunicipalLightingPage() {
   const [toDate, setToDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [locatingAddress, setLocatingAddress] = useState(false);
+  const [coordinatesPending, setCoordinatesPending] = useState(false);
   const [addressLookupFailed, setAddressLookupFailed] = useState(false);
   const [editingLoading, setEditingLoading] = useState(false);
   const saveLock = useRef(false);
@@ -127,7 +128,7 @@ export default function MunicipalLightingPage() {
     Promise.all([
       supabase.from('demandas_municipais').select('id,protocolo,titulo,status,prazo_em').eq('prefeitura_id', context.municipality.id).eq('pole_id', selected.id).order('created_at', { ascending: false }).limit(8),
       supabase.from('reports').select('id,title,status').eq('city_id', cityId).eq('pole_id', selected.id).or('moderation_status.eq.approved,moderation_status.is.null').or('is_petition.eq.false,is_petition.is.null').order('created_at', { ascending: false }).limit(8),
-      supabase.from('pole_lighting_changes').select('id,changed_at,old_status,new_status,new_power_w,new_lamp_type,action,descricao_servico').eq('city_id', cityId).eq('pole_id', selected.id).order('changed_at', { ascending: false }).limit(5),
+      supabase.from('pole_lighting_changes').select('id,changed_at,old_status,new_status,new_power_w,new_lamp_type,action,descricao_servico,old_latitude,old_longitude,new_latitude,new_longitude').eq('city_id', cityId).eq('pole_id', selected.id).order('changed_at', { ascending: false }).limit(5),
     ]).then(([orders, reports, history]) => {
       if (active) setRelated({ orders: orders.data || [], reports: reports.data || [], history: history.data || [], loading: false, error: orders.error?.message || reports.error?.message || history.error?.message || '' });
     });
@@ -273,14 +274,18 @@ export default function MunicipalLightingPage() {
     setFormStep(0);
   };
   const updatePoleAddress = (value) => {
+    if (saveLock.current) return;
+    addressLookupGeneration.current++;
+    setLocatingAddress(false);
+    setAddressLookupFailed(false);
     addressEdited.current = true;
     setForm((current) => ({ ...current, address: value }));
   };
   const setPoleLocation = async (point) => {
     if (!context.canEditLighting || saveLock.current) return;
-    const lat = Number(point?.lat);
-    const lng = Number(point?.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const location = polePosition({ latitude: point?.lat, longitude: point?.lng });
+    if (!location) return;
+    const { lat, lng } = location;
     const generation = ++addressLookupGeneration.current;
     addressEdited.current = false;
     setAddressLookupFailed(false);
@@ -290,7 +295,7 @@ export default function MunicipalLightingPage() {
       const mapped = await supabase.rpc('mapped_street_address', { p_city_id: cityId, p_lat: lat, p_lng: lng }).maybeSingle();
       let address = !mapped.error ? mapped.data?.address : null;
       if (!address) {
-        const geocoded = await reverseGeocodePin({ lat, lng }, { invoke: supabase.functions.invoke.bind(supabase.functions) });
+        const geocoded = await reverseGeocodePin({ lat, lng }, { invoke: supabase.functions.invoke.bind(supabase.functions), zoom: 17 });
         address = geocoded?.address;
       }
       if (generation !== addressLookupGeneration.current) return;
@@ -331,12 +336,13 @@ export default function MunicipalLightingPage() {
 
   const save = async (action = 'updated') => {
     if (!context.canEditLighting || saveLock.current) return;
+    if (action !== 'removed' && (locatingAddress || coordinatesPending)) return;
     if (action !== 'removed' && !isStandardLampType(form.lamp_type)) {
       setFormStep(0);
       showAppError({ title: 'Escolha um tipo de lâmpada padronizado', description: 'O valor antigo foi preservado para consulta. Selecione uma opção do catálogo ou “Não informado” antes de salvar.', variant: 'destructive' });
       return;
     }
-    if (action === 'created' && (!form.identifier.trim() || !polePosition(form))) {
+    if (action !== 'removed' && (!form.identifier.trim() || !polePosition(form))) {
       setFormStep(1);
       showAppError({ title: 'Informe número e localização', description: 'Marque o pin no mapa e informe o número do poste.', variant: 'destructive' });
       return;
@@ -349,6 +355,7 @@ export default function MunicipalLightingPage() {
       return;
     }
     saveLock.current = true;
+    addressLookupGeneration.current++;
     const generation = ++saveGeneration.current;
     setSaving(true);
     try {
@@ -356,8 +363,8 @@ export default function MunicipalLightingPage() {
       const { error: saveError, data } = await supabase.rpc('gerir_iluminacao_municipal_detalhado', {
         p_city_id: cityId, p_action: action, p_pole_id: form.id,
         p_number: poleCode(form.identifier) || null, p_address: address || null,
-        p_lat: action === 'created' ? Number(form.latitude) : null,
-        p_lng: action === 'created' ? Number(form.longitude) : null,
+        p_lat: action === 'removed' ? null : Number(form.latitude),
+        p_lng: action === 'removed' ? null : Number(form.longitude),
         p_lamp_type: normalizeLampType(form.lamp_type) || null,
         p_power_w: form.lamp_power_w === '' ? null : Number(form.lamp_power_w),
         p_status: action === 'removed' ? 'removido' : form.lighting_status,
@@ -465,8 +472,8 @@ export default function MunicipalLightingPage() {
       description={creating ? 'Cadastre a lâmpada e a localização.' : 'Atualize a lâmpada e a localização.'}
       activeSection={formStep}
       navigation={<div aria-label="Etapas do cadastro do poste"><div className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-brand">Etapa {formStep + 1} de {POLE_FORM_STEPS.length}</span><span className="font-medium text-content-secondary">{POLE_FORM_STEPS[formStep]}</span></div><ol className="mt-2 grid grid-cols-2 gap-1.5">{POLE_FORM_STEPS.map((label, index) => <li key={label} aria-current={index === formStep ? 'step' : undefined} aria-label={`${index + 1}. ${label}`} className={'h-1.5 rounded-full ' + (index <= formStep ? 'bg-brand' : 'bg-surface-subtle')} />)}</ol></div>}
-      footer={<div className="flex items-center justify-between gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => formStep === 0 ? closePoleForm() : setFormStep((step) => step - 1)}>{formStep === 0 ? 'Cancelar' : 'Voltar'}</Button><div className="flex items-center gap-2">{formStep === POLE_FORM_STEPS.length - 1 && selected && context.canEditLighting && selected.lighting_status !== 'removido' && <Button type="button" variant="outline" disabled={saving} onClick={async () => { if (await confirmApp({ title: 'Remover este poste?', description: 'O poste sairá do mapa ativo. O histórico será mantido.', confirmLabel: 'Remover poste', destructive: true })) save('removed'); }}><Trash2 className="mr-1.5 h-4 w-4" />Remover</Button>}{context.canEditLighting && <Button type="button" disabled={saving} onClick={() => formStep === POLE_FORM_STEPS.length - 1 ? save(creating ? 'created' : 'updated') : continuePoleForm()}>{saving ? 'Salvando…' : formStep === POLE_FORM_STEPS.length - 1 ? 'Salvar poste' : 'Continuar'}</Button>}</div></div>}>
-      <MunicipalPoleFormSteps key={form.id ?? 'new'} step={formStep} form={form} setForm={setForm} creating={creating} selected={selected} saving={saving} locatingAddress={locatingAddress} addressLookupFailed={addressLookupFailed} center={center} city={context.municipality.cidade} onLocationChange={setPoleLocation} onAddressChange={updatePoleAddress} />
+      footer={<div className="flex items-center justify-between gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => formStep === 0 ? closePoleForm() : setFormStep((step) => step - 1)}>{formStep === 0 ? 'Cancelar' : 'Voltar'}</Button><div className="flex items-center gap-2">{formStep === POLE_FORM_STEPS.length - 1 && selected && context.canEditLighting && selected.lighting_status !== 'removido' && <Button type="button" variant="outline" disabled={saving} onClick={async () => { if (await confirmApp({ title: 'Remover este poste?', description: 'O poste sairá do mapa ativo. O histórico será mantido.', confirmLabel: 'Remover poste', destructive: true })) save('removed'); }}><Trash2 className="mr-1.5 h-4 w-4" />Remover</Button>}{context.canEditLighting && <Button type="button" disabled={saving || (formStep === POLE_FORM_STEPS.length - 1 && (locatingAddress || coordinatesPending))} onClick={() => formStep === POLE_FORM_STEPS.length - 1 ? save(creating ? 'created' : 'updated') : continuePoleForm()}>{saving ? 'Salvando…' : formStep === POLE_FORM_STEPS.length - 1 ? 'Salvar poste' : 'Continuar'}</Button>}</div></div>}>
+      <MunicipalPoleFormSteps key={form.id ?? 'new'} step={formStep} form={form} setForm={setForm} creating={creating} selected={selected} saving={saving} canEditLocation={context.canEditLighting} onCoordinatesPendingChange={setCoordinatesPending} locatingAddress={locatingAddress} addressLookupFailed={addressLookupFailed} center={center} city={context.municipality.cidade} onLocationChange={setPoleLocation} onAddressChange={updatePoleAddress} />
     </MunicipalDrawer>
   </div>;
 }

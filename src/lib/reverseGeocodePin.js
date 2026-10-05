@@ -39,7 +39,8 @@ export function normalizeReverseGeocode(payload) {
   const state_uf = String(payload.state_uf || (iso.startsWith('BR-') ? iso.slice(3) : STATE_UF[fields.state] || '')).trim();
   const cityDistrict = String(fields.city_district || '').trim();
   const rawSuburb = [payload.suburb, fields.suburb, fields.neighbourhood, fields.quarter,
-    cityDistrict.toLocaleLowerCase('pt-BR') !== city.toLocaleLowerCase('pt-BR') ? cityDistrict : null]
+    cityDistrict.toLocaleLowerCase('pt-BR') !== city.toLocaleLowerCase('pt-BR') ? cityDistrict : null,
+    detailedCity && county && detailedCity !== county && detailedCity !== city ? detailedCity : null]
     .map((value) => String(value || '').trim()).find(Boolean) || '';
   const suburb = canonicalReportNeighborhood(rawSuburb, city, state_uf);
   const road = String(fields.road || fields.pedestrian || fields.footway || '').trim();

@@ -99,6 +99,7 @@ import AmbassadorPage from '@/pages/AmbassadorPage';
 import ManageMastersPage from '@/pages/admin/ManageMastersPage';
 import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
 import CompleteProfilePage from '@/pages/CompleteProfilePage';
+import { shouldCompleteProfile } from '@/lib/profileOnboarding';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
@@ -132,7 +133,7 @@ import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 import AudienceTracker from '@/components/AudienceTracker';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 import FollowingActivityPage from '@/pages/FollowingActivityPage';
-import { hasMunicipalityPanelAccess, shouldRedirectMunicipalityUser } from '@/lib/municipalityAccess';
+import { shouldRedirectMunicipalityUser } from '@/lib/municipalityAccess';
 
 const SEO = () => {
   const location = useLocation();
@@ -270,11 +271,6 @@ const SEO = () => {
   );
 };
 
-// Profile obrigatório: quem entrou (inclusive via Google) sem telefone, cidade
-// ou sem aceitar os termos precisa completar o cadastro antes de usar o app.
-const isProfileIncomplete = (user) =>
-  !!user && (!user.phone || !user.city_id || !user.terms_accepted_at);
-
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -282,7 +278,7 @@ const PrivateRoute = ({ children }) => {
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-  if (!hasMunicipalityPanelAccess(user) && isProfileIncomplete(user) && location.pathname !== '/completar-cadastro') {
+  if (shouldCompleteProfile({ user, loading, pathname: location.pathname })) {
     return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
   }
   return children;
@@ -722,6 +718,13 @@ function AppShell() {
 
   if (!authLoading && shouldRedirectMunicipalityUser(user, location.pathname)) {
     return <Navigate to="/prefeitura/visao-geral" replace />;
+  }
+
+  // O retorno OAuth e as páginas públicas (feed/mapa) também passam pelo gate.
+  // Visitantes continuam navegando; uma sessão com dados faltantes deve concluir
+  // o cadastro mesmo ao abrir um link direto ou reiniciar o app nativo.
+  if (shouldCompleteProfile({ user, loading: authLoading, pathname: location.pathname })) {
+    return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
   }
 
   return (

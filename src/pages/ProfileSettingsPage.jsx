@@ -46,8 +46,8 @@ export default function ProfileSettingsPage() {
         <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1">
           <h2 className="text-sm font-extrabold text-content-primary">Aparência</h2>
           <p className="mt-0.5 text-xs text-content-secondary">Escolha como o aplicativo deve ser exibido.</p>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {[{ key: 'light', label: 'Claro' }, { key: 'dark', label: 'Escuro' }, { key: 'system', label: 'Automático' }].map((option) => {
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {[{ key: 'light', label: 'Claro' }, { key: 'dark', label: 'Escuro' }].map((option) => {
               const active = preference === option.key;
               return <button key={option.key} type="button" onClick={() => setPreference(option.key)} aria-pressed={active} className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition ${active ? 'border-brand bg-brand-subtleBg text-brand' : 'border-edge-subtle bg-surface-base text-content-secondary hover:text-content-primary'}`}>{option.label}</button>;
             })}

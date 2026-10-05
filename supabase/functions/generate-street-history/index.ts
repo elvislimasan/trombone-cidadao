@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { streetHistoryResponseError } from "../_shared/streetHistoryResponse.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -913,6 +914,17 @@ Retorne somente o JSON solicitado.
     const candidate =
       gemini?.candidates?.[0];
 
+    const responseFailure = streetHistoryResponseError(gemini);
+    if (responseFailure) {
+      console.error("[generate-street-history] Resposta interrompida:", {
+        ...responseFailure, model, generationId, documentCount: documents.length,
+        promptFeedback: gemini?.promptFeedback, safetyRatings: candidate?.safetyRatings,
+      });
+      throw Object.assign(new Error(responseFailure.message), {
+        code: responseFailure.code, providerReason: responseFailure.providerReason,
+      });
+    }
+
     /*
      * Verifica bloqueio ou motivo de parada
      */
@@ -922,17 +934,6 @@ Retorne somente o JSON solicitado.
         "[generate-street-history] Gemini sem candidate:",
         gemini,
       );
-
-      const blockReason =
-        gemini
-          ?.promptFeedback
-          ?.blockReason;
-
-      if (blockReason) {
-        throw new Error(
-          `O Gemini bloqueou a análise. Motivo: ${blockReason}.`,
-        );
-      }
 
       throw new Error(
         "O Gemini não retornou nenhuma resposta válida.",
@@ -975,15 +976,14 @@ Retorne somente o JSON solicitado.
       candidate
         ?.content
         ?.parts
-        ?.find(
+        ?.filter(
           (
             part: any,
           ) =>
-            typeof part
+            !part?.thought && typeof part
               ?.text ===
             "string",
-        )
-        ?.text;
+        )?.map((part: any) => part.text).join("");
 
     if (!rawText) {
       console.error(
@@ -1178,6 +1178,7 @@ Retorne somente o JSON solicitado.
       },
     });
   } catch (error) {
+    const failure = error as Error & { code?: string; providerReason?: string };
     const message =
       getErrorMessage(
         error,
@@ -1214,7 +1215,7 @@ Retorne somente o JSON solicitado.
             "failed",
 
           error_code:
-            message.slice(
+            (failure.code ? `${failure.code}:${failure.providerReason || ""}` : message).slice(
               0,
               200,
             ),
@@ -1247,8 +1248,10 @@ Retorne somente o JSON solicitado.
     return json(
       {
         error: message,
+        code: failure.code || "generation_failed",
+        provider_reason: failure.providerReason || null,
       },
-      500,
+      failure.code?.startsWith("ai_") ? 422 : 500,
     );
   }
 });

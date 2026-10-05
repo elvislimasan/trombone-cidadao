@@ -225,8 +225,10 @@ serve(async (req) => {
       const rawCityDistrict = String(detailedAddress.city_district ?? "").trim()
       const cityDistrict = rawCityDistrict && rawCityDistrict.toLowerCase() !== (city ?? "").trim().toLowerCase()
         ? rawCityDistrict : ""
-      const suburb = String(detailedAddress.suburb ?? detailedAddress.neighbourhood
-        ?? detailedAddress.quarter ?? cityDistrict ?? "").trim() || null
+      const suburb = [detailedAddress.suburb, detailedAddress.neighbourhood,
+        detailedAddress.quarter, cityDistrict,
+        detailedCity && detailedCounty && detailedCity !== detailedCounty && detailedCity !== city ? detailedCity : ""]
+        .map((value) => String(value ?? "").trim()).find(Boolean) || null
       result = { address: buildAddress(detail), city, state_uf, suburb, raw: detail }
     }
 

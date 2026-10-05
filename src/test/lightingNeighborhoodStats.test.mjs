@@ -27,3 +27,16 @@ test('agrupa cada poste com problema uma vez pelo bairro conhecido mais recente'
     { name: 'Bairro não informado', count: 1 },
   ]);
 });
+
+test('estatísticas recuperam bairro do endereço atual e unificam DNER sem contar postes removidos', () => {
+  const poles = [
+    { id: 1, address: 'Rua A - Centro - Floresta', lighting_status: 'apagado' },
+    { id: 2, raw_properties: { neighborhood: 'DNER' }, lighting_status: 'apagado' },
+    { id: 3, raw_properties: { municipal: { bairro: 'São Francisco de Assis - DNER' } }, is_broken: true },
+    { id: 4, lighting_status: 'removido', is_broken: true, address: 'Rua B - Centro' },
+  ];
+  assert.deepEqual(problemPolesByNeighborhood(poles, [], [], true, [{ name: 'Centro' }, { name: 'São Francisco de Assis (DNER)' }]), [
+    { name: 'São Francisco de Assis (DNER)', count: 2, poleIds: [2, 3] },
+    { name: 'Centro', count: 1, poleIds: [1] },
+  ]);
+});

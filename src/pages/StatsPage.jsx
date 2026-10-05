@@ -2,7 +2,7 @@ import { poleCode } from '@/lib/poleDisplay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar, Cell, PieChart, Pie, LabelList, Label } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie, LabelList, Label } from 'recharts';
 import { toPng } from 'html-to-image';
 import { supabase } from '@/lib/customSupabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,6 @@ import { Combobox } from '@/components/ui/combobox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import WorksStatsReports from '@/components/WorksStatsReports';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
-import { MapPin, Check, Globe, Search } from 'lucide-react';
 import CitySelector from '@/components/CitySelector';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -26,6 +25,7 @@ import { salvarDocumento, pdfParaBase64 } from '@/lib/nativeDownload';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { showAppError } from '@/lib/appError';
 import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
+import { pendingReportsByCategory } from '@/lib/reportStatistics';
 
 // Le o valor computado de um token de design em runtime. O Recharts recebe
 // cor por prop JS (nao por classe CSS), entao os tokens de grafico (canal
@@ -226,6 +226,7 @@ const ReportsStats = () => {
           .from('reports')
           .select('*, category:categories(id, name)')
           .eq('moderation_status', 'approved')
+          .eq('is_public', true)
           .neq('status', 'duplicate');
         if (activeCityId) query = query.eq('city_id', activeCityId);
         const { data, error } = await query
@@ -348,16 +349,8 @@ const ReportsStats = () => {
     // O gráfico de categorias continua mostrando todas as categorias mesmo com
     // filtro ativo (uma barra só não diz nada) — a selecionada fica destacada
     // e as outras esmaecidas, ver fillOpacity das Cells.
-    const counts = new Map();
-    (stats.reports || []).forEach((report) => {
-      const id = String(report.category?.id ?? 'outros');
-      const entry = counts.get(id) || { id, name: report.category?.name || 'Outros', value: 0 };
-      entry.value += 1;
-      counts.set(id, entry);
-    });
     setCategoryData(
-      Array.from(counts.values())
-        .sort((a, b) => b.value - a.value)
+      pendingReportsByCategory(stats.reports)
         .map((entry, index) => ({ ...entry, fill: COLORS[index % COLORS.length] }))
     );
     // COLORS e so um apelido para chartColors.categories (mesma referencia
@@ -767,7 +760,6 @@ const ReportsStats = () => {
   const goToPrevYear = () => { if (hasPrevYear) setSelectedYear(availableYears[yearIndex - 1]); };
   const goToNextYear = () => { if (hasNextYear) setSelectedYear(availableYears[yearIndex + 1]); };
 
-  const showBuracosInsight = categoryFilter === 'buracos' && stats.waterUtility.totalBuracos > 0;
   const buracosPercentValue = stats.waterUtility.percentualFromWaterUtility || 0;
   const buracosPercentLabel = buracosPercentValue.toLocaleString('pt-BR', {
     minimumFractionDigits: buracosPercentValue > 0 && buracosPercentValue < 1 ? 1 : 0,
@@ -954,13 +946,14 @@ const ReportsStats = () => {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <CardTitle className="text-sm md:text-base text-content-primary">
-                    {categoryFilter === 'buracos' ? 'Buracos — origem do problema' : 'Broncas por categoria'}
+                    {categoryFilter === 'buracos' ? 'Buracos — origem do problema' : 'Broncas pendentes por categoria'}
                   </CardTitle>
                   {categoryFilter === 'buracos' && (
                     <p className="mt-1 text-xs text-content-secondary">
                       Total de buracos: <span className="font-semibold">{stats.waterUtility.totalBuracos}</span>
                     </p>
                   )}
+                  {categoryFilter !== 'buracos' && <p className="mt-1 text-xs text-content-secondary">Somente broncas públicas aprovadas com status pendente.</p>}
                 </div>
                 <div className="w-full sm:w-[190px]">
                   <span className="mb-1 block text-xs font-medium text-content-secondary">Categoria</span>
@@ -1056,10 +1049,10 @@ const ReportsStats = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={categoryData} layout="vertical" margin={{ top: 8, right: 24, left: 12, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} />
+                      <XAxis type="number" allowDecimals={false} stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 12 }} />
                       <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" name="Quantidade" radius={[0, 8, 8, 0]} barSize={18}>
+                      <Bar dataKey="value" name="Pendentes" radius={[0, 8, 8, 0]} barSize={18}>
                         <LabelList dataKey="value" position="right" style={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
                         {categoryData.map((entry, index) => (
                           <Cell

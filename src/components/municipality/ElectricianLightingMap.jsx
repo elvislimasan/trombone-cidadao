@@ -1,9 +1,9 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RotateCcw, Search } from 'lucide-react';
+import { RotateCcw, Search, X } from 'lucide-react';
 import MunicipalLightingMap, { lightingStatus } from '@/components/municipality/MunicipalLightingMap';
-import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
+import { Drawer, BottomSheetContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -166,7 +166,7 @@ export default function ElectricianLightingMap({ municipality }) {
   const currentStatus = selected && (activeReports.length > 0 ? 'apagado' : lightingStatus(selected));
   return <div className="electrician-lighting-map relative h-full min-h-0 min-w-0 overflow-hidden">
     <h1 className="sr-only">Mapa de iluminação para eletricistas</h1>
-    <MunicipalLightingMap fullBleed startAtCurrentLocation center={center} focus={focus} items={items} selected={selected}
+    <MunicipalLightingMap fullBleed showCurrentLocation center={center} focus={focus} items={items} selected={selected}
       loading={loading} count={count} onBounds={onBounds} onSelect={openPole} />
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[1200] space-y-2 p-3 sm:p-4">
       <div className="pointer-events-auto flex max-w-lg gap-2">
@@ -181,10 +181,13 @@ export default function ElectricianLightingMap({ municipality }) {
       </div>}
     </div>
     {error && <p role="alert" className="absolute bottom-20 left-3 right-3 z-[1200] rounded-xl bg-surface-raised p-3 text-xs text-danger shadow-lg">{error}</p>}
-    <MunicipalDrawer open={Boolean(selected)} onClose={() => setSelected(null)} title={poleDisplayLabel(selected)}
-      description={selected?.address || 'Endereço não informado'} variant="poleDetails" busy={saving}
-      footer={<Button type="submit" form="electrician-pole-update" disabled={saving || ((serviceDone || (reportId && status === 'aceso')) && !services.length) || (status === 'aceso' && activeReports.length > 0 && !reportId) || Boolean(detailError) || historyLoading} className="w-full">{saving ? 'Salvando…' : reportId && status === 'aceso' ? 'Salvar e resolver solicitação' : activeReports.length > 0 ? 'Salvar sem resolver solicitação' : serviceDone ? 'Registrar serviço atendido' : 'Salvar dados do poste'}</Button>}>
-      {selected && <div className="space-y-5">
+    <Drawer open={Boolean(selected)} onOpenChange={(open) => { if (!open && !saving) { selectionId.current++; setSelected(null); } }} dismissible={!saving}>
+      <BottomSheetContent>
+        <DrawerHeader className="shrink-0 flex-row items-start justify-between gap-3 border-b border-edge-subtle px-4 pb-3 text-left">
+          <div className="min-w-0"><DrawerTitle className="break-words font-display text-lg font-extrabold">{poleDisplayLabel(selected)}</DrawerTitle><DrawerDescription className="mt-1 break-words text-xs text-content-secondary">{selected?.address || 'Endereço não informado'}</DrawerDescription></div>
+          <DrawerClose asChild><button type="button" disabled={saving} aria-label="Fechar poste" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50"><X className="h-5 w-5" /></button></DrawerClose>
+        </DrawerHeader>
+      {selected && <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
         <p className="text-sm text-content-secondary">Situação atual no mapa: <strong className="text-content-primary">{STATUS_LABEL[currentStatus] || 'Sem problema registrado'}</strong></p>
         <form id="electrician-pole-update" onSubmit={save} className="space-y-4">
           <label className="block text-sm font-semibold">Situação após a visita<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={saving || historyLoading} className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">{Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -198,6 +201,8 @@ export default function ElectricianLightingMap({ municipality }) {
         {detailError && <p role="alert" className="text-sm text-danger">{detailError}</p>}
         <section className="border-t border-edge-subtle pt-4"><h2 className="text-sm font-bold">Histórico do poste</h2>{historyLoading ? <p className="mt-2 text-xs text-content-secondary">Carregando histórico…</p> : history.length ? <ol className="mt-3 space-y-3">{history.map((entry) => <li key={entry.id} className="border-l-2 border-brand/40 pl-3"><span className="text-[11px] text-content-secondary">{formatDate(entry.changed_at)}</span><p className="text-xs font-semibold">{STATUS_LABEL[entry.new_status] || entry.new_status}</p>{entry.descricao_servico && <p className="mt-1 whitespace-pre-line text-xs text-content-secondary">{entry.descricao_servico}</p>}</li>)}</ol> : <p className="mt-2 text-xs text-content-secondary">Nenhuma atualização registrada.</p>}</section>
       </div>}
-    </MunicipalDrawer>
+        <footer className="shrink-0 border-t border-edge-subtle bg-surface-raised px-4 pt-3 pb-[max(1rem,var(--safe-area-bottom,0px))]"><Button type="submit" form="electrician-pole-update" disabled={saving || ((serviceDone || (reportId && status === 'aceso')) && !services.length) || (status === 'aceso' && activeReports.length > 0 && !reportId) || Boolean(detailError) || historyLoading} className="min-h-12 w-full">{saving ? 'Salvando…' : reportId && status === 'aceso' ? 'Salvar e resolver solicitação' : activeReports.length > 0 ? 'Salvar sem resolver solicitação' : serviceDone ? 'Registrar serviço atendido' : 'Salvar dados do poste'}</Button></footer>
+      </BottomSheetContent>
+    </Drawer>
   </div>;
 }

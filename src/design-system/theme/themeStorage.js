@@ -1,9 +1,9 @@
 import { Capacitor } from '@capacitor/core';
 
 const STORAGE_KEY = 'tc_theme_preference';
-const VALID = new Set(['light', 'dark', 'system']);
+const VALID = new Set(['light', 'dark']);
 
-const normalize = (value) => (VALID.has(value) ? value : 'system');
+const normalize = (value) => (VALID.has(value) ? value : 'light');
 
 export async function loadThemePreference() {
   try {
@@ -16,7 +16,7 @@ export async function loadThemePreference() {
   try {
     return normalize(localStorage.getItem(STORAGE_KEY));
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 

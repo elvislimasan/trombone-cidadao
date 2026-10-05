@@ -85,6 +85,24 @@ function DrawerHeader({ className, ...props }) {
   )
 }
 
+// Folha compartilhada pelos comentários, atualizações e visita ao poste.
+// A largura confortável é do modal; a página por trás continua fluida.
+function BottomSheetContent({ className, ...props }) {
+  return (
+    <DrawerContent
+      className={cn(
+        'min-h-0 min-w-0 overflow-hidden rounded-t-3xl border-edge-subtle bg-surface-raised text-content-primary shadow-2xl',
+        'data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:max-h-[min(94dvh,calc(100dvh-var(--header-safe-top,0px)-0.75rem))]',
+        'data-[vaul-drawer-direction=bottom]:rounded-t-3xl',
+        'pl-[var(--safe-area-left,0px)] pr-[var(--safe-area-right,0px)]',
+        'sm:mx-auto sm:w-[calc(100%-2rem)] sm:max-w-lg',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 function DrawerFooter({ className, ...props }) {
   return (
     <div
@@ -128,6 +146,7 @@ export {
   DrawerTrigger,
   DrawerClose,
   DrawerContent,
+  BottomSheetContent,
   DrawerHeader,
   DrawerFooter,
   DrawerTitle,
