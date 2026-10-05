@@ -20,6 +20,7 @@ import {
   FONTE_COMUNIDADE,
   FONTE_MODERACAO,
   FONTE_ORGAO,
+  FONTE_SISTEMA,
   linhaDoTempo,
   linhaDoTempoPublica,
   antesEDepois,
@@ -173,6 +174,78 @@ test('verificada pela comunidade apaga o aviso de dependência', () => {
   assert.equal(r.etapaAtual, 'verificada');
   assert.equal(r.aviso, null);
   assert.equal(r.falta, null);
+});
+
+test('serviço do eletricista e resolução pela gestão aparecem como resolvida pela prefeitura', () => {
+  // Os dois fluxos gravam o atendimento individual retornado pela mesma RPC.
+  // A ordem pode continuar aberta enquanto o eletricista atende outras broncas.
+  for (const status of ['em_andamento', 'concluida']) {
+    const r = linhaDoTempoPublica({
+      report: bronca({ status: 'resolved' }),
+      atendimentoMunicipal: {
+        status,
+        resolvida_pela_equipe: true,
+        executada_em: '2026-08-18T15:00:00Z',
+        orgao: 'Secretaria de Iluminação',
+      },
+    });
+    const resolucao = r.eventos.find((e) => e.etapa === 'verificada');
+    assert.equal(resolucao.titulo, 'Resolvida pela prefeitura');
+    assert.equal(resolucao.fonte, FONTE_ORGAO);
+    assert.equal(resolucao.autorNome, 'Secretaria de Iluminação');
+    assert.equal(resolucao.em.toISOString(), '2026-08-18T15:00:00.000Z');
+    assert.equal(r.falta, null);
+    assert.equal(r.aviso, null);
+  }
+});
+
+test('atendimento municipal prevalece sobre confirmações posteriores da comunidade', () => {
+  const r = linhaDoTempo({
+    report: bronca({ status: 'resolved' }),
+    atualizacoes: [
+      atualizacao({ author_id: VIZINHO, update_type: 'solved' }),
+      atualizacao({ author_id: OUTRO, update_type: 'solved' }),
+    ],
+    atendimentoMunicipal: { resolvida_pela_equipe: true, executada_em: '2026-08-04T10:00:00Z' },
+  });
+  const resolucao = r.eventos.find((e) => e.etapa === 'verificada');
+  assert.equal(resolucao.fonte, FONTE_ORGAO);
+  assert.equal(resolucao.em.toISOString(), '2026-08-04T10:00:00.000Z');
+});
+
+test('execução informada sem resolução individual não é atribuída à prefeitura', () => {
+  const r = linhaDoTempo({
+    report: bronca({ status: 'resolved' }),
+    atendimentoMunicipal: { status: 'concluida', resolvida_pela_equipe: false, executada_em: '2026-08-18T15:00:00Z' },
+  });
+  const resolucao = r.eventos.find((e) => e.etapa === 'verificada');
+  assert.equal(resolucao.fonte, FONTE_SISTEMA);
+  assert.equal(resolucao.titulo, 'Registrada como resolvida');
+  assert.equal(resolucao.em, null);
+});
+
+test('bronca reaberta não reutiliza o registro de resolução municipal anterior', () => {
+  const r = linhaDoTempo({
+    report: bronca({ status: 'in-progress' }),
+    atendimentoMunicipal: { resolvida_pela_equipe: true, executada_em: '2026-08-18T15:00:00Z' },
+  });
+  assert.ok(!r.eventos.some((e) => e.etapa === 'verificada'));
+});
+
+test('resolução sem origem conhecida não é atribuída à moderação', () => {
+  const r = linhaDoTempo({ report: bronca({ status: 'resolved' }) });
+  const resolucao = r.eventos.find((e) => e.etapa === 'verificada');
+  assert.equal(resolucao.fonte, FONTE_SISTEMA);
+  assert.equal(resolucao.titulo, 'Registrada como resolvida');
+});
+
+test('confirmação por moderador mantém a origem da moderação', () => {
+  const r = linhaDoTempo({
+    report: bronca({ status: 'resolved' }),
+    atualizacoes: [atualizacao({ update_type: 'solved' })],
+    moderadores: [VIZINHO],
+  });
+  assert.equal(r.eventos.find((e) => e.etapa === 'verificada').fonte, FONTE_MODERACAO);
 });
 
 // ── Proveniência e motivo da recusa ──────────────────────────────────────────

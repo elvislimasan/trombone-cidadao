@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
 import { CalendarDays, ClipboardList, Clock3, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/lib/customSupabaseClient';
 import { Button } from '@/components/ui/button';
 import DemandAttachments from '@/components/municipality/DemandAttachments';
 
@@ -18,15 +16,7 @@ const stages = {
 };
 const date = (value) => new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
-export default function ReportMunicipalService({ reportId, reportStatus, onVerify }) {
-  const [service, setService] = useState(null);
-  useEffect(() => {
-    let active = true;
-    setService(null);
-    supabase.rpc('atendimento_publico_bronca', { p_report: reportId })
-      .then(({ data, error }) => { if (active && !error) setService(data); });
-    return () => { active = false; };
-  }, [reportId, reportStatus]);
+export default function ReportMunicipalService({ service, reportStatus, onVerify }) {
   if (!service) return null;
   const executed = ['concluida', 'aguardando_confirmacao'].includes(service.status) && service.executada_em;
   const [stage, explanation] = service.resolvida_pela_equipe

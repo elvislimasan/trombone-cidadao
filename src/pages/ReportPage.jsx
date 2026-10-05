@@ -111,6 +111,7 @@ const ReportPage = () => {
   const [submittingUpdate, setSubmittingUpdate] = useState(false);
   const [reportUpdates, setReportUpdates] = useState([]);
   const [officialSteps, setOfficialSteps] = useState([]);
+  const [municipalService, setMunicipalService] = useState(null);
   const [showAllUpdates, setShowAllUpdates] = useState(false);
   const [confirmingUpdateId, setConfirmingUpdateId] = useState(null);
   const [deletingUpdateId, setDeletingUpdateId] = useState(null);
@@ -1171,6 +1172,18 @@ const ReportPage = () => {
     fetchReport();
   }, [fetchReport]);
 
+  // O histórico e o painel usam o mesmo atendimento. Recarregar ao mudar o
+  // status também cobre alterações locais, como a reabertura pela moderação.
+  useEffect(() => {
+    let active = true;
+    setMunicipalService(null);
+    supabase.rpc("atendimento_publico_bronca", { p_report: reportId })
+      .then(({ data, error }) => {
+        if (active && !error) setMunicipalService(data);
+      });
+    return () => { active = false; };
+  }, [reportId, report?.status]);
+
   // Auto-open update modal when navigated from FeedCard prompt
   useEffect(() => {
     if (location.state?.openUpdateModal && user && !loading) {
@@ -1638,6 +1651,7 @@ const ReportPage = () => {
                     report={report}
                     atualizacoes={reportUpdates}
                     etapasOficiais={officialSteps}
+                    atendimentoMunicipal={municipalService}
                     formatDateTime={formatDateTime}
                     onAbrirEvidencia={(media, startIndex) =>
                       setUpdateMediaViewer({
@@ -1648,7 +1662,7 @@ const ReportPage = () => {
                     }
                   />
 
-                  <ReportMunicipalService reportId={reportId} reportStatus={report.status} onVerify={(type) => {
+                  <ReportMunicipalService service={municipalService} reportStatus={report.status} onVerify={(type) => {
                     if (!user) { navigate('/login'); return; }
                     setUpdateType(type); setShowUpdateModal(true);
                   }} />
