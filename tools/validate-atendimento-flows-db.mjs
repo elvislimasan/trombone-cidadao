@@ -87,6 +87,7 @@ try {
     create operator extensions.<-> (leftarg=extensions.geography,rightarg=extensions.geography,function=extensions.distance_points);
     alter table reports add column location extensions.geometry, add column is_public boolean default true,
       add column protocol text, add column issue_type text, add column pole_number text,
+      add column reported_post_identifier text, add column reported_plate text,
       add column created_by_municipality uuid references prefeituras(id);
     alter table poles add column latitude double precision,add column longitude double precision,
       add column geom extensions.geography,add column lamp_type text,add column lamp_power_w numeric,
@@ -117,7 +118,7 @@ try {
   };
   await db.query(['pode_ver_demanda','pode_operar_demanda','validar_demanda_municipal','salvar_demanda_municipal'].map((name)=>functionFrom(source304,name)).join('\n'));
   await db.query("alter table orgao_membros drop constraint orgao_membros_papel_valido; alter table orgao_membros add constraint orgao_membros_papel_valido check(papel in ('gestor','operador','eletricista','leitura')); update orgao_membros set papel='eletricista';");
-  const migrations = [280,316,319,322,323,325,326,327,330,331,332,333,334,335,337,338,339];
+  const migrations = [280,316,319,322,323,325,326,327,330,331,332,333,334,335,337,338,339,342];
   const files=await fs.readdir('supabase/migrations');
   for(const number of migrations) {
     const file=files.find((name)=>name.startsWith(number+'_'));
@@ -133,6 +134,41 @@ try {
       JSON.stringify({identifier:'P001',lamp_type:'LED',lamp_power_w:50,lamp_count:1,service_type:services[0],service_types:services,resultado:result}),'[]'
     ])).rows[0].result;
   };
+  await check('previa mostra o mesmo poste antes e depois do aceite sem alterar o relato', async () => {
+    await db.query('reset role');
+    const report = (await db.query("insert into reports(id,title,category_id,city_id,author_id,location,pole_number) values(gen_random_uuid(),'Numero apagado','iluminacao',1,$1,point(-38,-8),'Numero apagado') returning id", [ids.citizen])).rows[0].id;
+    await db.query("insert into poles(id,city_id,identifier,geom,lighting_status) values (2,1,'X070337',point(-38.001,-8),'apagado'),(3,1,'REMOVIDO',point(-38,-8),'removido'),(4,2,'OUTRA_CIDADE',point(-38,-8),'apagado')");
+    await asUser(ids.operator);
+    const preview = (await db.query('select poste_oferta_eletricista($1,$2,$3) result',[ids.pref,'solicitacao',report])).rows[0].result;
+    assert.equal(preview.identifier,'X070337'); assert.equal(preview.nearby,true);
+    assert.equal((await db.query('select pole_id from reports where id=$1',[report])).rows[0].pole_id,null);
+    assert.equal((await db.query('select count(*)::int n from demandas_municipais')).rows[0].n,0);
+    const order = (await db.query('select aceitar_oferta_eletricista($1,$2,$3) id',[ids.pref,'solicitacao',report])).rows[0].id;
+    const linked = (await db.query('select * from solicitacoes_ordem_eletricista($1,$2)',[ids.pref,order])).rows[0];
+    assert.equal(String(linked.pole_id),String(preview.pole_id));
+    assert.equal((await db.query('select poste_oferta_eletricista($1,$2,$3) result',[ids.pref,'solicitacao',report])).rows[0].result,null);
+    await asUser(null,'anon');
+    await assert.rejects(db.query('select poste_oferta_eletricista($1,$2,$3)',[ids.pref,'solicitacao',report]),{code:'42501'});
+    await asUser(ids.other);
+    await assert.rejects(db.query('select poste_oferta_eletricista($1,$2,$3)',[ids.pref,'solicitacao',report]),/Sem acesso/);
+    await db.query('reset role');
+    await db.query('delete from demandas_municipais where id=$1',[order]);
+    await db.query('delete from report_official_steps where report_id=$1',[report]);
+    await db.query('delete from reports where id=$1',[report]);
+    await db.query('delete from poles where id in (2,3,4)');
+  });
+  await check('previa de ordem vinculada respeita a solicitacao ativa mesmo com outra localizacao na ordem', async () => {
+    await asUser(ids.admin);
+    await db.query("update reports set location=point(-38,-8),pole_id=1 where id=$1",[ids.report]);
+    await saved(ids.secondOrder,{...orderForm,atribuido_a:null,latitude:-7,longitude:-37},{reports:[ids.report]});
+    await asUser(ids.operator);
+    const preview=(await db.query('select poste_oferta_eletricista($1,$2,$3) result',[ids.pref,'ordem',ids.secondOrder])).rows[0].result;
+    assert.equal(preview.identifier,'P001'); assert.equal(preview.nearby,false);
+    await db.query('reset role');
+    await db.query('delete from demandas_municipais where id=$1',[ids.secondOrder]);
+    await db.query('delete from orgao_casos where report_id=$1',[ids.report]);
+    await db.query("update reports set pole_id=null,location=null,status='pending' where id=$1",[ids.report]);
+  });
   await asUser(ids.admin);
   await check('bloqueia categorias incompatíveis na gravação da ordem',async()=> {
     await assert.rejects(saved(ids.order,orderForm,{reports:[ids.report,ids.foreignReport]}),/só podem receber/);

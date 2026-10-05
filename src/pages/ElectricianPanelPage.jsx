@@ -14,7 +14,7 @@ import { collectExportRows } from '@/lib/municipalExport';
 import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 import { formatDistance, offerGroup, offerKey, orderStage, sortElectricianOffers } from '@/lib/electricianPanel';
 import { compactPoleReference, electricianVisitTitle, poleIdentifierFromTitle } from '@/lib/electricianPole';
-import { loadElectricianOfferPole } from '@/lib/electricianOfferPole';
+import { electricianOfferPoleCode, loadElectricianOfferPole } from '@/lib/electricianOfferPole';
 
 const OFFER_PAGE_SIZE = 60;
 const orderFields = 'id,protocolo,titulo,descricao,endereco,bairro,issue_type,prioridade,status,prazo_em,previsto_em,created_at,latitude,longitude,pole_id,report_id,revisao_pendente';
@@ -121,18 +121,17 @@ export default function ElectricianPanelPage() {
 
   const previewKey = preview ? offerKey(preview) : null;
   const resolvedPreviewPole = previewPole?.key === previewKey ? previewPole : null;
-  const previewPoleCode = resolvedPreviewPole?.code || compactPoleReference(poleLabels[preview?.pole_id]
+  const previewPoleCode = resolvedPreviewPole?.code || electricianOfferPoleCode(poleLabels[preview?.pole_id]
     || (preview?.pole_id && poleIdentifierFromTitle(preview?.titulo)) || '');
   const previewPoleNearby = Boolean(resolvedPreviewPole?.nearby);
-  const cityId = context.municipality?.city_id;
   useEffect(() => {
     let active = true;
     setPreviewPole(null);
-    if (preview) loadElectricianOfferPole(supabase, preview, cityId)
+    if (preview) loadElectricianOfferPole(supabase, preview, municipalityId)
       .then((pole) => { if (active && pole) setPreviewPole({ ...pole, key: offerKey(preview) }); })
       .catch(() => { /* Keep the opportunity available when the optional pole lookup fails. */ });
     return () => { active = false; };
-  }, [preview, cityId]);
+  }, [preview, municipalityId]);
 
   const refresh = useCallback(async () => {
     if (!municipalityId) return;
