@@ -33,6 +33,8 @@ export default function ElectricianLayout({ context, branding }) {
     navigate('/login', { replace: true });
   };
 
+  const patrolActive = location.pathname === panelPath + '/patrulha' || location.pathname.startsWith(panelPath + '/patrulha/');
+  if (patrolActive && !desktopUnavailable) return <Outlet context={context} />;
   return <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-surface-base text-content-primary">
     <header className="shrink-0 border-b border-edge-subtle bg-header-bg text-header-fg shadow-sm" style={{ paddingTop: 'var(--header-safe-top, 0px)', paddingLeft: 'var(--safe-area-left, 0px)', paddingRight: 'var(--safe-area-right, 0px)' }}>
       <div className="page-shell-fluid flex min-h-16 flex-wrap items-center justify-between gap-3 py-2">

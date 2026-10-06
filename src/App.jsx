@@ -118,6 +118,7 @@ import ElectricianPanelPage from '@/pages/ElectricianPanelPage';
 import ElectricianStatsPage from '@/pages/ElectricianStatsPage';
 import ElectricianOrderPage from '@/pages/ElectricianOrderPage';
 import ElectricianProfilePage from '@/pages/ElectricianProfilePage';
+import ElectricianPatrolPage from '@/pages/ElectricianPatrolPage';
 import MunicipalServiceSettingsPage from '@/pages/MunicipalServiceSettingsPage';
 import MunicipalityAccessPage from '@/pages/MunicipalityAccessPage';
 import MunicipalityInvitePage from '@/pages/MunicipalityInvitePage';
@@ -779,6 +780,9 @@ function AppShell() {
                 <Route path="/prefeitura/eletricista/estatisticas/geral" element={<MunicipalLightingStatsPage />} />
                 <Route path="/prefeitura/eletricista/ordem/:id" element={<ElectricianOrderPage />} />
                 <Route path="/prefeitura/eletricista/perfil" element={<ElectricianProfilePage />} />
+                <Route path="/prefeitura/eletricista/patrulha" element={<ElectricianPatrolPage />} />
+                <Route path="/prefeitura/eletricista/patrulha/ativa" element={<ElectricianPatrolPage running />} />
+                <Route path="/prefeitura/eletricista/patrulhas" element={<MyPatrolsPage electrician />} />
                 <Route path="/prefeitura/visao-geral" element={<MunicipalOverviewPage />} />
                 <Route path="/prefeitura/demandas" element={<MunicipalDemandsPage />} />
                 <Route path="/prefeitura/demandas/nova" element={<MunicipalDemandsPage view="form" />} />

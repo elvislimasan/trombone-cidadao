@@ -18,6 +18,7 @@ import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
 import { compactPoleReference, electricianPoleForm, electricianPolePayload, electricianVisitTitle, fillElectricianPoleIdentifier, poleIdentifierFromTitle } from '@/lib/electricianPole';
 import { clearElectricianDraft, electricianDraftHasWork, loadElectricianDraft, saveElectricianDraft } from '@/lib/electricianDraft';
 import { canResumeElectricianOrder, distanceBetweenPoints, formatDistance } from '@/lib/electricianPanel';
+import { ehErroDeRede } from '@/lib/offlineErros';
 
 const panelPath = '/prefeitura/eletricista';
 const serviceOptions = [['lamp_replacement', 'Troca de lâmpada'], ['arm_installation', 'Instalação de braço de luz'], ['relay_replacement', 'Troca de relé'], ['other', 'Outro serviço']];
@@ -333,17 +334,19 @@ export default function ElectricianOrderPage() {
     committingRef.current = true;
     const uploaded = [];
     let committed = false;
+    let submissionStarted = false;
     let localCleanupFailed = false;
     try {
       for (const pending of status === 'concluida' && !closeResolvedOrder ? files : []) {
         const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[pending.file.type];
-        const path = `${municipalityId}/${context.userId}/${pending.id}.${extension}`;
+        const path = `${municipalityId}/${context.userId}/${crypto.randomUUID()}.${extension}`;
         const { error: uploadError } = await supabase.storage.from('municipal-demand-files')
           .upload(path, pending.file, { contentType: pending.file.type });
         if (uploadError) throw uploadError;
         uploaded.push({ storage_path: path, nome: pending.file.name, mime_type: pending.file.type,
           tamanho: pending.file.size, tipo: 'conclusao', visibilidade: 'interna' });
       }
+      submissionStarted = true;
       const saveResponse = closeResolvedOrder ? await supabase.rpc('concluir_ordem_eletricista', {
         p_prefeitura: municipalityId, p_ordem: order.id, p_versao: order.versao,
       }) : status === 'concluida' && activeReport ? await supabase.rpc('atender_solicitacao_ordem_eletricista', {
@@ -380,9 +383,16 @@ export default function ElectricianOrderPage() {
       await load({ preserveDraft: status === 'em_andamento' });
       if (localCleanupFailed) setError('Execução enviada, mas o rascunho local não pôde ser apagado.');
     } catch (cause) {
-      if (!committed && uploaded.length) await supabase.storage.from('municipal-demand-files')
+      const networkFailure = ehErroDeRede(cause);
+      // Uma queda após o envio da RPC pode acontecer depois do COMMIT.
+      // Não apague evidências que podem já estar vinculadas ao atendimento.
+      if (!committed && !(submissionStarted && networkFailure) && uploaded.length) await supabase.storage.from('municipal-demand-files')
         .remove(uploaded.map((file) => file.storage_path)).catch(() => {});
-      setFormError(cause.code === '40001' ? 'O cadastro mudou durante o atendimento. Atualize a ordem e confira os dados atuais do poste antes de resolver.' : cause.message);
+      setFormError(committed ? 'O atendimento foi salvo, mas não foi possível atualizar a página. Recarregue a ordem para conferir.'
+        : networkFailure ? submissionStarted
+          ? 'A conexão caiu ao confirmar o atendimento. Seu rascunho foi mantido. Atualize a ordem para conferir se o serviço foi salvo antes de enviar novamente.'
+          : 'Não foi possível enviar os arquivos. Seu rascunho foi mantido. Confira sua conexão e tente novamente.'
+        : cause.code === '40001' ? 'O cadastro mudou durante o atendimento. Atualize a ordem e confira os dados atuais do poste antes de resolver.' : cause.message);
     } finally { committingRef.current = false; setSaving(false); }
   };
 

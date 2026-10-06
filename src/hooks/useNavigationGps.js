@@ -23,7 +23,7 @@ import { estimarMovimento, NAV_ALERTA, NAV_TRAJETO } from '@/lib/navGeo';
 // amostra mais antiga de que precisa.
 const BUFFER_MS = NAV_TRAJETO.janelaMaxMs + 4000;
 
-export function useNavigationGps({ ativo = true } = {}) {
+export function useNavigationGps({ ativo = true, restart = 0 } = {}) {
   const [posicao, setPosicao] = useState(null);
   const [erro, setErro] = useState(null);
 
@@ -114,7 +114,7 @@ export function useNavigationGps({ ativo = true } = {}) {
         try { navigator.geolocation.clearWatch(watchId); } catch {}
       }
     };
-  }, [ativo]);
+  }, [ativo, restart]);
 
   // ── Tela acesa ──
   //

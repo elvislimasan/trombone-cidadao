@@ -11,6 +11,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, Dr
 import { supabase } from '@/lib/customSupabaseClient';
 import jsPDF from 'jspdf';
 import { cepsDaRua, montarRelatorio, relatorioParaCsv } from '@/lib/pavementReport';
+import { getBaseAppUrl } from '@/lib/shareUtils';
 import { autoresDeProjetos, correspondeAoFiltroDeAutor, temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 import { resumoDeExtensao } from '@/lib/pavementLength';
 import PavementStats from '@/components/pavement/PavementStats';
@@ -465,6 +466,16 @@ const PavementMapPage = () => {
         body: secao.linhas,
         startY: y + 4,
         styles: { fontSize: 9 },
+        didParseCell: (data) => {
+          if (secao.colunas[data.column.index] === 'Página da rua' && /^https?:\/\//.test(String(data.cell.raw))) {
+            data.cell.styles.textColor = [37, 99, 235];
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section === 'body' && secao.colunas[data.column.index] === 'Página da rua' && /^https?:\/\//.test(String(data.cell.raw))) {
+            doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: String(data.cell.raw) });
+          }
+        },
       });
       y = doc.lastAutoTable.finalY + 6;
       doc.setFontSize(10);
@@ -477,6 +488,7 @@ const PavementMapPage = () => {
   // relatório de imóveis. Antes, os filtros da tela eram ignorados no download.
   const relatorioAtual = () => montarRelatorio(tipoRelatorio, filteredStreets, {
     cidade: activeCityName,
+    baseUrl: getBaseAppUrl(),
     atualizadoEm: lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null,
   });
 

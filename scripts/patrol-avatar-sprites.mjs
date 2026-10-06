@@ -61,6 +61,22 @@ const diagnostico = process.argv.includes('--diagnostico');
 // inteiro e alinhado como um bloco só.
 
 const FONTES = [
+  ...['masculino', 'feminino'].flatMap((sexo, linha) => [
+    {
+      arquivo: 'eletricista-poses.png',
+      grade: { colunas: 6, linhas: 2 },
+      recortes: [
+        { celula: [0, linha], saida: `${sexo}-eletricista-frente` },
+        { celula: [1, linha], saida: `${sexo}-eletricista-costas` },
+      ],
+    },
+    {
+      arquivo: 'eletricista-walk.png',
+      grade: { colunas: 4, linhas: 2 },
+      linha,
+      tira: { saida: `${sexo}-eletricista-costas-walk-4x1` },
+    },
+  ]),
   {
     arquivo: 'feminino-urbano-idle.png',
     grade: { colunas: 8, linhas: 2 },
@@ -211,7 +227,7 @@ const fatiarPose = async (fonte, recorte) => {
 const fatiarTira = async (fonte) => {
   const quadros = [];
   for (let coluna = 0; coluna < fonte.grade.colunas; coluna++) {
-    const crua = await celulaCrua(fonte.arquivo, fonte.grade, coluna, 0);
+    const crua = await celulaCrua(fonte.arquivo, fonte.grade, coluna, fonte.linha || 0);
     const caixa = caixaDoConteudo(crua.data, crua.info);
     if (!caixa) return { saida: fonte.tira.saida, erro: `quadro ${coluna} vazio` };
     quadros.push({ crua, caixa });
@@ -269,6 +285,8 @@ const fatiarTira = async (fonte) => {
 /* --- Execução --- */
 
 for (const fonte of FONTES) {
+  // Publicar a nova profissão não deve regravar os renders já publicados.
+  if (process.argv.includes('--eletricista') && !fonte.arquivo.startsWith('eletricista-')) continue;
   const caminho = path.join(FIGURA, fonte.arquivo);
   if (!fs.existsSync(caminho)) {
     console.log(`AUSENTE  ${fonte.arquivo}`);

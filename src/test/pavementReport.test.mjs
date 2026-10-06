@@ -44,6 +44,19 @@ const BASE = [
   rua({ name: 'Rua E', status: 'unpaved', is_unnamed: true }),
 ];
 
+test('ruas sem nome trazem coordenadas e link público em vez do status de pavimentação', () => {
+  const report=montarRelatorio('unnamed',[
+    rua({id:'1',slug:'rua-projetada-1',is_unnamed:true,location:{lat:-8.6,lng:-38.57}}),
+    rua({id:'2',name:'Rua Z',is_unnamed:true}),
+    rua({id:'3',is_unnamed:false}),
+  ],{baseUrl:'https://cidade.example/'});
+  assert.deepEqual(report.secoes[0].colunas,['Identificação provisória','Bairro','Coordenadas','Página da rua']);
+  assert.equal(report.secoes[0].linhas.length,2);
+  assert.deepEqual(report.secoes[0].linhas[0].slice(2),['-8.600000, -38.570000','https://cidade.example/share/rua/rua-projetada-1']);
+  assert.deepEqual(report.secoes[0].linhas[1].slice(2),['Não informadas','https://cidade.example/share/rua/2']);
+  assert.ok(relatorioParaCsv(report).includes('https://cidade.example/share/rua/2'));
+});
+
 /* --- CEP --- */
 
 test('uma rua pode ter varios CEPs, e a lista nova vence a coluna antiga', () => {

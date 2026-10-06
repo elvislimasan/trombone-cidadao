@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Tooltip, useMap } from 'react-leaflet';
 import { ArrowRight, Crosshair, Layers, LocateFixed, Maximize2, Minus, Navigation, Plus, X } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import SatelliteTileLayer from '@/components/map/SatelliteTileLayer';
 import { Button } from '@/components/ui/button';
 import { formatDistance } from '@/lib/electricianPanel';
 import { compactPoleReference, electricianVisitTitle } from '@/lib/electricianPole';
@@ -38,7 +39,7 @@ function MapTools({ points, selected, hasSelection, onLocate, locating, satellit
   </div>;
 }
 
-export default function ElectricianServicesMap({ items, selectedId, onSelect, position, compact = false, fullBleed = false, loading = false, showControls = true }) {
+export default function ElectricianServicesMap({ items, selectedId, onSelect, position, compact = false, fullBleed = false, loading = false, showControls = true, interactive = true }) {
   const [selectedKey, setSelectedKey] = useState(selectedId || null);
   const [satellite, setSatellite] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -74,10 +75,10 @@ export default function ElectricianServicesMap({ items, selectedId, onSelect, po
     <div className={'grid min-w-0 overflow-hidden bg-surface-raised ' + (expanded || fullBleed ? 'h-full' : compact ? 'h-80' : 'h-[72dvh] min-h-[420px]') + (fullBleed ? '' : ' rounded-2xl border border-edge-subtle') + (!compact && !fullBleed ? ' lg:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[23rem_minmax(0,1fr)]' : '')}>
       {!compact && !fullBleed && <aside className="hidden min-h-0 flex-col border-r border-edge-subtle lg:flex"><div className="border-b border-edge-subtle p-4"><h3 className="font-bold">{items.length} serviços nesta busca</h3><p className="mt-1 text-xs text-content-secondary">Selecione um serviço para ver no mapa.</p></div><div className="min-h-0 flex-1 overflow-y-auto p-2">{items.map((item) => <button key={keyOf(item)} type="button" onClick={() => select(item)} aria-pressed={selectedKey === keyOf(item)} className={'mb-1 block w-full rounded-xl border p-3 text-left transition-colors ' + (selectedKey === keyOf(item) ? 'border-brand bg-brand-subtleBg' : 'border-transparent hover:bg-surface-subtle')}><span className={'text-[11px] font-bold ' + (item.prioridade === 'urgente' ? 'text-danger' : 'text-content-tertiary')}>{item.prioridade === 'urgente' ? 'URGENTE · ' : ''}{item.protocolo || 'Solicitação'}</span><strong className="mt-1 block text-sm">{titleOf(item)}</strong><span className="mt-1 block text-xs leading-5 text-content-secondary">{item.endereco || 'Endereço não informado'}</span>{!pointOf(item) && <span className="mt-1 block text-xs text-content-tertiary">Sem coordenadas</span>}</button>)}</div></aside>}
       <div className="relative isolate min-h-0 min-w-0">
-        <MapContainer center={points[0] || myPoint || [-14.24, -51.92]} zoom={points.length || myPoint ? 14 : 4} zoomControl={false} className="h-full w-full" scrollWheelZoom>
-          {satellite ? <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} /> : <ThemedTileLayer />}
-          <MapTools points={points} selected={focusPoint} hasSelection={Boolean(selected)} onLocate={locate} locating={locating} satellite={satellite} setSatellite={setSatellite} expanded={expanded} setExpanded={setExpanded} fullBleed={fullBleed} showControls={showControls} />
-          {located.map(({ item, point }) => <CircleMarker key={keyOf(item)} center={point} radius={selectedKey === keyOf(item) ? 14 : 10} pathOptions={{ color: '#fff', weight: 3, fillColor: item.prioridade === 'urgente' ? '#dc2626' : item.status === 'em_andamento' ? '#2563eb' : '#bc2a55', fillOpacity: 1 }} eventHandlers={{ click: () => select(item) }}>
+        <MapContainer center={points[0] || myPoint || [-14.24, -51.92]} zoom={points.length || myPoint ? 14 : 4} zoomControl={false} className="h-full w-full" dragging={interactive} scrollWheelZoom={interactive} doubleClickZoom={interactive} touchZoom={interactive} boxZoom={interactive} keyboard={interactive}>
+          {satellite ? <SatelliteTileLayer /> : <ThemedTileLayer />}
+          <MapTools points={points} selected={focusPoint} hasSelection={Boolean(selected)} onLocate={locate} locating={locating} satellite={satellite} setSatellite={setSatellite} expanded={expanded} setExpanded={setExpanded} fullBleed={fullBleed} showControls={showControls && interactive} />
+          {located.map(({ item, point }) => <CircleMarker key={keyOf(item)} center={point} radius={selectedKey === keyOf(item) ? 14 : 10} interactive={interactive} pathOptions={{ color: '#fff', weight: 3, fillColor: item.prioridade === 'urgente' ? '#dc2626' : item.status === 'em_andamento' ? '#2563eb' : '#bc2a55', fillOpacity: 1 }} eventHandlers={interactive ? { click: () => select(item) } : undefined}>
             {item.markerLabel ? <Tooltip key={item.markerLabel} permanent direction="top" offset={[0, -12]} opacity={1} className="font-semibold">{item.markerLabel}</Tooltip>
               : <Tooltip key="service">{titleOf(item)} · {item.protocolo || 'Solicitação'}</Tooltip>}
           </CircleMarker>)}

@@ -118,13 +118,24 @@ try {
   };
   await db.query(['pode_ver_demanda','pode_operar_demanda','validar_demanda_municipal','salvar_demanda_municipal'].map((name)=>functionFrom(source304,name)).join('\n'));
   await db.query("alter table orgao_membros drop constraint orgao_membros_papel_valido; alter table orgao_membros add constraint orgao_membros_papel_valido check(papel in ('gestor','operador','eletricista','leitura')); update orgao_membros set papel='eletricista';");
-  const migrations = [280,316,319,322,323,325,326,327,330,331,332,333,334,335,337,338,339,342];
+  const migrations = [280,316,319,322,323,325,326,327,330,331,332,333,334,335,337,338,339,342,348,350];
   const files=await fs.readdir('supabase/migrations');
   for(const number of migrations) {
     const file=files.find((name)=>name.startsWith(number+'_'));
     console.log('Migration',number);
     await db.query((await fs.readFile('supabase/migrations/'+file,'utf8')).replace(/\r\n/g,'\n'));
   }
+  await check('migration do eletricista pode ser reaplicada depois da colisao de versoes', async () => {
+    const definitions = () => db.query(`select pg_get_functiondef(p.oid) definition from pg_proc p
+      join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' order by p.oid`);
+    const before = (await definitions()).rows;
+    await db.query(await fs.readFile('supabase/migrations/348_eletricista_ofertas_municipio_e_busca.sql','utf8'));
+    assert.deepEqual((await definitions()).rows, before);
+    await assert.rejects(
+      db.query("select pg_temp.ajustar_eletricista('public.aceitar_oferta_eletricista(uuid,text,uuid)', 'trecho inexistente', 'substituto inexistente')"),
+      /Definição inesperada/,
+    );
+  });
   const currentVersion=async(id=ids.order)=>(await db.query('select versao from demandas_municipais where id=$1',[id])).rows[0]?.versao ?? -1;
   const orderForm={titulo:'Atendimento de iluminação',category_id:'iluminacao',canal_id:ids.channel,atribuido_a:ids.operator};
   const attend=async(report,services=['lamp_replacement'],result='Lâmpada substituída.')=> {
@@ -242,6 +253,125 @@ try {
     await asUser(ids.reader);
     const pole=(await db.query('select updated_at::text from poles where id=1')).rows[0];
     await assert.rejects(db.query("select registrar_visita_poste_eletricista_v2($1,1,$2,'aceso','LED',50,'{}','',gen_random_uuid(),$3)",[ids.pref,pole.updated_at,ids.report]),/serviços válidos/);
+  });
+  const cityChannel='30000000-0000-0000-0000-000000000004';
+  let municipalOffer;
+  await check('eletricista de outra secretaria do município vê e aceita ordem sem responsável',async()=> {
+    await db.query('reset role');
+    await db.query("insert into orgao_canais(id,city_id,nome) values($1,1,'Equipe municipal')",[cityChannel]);
+    await db.query("insert into orgao_categorias values(1,'iluminacao',$1)",[cityChannel]);
+    await db.query('update orgao_membros set canal_id=$1 where user_id=$2',[cityChannel,ids.reader]);
+    await asUser(ids.admin);
+    municipalOffer=(await saved(null,{...orderForm,atribuido_a:null,protocolo_externo:'Municipal',pole_id:1})).id;
+    await asUser(ids.reader);
+    assert.ok((await db.query('select * from listar_ofertas_eletricista($1)',[ids.pref])).rows.some(row=>row.id===municipalOffer));
+    await db.query("select aceitar_oferta_eletricista($1,'ordem',$2)",[ids.pref,municipalOffer]);
+    const order=(await db.query('select * from demandas_municipais where id=$1',[municipalOffer])).rows[0];
+    assert.equal(order.atribuido_a,ids.reader); assert.equal(order.canal_id,ids.channel); assert.equal(order.status,'em_andamento');
+    await saved(municipalOffer,{status:'em_andamento'});
+  });
+  await check('aceite é exclusivo e idempotente mesmo entre secretarias',async()=> {
+    await asUser(ids.reader);
+    assert.equal((await db.query("select aceitar_oferta_eletricista($1,'ordem',$2) id",[ids.pref,municipalOffer])).rows[0].id,municipalOffer);
+    await asUser(ids.operator);
+    assert.equal((await db.query('select * from demandas_municipais where id=$1',[municipalOffer])).rowCount,0);
+    assert.ok(!(await db.query('select * from listar_ofertas_eletricista($1)',[ids.pref])).rows.some(row=>row.id===municipalOffer));
+    await assert.rejects(db.query("select aceitar_oferta_eletricista($1,'ordem',$2)",[ids.pref,municipalOffer]),/já foi assumido/);
+  });
+  await check('gestão atribui a eletricista de outra secretaria sem transferir a ordem',async()=> {
+    await asUser(ids.admin);
+    const assigned=(await saved(null,{...orderForm,atribuido_a:ids.reader,pole_id:1})).id;
+    await asUser(ids.reader);
+    assert.equal((await db.query('select * from demandas_municipais where id=$1',[assigned])).rowCount,1);
+    await db.query("select aceitar_oferta_eletricista($1,'ordem',$2)",[ids.pref,assigned]);
+    assert.equal((await db.query('select status from demandas_municipais where id=$1',[assigned])).rows[0].status,'em_andamento');
+    await asUser(ids.operator);
+    assert.equal((await db.query('select * from demandas_municipais where id=$1',[assigned])).rowCount,0);
+  });
+  await check('busca encontra poste e protocolo próprio, oculta ordem de outro e bloqueia outro município',async()=> {
+    await db.query('reset role');
+    const protocol=(await db.query('select protocolo from demandas_municipais where id=$1',[municipalOffer])).rows[0].protocolo;
+    await asUser(ids.reader);
+    const result=(await db.query('select * from buscar_mapa_eletricista($1,$2)',[ids.pref,protocol])).rows[0];
+    assert.equal(result.ordem_id,municipalOffer); assert.equal(result.tipo,'minha_ordem'); assert.equal(Number(result.poste.id),1);
+    assert.ok((await db.query('select * from buscar_mapa_eletricista($1,$2)',[ids.pref,'P001'])).rows.some(row=>Number(row.poste.id)===1));
+    await asUser(ids.operator);
+    assert.equal((await db.query('select * from buscar_mapa_eletricista($1,$2)',[ids.pref,protocol])).rowCount,0);
+    await asUser(ids.other);
+    await assert.rejects(db.query('select * from buscar_mapa_eletricista($1,$2)',[ids.pref,'P001']),/Sem acesso/);
+  });
+  await check('ordem sem secretaria recebe o canal ativo do eletricista ao aceitar',async()=> {
+    await asUser(ids.admin);
+    const id=(await saved(null,{...orderForm,canal_id:null,atribuido_a:null})).id;
+    await asUser(ids.reader);
+    await db.query("select aceitar_oferta_eletricista($1,'ordem',$2)",[ids.pref,id]);
+    assert.equal((await db.query('select canal_id from demandas_municipais where id=$1',[id])).rows[0].canal_id,cityChannel);
+  });
+  await check('protocolo de solicitação vinculada localiza seu poste em ordem com vários postes',async()=> {
+    await db.query('reset role');
+    await db.query("insert into poles(id,city_id,identifier,lighting_status) values(5,1,'MULTI-2','apagado')");
+    const reports=(await db.query("insert into reports(id,title,category_id,city_id,pole_id,protocol) values(gen_random_uuid(),'Poste principal','iluminacao',1,1,'BR-MULTI-1'),(gen_random_uuid(),'Outro poste','iluminacao',1,5,'BR-MULTI-2') returning id,protocol")).rows;
+    await asUser(ids.admin);
+    const id=(await saved(null,{...orderForm,atribuido_a:ids.reader,pole_id:1},{reports:reports.map(row=>row.id)})).id;
+    await asUser(ids.reader);
+    const result=(await db.query('select * from buscar_mapa_eletricista($1,$2)',[ids.pref,'BR-MULTI-2'])).rows[0];
+    assert.equal(result.ordem_id,id); assert.equal(Number(result.poste.id),5);
+  });
+  const panelPage = async (tab, search, page=1, order='priority', stage='fazer', deferred=[]) => (await db.query(
+    'select listar_painel_eletricista($1,$2,$3,$4,$5,$6,20,$7) result',
+    [ids.pref,tab,stage,search,order,page,deferred])).rows[0].result;
+  await check('paginação divide a fila no banco sem repetir itens e preserva os totais',async()=> {
+    await asUser(ids.admin);
+    // Escrita de fixture como proprietário; as migrações revogam INSERT direto.
+    await db.query('reset role');
+    await db.query(`insert into demandas_municipais(prefeitura_id,titulo,protocolo,category_id,canal_id,atribuido_a,status,pole_id,created_at)
+      select $1,'PAG-TEST '||i,'PAG-OWN-'||i,'iluminacao',$2,$3,case when i=53 then 'concluida' else 'aberta' end,1,
+        '2020-01-01'::timestamptz+i*interval '1 day' from generate_series(1,53) i`,[ids.pref,ids.channel,ids.operator]);
+    await db.query(`insert into demandas_municipais(prefeitura_id,titulo,protocolo,category_id,canal_id,status,created_at)
+      select $1,'PAG-TEST disponível '||i,'PAG-OFFER-'||i,'iluminacao',$2,'aberta',
+        '2020-01-01'::timestamptz+i*interval '1 day' from generate_series(1,53) i`,[ids.pref,ids.channel]);
+    await asUser(ids.operator);
+    for(const tab of ['minhas','disponiveis']) {
+      const first=await panelPage(tab,'PAG-TEST',1),second=await panelPage(tab,'PAG-TEST',2),last=await panelPage(tab,'PAG-TEST',3);
+      assert.equal(first.total,tab==='minhas'?52:53);assert.equal(first.items.length,20);assert.equal(second.items.length,20);assert.equal(last.items.length,tab==='minhas'?12:13);
+      assert.equal(new Set([...first.items,...second.items,...last.items].map(item=>item.id)).size,first.total);
+      assert.equal((await panelPage(tab,'PAG-TEST',999)).page,3);
+    }
+    assert.ok((await panelPage('minhas','PAG-TEST')).stage_counts.fazer>=52);
+    assert.equal((await panelPage('minhas','PAG-TEST',1,'priority','historico')).total,1);
+  });
+  await check('busca e ordenação consideram registros além da primeira página e adiadas não ocupam vagas',async()=> {
+    const recent=await panelPage('minhas','PAG-TEST',1,'recent');
+    assert.equal(recent.items[0].protocolo,'PAG-OWN-52');
+    assert.equal((await panelPage('minhas','PAG-OWN-52')).items[0].protocolo,'PAG-OWN-52');
+    assert.equal((await panelPage('minhas','P001')).items.filter(item=>item.protocolo.startsWith('PAG-OWN-')).length,20);
+    const first=await panelPage('disponiveis','PAG-TEST');
+    const keys=first.items.slice(0,5).map(item=>item.tipo+':'+item.id);
+    const filtered=await panelPage('disponiveis','PAG-TEST',1,'priority','fazer',keys);
+    assert.equal(filtered.total,48);assert.equal(filtered.items.length,20);
+    assert.ok(filtered.items.every(item=>!keys.includes(item.tipo+':'+item.id)));
+    assert.equal((await panelPage('disponiveis','%')).total,0);
+  });
+  await check('paginação não expõe ordens de outro eletricista ou dados de outro município',async()=> {
+    await asUser(ids.reader);
+    assert.equal((await panelPage('minhas','PAG-OWN')).total,0);
+    assert.equal((await panelPage('disponiveis','PAG-OWN')).total,0);
+    await asUser(ids.other);
+    await assert.rejects(panelPage('disponiveis',''),/Sem acesso/);
+    await asUser(ids.citizen);
+    await assert.rejects(panelPage('minhas',''),/Sem acesso/);
+    await db.query('reset role');
+    await db.query(await fs.readFile('supabase/migrations/350_electrician_panel_pagination.sql','utf8'));
+  });
+  await check('eletricista desativado perde acesso às ofertas, busca e execução',async()=> {
+    await db.query('reset role');
+    await db.query('update orgao_membros set ativo=false where user_id=$1',[ids.reader]);
+    await asUser(ids.reader);
+    assert.equal((await db.query('select * from listar_ofertas_eletricista($1)',[ids.pref])).rowCount,0);
+    assert.equal((await db.query('select * from demandas_municipais where id=$1',[municipalOffer])).rowCount,0);
+    await assert.rejects(db.query('select * from buscar_mapa_eletricista($1,$2)',[ids.pref,'P001']),/Sem acesso/);
+    await assert.rejects(db.query("select aceitar_oferta_eletricista($1,'ordem',$2)",[ids.pref,municipalOffer]),/Sem permissão/);
+    await assert.rejects(panelPage('minhas',''),/Sem acesso/);
   });
   console.log(passed+' verificações dos fluxos de atendimento aprovadas.');
 } finally {

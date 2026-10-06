@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useOutletContext } from 'react-router-dom';
 import Avatar from 'react-nice-avatar';
-import { ArrowRight, Camera, KeyRound, MapPin, Pencil, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Camera, KeyRound, MapPin, Pencil, Radar, Route, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -106,6 +106,7 @@ export default function ElectricianProfilePage() {
           <p className="mt-3 flex items-start gap-1.5 text-xs leading-5 text-content-secondary"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />{context.municipality?.nome || 'Prefeitura'}{cityLabel && ` · ${cityLabel}`}</p>
         </div>
         <div className="grid gap-2 border-t border-edge-subtle p-3">
+          <Link to={panelPath + '/patrulha'} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-brand/30 bg-brand-subtleBg px-3 text-sm font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><Radar className="h-5 w-5" />Sair em patrulha</span><ArrowRight className="h-4 w-4" /></Link>
           <Button type="button" variant="outline" className="justify-start" onClick={() => photoInput.current?.click()} disabled={uploadingPhoto}><Camera className="mr-2 h-4 w-4 text-brand" />{uploadingPhoto ? 'Enviando foto…' : user?.avatar_type === 'upload' ? 'Trocar foto' : 'Adicionar foto'}</Button>
           <input ref={photoInput} className="sr-only" type="file" accept="image/*" onChange={uploadPhoto} aria-label="Escolher foto do perfil" />
           <Button type="button" variant="outline" className="justify-start" onClick={() => { setError(''); setEditing(true); }}><Pencil className="mr-2 h-4 w-4 text-brand" />Editar dados</Button>
@@ -138,6 +139,7 @@ export default function ElectricianProfilePage() {
         <section className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-4 sm:p-5 2xl:col-span-2">
           <h2 className="font-display text-base font-extrabold">Acesso rápido</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <Link to={panelPath + '/patrulhas'} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><Route className="h-5 w-5 text-brand" />Minhas patrulhas</span><ArrowRight className="h-4 w-4 text-brand" /></Link>
             <Link to={panelPath} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Minhas ordens<ArrowRight className="h-4 w-4 text-brand" /></Link>
             <Link to="/alterar-senha" className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" />Alterar senha</span><ArrowRight className="h-4 w-4 text-brand" /></Link>
           </div>

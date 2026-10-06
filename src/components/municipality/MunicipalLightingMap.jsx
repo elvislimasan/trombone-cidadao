@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Circle, CircleMarker, MapContainer, Marker, ScaleControl, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, CircleMarker, MapContainer, Marker, ScaleControl, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, Layers, Loader2, LocateFixed, Maximize2, Minimize2, SlidersHorizontal, X } from 'lucide-react';
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import SatelliteTileLayer from '@/components/map/SatelliteTileLayer';
 import { Button } from '@/components/ui/button';
 import { showAppError } from '@/lib/appError';
 
@@ -95,11 +96,12 @@ function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, sh
         <Tooltip permanent direction="top" offset={[0, -10]}>Você está aqui</Tooltip>
       </CircleMarker>
     </>}
-    <div className="absolute left-4 top-40 z-[500] flex flex-col gap-2">
+    <div className="absolute left-4 top-40 z-[500] flex flex-col items-start gap-2">
       <button type="button" onClick={() => map.flyTo(center, 14)} aria-label="Voltar ao centro da cidade" className={control}><Crosshair className="h-4 w-4" /></button>
       <button type="button" onClick={() => locate()} disabled={locating} aria-label="Minha localização atual" title="Mostrar minha posição no mapa" aria-busy={locating} className={control}><LocateFixed className={'h-4 w-4 ' + (locating ? 'animate-pulse' : '')} /></button>
       <button type="button" onClick={onSatellite} aria-label={satellite ? 'Mostrar mapa de ruas' : 'Mostrar mapa de satélite'} aria-pressed={satellite} className={control}><Layers className="h-4 w-4" /></button>
     </div>
+
   </>;
 }
 
@@ -140,7 +142,7 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
   const located = items.filter((item) => Number.isFinite(item.cluster_lat) && Number.isFinite(item.cluster_lng));
   return <section aria-label="Mapa de iluminação pública" ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
     {center ? <MapContainer center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
-      {satellite ? <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" maxZoom={19} /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
+      {satellite ? <SatelliteTileLayer /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
       <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} showCurrentLocation={showCurrentLocation} />
       {selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude) && <CircleMarker center={[selected.latitude, selected.longitude]} radius={16} interactive={false} pathOptions={{ color: COLORS[lightingStatus(selected)], weight: 2, fillColor: COLORS[lightingStatus(selected)], fillOpacity: 0.18 }} />}
       <LightingMarkers items={located} onSelect={onSelect} />

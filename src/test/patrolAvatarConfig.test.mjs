@@ -25,6 +25,7 @@ import {
   readStoredPatrolAvatar,
   storePatrolAvatar,
   toPatrolUrbanAvatar,
+  toElectricianPatrolAvatar,
 } from '../lib/patrolAvatarConfig.js';
 
 const storageFalso = (inicial) => {
@@ -35,6 +36,18 @@ const storageFalso = (inicial) => {
     setItem: (chave, valor) => dados.set(chave, valor),
   };
 };
+
+test('uniforme do eletricista preserva identidade e carro sem mudar a aparência do cidadão', () => {
+  const original = { sexo: 'feminino', estilo: 'night', veiculo: 'picape', acessorio: 'radio' };
+  const profissional = toElectricianPatrolAvatar(original);
+  assert.equal(normalizePatrolAvatar(profissional).estilo, 'eletricista');
+  assert.equal(profissional.sexo, 'feminino');
+  assert.equal(profissional.veiculo, 'picape');
+  assert.equal(profissional.acessorio, 'nenhuma');
+  assert.equal(original.estilo, 'night');
+  assert.equal(toPatrolUrbanAvatar(profissional).estilo, 'urbano');
+  assert.notEqual(patrolAvatarKey(profissional, 'walking', true), patrolAvatarKey(toPatrolUrbanAvatar(original), 'walking', true));
+});
 
 test('a experiencia atual usa o urbano sem migrar a preferencia salva', () => {
   const storage = storageFalso(JSON.stringify({

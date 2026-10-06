@@ -38,7 +38,7 @@ export default function MunicipalServiceOrderDialog({ context, selectedIds, onRe
   const [priority, setPriority] = useState('normal');
   const [issueType, setIssueType] = useState('');
   const channels = context.channels.filter((channel) => canEditDemand(context, channel.id));
-  const members = useMemo(() => [...new Map((context.members || []).filter((member) => String(member.canal_id) === String(channelId) && member.ativo && (['gestor', 'operador'].includes(member.papel) || (draft?.category_id === 'iluminacao' && member.papel === 'eletricista'))).map((member) => [member.user_id, member])).values()], [context.members, channelId, draft?.category_id]);
+  const members = useMemo(() => [...new Map((context.members || []).filter((member) => member.ativo && ((String(member.canal_id) === String(channelId) && ['gestor', 'operador'].includes(member.papel)) || (draft?.category_id === 'iluminacao' && member.papel === 'eletricista' && context.categoryChannels.some((mapping) => mapping.category_id === 'iluminacao' && String(mapping.canal_id) === String(member.canal_id))))).map((member) => [member.user_id, member])).values()], [context.members, context.categoryChannels, channelId, draft?.category_id]);
 
   useEffect(() => {
     if (!choosing) return undefined;

@@ -220,7 +220,9 @@ const CartaoPatrulha = ({
               <Medida Icone={RouteIcon} valor={formatarDistancia(p.distance_meters)} rotulo="" />
             </div>
             <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
-              {p.kind === 'audit' ? (
+              {p.lighting_patrol ? (
+                <Medida Icone={CheckCircle2} valor={`${p.lighting_updated_pole_ids.length}/${p.lighting_passed_pole_ids.length}`} rotulo="postes atualizados" />
+              ) : p.kind === 'audit' ? (
                 <Medida
                   Icone={ClipboardCheck}
                   valor={(p.reports_count || 0) + (p.emptied_count || 0)}
@@ -253,7 +255,7 @@ const CartaoPatrulha = ({
             Percurso
           </Acao>
         )}
-        {p.reports_count !== null && (
+        {p.reports_count !== null && !p.lighting_patrol && (
           <Acao Icone={Share2} onClick={onCompartilhar}>
             Compartilhar
           </Acao>
@@ -266,7 +268,7 @@ const CartaoPatrulha = ({
   );
 };
 
-export default function MyPatrolsPage() {
+export default function MyPatrolsPage({ electrician = false }) {
   const { user } = useAuth();
 
   const [patrulhas, setPatrulhas] = useState([]);
@@ -284,6 +286,8 @@ export default function MyPatrolsPage() {
   const emVooRef = useRef(false);
   const [aExcluir, setAExcluir] = useState(null);
   const [excluindo, setExcluindo] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const startPath = electrician ? '/prefeitura/eletricista/patrulha' : '/patrulhar';
 
   /**
    * Uma página de patrulhas.
@@ -292,17 +296,19 @@ export default function MyPatrolsPage() {
    * precisar de uma consulta de contagem.
    */
   const buscarPagina = useCallback(async (desde) => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('patrols')
-      .select('id, kind, started_at, ended_at, duration_seconds, distance_meters, passed_count, confirmed_count, reports_count, signals_count, emptied_count, is_public, city:cities(name)')
-      .eq('user_id', user.id)
+      .select('id, kind, started_at, ended_at, duration_seconds, distance_meters, passed_count, confirmed_count, reports_count, signals_count, emptied_count, is_public, lighting_patrol, lighting_passed_pole_ids, lighting_updated_pole_ids, city:cities(name)')
+      .eq('user_id', user.id);
+    if (electrician) query = query.eq('lighting_patrol', true);
+    const { data, error } = await query
       .order('ended_at', { ascending: false })
       .range(desde, desde + POR_PAGINA);
 
     if (error) throw error;
     const pagina = data || [];
     return { linhas: pagina.slice(0, POR_PAGINA), temMais: pagina.length > POR_PAGINA };
-  }, [user]);
+  }, [user, electrician]);
 
   /**
    * Os traçados das patrulhas desta página.
@@ -344,11 +350,12 @@ export default function MyPatrolsPage() {
 
     (async () => {
       setCarregando(true);
+      setLoadError('');
       try {
         const [primeira, stats, dias] = await Promise.all([
           buscarPagina(0),
-          supabase.rpc('get_patrol_stats', { target_user_id: user.id }),
-          supabase.rpc('get_patrol_days', { target_user_id: user.id, dias: 90 }),
+          electrician ? Promise.resolve({ data: [] }) : supabase.rpc('get_patrol_stats', { target_user_id: user.id }),
+          electrician ? Promise.resolve({ data: [] }) : supabase.rpc('get_patrol_days', { target_user_id: user.id, dias: 90 }),
         ]);
         if (cancelado) return;
 
@@ -361,13 +368,14 @@ export default function MyPatrolsPage() {
         setSequencia(calcularSequencia((dias.data || []).map((d) => d.dia)));
       } catch (err) {
         console.error('[MyPatrolsPage] falha ao carregar:', err);
+        if (!cancelado) setLoadError('Não foi possível carregar as patrulhas. Confira sua conexão e tente novamente.');
       } finally {
         if (!cancelado) setCarregando(false);
       }
     })();
 
     return () => { cancelado = true; };
-  }, [user, buscarPagina, buscarTracados]);
+  }, [user, buscarPagina, buscarTracados, electrician]);
 
   const carregarMais = useCallback(async () => {
     // O observador dispara de novo a cada pixel rolado enquanto a sentinela
@@ -465,7 +473,7 @@ export default function MyPatrolsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 pb-24 lg:max-w-[100rem] lg:px-8 lg:py-8 lg:pb-12">
+    <div className="page-shell-fluid py-6 pb-24 lg:py-8 lg:pb-12">
       <Helmet>
         <title>Suas patrulhas | Trombone Cidadão</title>
         <meta name="robots" content="noindex" />
@@ -473,13 +481,13 @@ export default function MyPatrolsPage() {
 
       <PageHeader
         titulo="Suas patrulhas"
-        subtitulo="Tudo que você já percorreu com o app ligado."
-        paraOnde="/perfil"
+        subtitulo={electrician ? 'Suas vistorias de iluminação, atendimentos e percursos.' : 'Tudo que você já percorreu com o app ligado.'}
+        paraOnde={electrician ? '/prefeitura/eletricista/perfil' : '/perfil'}
       />
 
       <div className="mb-5 flex justify-end">
         <Link
-          to="/patrulhar"
+          to={startPath}
           className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-content-onBrand shadow-sm transition-transform active:scale-[0.97]"
         >
           <Radar size={16} />
@@ -487,6 +495,7 @@ export default function MyPatrolsPage() {
         </Link>
       </div>
 
+      {loadError && <p role="alert" className="mb-4 rounded-xl border border-danger/30 bg-surface-raised p-4 text-danger">{loadError}</p>}
       {carregando ? (
         <div className="flex justify-center py-16">
           <Loader2 size={28} className="animate-spin text-brand" />
@@ -516,16 +525,15 @@ export default function MyPatrolsPage() {
                 Nenhuma patrulha ainda
               </p>
               <p className="text-sm text-content-secondary mt-1 leading-snug max-w-sm mx-auto">
-                Saia com o app ligado e ele avisa quando você passar perto de uma
-                bronca que precisa ser conferida.
+                {electrician ? 'Inicie uma patrulha para vistoriar os postes e registrar seus atendimentos.' : 'Saia com o app ligado e ele avisa quando você passar perto de uma bronca que precisa ser conferida.'}
               </p>
-              <Link
-                to="/patrulhar"
+              {!electrician && <Link
+                to={startPath}
                 className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand text-content-onBrand font-bold text-sm px-5 py-2.5 active:scale-[0.97] transition-transform"
               >
                 <Radar size={16} />
                 Iniciar patrulha
-              </Link>
+              </Link>}
             </div>
           ) : (
             <>

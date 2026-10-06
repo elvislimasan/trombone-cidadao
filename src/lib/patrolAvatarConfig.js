@@ -173,7 +173,9 @@ export const normalizePatrolAvatar = (valor) => {
       legadoRabo ? 'rabo' : cabeloPadrao(sexo),
     ),
     corCabelo: escolher(PATROL_AVATAR_CORES_CABELO, bruto.corCabelo, DEFAULT_PATROL_AVATAR.corCabelo),
-    estilo: legadoRabo
+    // O uniforme profissional é uma projeção da tela do eletricista;
+    // não faz parte do catálogo de recompensas do cidadão.
+    estilo: bruto.estilo === 'eletricista' ? 'eletricista' : legadoRabo
       ? DEFAULT_PATROL_AVATAR.estilo
       : escolher(PATROL_AVATAR_STYLES, bruto.estilo, DEFAULT_PATROL_AVATAR.estilo),
     acessorio: escolher(PATROL_AVATAR_ACCESSORIES, bruto.acessorio, DEFAULT_PATROL_AVATAR.acessorio),
@@ -192,6 +194,12 @@ export const normalizePatrolAvatar = (valor) => {
 export const toPatrolUrbanAvatar = (valor) => ({
   ...normalizePatrolAvatar(valor),
   estilo: 'urbano',
+});
+
+export const toElectricianPatrolAvatar = (valor) => ({
+  ...normalizePatrolAvatar(valor),
+  estilo: 'eletricista',
+  acessorio: 'nenhuma',
 });
 
 export const getPatrolAvatarColor = (id) => buscar(PATROL_AVATAR_COLORS, id);

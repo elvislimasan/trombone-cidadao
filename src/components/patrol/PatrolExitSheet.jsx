@@ -53,6 +53,7 @@ export default function PatrolExitSheet({
   onContinuar,
   onEncerrar,
   onDescartar,
+  professional = false,
 }) {
   const veredito = avaliarPatrulha({
     duracaoS,
@@ -103,7 +104,7 @@ export default function PatrolExitSheet({
                 : 'Você quase não saiu do lugar'}
             </p>
             <p className="text-xs text-content-secondary mt-1 leading-snug">
-              Sem nenhuma ação, ela não conta como patrulha nem rende pontos.
+              {professional ? 'Nenhum poste foi atualizado nesta saída.' : 'Sem nenhuma ação, ela não conta como patrulha nem rende pontos.'}
               Você pode guardá-la assim mesmo, se quiser.
             </p>
           </div>

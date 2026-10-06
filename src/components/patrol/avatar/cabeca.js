@@ -208,5 +208,11 @@ export const cabeca = (camera, p, s, acessorio) => `
          <ellipse cx="${MEIO}" cy="${C.queixo - 4}" rx="30" ry="12"
            fill="url(#g-oc-${s})" stroke="none" />`}
     ${acessorioDaCabeca(acessorio, camera, p, s)}
+    ${p.estilo.capacete ? `<g class="patrol-avatar__helmet" stroke="#c17b07" stroke-width="2">
+      <path d="M66 66 C66 28 89 8 128 8 C167 8 190 28 190 66 Z" fill="#f7bf25" />
+      <path d="M121 10 H135 V64 H121 Z" fill="#ffdc62" />
+      <rect x="59" y="62" width="138" height="13" rx="6" fill="#f5aa15" />
+      <path d="M77 55 C80 31 95 19 111 17" fill="none" stroke="#fff2ac" stroke-width="5" opacity="0.7" />
+    </g>` : ''}
   </g>
 `;
