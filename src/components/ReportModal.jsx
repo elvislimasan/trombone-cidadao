@@ -67,6 +67,7 @@ import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 import { notifyNative } from '@/lib/nativeNotification';
 import PoleNumberSearch from '@/components/report/PoleNumberSearch';
 import { createReportPole, mergeNearbyReportPoles } from '@/lib/reportPole';
+import { resolveReportPoleAddress } from '@/lib/reportPoleAddress';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
@@ -579,11 +580,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
   useEffect(() => {
     let cancelled = false;
-    // Para categorias não-iluminação: sempre atualiza via reverse geocode (a menos que usuário tenha editado manualmente)
-    // Para iluminação com poste selecionado, consultar a coordenada do poste
-    // em nível de rua. O endereço cadastrado pode vir de um prédio em outra via.
-    if (formData.category === "iluminacao" && formData.pole_id && formData.address?.trim()) return;
-    if (addressTouchedRef.current) return;
+    // Endereço cadastrado ou digitado já está pronto; não deixar o indicador
+    // de busca ligado quando a seleção não precisa de outra consulta.
+    if ((formData.category === "iluminacao" && formData.pole_id && formData.address?.trim()) || addressTouchedRef.current) {
+      setIsAddressLookupLoading(false);
+      setAddressLookupFailed(false);
+      return;
+    }
 
     const target = reverseGeocodeTargetRef.current || formData.location;
     if (!target) return;
@@ -598,46 +601,36 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     const timer = setTimeout(async () => {
       setIsAddressLookupLoading(true);
       const selectedPole = formData.category === "iluminacao" && Boolean(formData.pole_id);
-      let data = null;
-      let mappedAddress = null;
-      if (selectedPole) {
-        const mapped = await supabase.rpc("mapped_street_address_for_pole", {
-          p_pole_id: formData.pole_id,
-        }).maybeSingle();
-        mappedAddress = mapped.data?.address || null;
-      } else {
-        data = await reverseGeocodePin({ lat, lng }, {
-          invoke: supabase.functions.invoke.bind(supabase.functions),
-        });
-      }
+      try {
+        const data = selectedPole
+          ? await resolveReportPoleAddress(supabase, formData.pole_id, { lat, lng })
+          : await reverseGeocodePin({ lat, lng }, { invoke: supabase.functions.invoke.bind(supabase.functions) });
+        if (cancelled) return;
 
-      if (cancelled) return;
-      setIsAddressLookupLoading(false);
-      setAddressLookupFailed(!(mappedAddress || data?.address));
-
-      const address = mappedAddress || data?.address;
-      if (typeof address === "string" && address.trim()) {
-        lastReverseGeocodeKeyRef.current = key;
-        reverseGeocodeTargetRef.current = null;
-        setFormData((prev) =>
-          addressTouchedRef.current ? prev : { ...prev, address }
-        );
-      }
-
-      // Resolve city_id a partir do geocode (sem bloquear o submit se falhar).
-      // O RPC pode devolver o bigint como number OU string ("159") — normaliza.
-      const city = data?.city;
-      const state_uf = data?.state_uf;
-      if (city && state_uf) {
-        const { data: cityIdRaw } = await supabase.rpc("match_city", {
-          p_name: city,
-          p_uf: state_uf,
-        });
-        const cityId =
-          cityIdRaw == null ? null : Number(cityIdRaw);
-        if (!cancelled && Number.isFinite(cityId) && cityId > 0) {
-          setFormData((prev) => ({ ...prev, city_id: cityId }));
+        const address = typeof data?.address === 'string' ? data.address.trim() : '';
+        let cityId = data?.city_id == null ? null : Number(data.city_id);
+        // Resolver a cidade antes de atualizar o endereço: atualizar primeiro
+        // cancelaria este efeito e descartaria uma resposta posterior de cidade.
+        if (!(Number.isFinite(cityId) && cityId > 0) && data?.city && data?.state_uf) {
+          try {
+            const { data: cityIdRaw } = await supabase.rpc("match_city", { p_name: data.city, p_uf: data.state_uf });
+            cityId = cityIdRaw == null ? null : Number(cityIdRaw);
+          } catch { /* O endereço ainda pode ser usado sem a cidade resolvida. */ }
         }
+        if (cancelled) return;
+        setAddressLookupFailed(!address);
+        if (address) {
+          lastReverseGeocodeKeyRef.current = key;
+          reverseGeocodeTargetRef.current = null;
+          setFormData((prev) => addressTouchedRef.current ? prev : {
+            ...prev, address,
+            ...(Number.isFinite(cityId) && cityId > 0 ? { city_id: cityId } : {}),
+          });
+        }
+      } catch {
+        if (!cancelled) setAddressLookupFailed(true);
+      } finally {
+        if (!cancelled) setIsAddressLookupLoading(false);
       }
     }, 450);
 
@@ -3107,6 +3100,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     const poleLocation = { lat, lng };
+    const poleAddress = typeof marker.data?.address === 'string' ? marker.data.address.trim() : '';
     setNearbyPoles((current) => current.some((pole) => String(pole.pole_id) === String(marker.id))
       ? current : [...current, { ...marker.data, pole_id: marker.id, latitude: lat, longitude: lng }]);
     userPickedLocationRef.current = true;
@@ -3114,12 +3108,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     reverseGeocodeTargetRef.current = poleLocation;
     lastReverseGeocodeKeyRef.current = null;
     resetCityCache();
-    setIsAddressLookupLoading(true);
+    setIsAddressLookupLoading(!poleAddress);
     setAddressLookupFailed(false);
     setFormData((prev) => ({
       ...prev,
       location: poleLocation,
-      city_id: undefined,
+      city_id: marker.data?.city_id == null ? undefined : Number(marker.data.city_id),
       pole_id: marker.id,
       pole_number: formatPoleLabel(
         marker.data?.identifier || marker.data?.plate || marker.title || marker.id
@@ -3127,7 +3121,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       reported_post_identifier: marker.data?.identifier ?? null,
       reported_plate: marker.data?.plate ?? null,
       reported_pole_distance_m: 0,
-      address: marker.data?.address || "",
+      address: poleAddress,
     }));
     setErrors((prev) => ({ ...prev, location: undefined, pole_number: undefined }));
   };

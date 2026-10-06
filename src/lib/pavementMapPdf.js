@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { streetBlocks } from './streetBlocks.js';
 import 'jspdf-autotable';
-import { trechosParaRotulos, caixaDoRotulo, rotulosColidem } from './streetMapLabels.js';
+import { planejarRotulosDeRuas, caixaDoRotulo, rotulosColidem } from './streetMapLabels.js';
 
 const STATUS_STYLE = {
   paved: { label: 'Pavimentada', color: [22, 163, 74] },
@@ -50,13 +50,6 @@ const slug = (texto) => String(texto || 'cidade')
   .replace(/^-|-$/g, '') || 'cidade';
 
 export const nomeDoArquivoDoMapa = (cidade) => `mapa-de-ruas-${slug(cidade)}.pdf`;
-
-const anguloLegivel = (segmento) => {
-  let angulo = (Math.atan2(segmento.anterior[1] - segmento.atual[1], segmento.atual[0] - segmento.anterior[0]) * 180) / Math.PI;
-  if (angulo > 90) angulo -= 180;
-  if (angulo < -90) angulo += 180;
-  return angulo;
-};
 
 const nomeDeBairroGenerico = (nome) => String(nome || '')
   .normalize('NFD')
@@ -456,44 +449,35 @@ export const criarPdfDoMapaDeRuas = ({
 
   const caixasDosNomes = [];
   const ruasNomeadas = new Set();
-  // Rótulos vetoriais inteiros: acompanham trechos retos, repetem em vias
-  // longas e testam a área girada do texto, não apenas o ponto central.
+  // Planeja todos os nomes antes de desenhar, para reservar espaço para ruas
+  // curtas e pontos antes das repetições das vias longas.
   if (mostrarNomesRuas) {
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    const ordenadas = ruasProjetadas.map((rua) => ({ rua, trechos: trechosParaRotulos(rua.linhasProjetadas) }))
-      .sort((a, b) => (a.trechos[0]?.comprimento || 0) - (b.trechos[0]?.comprimento || 0));
-    for (const { rua, trechos } of ordenadas) {
-      if (!rua.name) continue;
-      const centros = [];
-      for (const segmento of trechos) {
-        const angulo = anguloLegivel(segmento);
-        for (const t of [0.5, 0.25, 0.75]) {
-          const x = segmento.anterior[0] + (segmento.atual[0] - segmento.anterior[0]) * t;
-          const y = segmento.anterior[1] + (segmento.atual[1] - segmento.anterior[1]) * t;
-          if (centros.some((p) => Math.hypot(p[0] - x, p[1] - y) < 65)) continue;
-          for (const tamanho of [7, 6, 5]) {
-            doc.setFontSize(tamanho);
-            const largura = doc.getTextWidth(String(rua.name)) + 1.2;
-            if (largura > segmento.comprimento * 2 * Math.min(t, 1 - t) - 1) continue;
-            const caixa = caixaDoRotulo(x, y, largura, tamanho * 0.3528 + 0.6, angulo);
-            if (caixa.some(([px, py]) => px < mapa.x || px > mapa.x + mapa.largura || py < mapa.y || py > mapa.y + mapa.altura)
-              || caixasDosNomes.some((outra) => rotulosColidem(caixa, outra))) continue;
-            doc.setFillColor(255, 255, 255);
-            desenharPoligono(doc, caixa, 'F');
-            // Desloca a linha de base perpendicularmente ao texto girado.
-            const r = angulo * Math.PI / 180;
-            const base = tamanho * 0.3528 * 0.32;
-            const metade = doc.getTextWidth(String(rua.name)) / 2;
-            doc.text(String(rua.name), x - Math.cos(r) * metade + Math.sin(r) * base,
-              y + Math.sin(r) * metade + Math.cos(r) * base, { angle: angulo });
-            caixasDosNomes.push(caixa);
-            ruasNomeadas.add(rua);
-            centros.push([x, y]);
-            break;
-          }
-        }
-      }
+    const rotulos = planejarRotulosDeRuas(ruasProjetadas, mapa, (texto, tamanho) => {
+      doc.setFontSize(tamanho);
+      return doc.getTextWidth(texto);
+    });
+    doc.setDrawColor(90, 98, 105);
+    doc.setFillColor(90, 98, 105);
+    doc.setLineWidth(0.15);
+    for (const { x, y, ancora } of rotulos) {
+      if (!ancora) continue;
+      doc.line(ancora[0], ancora[1], x, y);
+      doc.circle(ancora[0], ancora[1], 0.3, 'F');
+    }
+    for (const { rua, texto, x, y, angulo, tamanho, caixa } of rotulos) {
+      doc.setFontSize(tamanho);
+      doc.setFillColor(255, 255, 255);
+      desenharPoligono(doc, caixa, 'F');
+      // Desloca a linha de base perpendicularmente ao texto girado.
+      const r = angulo * Math.PI / 180;
+      const base = tamanho * 0.3528 * 0.32;
+      const metade = doc.getTextWidth(texto) / 2;
+      doc.text(texto, x - Math.cos(r) * metade + Math.sin(r) * base,
+        y + Math.sin(r) * metade + Math.cos(r) * base, { angle: angulo });
+      caixasDosNomes.push(caixa);
+      ruasNomeadas.add(rua);
     }
   }
 
@@ -586,6 +570,9 @@ export const criarPdfDoMapaDeRuas = ({
     quadrasPorBairro,
     toleranciaEncontro,
     ruasComNomeNoMapa: ruasNomeadas.size,
+    ruasSemNomeNoMapa: mostrarNomesRuas ? ruasProjetadas
+      .filter((rua) => String(rua.name || '').trim() && !ruasNomeadas.has(rua))
+      .map((rua) => ({ id: rua.id, name: rua.name })) : [],
     rotulosDeRuas: caixasDosNomes.length,
   };
   if (incluirIndice) {

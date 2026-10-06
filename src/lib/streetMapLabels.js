@@ -44,3 +44,100 @@ export function rotulosColidem(a, b) {
   }
   return true;
 }
+
+const anguloLegivel = ({ anterior, atual }) => {
+  let angulo = Math.atan2(anterior[1] - atual[1], atual[0] - anterior[0]) * 180 / Math.PI;
+  if (angulo > 90) angulo -= 180;
+  if (angulo < -90) angulo += 180;
+  return angulo;
+};
+
+// Primeiro reserva um nome para cada rua. Repetições de vias longas só usam
+// o espaço que sobra; trechos curtos e pontos recebem chamadas com ligação.
+export function planejarRotulosDeRuas(ruas, mapa, medirTexto) {
+  const rotulos = [];
+  const nomeadas = new Set();
+  const ordenadas = ruas.filter((rua) => String(rua.name || '').trim())
+    .map((rua) => ({ rua, trechos: trechosParaRotulos(rua.linhasProjetadas) }))
+    .sort((a, b) => (a.trechos[0]?.comprimento || 0) - (b.trechos[0]?.comprimento || 0));
+  const tentar = (rua, x, y, angulo, tamanho, comprimento = Infinity, ancora = null) => {
+    const texto = String(rua.name).trim();
+    const largura = medirTexto(texto, tamanho) + 1.2;
+    if (largura > comprimento) return false;
+    const caixa = caixaDoRotulo(x, y, largura, tamanho * 0.3528 + 0.6, angulo);
+    if (caixa.some(([px, py]) => px < mapa.x || px > mapa.x + mapa.largura
+      || py < mapa.y || py > mapa.y + mapa.altura)
+      || rotulos.some((outro) => rotulosColidem(caixa, outro.caixa))) return false;
+    rotulos.push({ rua, texto, x, y, angulo, tamanho, caixa, ancora });
+    nomeadas.add(rua);
+    return true;
+  };
+  const tentarNaRua = ({ rua, trechos }, repetir = false) => {
+    for (const segmento of trechos) {
+      const angulo = anguloLegivel(segmento);
+      for (const t of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+        const x = segmento.anterior[0] + (segmento.atual[0] - segmento.anterior[0]) * t;
+        const y = segmento.anterior[1] + (segmento.atual[1] - segmento.anterior[1]) * t;
+        if (repetir && rotulos.some((outro) => outro.rua === rua
+          && Math.hypot(outro.x - x, outro.y - y) < 65)) continue;
+        for (const tamanho of [7, 6, 5]) {
+          if (tentar(rua, x, y, angulo, tamanho, segmento.comprimento * 2 * Math.min(t, 1 - t) - 1)) {
+            if (!repetir) return;
+            break;
+          }
+        }
+      }
+    }
+  };
+  for (const entrada of ordenadas) tentarNaRua(entrada);
+
+  for (const { rua, trechos } of ordenadas) {
+    if (nomeadas.has(rua)) continue;
+    const ancoras = trechos.length ? trechos.map((segmento) => ({
+      ponto: [(segmento.anterior[0] + segmento.atual[0]) / 2,
+        (segmento.anterior[1] + segmento.atual[1]) / 2],
+      angulo: anguloLegivel(segmento),
+    })) : rua.linhasProjetadas.flat().map((ponto) => ({ ponto, angulo: 0 }));
+
+    // Pode ultrapassar as pontas de um trecho curto, mantendo o nome inteiro.
+    // Quando o texto sai do eixo, uma linha aponta para a posição cadastrada.
+    buscaLocal: for (const distancia of [0, 3, 6, 10, 15, 22]) {
+      if (!trechos.length && distancia === 0) continue;
+      for (const { ponto, angulo } of ancoras) {
+        const r = angulo * Math.PI / 180;
+        for (const lado of (distancia ? [-1, 1] : [1])) {
+          const x = ponto[0] + Math.sin(r) * distancia * lado;
+          const y = ponto[1] + Math.cos(r) * distancia * lado;
+          for (const tamanho of [5, 4.5]) {
+            if (tentar(rua, x, y, angulo, tamanho, Infinity,
+              distancia ? ponto : null)) break buscaLocal;
+          }
+        }
+      }
+    }
+    if (nomeadas.has(rua) || !ancoras.length) continue;
+
+    // Em cruzamentos densos, procura o espaço livre mais próximo no papel.
+    const candidatos = [];
+    for (let y = mapa.y + 2; y < mapa.y + mapa.altura - 1; y += 3) {
+      for (let x = mapa.x + 2; x < mapa.x + mapa.largura - 1; x += 4) {
+        let ancora = ancoras[0].ponto;
+        let distancia = Infinity;
+        for (const { ponto } of ancoras) {
+          const d = (x - ponto[0]) ** 2 + (y - ponto[1]) ** 2;
+          if (d < distancia) { distancia = d; ancora = ponto; }
+        }
+        candidatos.push({ x, y, distancia, ancora });
+      }
+    }
+    candidatos.sort((a, b) => a.distancia - b.distancia);
+    for (const { x, y, ancora } of candidatos) {
+      if (tentar(rua, x, y, 0, 4.5, Infinity, ancora)) break;
+    }
+  }
+
+  for (const entrada of ordenadas) {
+    if (nomeadas.has(entrada.rua)) tentarNaRua(entrada, true);
+  }
+  return rotulos;
+}

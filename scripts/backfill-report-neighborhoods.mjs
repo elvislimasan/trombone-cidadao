@@ -6,6 +6,9 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { reverseGeocodePin } from '../src/lib/reverseGeocodePin.js';
 import { OPEN_REPORT_STATUSES } from '../src/lib/municipalReports.js';
+import { neighborhoodFromAddress } from '../supabase/functions/_shared/reportNeighborhoods.js';
+
+export { neighborhoodFromAddress };
 
 const FIELDS = 'id,city_id,address,neighborhood,location';
 const EMPTY_NEIGHBORHOOD = 'neighborhood.is.null,neighborhood.eq.""';
@@ -36,29 +39,6 @@ export function parseOptions(args) {
 
 const normalize = (value) => String(value || '').trim().normalize('NFD')
   .replace(/\p{M}/gu, '').toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
-
-export function neighborhoodFromAddress(address, neighborhoods) {
-  const normalizedAddress = normalize(address);
-  const dner = neighborhoods.find((item) => normalize(item.name) === normalize('São Francisco de Assis (DNER)'))?.name?.trim();
-  // DNER é o nome local abreviado do bairro cadastrado. Só usa a associação
-  // quando a cidade consultada contém esse nome canônico.
-  const dnerMention = /\b(?:bairro|no|na|do|da)\s+dner\b/u.test(normalizedAddress);
-  const explicitlyNamed = neighborhoods.filter((item) => {
-    const name = normalize(item.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`\\bbairro\\s*:?\\s*${name}(?=$|[^\\p{L}\\p{N}])`, 'u').test(normalizedAddress);
-  }).map((item) => item.name.trim());
-  if (dner && dnerMention) explicitlyNamed.push(dner);
-  if (new Set(explicitlyNamed).size === 1) return explicitlyNamed[0];
-  if (explicitlyNamed.length) return null;
-  // Compare segmentos completos: "Rua do Centro" não significa bairro Centro.
-  const segments = String(address || '').split(/\s+[-–—]\s+|[,;]/u).slice(1)
-    .map((value) => normalize(value.replace(/^\s*bairro\s*:?\s+/iu, '')));
-  const matches = neighborhoods.filter((item) => segments.includes(normalize(item.name)))
-    .map((item) => item.name.trim());
-  if (dner && segments.includes('dner')) matches.push(dner);
-  const names = [...new Set(matches)];
-  return names.length === 1 ? names[0] : null;
-}
 
 export function reportPosition(report) {
   const location = report.location;
