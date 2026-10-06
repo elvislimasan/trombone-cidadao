@@ -53,6 +53,8 @@ import {
 import VideoProcessorComponent from "@/components/VideoProcessor";
 import CameraCapture from "@/components/CameraCapture";
 import WebCameraCapture from "@/components/WebCameraCapture";
+import { prefersDeviceCamera, openDeviceCamera } from '@/lib/deviceCamera';
+import { compressToJpeg } from '@/hooks/useNativeCamera';
 import MediaViewer from "@/components/MediaViewer";
 import ColaborarOuRegistrar from "@/components/report/ColaborarOuRegistrar";
 import SugestaoDeCategoria, { registrarEscolha } from "@/components/report/SugestaoDeCategoria";
@@ -1741,7 +1743,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
   // FUNÇÃO PRINCIPAL MELHORADA: Fluxo unificado com a Galeria para máxima estabilidade
   const handleTakePhoto = async () => {
-    if (isTakingPhoto || isRecordingVideo || isProcessingRef.current) {
+    if (isTakingPhoto || isRecordingVideo || isPhotoProcessing || isProcessingRef.current) {
       showAppError({
         title: "Aguarde...",
         description: "Já existe uma operação em andamento",
@@ -1790,7 +1792,17 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       return;
     }
 
-    // Fallback para Web: Ativar modo câmera in-app (JS)
+    if (prefersDeviceCamera()) {
+      // Salva os campos antes de sair para a câmera; o modal permanece montado.
+      // Sem await: Safari exige que click() ocorra no gesto do usuário.
+      if (!municipalMode) {
+        saveReportDraft({ formData, wizardStep });
+        void saveReportDraftMedia({ photos: formData.photos, videos: formData.videos });
+      }
+      if (openDeviceCamera(photoCameraInputRef.current)) return;
+    }
+
+    // No desktop, mantém a webcam com os controles do navegador.
     setCameraMode("photo");
     setShowCamera(true);
     setIsTakingPhoto(true);
@@ -2080,10 +2092,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   };
 
   const handleFileChange = async (e, fileType) => {
-    const files = Array.from(e.target.files);
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    // Guarda os Files e libera o input antes de qualquer processamento assíncrono.
+    input.value = '';
 
     if (!files || files.length === 0) {
-      e.target.value = null;
       return;
     }
 
@@ -2234,77 +2248,31 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
             };
             reader.readAsDataURL(file);
           } else {
-            const reader = new FileReader();
-            let previewUrl = null;
             setIsPhotoProcessing(true);
             setPhotoProcessingProgress(5);
             setPhotoProcessingMessage("Otimizando imagem...");
-            // window.__BLOCK_NAVIGATION__ = true;
-            // window.__BLOCK_MODAL_CLOSE__ = true;
-            reader.onload = async (e) => {
-              try {
-                const base64String = e.target.result;
-                // Web: 1280x1280 e qualidade 0.7 para bom balanço
-                const optimizedFile = await processImageWithWorker(
-                  base64String,
-                  file.name,
-                  1280,
-                  1280,
-                  0.7
-                );
-                previewUrl = URL.createObjectURL(optimizedFile);
-                setFormData((prev) => ({
-                  ...prev,
-                  [fileType]: [
-                    ...prev[fileType],
-                    {
-                      file: optimizedFile,
-                      name: optimizedFile.name,
-                      preview: previewUrl,
-                      size: optimizedFile.size,
-                    },
-                  ],
-                }));
-                setPhotoProcessingProgress(100);
-              } catch (error) {
-                if (previewUrl) {
-                  try {
-                    URL.revokeObjectURL(previewUrl);
-                  } catch {}
-                }
-                previewUrl = URL.createObjectURL(file);
-                setFormData((prev) => ({
-                  ...prev,
-                  [fileType]: [
-                    ...prev[fileType],
-                    {
-                      file: file,
-                      name: file.name,
-                      preview: previewUrl,
-                      size: file.size,
-                    },
-                  ],
-                }));
-              } finally {
-                setIsPhotoProcessing(false);
-                setPhotoProcessingProgress(0);
-                setPhotoProcessingMessage("");
-                setTimeout(() => {
-                  // window.__BLOCK_NAVIGATION__ = false;
-                  // window.__BLOCK_MODAL_CLOSE__ = false;
-                }, 1500);
+            try {
+              // Blob URL evita duplicar fotos grandes como strings Base64.
+              // O helper libera a URL temporária e mantém o original se falhar.
+              const optimizedFile = await compressToJpeg(file, 1280, 0.7);
+              const previewUrl = URL.createObjectURL(optimizedFile);
+              if (!isMountedRef.current) {
+                URL.revokeObjectURL(previewUrl);
+                return;
               }
-            };
-            reader.onerror = () => {
+              setFormData((prev) => ({
+                ...prev,
+                [fileType]: [
+                  ...prev[fileType],
+                  { file: optimizedFile, name: optimizedFile.name, preview: previewUrl, size: optimizedFile.size },
+                ],
+              }));
+              setPhotoProcessingProgress(100);
+            } finally {
               setIsPhotoProcessing(false);
               setPhotoProcessingProgress(0);
               setPhotoProcessingMessage("");
-              setTimeout(() => {
-                // window.__BLOCK_NAVIGATION__ = false;
-                // window.__BLOCK_MODAL_CLOSE__ = false;
-              }, 1500);
-            };
-            reader.readAsDataURL(file);
+            }
           }
         } else if (fileType === "videos") {
           // Processamento de vídeos
@@ -2381,7 +2349,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         });
       }
     }
-    e.target.value = null;
   };
 
   // FUNÇÃO DE GRAVAÇÃO NATIVA (Solução para crash de memória e falha de compressão)
@@ -5141,6 +5108,16 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     </>
                   ) : (
                     <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleTakePhoto}
+                        className="h-20 flex-col gap-1"
+                        disabled={isSubmitting || isTakingPhoto}
+                      >
+                        <Camera className="w-6 h-6" />
+                        <span className="text-xs">Tirar Foto</span>
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"

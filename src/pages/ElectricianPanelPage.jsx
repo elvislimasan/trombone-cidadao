@@ -124,7 +124,7 @@ export default function ElectricianPanelPage() {
   }, [preview, municipalityId]);
 
   const { items: visibleItems, page, pages, total, stageCounts, loading, error, refresh, setPage } = useElectricianServicesPage({
-    municipalityId, tab, stage, query, sortMode, deferred, showDeferred, enabled: !mapMode,
+    municipalityId, userId: context.userId, tab, stage, query, sortMode, deferred, showDeferred, enabled: !mapMode,
   });
   const offers = useMemo(() => tab === 'disponiveis' ? visibleItems : [], [tab, visibleItems]);
   useEffect(() => {
@@ -195,7 +195,7 @@ export default function ElectricianPanelPage() {
     ? [['Urgentes', 0], ['Ordens de serviço', 1], ['Solicitações', 2]].map(([label, group]) => ({ label, items: visibleItems.filter((item) => offerGroup(item) === group) })).filter(({ items }) => items.length)
     : [];
 
-  return <div className={mapMode ? 'flex h-full min-h-0 min-w-0 flex-col overflow-hidden' : 'page-shell-fluid min-w-0 pb-8 pt-3 sm:py-8'}>
+  return <div className={mapMode ? 'flex h-full min-h-0 min-w-0 flex-col overflow-hidden' : 'page-shell-fluid min-w-0 pb-16 pt-3 sm:py-8'}>
     <Helmet><title>Painel do eletricista | Trombone Cidadão</title><meta name="robots" content="noindex" /></Helmet>
     <section className={mapMode ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'min-w-0'} aria-label={mapMode ? 'Mapa de iluminação pública' : tab === 'minhas' ? 'Minhas ordens' : 'Oportunidades disponíveis'}>
       {!mapMode && <>

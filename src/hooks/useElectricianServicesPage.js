@@ -5,7 +5,7 @@ export const ELECTRICIAN_SERVICES_PAGE_SIZE = 20;
 const EMPTY_COUNTS = { fazer: 0, execucao: 0, conferencia: 0, historico: 0 };
 const EMPTY_ITEMS = [];
 
-export function useElectricianServicesPage({ municipalityId, tab, stage, query, sortMode, deferred, showDeferred, enabled = true }) {
+export function useElectricianServicesPage({ municipalityId, userId, tab, stage, query, sortMode, deferred, showDeferred, enabled = true }) {
   const normalized = query.trim();
   const [term, setTerm] = useState(normalized);
   const [selection, setSelection] = useState({ scope: '', page: 1 });
@@ -17,11 +17,11 @@ export function useElectricianServicesPage({ municipalityId, tab, stage, query, 
     return () => clearTimeout(timer);
   }, [normalized]);
 
-  const scope = JSON.stringify({
+  const scope = JSON.stringify({ userId, args: {
     p_prefeitura: municipalityId, p_aba: tab, p_etapa: tab === 'minhas' ? stage : 'fazer',
     p_busca: term, p_ordem: sortMode,
     p_adiadas: tab === 'disponiveis' && !showDeferred ? deferred : [],
-  });
+  } });
   // Uma nova busca sempre começa na primeira página, inclusive ao limpar
   // um filtro e voltar a uma busca que já foi visitada.
   if (selection.scope !== scope) setSelection({ scope, page: 1 });
@@ -29,7 +29,7 @@ export function useElectricianServicesPage({ municipalityId, tab, stage, query, 
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
   useEffect(() => {
-    const args = JSON.parse(scope);
+    const { args } = JSON.parse(scope);
     if (!enabled || !args.p_prefeitura) return undefined;
     const controller = new AbortController();
     setPending(true);

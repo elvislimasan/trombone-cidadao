@@ -68,6 +68,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
 
   useEffect(() => {
     let cancelled = false;
+    const pointers = pointersRef.current;
     mountedRef.current = true;
 
     const start = async () => {
@@ -142,7 +143,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
       streamRef.current = null;
       recorderRef.current = null;
       chunksRef.current = [];
-      pointersRef.current.clear();
+      pointers.clear();
       pinchRef.current = null;
     };
   }, [mode, cameraSession]);
@@ -349,7 +350,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
         {mode === 'photo' && (
           <>
             <button type="button" disabled={controlsBusy || usingDeviceCamera} onClick={captureWithDevice} className="text-sm underline disabled:opacity-60">Usar câmera do aparelho</button>
-            <input ref={nativeInputRef} type="file" accept="image/*" capture="environment" className="hidden" onCancel={resumeWebCamera} onChange={(event) => {
+            <input ref={nativeInputRef} type="file" accept="image/*" capture="environment" className="hidden" onCancelCapture={resumeWebCamera} onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) onCapture?.({ type: 'photo', file });
               else resumeWebCamera();

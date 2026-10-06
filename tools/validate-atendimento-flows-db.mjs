@@ -352,6 +352,18 @@ try {
     assert.ok(filtered.items.every(item=>!keys.includes(item.tipo+':'+item.id)));
     assert.equal((await panelPage('disponiveis','%')).total,0);
   });
+  await check('solicitações públicas são paginadas e pesquisadas pelo número informado',async()=> {
+    await asUser(ids.admin);await db.query('reset role');
+    await db.query(`insert into reports(id,title,protocol,category_id,city_id,reported_post_identifier,is_public)
+      values(gen_random_uuid(),'PAG-REQUEST A','PAG-REQ-1','iluminacao',1,'PAG-SEM-PLACA',true),
+        (gen_random_uuid(),'PAG-REQUEST B','PAG-REQ-2','iluminacao',1,null,true),
+        (gen_random_uuid(),'PAG-REQUEST privada','PAG-REQ-3','iluminacao',1,null,false),
+        (gen_random_uuid(),'PAG-REQUEST outro município','PAG-REQ-4','iluminacao',2,null,true)`);
+    await asUser(ids.operator);
+    const requests=await panelPage('disponiveis','PAG-REQ');
+    assert.equal(requests.total,2);assert.ok(requests.items.every(item=>item.tipo==='solicitacao'));
+    assert.equal((await panelPage('disponiveis','PAG-SEM-PLACA')).items[0].protocolo,'PAG-REQ-1');
+  });
   await check('paginação não expõe ordens de outro eletricista ou dados de outro município',async()=> {
     await asUser(ids.reader);
     assert.equal((await panelPage('minhas','PAG-OWN')).total,0);

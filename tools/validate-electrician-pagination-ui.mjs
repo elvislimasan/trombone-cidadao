@@ -1,4 +1,4 @@
-// Componentes reais, dados locais e GPS simulado; nenhum acesso ao Supabase.
+// Componentes reais, fila local e consultas simuladas; nenhum acesso ao Supabase.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import http from 'node:http';
@@ -11,9 +11,6 @@ import loadConfig from 'tailwindcss/loadConfig.js';
 
 const root=process.cwd(), out=path.join(root,'.tmp/electrician-pagination-validation');
 await fs.mkdir(out,{recursive:true});
-const figures=path.join(root,'src/assets/patrol/avatar/figura');
-const publishedFigures=(await fs.readdir(figures)).filter(file=>file.endsWith('.webp'));
-const renderRegistry=publishedFigures.map(file=>['figura/'+file.slice(0,-5),'/avatar/'+file]);
 const stubs={
   '@/design-system/theme/ThemeProvider':`export const useTheme=()=>({resolved:'light'});`,
   
@@ -27,7 +24,7 @@ const stubs={
   '@/hooks/useNavVoice':`export const useNavVoice=()=>({preparar:prepare,anunciar:announce,mudo:false,alternarMudo:()=>{},suportada:true});const prepare=()=>{};const announce=text=>window.voiceAlerts.push(text);`,
   '@/components/municipality/ElectricianLightingMap':`export default function Map(){return <div>Mapa de iluminação</div>}`,
   '@/lib/customSupabaseClient':`
-    const rows=Array.from({length:53},(_,i)=>({tipo:'solicitacao',id:'row-'+(i+1),protocolo:'PAG-'+(i+1),titulo:'Poste '+(i+1),descricao:'L?mpada apagada',endereco:'Rua A',bairro:'Centro',prioridade:'normal',status:'aberta',pole_id:i+1,report_id:'report-'+(i+1),created_at:new Date(2020,0,i+1).toISOString()}));
+    const rows=Array.from({length:53},(_,i)=>({tipo:'solicitacao',id:'row-'+(i+1),protocolo:'PAG-'+(i+1),titulo:'Poste '+(i+1),descricao:'Lâmpada apagada',endereco:'Rua A',bairro:'Centro',prioridade:'normal',status:'aberta',pole_id:i+1,report_id:'report-'+(i+1),created_at:new Date(2020,0,i+1).toISOString()}));
     export const supabase={rpc(name,args){const request={name,args};window.requests.push(request);let signal;return {abortSignal(s){signal=s;return this;},then(ok,fail){return new Promise(resolve=>setTimeout(()=>{
       request.aborted=Boolean(signal?.aborted);
       if(name==='listar_painel_eletricista'){
@@ -50,7 +47,7 @@ const css=await postcss([tailwind({...loadConfig(path.join(root,'tailwind.config
 await fs.writeFile(path.join(out,'preview.css'),(await fs.readFile(path.join(out,'preview.css'),'utf8'))+'\n'+css.css);
 await fs.writeFile(path.join(out,'index.html'),'<html><head><meta charset="UTF-8"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>');
 }
-const server=http.createServer(async(req,res)=>{const avatarFile=req.url?.startsWith('/avatar/')?req.url.slice(8):null;const file=avatarFile&&publishedFigures.includes(avatarFile)?path.join(figures,avatarFile):path.join(out,req.url==='/preview.js'?'preview.js':req.url==='/preview.css'?'preview.css':'index.html');res.setHeader('Content-Type',file.endsWith('.webp')?'image/webp':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(file));});
+const server=http.createServer(async(req,res)=>{const file=path.join(out,req.url==='/preview.js'?'preview.js':req.url==='/preview.css'?'preview.css':'index.html');res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(file));});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 await fs.rm(path.join(out,'chrome-profile/DevToolsActivePort'),{force:true});
 const chrome=spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--disable-gpu','--disable-extensions','--no-first-run','--remote-debugging-port=0','--user-data-dir='+path.join(out,'chrome-profile'),'about:blank'],{windowsHide:true});
@@ -96,8 +93,9 @@ try{
     assert.ok(await evaluate('auxRequests.every(r=>!r.ids||r.ids.length<=20)'));
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
     await screenshot(`available-${width}`);
-    await evaluate('document.querySelector(`nav[aria-label="Paginação dos serviços"]`).scrollIntoView({block:"end"})');
+    await evaluate('document.querySelector("main").scrollTop=document.querySelector("main").scrollHeight');
     await pause(100);assert.ok(await touchable('Próxima'));await screenshot(`pagination-${width}`);
+    assert.ok(await evaluate('document.querySelector(`nav[aria-label="Paginação dos serviços"]`).getBoundingClientRect().bottom<=document.querySelector(`nav[aria-label="Painel do eletricista"]`).getBoundingClientRect().top-20'));
     await clickText('Próxima');await waitFor('document.body.innerText.includes("Página 2 de 3")');
     assert.equal(await evaluate(cards+'.length'),20);
     assert.ok(await evaluate(cards+'[0].textContent.includes("PAG-21")'));

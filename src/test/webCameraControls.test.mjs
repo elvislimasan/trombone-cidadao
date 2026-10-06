@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { webCameraCapabilities, photoZoomCrop, applyWebCameraControls, fitCameraPreview } from '../lib/webCameraControls.js';
+import { webCameraCapabilities, photoZoomCrop, applyWebCameraControls, fitCameraPreview, clampCameraZoom } from '../lib/webCameraControls.js';
 
 test('detecta zoom e flash por câmera e respeita o intervalo do hardware', () => {
   const controls = webCameraCapabilities({
@@ -34,9 +34,33 @@ test('zoom digital recorta a foto no centro, sem mudar a proporção', () => {
 
 test('aplica zoom e flash juntos; a falha do hardware não vira sucesso', async () => {
   const calls = [];
-  await applyWebCameraControls({ applyConstraints: async (value) => calls.push(value) }, { zoom: 3, torch: true });
+  await applyWebCameraControls({ applyConstraints: async (value) => calls.push(value), getSettings: () => ({ zoom: 3, torch: true }) }, { zoom: 3, torch: true });
   assert.deepEqual(calls, [{ advanced: [{ zoom: 3, torch: true }] }]);
   await assert.rejects(applyWebCameraControls({ applyConstraints: async () => { throw new Error('unsupported'); } }, { torch: true }), /unsupported/);
+});
+
+test('capacidades sem permissão de zoom usam zoom digital', () => {
+  const controls = webCameraCapabilities({
+    getCapabilities: () => ({ zoom: { min: 1, max: 8 } }),
+    getSettings: () => ({}), applyConstraints() {},
+  });
+  assert.equal(controls.hardwareZoom, false);
+  assert.equal(controls.zoom.max, 4);
+});
+
+test('constraints ignoradas não anunciam zoom ou flash aplicados', async () => {
+  const track = { applyConstraints: async () => {}, getSettings: () => ({ zoom: 1, torch: false }) };
+  await assert.rejects(applyWebCameraControls(track, { zoom: 3 }), { constraint: 'zoom' });
+  await assert.rejects(applyWebCameraControls(track, { torch: true }), { constraint: 'torch' });
+  await assert.rejects(applyWebCameraControls({ ...track, getSettings: () => ({}) }, { torch: true }), { constraint: 'torch' });
+});
+
+test('zoom por gesto respeita limites e passos do hardware', () => {
+  const range = { min: 1, max: 8, step: 0.25 };
+  assert.equal(clampCameraZoom(2.13, range), 2.25);
+  assert.equal(clampCameraZoom(20, range), 8);
+  assert.equal(clampCameraZoom(0.2, range), 1);
+  assert.equal(clampCameraZoom(NaN, range), 1);
 });
 
 test('prévia cabe em celular e desktop 1440/1920, mantendo a proporção do recorte', () => {
