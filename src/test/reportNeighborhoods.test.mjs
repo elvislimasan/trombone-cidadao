@@ -37,6 +37,16 @@ test('Bomba explícita e DNER abreviado usam o bairro cadastrado da cidade', () 
   assert.equal(neighborhoodFromAddress('Rua Paulo Fernandes Nunes, DNER', [{ name: 'Centro' }]), null);
 });
 
+test('bairro explícito mais outro segmento cadastrado exige revisão, sem escolher o primeiro', async () => {
+  const local = [{ name: 'Centro' }, { name: 'AABB' }, { name: 'São Francisco de Assis (DNER)' }];
+  for (const address of ['Rua A, Bairro Centro, AABB', 'Rua A - Bairro: Centro - AABB', 'Rua A, bairro DNER, Centro']) {
+    assert.equal(neighborhoodFromAddress(address, local), null);
+    assert.deepEqual(await resolveReportNeighborhood(null, { ...report, address }, local),
+      { neighborhood: null, reason: 'needs_geocode' });
+  }
+  assert.equal(neighborhoodFromAddress('Rua A, Bairro Centro, Centro', local), 'Centro');
+});
+
 test('coordenadas GeoJSON respeitam a ordem longitude, latitude e rejeitam valores inválidos', () => {
   assert.deepEqual(reportPosition(report), { lat: -8.6, lng: -38.58 });
   assert.deepEqual(reportPosition({ location: { lat: 0, lng: 0 } }), { lat: 0, lng: 0 });

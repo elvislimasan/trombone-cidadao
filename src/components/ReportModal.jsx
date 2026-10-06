@@ -3868,7 +3868,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   )}
 
                   <div className="px-4 pt-4">
-                    {formData.category === 'iluminacao' && <PoleNumberSearch cityId={municipalCityId || formData.city_id} selectedId={formData.pole_id} onSelect={handlePoleSelect} />}
                     <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-1">
                       <MapPin className="w-4 h-4" />
                       Localização *
@@ -3883,10 +3882,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   <div
                     id="location-picker-map"
                     data-error-field="location"
-                    className={`w-full overflow-hidden border-y ${
+                    className={`relative isolate w-full overflow-hidden border-y ${
                       errors.location ? "border-destructive" : "border-input"
                     } ${isTakingPhoto ? "h-[44vh]" : "h-[48vh]"}`}
                   >
+                    {formData.category === 'iluminacao' && !isTakingPhoto && (
+                      <div className="absolute inset-x-3 top-3 z-[10000]">
+                        <PoleNumberSearch compact cityId={municipalCityId || formData.city_id} selectedId={formData.pole_id} onSelect={handlePoleSelect} />
+                      </div>
+                    )}
                     {!isTakingPhoto ? (
                       <Suspense
                         fallback={
@@ -4775,7 +4779,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                 <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
                   <MapPin className="w-4 h-4" /> Localização *
                 </label>
-                {formData.category === 'iluminacao' && <PoleNumberSearch cityId={municipalCityId || formData.city_id} selectedId={formData.pole_id} onSelect={handlePoleSelect} />}
                 <p className="text-xs text-muted-foreground mb-2">
                   {formData.category === "iluminacao"
                     ? reportCopy("Selecione o poste: a localização da bronca será a dele.")
@@ -4784,10 +4787,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                 <div
                   id="location-picker-map"
                   data-error-field="location"
-                  className={`h-64 w-full rounded-lg overflow-hidden border ${
+                  className={`relative isolate h-64 w-full rounded-lg overflow-hidden border ${
                     errors.location ? "border-destructive" : "border-input"
                   }`}
                 >
+                  {formData.category === 'iluminacao' && !isTakingPhoto && (
+                    <div className="absolute inset-x-3 top-3 z-[10000]">
+                      <PoleNumberSearch compact cityId={municipalCityId || formData.city_id} selectedId={formData.pole_id} onSelect={handlePoleSelect} />
+                    </div>
+                  )}
                   {!isTakingPhoto ? (
                     <Suspense
                       fallback={

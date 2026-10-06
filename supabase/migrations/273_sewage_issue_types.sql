@@ -1,17 +1,29 @@
 -- Subcategorias de esgoto usam reports.issue_type, já existente como text.
 -- Valores antigos sem tipo permanecem válidos; novos valores fora do catálogo são rejeitados.
-alter table public.reports
-  add constraint reports_esgoto_issue_type_check
-  check (
-    category_id <> 'esgoto'
-    or issue_type is null
-    or issue_type in (
-      'sewer_clogged',
-      'sewer_box_broken',
-      'sewer_box_without_cover',
-      'sewer_cover_broken'
-    )
-  ) not valid;
+-- A antiga 272 já instalou esta constraint em alguns ambientes. Preservar
+-- a existente (inclusive seu estado de validação) em vez de recriá-la.
+do $migration$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.reports'::regclass
+      and conname = 'reports_esgoto_issue_type_check'
+  ) then
+    alter table public.reports
+      add constraint reports_esgoto_issue_type_check
+      check (
+        category_id <> 'esgoto'
+        or issue_type is null
+        or issue_type in (
+          'sewer_clogged',
+          'sewer_box_broken',
+          'sewer_box_without_cover',
+          'sewer_cover_broken'
+        )
+      ) not valid;
+  end if;
+end
+$migration$;
 
 -- A missão de patrulha também cria broncas; ela precisa preservar o tipo de esgoto.
 create or replace function public.complete_patrol_signal(

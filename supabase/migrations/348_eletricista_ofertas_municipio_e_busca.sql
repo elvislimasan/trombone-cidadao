@@ -39,6 +39,10 @@ create or replace function pg_temp.ajustar_eletricista(signature text,trecho tex
 returns void language plpgsql as $$
 declare definition text;
 begin
+  -- O SQL pode vir com CRLF (Windows) e a definição instalada com LF.
+  -- Normalizar os três textos evita rejeitar uma substituição já aplicada.
+  trecho=replace(trecho,E'\r\n',E'\n');
+  substituto=replace(substituto,E'\r\n',E'\n');
   definition=replace(pg_get_functiondef(signature::regprocedure),E'\r\n',E'\n');
   if position(trecho in definition)=0 then
     -- A antiga versão 346 pode ter sido confirmada antes da colisão de versões.

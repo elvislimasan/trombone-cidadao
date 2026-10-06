@@ -123,14 +123,24 @@ try {
   for(const number of migrations) {
     const file=files.find((name)=>name.startsWith(number+'_'));
     console.log('Migration',number);
-    await db.query((await fs.readFile('supabase/migrations/'+file,'utf8')).replace(/\r\n/g,'\n'));
+    const sql=(await fs.readFile('supabase/migrations/'+file,'utf8')).replace(/\r\n/g,'\n');
+    // A 348 deve funcionar com o arquivo Windows original, sem depender da
+    // normalização que este validador fazia antes de enviar todas as migrações.
+    await db.query(number===348 ? sql.replace(/\n/g,'\r\n') : sql);
   }
-  await check('migration do eletricista pode ser reaplicada depois da colisao de versoes', async () => {
-    const definitions = () => db.query(`select pg_get_functiondef(p.oid) definition from pg_proc p
-      join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' order by p.oid`);
-    const before = (await definitions()).rows;
-    await db.query(await fs.readFile('supabase/migrations/348_eletricista_ofertas_municipio_e_busca.sql','utf8'));
-    assert.deepEqual((await definitions()).rows, before);
+  await check('migration do eletricista aplica e reaplica com LF e CRLF preservando todas as funções', async () => {
+    const definitions = async () => (await db.query(`select pg_get_functiondef(p.oid) definition from pg_proc p
+      join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' order by p.oid`)).rows
+      .map(row=>({definition:row.definition.replace(/\r\n/g,'\n')}));
+    const before = await definitions();
+    const sql=(await fs.readFile('supabase/migrations/348_eletricista_ofertas_municipio_e_busca.sql','utf8')).replace(/\r\n/g,'\n');
+    for(const source of [sql,sql.replace(/\n/g,'\r\n')]) {
+      await db.query(source);
+      assert.deepEqual(await definitions(), before);
+    }
+    const salvar=(await db.query("select pg_get_functiondef('public.salvar_demanda_municipal(uuid,uuid,jsonb,integer,uuid[],text,text,text,jsonb)'::regprocedure) definition")).rows[0].definition;
+    assert.equal(salvar.includes("public.papel_no_orgao(auth.uid(),d.canal_id)='eletricista'"),false);
+    assert.equal(salvar.split("(d.category_id='iluminacao' and public.eletricista_ativo_municipio(auth.uid(),v_city))").length-1,3);
     await assert.rejects(
       db.query("select pg_temp.ajustar_eletricista('public.aceitar_oferta_eletricista(uuid,text,uuid)', 'trecho inexistente', 'substituto inexistente')"),
       /Definição inesperada/,
