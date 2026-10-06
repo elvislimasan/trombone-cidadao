@@ -41,12 +41,13 @@ Object.defineProperty(window.HTMLVideoElement.prototype, 'srcObject', {
 });
 Object.defineProperty(window.HTMLVideoElement.prototype, 'videoWidth', { get: () => 1280 });
 Object.defineProperty(window.HTMLVideoElement.prototype, 'videoHeight', { get: () => 720 });
-let draws;
+let draws, canvases;
 window.HTMLCanvasElement.prototype.getContext = () => ({ drawImage: (...args) => draws.push(args.slice(1)) });
-window.HTMLCanvasElement.prototype.toBlob = function (callback) { callback(new Blob(['photo'], { type: 'image/jpeg' })); };
+window.HTMLCanvasElement.prototype.toBlob = function (callback) { canvases.push(this); callback(new Blob(['photo'], { type: 'image/jpeg' })); };
 
-async function mount({ hardware = false, torch = false, ignore = false, delayed = false } = {}) {
+async function mount({ hardware = false, torch = false, ignore = false, delayed = false, allowDeviceCamera = true } = {}) {
   draws = [];
+  canvases = [];
   const captures = [], constraints = [], streams = [], pending = [];
   const mediaDevices = {
     getSupportedConstraints: () => ({ zoom: true }),
@@ -72,7 +73,7 @@ async function mount({ hardware = false, torch = false, ignore = false, delayed 
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  await act(async () => root.render(React.createElement(Camera, { onCapture: result => captures.push(result), onClose() {} })));
+  await act(async () => root.render(React.createElement(Camera, { allowDeviceCamera, onCapture: result => captures.push(result), onClose() {} })));
   const button = text => [...container.querySelectorAll('button')].find(el => el.textContent.includes(text));
   return { container, captures, constraints, streams, pending, button, dispose: () => { act(() => root.unmount()); container.remove(); } };
 }
@@ -91,14 +92,17 @@ test('pinça e botões aproximam prévia e foto com o mesmo recorte digital', as
     assert.equal(view.container.querySelector('input[type=range]').value, '2');
     assert.equal(view.container.querySelector('video').style.transform, 'scale(2)');
     pointer(view, 'pointerup', 2, 300);
-    await act(async () => view.button('Capturar').click());
-    assert.deepEqual(draws.at(-1), [320, 180, 640, 360, 0, 0, 1280, 720]);
-    assert.equal(view.captures[0].type, 'photo');
     act(() => view.container.querySelector('[aria-label="Aumentar zoom"]').click());
     assert.equal(view.container.querySelector('input[type=range]').value, '2.5');
     act(() => view.container.querySelector('[aria-label="Diminuir zoom"]').click());
     assert.equal(view.container.querySelector('input[type=range]').value, '2');
     assert.equal(view.constraints[0].video.zoom, true);
+    await act(async () => view.button('Capturar').click());
+    assert.deepEqual(draws.at(-1), [320, 180, 640, 360, 0, 0, 1280, 720]);
+    assert.equal(view.captures[0].type, 'photo');
+    assert.equal(view.streams[0].getVideoTracks()[0].readyState, 'ended');
+    assert.equal(canvases[0].width, 0);
+    assert.equal(canvases[0].height, 0);
   } finally { view.dispose(); }
   assert.equal(view.streams[0].getVideoTracks()[0].readyState, 'ended');
 });
@@ -112,10 +116,10 @@ test('flash do hardware preserva zoom e a captura não aplica um segundo zoom', 
     assert.equal(view.button('Flash ligado').getAttribute('aria-pressed'), 'true');
     await act(async () => view.container.querySelector('[aria-label="Aumentar zoom"]').click());
     assert.deepEqual(view.streams[0].getVideoTracks()[0].getSettings(), { zoom: 2, torch: true });
-    await act(async () => view.button('Capturar').click());
-    assert.deepEqual(draws.at(-1), [0, 0, 1280, 720, 0, 0, 1280, 720]);
     await act(async () => view.button('Flash ligado').click());
     assert.equal(view.streams[0].getVideoTracks()[0].getSettings().torch, false);
+    await act(async () => view.button('Capturar').click());
+    assert.deepEqual(draws.at(-1), [0, 0, 1280, 720, 0, 0, 1280, 720]);
   } finally { view.dispose(); }
 });
 
@@ -173,4 +177,87 @@ test('ajustes rápidos ficam em ordem e captura espera toda a fila', async () =>
     assert.equal(view.streams[0].getVideoTracks()[0].getSettings().zoom, 3);
     assert.equal(view.button('Capturar').disabled, false);
   } finally { view.dispose(); }
+});
+
+test('captura de frame de 50 MP limita saída e preserva recorte e orientação', async () => {
+  const view = await mount({ allowDeviceCamera: false });
+  try {
+    const video = view.container.querySelector('video');
+    Object.defineProperty(video, 'videoWidth', { value: 8160 });
+    Object.defineProperty(video, 'videoHeight', { value: 6120 });
+    act(() => view.container.querySelector('[aria-label="Aumentar zoom"]').click());
+    await act(async () => view.button('Capturar').click());
+    assert.deepEqual(draws.at(-1), [1360, 1020, 5440, 4080, 0, 0, 1280, 960]);
+    assert.equal(view.captures.length, 1);
+    assert.equal(canvases[0].width, 0);
+    assert.equal(canvases[0].height, 0);
+  } finally { view.dispose(); }
+
+  const portrait = await mount({ allowDeviceCamera: false });
+  try {
+    const video = portrait.container.querySelector('video');
+    Object.defineProperty(video, 'videoWidth', { value: 6120 });
+    Object.defineProperty(video, 'videoHeight', { value: 8160 });
+    await act(async () => portrait.button('Capturar').click());
+    assert.deepEqual(draws.at(-1), [0, 0, 6120, 8160, 0, 0, 960, 1280]);
+  } finally { portrait.dispose(); }
+});
+
+test('fluxo Android não oferece saída para câmera externa quando flash falta ou falha', async () => {
+  for (const options of [{}, { torch: true, ignore: true }]) {
+    const view = await mount({ ...options, allowDeviceCamera: false });
+    try {
+      if (options.torch) await act(async () => view.button('Flash desligado').click());
+      assert.equal(view.container.querySelector('input[type=file]'), null);
+      assert.equal(view.button('Usar câmera do aparelho'), undefined);
+      assert.equal(view.button('Flash indisponível').disabled, true);
+      assert.equal(view.button('Capturar').disabled, false);
+    } finally { view.dispose(); }
+  }
+});
+
+test('cliques repetidos geram uma foto e fechar durante codificação descarta resultado', async () => {
+  const originalToBlob = window.HTMLCanvasElement.prototype.toBlob;
+  let finish, pendingCanvas;
+  window.HTMLCanvasElement.prototype.toBlob = function (callback) { finish = callback; pendingCanvas = this; };
+  const view = await mount();
+  try {
+    act(() => { view.button('Capturar').click(); view.button('Capturar').click(); });
+    assert.equal(draws.length, 1);
+    assert.equal(view.button('Capturar').disabled, true);
+    await act(async () => finish(new Blob(['photo'], { type: 'image/jpeg' })));
+    assert.equal(view.captures.length, 1);
+    assert.equal(pendingCanvas.width, 0);
+  } finally { view.dispose(); }
+  const closing = await mount();
+  try {
+    act(() => closing.button('Capturar').click());
+    closing.dispose();
+    await act(async () => finish(new Blob(['photo'], { type: 'image/jpeg' })));
+    assert.equal(closing.captures.length, 0);
+    assert.equal(pendingCanvas.width, 0);
+    assert.equal(pendingCanvas.height, 0);
+  } finally { window.HTMLCanvasElement.prototype.toBlob = originalToBlob; }
+});
+
+test('falha de codificação libera memória e permite tentar de novo sem fechar câmera', async () => {
+  const originalToBlob = window.HTMLCanvasElement.prototype.toBlob;
+  let failedCanvas;
+  window.HTMLCanvasElement.prototype.toBlob = function (callback) { failedCanvas = this; callback(null); };
+  const view = await mount({ allowDeviceCamera: false });
+  try {
+    await act(async () => view.button('Capturar').click());
+    assert.equal(view.captures.length, 0);
+    assert.equal(view.container.querySelector('[role=alert]').textContent, 'Não foi possível tirar a foto. Tente novamente.');
+    assert.equal(failedCanvas.width, 0);
+    assert.equal(failedCanvas.height, 0);
+    assert.equal(view.button('Capturar').disabled, false);
+    assert.equal(view.streams[0].getVideoTracks()[0].readyState, 'live');
+    window.HTMLCanvasElement.prototype.toBlob = originalToBlob;
+    await act(async () => view.button('Capturar').click());
+    assert.equal(view.captures.length, 1);
+  } finally {
+    window.HTMLCanvasElement.prototype.toBlob = originalToBlob;
+    view.dispose();
+  }
 });

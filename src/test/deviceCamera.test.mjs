@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
-import { prefersDeviceCamera, openDeviceCamera } from '../lib/deviceCamera.js';
+import { prefersDeviceCamera, prefersBrowserCamera, openDeviceCamera } from '../lib/deviceCamera.js';
 
 const source = fs.readFileSync(new URL('../components/ReportModal.jsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('ReportModal.jsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
@@ -18,7 +18,7 @@ function handler(name, bindings) {
   return new Function(...Object.keys(bindings), `return (${initializer});`)(...Object.values(bindings));
 }
 
-test('celulares e iPadOS usam câmera do sistema; desktop usa webcam', () => {
+test('identifica celulares e iPadOS para fallback da câmera do sistema', () => {
   for (const userAgent of ['Mozilla/5.0 (Linux; Android 14)', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18)', 'Mozilla/5.0 (iPad; CPU OS 18)']) {
     assert.equal(prefersDeviceCamera({ userAgent }), true);
   }
@@ -28,14 +28,22 @@ test('celulares e iPadOS usam câmera do sistema; desktop usa webcam', () => {
   assert.equal(prefersDeviceCamera({}), false);
 });
 
-function photoRequest(mobile) {
+test('Android com câmera web disponível mantém a captura dentro da página', () => {
+  const android = { userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S721B) Chrome/140.0 Mobile', mediaDevices: { getUserMedia() {} } };
+  assert.equal(prefersBrowserCamera(android), true);
+  assert.equal(prefersBrowserCamera({ ...android, mediaDevices: undefined }), false);
+  assert.equal(prefersBrowserCamera({ ...android, userAgent: 'iPhone' }), false);
+  assert.equal(prefersBrowserCamera({}), false);
+});
+
+function photoRequest(mobile, browserCamera = false) {
   const calls = [];
   const input = { isConnected: true, value: 'foto anterior', click() { calls.push('camera'); assert.equal(this.value, ''); } };
   const bindings = {
     isTakingPhoto: false, isRecordingVideo: false, isPhotoProcessing: false,
     isProcessingRef: { current: false },
     Capacitor: { isNativePlatform: () => false },
-    prefersDeviceCamera: () => mobile, openDeviceCamera,
+    prefersDeviceCamera: () => mobile, prefersBrowserCamera: () => browserCamera, openDeviceCamera,
     photoCameraInputRef: { current: input }, municipalMode: false,
     formData: { title: 'Buraco na rua' }, wizardStep: 2,
     saveReportDraft: () => { calls.push('draft'); return true; },
@@ -46,7 +54,7 @@ function photoRequest(mobile) {
   return { calls, bindings, request: () => handler('handleTakePhoto', bindings)() };
 }
 
-test('Tirar Foto salva campos e abre câmera padrão no mesmo gesto, sem bloquear modal', async () => {
+test('fallback sem câmera web salva campos e abre câmera do sistema no mesmo gesto', async () => {
   const view = photoRequest(true);
   const first = view.request();
   assert.deepEqual(view.calls, ['draft', 'media', 'camera']);
@@ -65,6 +73,32 @@ test('desktop ainda abre câmera web e processamento em andamento impede nova ca
   await busy.request();
   assert.deepEqual(busy.calls, ['error']);
   assert.equal(openDeviceCamera({ isConnected: false }), false);
+});
+
+test('Android abre câmera na página sem sair para outro aplicativo nem reabrir modal', async () => {
+  const view = photoRequest(true, true);
+  await view.request();
+  assert.deepEqual(view.calls, ['photo', ['webcam', true], ['busy', true]]);
+});
+
+test('captura web acrescenta foto no mesmo formulário e fecha somente a câmera', async () => {
+  let state = { title: 'Buraco na rua', location: { lat: -8.6, lng: -38.5 }, photos: [] };
+  const camera = [], busy = [];
+  const capture = handler('handleInAppCapture', {
+    setFormData: update => { state = update(state); },
+    setIsPhotoProcessing: () => {}, setPhotoProcessingMessage: () => {}, setPhotoProcessingProgress: () => {},
+    setShowCamera: value => camera.push(value), setIsTakingPhoto: value => busy.push(value), setIsRecordingVideo: () => {},
+    showAppError: () => assert.fail('Foto válida não deve apresentar erro'),
+    onClose: () => assert.fail('Modal deve permanecer aberto'),
+  });
+  await capture({ type: 'photo', file: new Blob(['jpeg'], { type: 'image/jpeg' }) });
+  assert.equal(state.title, 'Buraco na rua');
+  assert.deepEqual(state.location, { lat: -8.6, lng: -38.5 });
+  assert.equal(state.photos.length, 1);
+  assert.equal(state.photos[0].file.type, 'image/jpeg');
+  assert.deepEqual(camera, [false]);
+  assert.deepEqual(busy, [false]);
+  URL.revokeObjectURL(state.photos[0].preview);
 });
 
 function fileReturn() {

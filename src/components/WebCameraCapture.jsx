@@ -26,7 +26,7 @@ const extForMime = (mime) => {
   return 'webm';
 };
 
-export default function WebCameraCapture({ initialMode = 'photo', onCapture, onClose }) {
+export default function WebCameraCapture({ initialMode = 'photo', allowDeviceCamera = true, onCapture, onClose }) {
   const videoRef = useRef(null);
   const previewRef = useRef(null);
   const streamRef = useRef(null);
@@ -38,10 +38,13 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
   const pointersRef = useRef(new Map());
   const pinchRef = useRef(null);
   const mountedRef = useRef(false);
+  const capturingRef = useRef(false);
   const nativeInputRef = useRef(null);
   const [error, setError] = useState('');
   const [isReady, setIsReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState('');
   const [mode] = useState(initialMode);
   const [controls, setControls] = useState(() => webCameraCapabilities(null, initialMode));
   const [zoom, setZoom] = useState(1);
@@ -191,7 +194,9 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
             setTorch(false);
             valuesRef.current.torch = false;
           }
-          setControlsError('Não foi possível ajustar a câmera. Use a câmera do aparelho para acessar seus controles.');
+          setControlsError(allowDeviceCamera
+            ? 'Não foi possível ajustar a câmera. Use a câmera do aparelho para acessar seus controles.'
+            : 'Não foi possível ajustar a câmera. Você pode continuar fotografando sem esse controle.');
         }
       } finally {
         queue.pending -= 1;
@@ -231,6 +236,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
   };
 
   const captureWithDevice = () => {
+    if (!allowDeviceCamera) return;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     setIsReady(false);
     setUsingDeviceCamera(true);
@@ -247,20 +253,38 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
 
   const capturePhoto = async () => {
     const video = videoRef.current;
-    if (!video) return;
-    if (!video.videoWidth || !video.videoHeight) return;
+    if (!isReady || capturingRef.current || controlsQueueRef.current.pending || !video?.videoWidth || !video.videoHeight) return;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const crop = photoZoomCrop(canvas.width, canvas.height, controls.hardwareZoom ? 1 : zoom);
-    ctx.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
+    capturingRef.current = true;
+    setIsCapturing(true);
+    setCaptureError('');
+    let canvas;
+    try {
+      // Não alocar um canvas de 12/50 MP mesmo que o aparelho ignore a
+      // resolução solicitada ao stream. O recorte usa as dimensões originais.
+      const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+      canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.floor(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.floor(video.videoHeight * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas indisponível');
+      const crop = photoZoomCrop(video.videoWidth, video.videoHeight, controls.hardwareZoom ? 1 : zoom);
+      ctx.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-    if (!blob) return;
-    if (mountedRef.current) onCapture?.({ type: 'photo', file: blob });
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      if (!blob) throw new Error('Falha ao gerar a foto');
+      if (!mountedRef.current) return;
+      // Liberar câmera/flash antes de inserir a miniatura no modal.
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      setIsReady(false);
+      await onCapture?.({ type: 'photo', file: blob });
+    } catch {
+      if (mountedRef.current) setCaptureError('Não foi possível tirar a foto. Tente novamente.');
+    } finally {
+      if (canvas) { canvas.width = 0; canvas.height = 0; }
+      capturingRef.current = false;
+      if (mountedRef.current) setIsCapturing(false);
+    }
   };
 
   const startRecording = () => {
@@ -341,13 +365,14 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
             <span className="w-12 text-right">{zoom.toFixed(1)}×</span>
           </div>
         )}
-        <button type="button" aria-pressed={controls.torch ? torch : undefined} disabled={controlsBusy || usingDeviceCamera || (controls.torch ? !isReady : mode !== 'photo')} onClick={() => controls.torch ? changeControls({ torch: !torch }) : captureWithDevice()} className="flex items-center gap-2 py-2 text-sm disabled:opacity-60">
+        <button type="button" aria-pressed={controls.torch ? torch : undefined} disabled={isCapturing || controlsBusy || usingDeviceCamera || (controls.torch ? !isReady : mode !== 'photo' || !allowDeviceCamera)} onClick={() => controls.torch ? changeControls({ torch: !torch }) : captureWithDevice()} className="flex items-center gap-2 py-2 text-sm disabled:opacity-60">
           {torch ? <Zap className="h-5 w-5" /> : <ZapOff className="h-5 w-5" />}
-          {controls.torch ? `Flash ${torch ? 'ligado' : 'desligado'}` : mode === 'photo' ? 'Flash: usar câmera do aparelho' : 'Flash indisponível neste navegador'}
+          {controls.torch ? `Flash ${torch ? 'ligado' : 'desligado'}` : mode === 'photo' && allowDeviceCamera ? 'Flash: usar câmera do aparelho' : 'Flash indisponível neste navegador'}
         </button>
         {controlsError && <p role="status" className="text-sm text-amber-200">{controlsError}</p>}
+        {captureError && <p role="alert" className="text-sm text-amber-200">{captureError}</p>}
         {mode === 'photo' && <p className="text-xs text-white/70">Use dois dedos ou a barra para aproximar.{!controls.hardwareZoom && ' O zoom digital também será aplicado à foto.'}</p>}
-        {mode === 'photo' && (
+        {mode === 'photo' && allowDeviceCamera && (
           <>
             <button type="button" disabled={controlsBusy || usingDeviceCamera} onClick={captureWithDevice} className="text-sm underline disabled:opacity-60">Usar câmera do aparelho</button>
             <input ref={nativeInputRef} type="file" accept="image/*" capture="environment" className="hidden" onCancelCapture={resumeWebCamera} onChange={(event) => {
@@ -372,7 +397,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
             </Button>
           )
         ) : (
-          <Button type="button" onClick={capturePhoto} disabled={!isReady || controlsBusy} className="bg-surface-raised text-black hover:bg-white/90 rounded-full h-12 px-6">
+          <Button type="button" onClick={capturePhoto} disabled={!isReady || controlsBusy || isCapturing} className="bg-surface-raised text-black hover:bg-white/90 rounded-full h-12 px-6">
             <Camera className="h-5 w-5 mr-2" />
             Capturar
           </Button>

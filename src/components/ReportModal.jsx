@@ -53,7 +53,7 @@ import {
 import VideoProcessorComponent from "@/components/VideoProcessor";
 import CameraCapture from "@/components/CameraCapture";
 import WebCameraCapture from "@/components/WebCameraCapture";
-import { prefersDeviceCamera, openDeviceCamera } from '@/lib/deviceCamera';
+import { prefersDeviceCamera, prefersBrowserCamera, openDeviceCamera } from '@/lib/deviceCamera';
 import { compressToJpeg } from '@/hooks/useNativeCamera';
 import MediaViewer from "@/components/MediaViewer";
 import ColaborarOuRegistrar from "@/components/report/ColaborarOuRegistrar";
@@ -1792,7 +1792,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       return;
     }
 
-    if (prefersDeviceCamera()) {
+    if (prefersDeviceCamera() && !prefersBrowserCamera()) {
       // Salva os campos antes de sair para a câmera; o modal permanece montado.
       // Sem await: Safari exige que click() ocorra no gesto do usuário.
       if (!municipalMode) {
@@ -1802,7 +1802,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       if (openDeviceCamera(photoCameraInputRef.current)) return;
     }
 
-    // No desktop, mantém a webcam com os controles do navegador.
+    // Android e desktop capturam dentro da página, mantendo o modal montado.
     setCameraMode("photo");
     setShowCamera(true);
     setIsTakingPhoto(true);
@@ -5305,6 +5305,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
           ) : (
             <WebCameraCapture
               initialMode={cameraMode}
+              allowDeviceCamera={!prefersBrowserCamera()}
               onCapture={handleInAppCapture}
               onClose={() => {
                 setShowCamera(false);
