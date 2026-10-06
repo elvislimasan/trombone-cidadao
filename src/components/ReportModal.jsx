@@ -3944,6 +3944,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                         {errors.location}
                       </p>
                     )}
+                       {isAddressLookupLoading && !addressTouchedRef.current && (
+                      <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Buscando endereço do ponto marcado…
+                      </p>
+                    )}
                     <input
                       type="text"
                       value={formData.address}
@@ -3967,13 +3973,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                         : "Endereço de referência (ex: Rua da Floresta, 123)"}
                       required
                     />
+                   
                     <label className="mt-3 block text-sm font-medium text-foreground">Ponto de referência (opcional)<input type="text" maxLength={240} value={formData.reference_point || ''} onChange={(event) => setFormData((current) => ({ ...current, reference_point: event.target.value }))} placeholder="Ex.: próximo ao mercado de Francisco" className="mt-1 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm" /></label>
-                    {isAddressLookupLoading && !addressTouchedRef.current && (
-                      <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Buscando endereço do ponto marcado…
-                      </p>
-                    )}
+                  
                     {errors.address && (
                       <p className="text-xs text-destructive mt-1">
                         {errors.address}
@@ -4847,6 +4849,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     {errors.location}
                   </p>
                 )}
+                  {isAddressLookupLoading && !addressTouchedRef.current && (
+                  <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Buscando endereço do ponto marcado…
+                  </p>
+                )}
                 <input
                   type="text"
                   value={formData.address}
@@ -4867,13 +4875,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     : "Endereço de referência (ex: Rua da Floresta, 123)"}
                   required
                 />
+              
                 <label className="mt-3 block text-sm font-medium text-foreground">Ponto de referência (opcional)<input type="text" maxLength={240} value={formData.reference_point || ''} onChange={(event) => setFormData((current) => ({ ...current, reference_point: event.target.value }))} placeholder="Ex.: próximo ao mercado de Francisco" className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-3 text-sm" /></label>
-                {isAddressLookupLoading && !addressTouchedRef.current && (
-                  <p role="status" className="mt-2 flex items-center gap-2 text-xs text-content-secondary">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Buscando endereço do ponto marcado…
-                  </p>
-                )}
+                
                 {errors.address && (
                   <p className="text-xs text-destructive mt-1">
                     {errors.address}
