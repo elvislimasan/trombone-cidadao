@@ -18,7 +18,14 @@ import {
   TIPOS_DE_PROBLEMA_ILUMINACAO,
   TIPOS_DE_PROBLEMA_ESGOTO,
   rotuloDoTipoDeProblemaEsgoto,
+  rotuloDoTipoDeProblema,
 } from '../lib/reportCategoryFields.js';
+
+test('exibe os tipos de problema em português nas telas municipais', () => {
+  assert.equal(rotuloDoTipoDeProblema('iluminacao', 'lamp_on_daytime'), 'acesa durante o dia');
+  assert.equal(rotuloDoTipoDeProblema('esgoto', 'sewer_clogged'), 'esgoto entupido');
+  assert.equal(rotuloDoTipoDeProblema('iluminacao', ''), 'Não informado');
+});
 
 // ── Quais campos existem ──────────────────────────────────────────────────────
 
@@ -46,7 +53,7 @@ test('esgoto pede subcategoria e grava o tipo sem dados de poste', () => {
 });
 
 test('migration aceita os tipos de esgoto do formulário e os preserva na patrulha', () => {
-  const sql = readFileSync(new URL('../../supabase/migrations/272_sewage_issue_types.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(new URL('../../supabase/migrations/273_sewage_issue_types.sql', import.meta.url), 'utf8');
   for (const tipo of TIPOS_DE_PROBLEMA_ESGOTO) assert.match(sql, new RegExp(`'${tipo.value}'`));
   assert.match(sql, /issue_type = case when v_categoria in \('iluminacao', 'esgoto'\)/);
   assert.match(sql, /if v_categoria = 'iluminacao' and v_plaqueta is null/);

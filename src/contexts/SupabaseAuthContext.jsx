@@ -50,43 +50,60 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      setUser((prev) => {
-        if (prev && prev.id === authUser.id) return prev;
-        return authUser;
-      });
-      setLoading(false);
-
       // Adicionar timeout para a busca de perfil para evitar "travar" a inicialização
-      const fetchPromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
+      const fetchPromise = Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single(),
+        // O vinculo ativo e a fonte de verdade do acesso municipal. Manter esse
+        // dado junto do perfil evita mandar o servidor para o feed enquanto a
+        // atualizacao de `tipo_conta` ainda nao chegou ao estado do cliente.
+        supabase
+          .from('prefeitura_membros')
+          .select('id')
+          .eq('user_id', authUser.id)
+          .eq('ativo', true)
+          .limit(1)
+          .maybeSingle(),
+      ]);
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
       );
 
-      const { data: profile, error } = await Promise.race([fetchPromise, timeoutPromise]);
+      const [profileResult, municipalityResult] = await Promise.race([fetchPromise, timeoutPromise]);
+      const { data: profile, error } = profileResult;
 
       if (error) {
         console.error("Error fetching user profile:", error);
         setUser((prev) => prev || authUser); // Fallback to auth user
+        return authUser;
       } else {
-        const fullUser = { ...authUser, ...profile };
+        const fullUser = {
+          ...authUser,
+          ...profile,
+          has_municipality_access: Boolean(municipalityResult?.data),
+        };
         setUser(fullUser);
+        return fullUser;
       }
     } catch (err) {
       console.error("Profile fetch exception or timeout:", err);
       setUser((prev) => prev || authUser); // Fallback to auth user em caso de timeout/erro
+      return authUser;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   const refreshUserProfile = useCallback(async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
-      await fetchUserProfile(authUser);
+      return fetchUserProfile(authUser);
     }
+    return null;
   }, [fetchUserProfile]);
 
   // Função interna para processar callback de autenticação (URL completa ou hash)
@@ -355,7 +372,7 @@ export const AuthProvider = ({ children }) => {
   }, [fetchUserProfile, _handleAuthCallback]);
 
   const signUp = useCallback(async (email, password, meta) => {
-    const redirectTo = `${getSiteUrl()}/perfil`;
+    const redirectTo = meta?.emailRedirectTo || `${getSiteUrl()}/perfil`;
     const { data: { user: authUser }, error } = await supabase.auth.signUp({ 
       email, 
       password, 
@@ -378,8 +395,8 @@ export const AuthProvider = ({ children }) => {
     return { error };
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
-    let redirectTo = getSiteUrl();
+  const signInWithGoogle = useCallback(async (returnPath) => {
+    let redirectTo = `${getSiteUrl()}${returnPath?.startsWith('/prefeitura/convite/') ? returnPath : ''}`;
 
     // Ajuste para redirecionamento em App Nativo (Capacitor)
     if (Capacitor.isNativePlatform()) {
@@ -426,7 +443,7 @@ export const AuthProvider = ({ children }) => {
     return { data, error };
   }, []);
 
-  const signInWithApple = useCallback(async () => {
+  const signInWithApple = useCallback(async (returnPath) => {
     if (Capacitor.isNativePlatform()) {
       try {
         const rawNonce = _generateNonce();
@@ -480,7 +497,7 @@ export const AuthProvider = ({ children }) => {
         return { data: null, error };
       }
     } else {
-      const redirectTo = getSiteUrl();
+      const redirectTo = `${getSiteUrl()}${returnPath?.startsWith('/prefeitura/convite/') ? returnPath : ''}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: { redirectTo },

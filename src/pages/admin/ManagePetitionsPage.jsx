@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { Helmet } from 'react-helmet';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, FileSignature, Plus, Eye, MoreHorizontal, Filter, Calendar, Users, CheckCircle2, XCircle, AlertCircle, Trophy, Trash2, FileDown, Star } from 'lucide-react';
@@ -135,7 +136,7 @@ const ManagePetitionsPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Tem certeza que deseja excluir permanentemente este abaixo-assinado?')) return;
+    if (!await confirmApp({ title: 'Excluir abaixo-assinado?', description: 'O abaixo-assinado será excluído permanentemente.', confirmLabel: 'Excluir', destructive: true })) return;
     
     try {
       const { error } = await supabase.from('petitions').delete().eq('id', id);

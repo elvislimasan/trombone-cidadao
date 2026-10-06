@@ -98,6 +98,9 @@ ChatGPT Image*.png
 .temp/
 .tmp/
 
+# Exportações e prévias locais (PDFs permanecem disponíveis no computador)
+/tmp_pavement_prod/
+
 # Build files
 build/
 dist/

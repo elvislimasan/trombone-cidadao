@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import MapView from '@/components/MapView';
 import ReportModal from '@/components/ReportModal';
+import ReportReceipt from '@/components/report/ReportReceipt';
 import ReportDetails from '@/components/ReportDetails';
 import StatsCards from '@/components/StatsCards';
 import ReportList from '@/components/ReportList';
@@ -43,6 +44,8 @@ function HomePage() {
   const [filteredReports, setFilteredReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [receipt, setReceipt] = useState(null);
+  const receiptPendingRef = useRef(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [reportToLink, setReportToLink] = useState(null);
   const [viewMode, setViewMode] = useState('map');
@@ -503,11 +506,21 @@ function HomePage() {
     throwIfAborted(signal);
     if (!user) throw new Error('Sua sessão expirou. Entre novamente para enviar a bronca.');
 
-    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id, neighborhood, is_anonymous } = newReportData;
+    const { title, description, category, address, location, pole_number, pole_id, reported_pole_distance_m, issue_type, reported_post_identifier, reported_plate, is_from_water_utility, city_id, neighborhood, is_anonymous, is_public } = newReportData;
     const normalizePoleLabel = (raw) => String(raw || '').trim().replace(/^\s*\d+\s*[-–—]\s*/u, '').trim();
     const normalizedPole = normalizePoleLabel(pole_number);
     const savedReportedPostIdentifier = reported_post_identifier ? normalizePoleLabel(reported_post_identifier) : (normalizedPole || null);
     const savedReportedPlate = reported_plate ? normalizePoleLabel(reported_plate) : (normalizedPole || null);
+    const municipalRequest = new URLSearchParams(location.search).get('origem') === 'prefeitura';
+    let municipalityId = null;
+    if (municipalRequest) {
+      const { data: memberships, error: membershipError } = await supabase.from('prefeitura_membros')
+        .select('prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(id,city_id,status)')
+        .eq('user_id', user.id).eq('ativo', true);
+      if (membershipError) throw membershipError;
+      municipalityId = memberships?.find((item) => String(item.prefeitura?.city_id) === String(city_id) && item.prefeitura?.status === 'ativa')?.prefeitura?.id;
+      if (!municipalityId) throw new Error('Não há prefeitura ativa vinculada a você nesta cidade.');
+    }
  
     let insertQuery = supabase
       .from('reports')
@@ -518,6 +531,8 @@ function HomePage() {
         address,
         location: `POINT(${location.lng} ${location.lat})`,
         author_id: user.id,
+        ...(municipalRequest ? { created_by_municipality: municipalityId } : {}),
+        ...(municipalRequest ? { is_public: is_public === true } : {}),
         protocol: `TROMB-${Date.now()}`,
         pole_number: category === 'iluminacao' ? pole_number : null,
         pole_id: category === 'iluminacao' ? pole_id : null,
@@ -528,11 +543,11 @@ function HomePage() {
         is_from_water_utility: category === 'buracos' ? !!is_from_water_utility : null,
         city_id,
         neighborhood: neighborhood?.trim() || null,
-        is_anonymous: !!is_anonymous,
+        is_anonymous: municipalRequest ? false : !!is_anonymous,
         status: 'pending',
-        moderation_status: user?.is_admin || user?.is_master ? 'approved' : 'pending_approval'
+        moderation_status: municipalRequest ? (is_public === true ? 'approved' : 'internal') : user?.is_admin || user?.is_master ? 'approved' : 'pending_approval'
       })
-      .select('id', 'title')
+      .select('id,protocol,title,created_at,address,category_id,location,is_public,created_by_municipality')
       .single();
 
     if (signal && typeof insertQuery.abortSignal === 'function') {
@@ -557,11 +572,14 @@ function HomePage() {
     }
     
     setShowReportModal(false);
+    receiptPendingRef.current = true;
+    setReceipt(data);
     
     // Atualizar a lista de reports após criar um novo
     setTimeout(() => {
       fetchReports();
     }, 1000);
+    return municipalRequest ? { notified: true } : undefined;
   };
 
   const handleUpdateReport = async (editData) => {
@@ -1322,10 +1340,12 @@ const handleUpvoteWithRefresh = async (reportId, currentUpvotes, userHasUpvoted)
 
       {showReportModal && (
         <ReportModal 
-          onClose={() => setShowReportModal(false)} 
+          onClose={() => { setShowReportModal(false); if (!receiptPendingRef.current && new URLSearchParams(location.search).get('origem') === 'prefeitura') navigate('/prefeitura/broncas'); }}
           onSubmit={handleCreateReport} 
+          municipalMode={new URLSearchParams(location.search).get('origem') === 'prefeitura'}
         />
       )}
+      <ReportReceipt report={receipt} onClose={() => { receiptPendingRef.current = false; setReceipt(null); if (new URLSearchParams(location.search).get("origem") === "prefeitura") navigate("/prefeitura/broncas"); }} />
       
       {selectedReport && (
         <ReportDetails 

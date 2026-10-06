@@ -5,6 +5,7 @@ import {
   CheckCircle2, Send, Check, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Drawer, BottomSheetContent, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import MediaViewer from '@/components/MediaViewer';
 import { showAppError } from '@/lib/appError';
 
@@ -91,22 +92,8 @@ const ReportUpdateModal = ({
 
   return (
     <>
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[3000]"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ y: '100%', opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: '100%', opacity: 0 }}
-        transition={{ type: 'spring', damping: 30, stiffness: 380 }}
-        className="bg-surface-raised rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col overflow-hidden"
-        style={{ maxHeight: '94vh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Drawer open onOpenChange={(open) => { if (!open && !submitting && !viewer.open) onClose(); }} dismissible={!submitting && !viewer.open} modal={!viewer.open}>
+      <BottomSheetContent>
         {/* Web fallback file input — DENTRO do painel de proposito: como filho
             direto do overlay, o clique sintetico que o input dispara ao escolher
             o arquivo borbulhava ate o onClick={onClose} e fechava o modal antes
@@ -122,12 +109,15 @@ const ReportUpdateModal = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
           <div>
-            <h2 className="text-[17px] font-extrabold text-content-primary tracking-tight">
+            <DrawerTitle className="text-[17px] font-extrabold text-content-primary tracking-tight">
               Enviar Atualização
-            </h2>
-            <p className="text-xs text-content-tertiary mt-0.5">O que você encontrou no local?</p>
+            </DrawerTitle>
+            <DrawerDescription className="text-xs text-content-tertiary mt-0.5">O que você encontrou no local?</DrawerDescription>
           </div>
           <button
+            type="button"
+            aria-label="Fechar atualização"
+            disabled={submitting}
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-sunken text-content-secondary hover:bg-surface-subtleHover transition-colors active:scale-90"
           >
@@ -335,7 +325,7 @@ const ReportUpdateModal = ({
         {/* Footer */}
         <div
           className="flex-shrink-0 bg-surface-raised border-t border-edge-subtle"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+          style={{ paddingBottom: 'max(var(--safe-area-bottom, 0px), 16px)' }}
         >
           {/* Banner do tipo selecionado */}
           <AnimatePresence>
@@ -397,8 +387,8 @@ const ReportUpdateModal = ({
             </Button>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </BottomSheetContent>
+    </Drawer>
 
     {/* Preview fullscreen das fotos — z-index acima do modal */}
     {viewer.open && viewerMedia.length > 0 && (

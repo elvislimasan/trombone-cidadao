@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { confirmApp } from '@/lib/appConfirm';
 import { useNavigate, useParams } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
@@ -1174,7 +1175,7 @@ export default function WorkDetailsPageProject() {
 
   const handleDeleteDocumentFolder = useCallback(async (folder) => {
     if (!canManageWork || !folder?.id) return;
-    if (!window.confirm(`Excluir a pasta “${folder.name}” e suas subpastas? Os arquivos serão mantidos em “Sem pasta”.`)) return;
+    if (!await confirmApp({ title: 'Excluir esta pasta?', description: `A pasta “${folder.name}” e suas subpastas serão excluídas. Os arquivos serão mantidos em “Sem pasta”.`, confirmLabel: 'Excluir pasta', destructive: true })) return;
     const descendants = new Set([folder.id]);
     let foundDescendant = true;
     while (foundDescendant) {
@@ -2094,7 +2095,7 @@ export default function WorkDetailsPageProject() {
       if (!canManageWork) return;
       const id = payment?.id || null;
       if (!id) return;
-      if (!window.confirm("Excluir este pagamento?")) return;
+      if (!await confirmApp({ title: 'Excluir este pagamento?', description: 'Esta ação não pode ser desfeita.', confirmLabel: 'Excluir pagamento', destructive: true })) return;
 
       try {
         const { error } = await supabase

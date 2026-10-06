@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { promptApp } from '@/lib/appConfirm';
 import { Button } from '@/components/ui/button';
 import { 
   Bold, 
@@ -73,8 +74,8 @@ const RichTextEditor = ({ value, onChange, placeholder, isMobile = false }) => {
     }
   };
 
-  const addLink = () => {
-    const url = prompt('Insira a URL do link:');
+  const addLink = async () => {
+    const url = await promptApp({ title: 'Adicionar link', description: 'Informe o endereço do link.', label: 'URL', placeholder: 'https://', required: true, confirmLabel: 'Adicionar link' });
     if (url) {
       execCommand('createLink', url);
     }

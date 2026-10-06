@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { streetBlocks } from './streetBlocks.js';
+import 'jspdf-autotable';
+import { trechosParaRotulos, caixaDoRotulo, rotulosColidem } from './streetMapLabels.js';
 
 const STATUS_STYLE = {
   paved: { label: 'Pavimentada', color: [22, 163, 74] },
@@ -7,17 +9,6 @@ const STATUS_STYLE = {
   unpaved: { label: 'Sem pavimentação', color: [234, 88, 12] },
   unknown: { label: 'Situação não informada', color: [156, 163, 175] },
 };
-
-const BAIRRO_PALETTE = [
-  { fill: [121, 203, 230], border: [43, 142, 177] },
-  { fill: [163, 204, 46], border: [91, 142, 17] },
-  { fill: [255, 230, 82], border: [203, 157, 0] },
-  { fill: [207, 210, 212], border: [117, 123, 128] },
-  { fill: [140, 212, 226], border: [31, 143, 163] },
-  { fill: [190, 215, 71], border: [111, 145, 18] },
-  { fill: [255, 220, 111], border: [194, 139, 15] },
-  { fill: [220, 220, 220], border: [128, 128, 128] },
-];
 
 const pontoValido = (ponto) => Array.isArray(ponto)
   && Number.isFinite(Number(ponto[0]))
@@ -59,21 +50,6 @@ const slug = (texto) => String(texto || 'cidade')
   .replace(/^-|-$/g, '') || 'cidade';
 
 export const nomeDoArquivoDoMapa = (cidade) => `mapa-de-ruas-${slug(cidade)}.pdf`;
-
-const maiorSegmento = (linhasProjetadas) => {
-  let escolhido = null;
-  for (const linha of linhasProjetadas) {
-    for (let i = 1; i < linha.length; i += 1) {
-      const anterior = linha[i - 1];
-      const atual = linha[i];
-      const comprimento = Math.hypot(atual[0] - anterior[0], atual[1] - anterior[1]);
-      if (!escolhido || comprimento > escolhido.comprimento) {
-        escolhido = { anterior, atual, comprimento };
-      }
-    }
-  }
-  return escolhido;
-};
 
 const anguloLegivel = (segmento) => {
   let angulo = (Math.atan2(segmento.anterior[1] - segmento.atual[1], segmento.atual[0] - segmento.anterior[0]) * 180) / Math.PI;
@@ -334,13 +310,14 @@ export const criarPdfDoMapaDeRuas = ({
   cidade = 'Cidade',
   atualizadoEm = null,
   mostrarPavimentacao = false,
-  mostrarNomesRuas = false,
+  mostrarNomesRuas = true,
+  incluirIndice = false,
   toleranciaEncontro = 1,
 } = {}) => {
   const ruasDesenhadas = ruasComGeometria(ruas);
   if (ruasDesenhadas.length === 0) throw new Error('Esta cidade ainda não possui ruas posicionadas no mapa.');
 
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3', compress: true });
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a1', compress: true });
   const larguraPagina = doc.internal.pageSize.getWidth();
   const alturaPagina = doc.internal.pageSize.getHeight();
   const mapa = { x: 12, y: 31, largura: larguraPagina - 24, altura: alturaPagina - 53 };
@@ -397,7 +374,6 @@ export const criarPdfDoMapaDeRuas = ({
     .filter((grupo) => grupo.amostras.length > 0 && !nomeDeBairroGenerico(grupo.nome))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const rotulosDeBairro = [];
-
   const quadras = streetBlocks(
     ruasProjetadas.flatMap((rua) => rua.linhasProjetadas),
     { snapTolerance: toleranciaEncontro },
@@ -405,8 +381,7 @@ export const criarPdfDoMapaDeRuas = ({
   const quadrasPorBairro = {};
   for (const quadra of quadras) {
     const indice = indiceDoBairroDaQuadra(quadra, gruposOrdenados);
-    const cor = indice < 0 ? [224, 226, 228]
-      : BAIRRO_PALETTE[indice % BAIRRO_PALETTE.length].fill;
+    const cor = [191, 225, 238];
     const nomeDoBairro = indice < 0 ? 'Sem bairro definido' : gruposOrdenados[indice].nome;
     quadrasPorBairro[nomeDoBairro] = (quadrasPorBairro[nomeDoBairro] || 0) + 1;
     doc.setFillColor(...cor);
@@ -426,7 +401,7 @@ export const criarPdfDoMapaDeRuas = ({
     doc.setFillColor(255, 255, 255);
     doc.setLineCap('round');
     doc.setLineJoin('round');
-    doc.setLineWidth(1.2);
+    doc.setLineWidth(2.8);
     for (const rua of ruasProjetadas) {
       for (const linha of rua.linhasProjetadas) {
         if (linha.length === 1) {
@@ -479,27 +454,46 @@ export const criarPdfDoMapaDeRuas = ({
     }
   }
 
-  // Os nomes entram depois das vias para permanecerem legíveis. Uma grade de
-  // ocupação simples evita que dezenas de rótulos sejam impressos exatamente
-  // no mesmo cruzamento, sem esconder nomes que possuem espaço disponível.
+  const caixasDosNomes = [];
+  const ruasNomeadas = new Set();
+  // Rótulos vetoriais inteiros: acompanham trechos retos, repetem em vias
+  // longas e testam a área girada do texto, não apenas o ponto central.
   if (mostrarNomesRuas) {
-    const celulasOcupadas = new Set();
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(4.2);
-    doc.setTextColor(31, 41, 55);
-    for (const rua of ruasProjetadas) {
-      const segmento = maiorSegmento(rua.linhasProjetadas);
-      if (!segmento || segmento.comprimento < 7 || !rua.name) continue;
-      const x = (segmento.anterior[0] + segmento.atual[0]) / 2;
-      const y = (segmento.anterior[1] + segmento.atual[1]) / 2;
-      const celula = `${Math.round(x / 11)}:${Math.round(y / 4)}`;
-      if (celulasOcupadas.has(celula)) continue;
-      celulasOcupadas.add(celula);
-      doc.text(String(rua.name), x, y - 0.8, {
-        angle: anguloLegivel(segmento),
-        align: 'center',
-        maxWidth: Math.max(18, segmento.comprimento * 1.8),
-      });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    const ordenadas = ruasProjetadas.map((rua) => ({ rua, trechos: trechosParaRotulos(rua.linhasProjetadas) }))
+      .sort((a, b) => (a.trechos[0]?.comprimento || 0) - (b.trechos[0]?.comprimento || 0));
+    for (const { rua, trechos } of ordenadas) {
+      if (!rua.name) continue;
+      const centros = [];
+      for (const segmento of trechos) {
+        const angulo = anguloLegivel(segmento);
+        for (const t of [0.5, 0.25, 0.75]) {
+          const x = segmento.anterior[0] + (segmento.atual[0] - segmento.anterior[0]) * t;
+          const y = segmento.anterior[1] + (segmento.atual[1] - segmento.anterior[1]) * t;
+          if (centros.some((p) => Math.hypot(p[0] - x, p[1] - y) < 65)) continue;
+          for (const tamanho of [7, 6, 5]) {
+            doc.setFontSize(tamanho);
+            const largura = doc.getTextWidth(String(rua.name)) + 1.2;
+            if (largura > segmento.comprimento * 2 * Math.min(t, 1 - t) - 1) continue;
+            const caixa = caixaDoRotulo(x, y, largura, tamanho * 0.3528 + 0.6, angulo);
+            if (caixa.some(([px, py]) => px < mapa.x || px > mapa.x + mapa.largura || py < mapa.y || py > mapa.y + mapa.altura)
+              || caixasDosNomes.some((outra) => rotulosColidem(caixa, outra))) continue;
+            doc.setFillColor(255, 255, 255);
+            desenharPoligono(doc, caixa, 'F');
+            // Desloca a linha de base perpendicularmente ao texto girado.
+            const r = angulo * Math.PI / 180;
+            const base = tamanho * 0.3528 * 0.32;
+            const metade = doc.getTextWidth(String(rua.name)) / 2;
+            doc.text(String(rua.name), x - Math.cos(r) * metade + Math.sin(r) * base,
+              y + Math.sin(r) * metade + Math.cos(r) * base, { angle: angulo });
+            caixasDosNomes.push(caixa);
+            ruasNomeadas.add(rua);
+            centros.push([x, y]);
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -528,7 +522,10 @@ export const criarPdfDoMapaDeRuas = ({
             caixa.direita < outra.esquerda || caixa.esquerda > outra.direita
             || caixa.base < outra.topo || caixa.topo > outra.base
           ));
-          if (dentro && livre) {
+          const semRua = caixasDosNomes.every((outra) => !rotulosColidem(
+            caixaDoRotulo(candidata.x, candidata.y - altura / 2 + 0.8, largura, altura, 0), outra,
+          ));
+          if (dentro && livre && semRua) {
             caixasDeBairro.push(caixa);
             return true;
           }
@@ -568,19 +565,19 @@ export const criarPdfDoMapaDeRuas = ({
   }
   if (!mostrarPavimentacao) {
     doc.setTextColor(55, 65, 81);
-    doc.text('Mapa de ruas • Quadras coloridas por bairro • Vias em branco', legendaX, legendaY);
+    doc.text('Mapa geral de ruas | Quadras em azul claro | Vias em branco', legendaX, legendaY);
   }
 
   doc.setTextColor(107, 114, 128);
   doc.text(`${ruasDesenhadas.length} ruas representadas`, larguraPagina - 14, legendaY, { align: 'right' });
   doc.setFontSize(6.5);
   doc.text(
-    'Quadras estimadas pelas ruas cadastradas. Cores indicam bairros do cadastro, não limites oficiais.',
+    'Quadras estimadas pelos traçados cadastrados; não são limites cadastrais oficiais.',
     larguraPagina / 2,
     alturaPagina - 4.5,
     { align: 'center' },
   );
-  doc.tromboneMapStats = {
+  const estatisticas = {
     fonteCartografica: 'Trombone Cidadão — traçados cadastrados',
     ruas: ruasDesenhadas.length,
     ruasComTracado: ruasDesenhadas.filter((rua) => rua.linhasDoMapa.some((linha) => linha.length > 1)).length,
@@ -588,6 +585,36 @@ export const criarPdfDoMapaDeRuas = ({
     quadras: quadras.length,
     quadrasPorBairro,
     toleranciaEncontro,
+    ruasComNomeNoMapa: ruasNomeadas.size,
+    rotulosDeRuas: caixasDosNomes.length,
   };
+  if (incluirIndice) {
+    doc.addPage('a4', 'portrait');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(25, 25, 25);
+    doc.setFontSize(16);
+    doc.text('Índice de ruas', 14, 17);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(doc.splitTextToSize(String(cidade), 180), 14, 24);
+    doc.setFontSize(8);
+    doc.text('Planta geral em A1.', 14, 36);
+    doc.autoTable({
+      startY: 42,
+      head: [['Rua', 'Bairro', 'Situação', 'Representação']],
+      body: [...ruas].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR')).map((rua) => [
+        rua.name || 'Sem nome cadastrado',
+        rua.bairro?.name || 'Bairro não informado',
+        (STATUS_STYLE[rua.status] || STATUS_STYLE.unknown).label,
+        linhasDaRua(rua).some((linha) => linha.length > 1) ? 'Traçado' : linhasDaRua(rua).length ? 'Somente ponto' : 'Sem localização',
+      ]),
+      styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
+      headStyles: { fillColor: [55, 65, 81] },
+      margin: { left: 14, right: 14, top: 16, bottom: 16 },
+      columnStyles: { 0: { cellWidth: 68 }, 1: { cellWidth: 40 }, 2: { cellWidth: 40 } },
+    });
+  }
+  doc.tromboneMapStats = { ...estatisticas, paginasDeDetalhe: 0 };
+  doc.setPage(1);
   return doc;
 };

@@ -11,6 +11,51 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Controles do mapa municipal ficam abaixo da busca e acompanham o tema. */
+.municipal-lighting-map .leaflet-top.leaflet-left {
+  top: 72px;
+  left: 6px;
+}
+.electrician-lighting-map .municipal-lighting-map .leaflet-top.leaflet-left {
+  top: 112px;
+  left: auto;
+  right: 6px;
+}
+.municipal-lighting-map .leaflet-control-zoom {
+  overflow: hidden;
+  border: 1px solid rgb(var(--border-default));
+  border-radius: 10px;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 0.1);
+}
+.municipal-lighting-map .leaflet-control-zoom a,
+.municipal-lighting-map .leaflet-popup-content-wrapper,
+.municipal-lighting-map .leaflet-popup-tip {
+  background: rgb(var(--surface-raised));
+  color: rgb(var(--text-primary));
+}
+.municipal-lighting-map .leaflet-control-zoom a:hover {
+  background: rgb(var(--surface-subtle));
+}
+.municipal-lighting-map .leaflet-popup-content-wrapper {
+  border-radius: 14px;
+}
+.municipal-lighting-map .leaflet-popup-content p {
+  margin: 8px 0;
+}
+.municipal-lighting-map .leaflet-control-scale-line {
+  border-color: rgb(var(--text-secondary));
+  background: rgb(var(--surface-raised) / 0.9);
+  color: rgb(var(--text-primary));
+  text-shadow: none;
+}
+.municipal-lighting-map:fullscreen {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
 /* Estilos para camera-preview overlay */
 .camera-preview-overlay {
   position: fixed !important;
@@ -1437,4 +1482,101 @@ input[type="password"]::-ms-clear {
 }
 .leaflet-container.desenhar-tracado .leaflet-dragging .leaflet-grab {
   cursor: grabbing;
+}
+.municipal-lighting-icon {
+  background: transparent;
+  border: 0;
+}
+
+.municipal-lighting-pin {
+  box-sizing: border-box;
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 10px;
+  background: var(--lighting-pin-color);
+  border: 1.5px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 45%);
+}
+
+.municipal-lighting-cluster {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 1px;
+  padding: 3px 5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 24px;
+  color: #0f172a;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 2px 6px rgb(15 23 42 / 22%);
+  white-space: nowrap;
+}
+
+.municipal-lighting-cluster-title,
+.municipal-lighting-cluster-counts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.municipal-lighting-cluster-title {
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.municipal-lighting-cluster svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  color: #a16207;
+}
+
+.municipal-lighting-cluster-counts {
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 13px;
+}
+
+.municipal-lighting-cluster-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--lighting-status-color);
+}
+
+.municipal-lighting-cluster-stat i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lighting-status-color);
+}
+
+.municipal-lighting-cluster-stat-aceso {
+  --lighting-status-color: #15803d;
+}
+
+.municipal-lighting-cluster-stat-apagado {
+  --lighting-status-color: #b91c1c;
+}
+
+.municipal-lighting-cluster-stat-manutencao {
+  --lighting-status-color: #a16207;
+}
+
+.municipal-lighting-cluster-stat-removido {
+  --lighting-status-color: #475569;
+}
+
+.municipal-lighting-icon:focus-visible .municipal-lighting-pin,
+.municipal-lighting-icon:focus-visible .municipal-lighting-cluster {
+  outline: 3px solid #0f172a;
+  outline-offset: 2px;
 }

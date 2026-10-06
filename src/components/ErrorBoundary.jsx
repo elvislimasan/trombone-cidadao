@@ -20,6 +20,12 @@ class ErrorBoundary extends React.Component {
     console.error('[ErrorBoundary] Erro ao renderizar:', error, errorInfo?.componentStack);
   }
 
+  componentDidUpdate(previousProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
   handleReset = () => {
     this.setState({ error: null });
   };

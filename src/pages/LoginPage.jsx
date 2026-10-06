@@ -10,9 +10,14 @@ import { LogIn, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { resolvePostAuthFallback } from '@/lib/homeEntry';
+import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
 
 const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform();
 const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
+const loginDestination = (user, target) =>
+  (target?.startsWith('/prefeitura/convite/') || target?.startsWith('/prefeitura/eletricista'))
+    ? target
+    : (hasMunicipalityPanelAccess(user) ? '/prefeitura/broncas' : (target || postAuthFallback));
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -23,6 +28,19 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, signInWithGoogle, signInWithApple, refreshUserProfile, user } = useAuth();
+
+  useEffect(() => {
+    if (location.state?.email) setEmail(location.state.email);
+  }, [location.state?.email]);
+
+  const rememberInviteRedirect = () => {
+    const from = location.state?.from;
+    if (from?.pathname?.startsWith('/prefeitura/convite/') || from?.pathname?.startsWith('/prefeitura/eletricista')) {
+      try { sessionStorage.setItem('tc_post_login_redirect', `${from.pathname}${from.search || ''}`); } catch {}
+      return `${from.pathname}${from.search || ''}`;
+    }
+    return undefined;
+  };
 
   // Reseta loading quando o browser OAuth fecha sem completar o login
   useEffect(() => {
@@ -45,18 +63,19 @@ const LoginPage = () => {
       if (!target && from?.pathname) {
         target = `${from.pathname}${from.search || ''}`;
       }
-      navigate(target || postAuthFallback, { replace: true });
+      navigate(loginDestination(user, target), { replace: true });
     }
   }, [user, navigate, location.state]);
 
   const handleAppleLogin = async () => {
+    const invitePath = rememberInviteRedirect();
     setIsLoading(true);
     try {
-      const { data, error } = await signInWithApple();
+      const { error } = await signInWithApple(invitePath);
       if (error) throw error;
       // signInWithIdToken pode não disparar onAuthStateChange no Capacitor,
       // então força atualização do perfil e redireciona explicitamente
-      await refreshUserProfile();
+      const refreshedUser = await refreshUserProfile();
       let target = null;
       try {
         target = sessionStorage.getItem('tc_post_login_redirect');
@@ -64,7 +83,7 @@ const LoginPage = () => {
       } catch {}
       const from = location.state?.from;
       if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-      navigate(target || postAuthFallback, { replace: true });
+      navigate(loginDestination(refreshedUser, target), { replace: true });
     } catch (error) {
       // Código 1001 = usuário cancelou o painel da Apple — ignorar silenciosamente
       const cancelled =
@@ -85,9 +104,10 @@ const LoginPage = () => {
   };
 
   const handleGoogleLogin = async () => {
+    const invitePath = rememberInviteRedirect();
     setIsLoading(true);
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle(invitePath);
       if (error) throw error;
     } catch (error) {
       setErrors({
@@ -136,6 +156,7 @@ const LoginPage = () => {
       // Try again silently for the user
       const { error: secondError } = await signIn(email, password);
       if (!secondError) {
+          const refreshedUser = await refreshUserProfile();
           // Sem toast de boas-vindas: o login termina navegando para o feed,
           // e a tela que troca já diz que entrou. O toast chegava POR CIMA do
           // destino, anunciando o que a pessoa estava vendo.
@@ -146,7 +167,7 @@ const LoginPage = () => {
           } catch {}
           const from = location.state?.from;
           if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-          navigate(target || postAuthFallback, { replace: true });
+          navigate(loginDestination(refreshedUser, target), { replace: true });
       } else {
           setErrors({
             email: '',
@@ -164,9 +185,9 @@ const LoginPage = () => {
         const isCredentialError = 
           errorMsgLower.includes('invalid login credentials') ||
           errorMsgLower.includes('invalid credentials') ||
-          errorMsgLower.includes('email') && errorMsgLower.includes('password') ||
+          (errorMsgLower.includes('email') && errorMsgLower.includes('password')) ||
           errorMsgLower.includes('credenciais inválidas') ||
-          errorMsgLower.includes('wrong') && (errorMsgLower.includes('password') || errorMsgLower.includes('email'));
+          (errorMsgLower.includes('wrong') && (errorMsgLower.includes('password') || errorMsgLower.includes('email')));
         
         if (isCredentialError) {
           // Erro de credenciais: mostrar abaixo do campo de senha
@@ -185,6 +206,7 @@ const LoginPage = () => {
         }
     } else {
         // Ver acima: navegar já é o retorno visual do login.
+        const refreshedUser = await refreshUserProfile();
         let target = null;
         try {
           target = sessionStorage.getItem('tc_post_login_redirect');
@@ -192,7 +214,7 @@ const LoginPage = () => {
         } catch {}
         const from = location.state?.from;
         if (!target && from?.pathname) target = `${from.pathname}${from.search || ''}`;
-        navigate(target || postAuthFallback, { replace: true });
+        navigate(loginDestination(refreshedUser, target), { replace: true });
       }
     } catch (error) {
       setErrors({

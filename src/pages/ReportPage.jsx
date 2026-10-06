@@ -1,3 +1,4 @@
+import { poleReferenceText } from '@/lib/poleDisplay';
 import React, {
   useState,
   useEffect,
@@ -18,7 +19,6 @@ import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { useReportPermissions } from "@/hooks/useReportPermissions";
 import { supabase } from "@/lib/customSupabaseClient";
 import { getReportShareUrl } from "@/lib/shareUtils";
-import { reportAgeStoryFor } from "@/lib/reportAgeStory";
 import { rotuloDoTipoDeProblemaEsgoto } from "@/lib/reportCategoryFields";
 import { useUpvote } from "../hooks/useUpvotes";
 import DynamicSEO from "../components/DynamicSeo";
@@ -53,6 +53,8 @@ import {
 import ReportSummary from "@/components/report/ReportSummary";
 import ReportTimeline from "@/components/report/ReportTimeline";
 import ReportOfficialStep from "@/components/report/ReportOfficialStep";
+import ReportOfficialResponses from "@/components/report/ReportOfficialResponses";
+import ReportMunicipalService from "@/components/report/ReportMunicipalService";
 import ReportImpactReceipt from "@/components/report/ReportImpactReceipt";
 import ReportBeforeAfter from "@/components/report/ReportBeforeAfter";
 import ReportRevisitPrompt from "@/components/report/ReportRevisitPrompt";
@@ -77,6 +79,7 @@ import { useNativeUIMode } from "@/contexts/NativeUIModeContext";
 import { showAppError } from '@/lib/appError';
 import { linkDuplicateReport } from '@/lib/linkReport';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { historiaDeTempoDaBronca } from '@/lib/reportAgeStory';
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -108,6 +111,7 @@ const ReportPage = () => {
   const [submittingUpdate, setSubmittingUpdate] = useState(false);
   const [reportUpdates, setReportUpdates] = useState([]);
   const [officialSteps, setOfficialSteps] = useState([]);
+  const [municipalService, setMunicipalService] = useState(null);
   const [showAllUpdates, setShowAllUpdates] = useState(false);
   const [confirmingUpdateId, setConfirmingUpdateId] = useState(null);
   const [deletingUpdateId, setDeletingUpdateId] = useState(null);
@@ -122,7 +126,6 @@ const ReportPage = () => {
   const {
     isAdmin,
     isMaster,
-    isPublicOfficial,
     isAuthorOrAdmin,
     canModerate,
     canEditCategory,
@@ -188,7 +191,7 @@ const ReportPage = () => {
     }
     const { lat, lng } = report.location;
     const label = encodeURIComponent(
-      report.address || report.title || "Bronca"
+      report.address || poleReferenceText(report.title) || "Bronca"
     );
 
     if (Capacitor.isNativePlatform()) {
@@ -302,7 +305,7 @@ const ReportPage = () => {
   const categories = {
     iluminacao: "Iluminação Pública",
     buracos: "Buracos na Via",
-    esgoto: "Esgoto Entupido",
+    esgoto: "Esgoto",
     limpeza: "Limpeza Urbana",
     poda: "Poda de Árvore",
     "vazamento-de-agua": "Vazamento de Água",
@@ -435,13 +438,8 @@ const ReportPage = () => {
       Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
     );
 
-    if (ageDays < 7) return null;
-
-    // A frase é da CATEGORIA, não genérica: "essa rua está no escuro" é o que
-    // a pessoa reconhece ao passar por lá, e "sem solução" não diz nada sobre
-    // o que continua acontecendo enquanto ninguém resolve.
-    return reportAgeStoryFor(report.category, report.issue_type, ageDays);
-  }, [report?.category, report?.issue_type, report?.created_at, report?.status]);
+    return historiaDeTempoDaBronca(report, ageDays);
+  }, [report?.category, report?.category_id, report?.created_at, report?.issue_type, report?.status]);
 
   const waterUtilityName = useMemo(() => {
     if (!report || !report.is_from_water_utility) return null;
@@ -505,7 +503,7 @@ const ReportPage = () => {
     if (!report) return;
     const shareUrl = getReportShareUrl(report.id);
     const shareText = `*Trombone Cidadão*\n\n*${
-      report.title || "Bronca"
+      poleReferenceText(report.title || "Bronca")
     }*\n\nVeja em:\n${shareUrl}`;
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
       shareText
@@ -518,7 +516,7 @@ const ReportPage = () => {
     const shareUrl = getReportShareUrl(report.id);
     const title = "Trombone Cidadão";
     const shareText = `*Trombone Cidadão*\n\n*${
-      report.title || "Bronca"
+      poleReferenceText(report.title || "Bronca")
     }*\n\nVeja em:\n${shareUrl}`;
     try {
       if (
@@ -1174,6 +1172,18 @@ const ReportPage = () => {
     fetchReport();
   }, [fetchReport]);
 
+  // O histórico e o painel usam o mesmo atendimento. Recarregar ao mudar o
+  // status também cobre alterações locais, como a reabertura pela moderação.
+  useEffect(() => {
+    let active = true;
+    setMunicipalService(null);
+    supabase.rpc("atendimento_publico_bronca", { p_report: reportId })
+      .then(({ data, error }) => {
+        if (active && !error) setMunicipalService(data);
+      });
+    return () => { active = false; };
+  }, [reportId, report?.status]);
+
   // Auto-open update modal when navigated from FeedCard prompt
   useEffect(() => {
     if (location.state?.openUpdateModal && user && !loading) {
@@ -1457,7 +1467,7 @@ const ReportPage = () => {
         navigate("/", { replace: true });
       }
     });
-    setTitle(report?.title ? report.title : "Detalhes da Bronca");
+    setTitle(poleReferenceText(report?.title || "Detalhes da Bronca"));
 
     if (!report) {
       setActions([]);
@@ -1533,7 +1543,7 @@ const ReportPage = () => {
             <>
               <ReportHeader
                 onBack={() => navigate(-1)}
-                showAdminActions={isAdmin || isMaster || isPublicOfficial}
+                showAdminActions={isAdmin || isMaster}
                 canLinkReports={isAdmin || isMaster}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
                 handleEditClick={handleEditClick}
@@ -1549,7 +1559,7 @@ const ReportPage = () => {
                   <span className="opacity-50">›</span>
                   <span>Broncas</span>
                   <span className="opacity-50">›</span>
-                  <span className="text-content-primary truncate">{report.title}</span>
+                  <span className="text-content-primary truncate">{poleReferenceText(report.title)}</span>
                 </div>
               </div>
             </>
@@ -1564,6 +1574,9 @@ const ReportPage = () => {
                 )}
                 <div className="space-y-4">
                   <div className="bg-surface-raised shadow-elevation-1 rounded-2xl overflow-hidden">
+                    <h1 className="px-4 py-4 font-display text-2xl sm:text-3xl font-extrabold tracking-[-0.02em] text-content-primary leading-tight break-words">
+                      {poleReferenceText(report.title)}
+                    </h1>
                     <ReportMediaHero
                       viewerMedia={viewerMedia}
                       getCategoryName={getCategoryName}
@@ -1577,7 +1590,6 @@ const ReportPage = () => {
                   {/* summary */}
                   <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
                     <ReportSummary
-                      title={report.title}
                       address={report.address}
                       createdAt={report.created_at}
                       protocol={report.protocol}
@@ -1639,6 +1651,7 @@ const ReportPage = () => {
                     report={report}
                     atualizacoes={reportUpdates}
                     etapasOficiais={officialSteps}
+                    atendimentoMunicipal={municipalService}
                     formatDateTime={formatDateTime}
                     onAbrirEvidencia={(media, startIndex) =>
                       setUpdateMediaViewer({
@@ -1648,6 +1661,12 @@ const ReportPage = () => {
                       })
                     }
                   />
+
+                  <ReportMunicipalService service={municipalService} reportStatus={report.status} onVerify={(type) => {
+                    if (!user) { navigate('/login'); return; }
+                    setUpdateType(type); setShowUpdateModal(true);
+                  }} />
+                  <ReportOfficialResponses reportId={reportId} />
 
                   {/* O retorno mais convincente que este app consegue dar, e o
                       mais barato: as duas fotos já estavam guardadas. */}
@@ -1763,6 +1782,7 @@ const ReportPage = () => {
                   <ReportLocation
                     location={report.location}
                     address={report.address}
+                    referencePoint={report.reference_point}
                     onNavigate={handleNavigateToReport}
                     variant="mobile"
                   />
@@ -1915,6 +1935,7 @@ const ReportPage = () => {
                 <ReportLocation
                   location={report.location}
                   address={report.address}
+                  referencePoint={report.reference_point}
                   onNavigate={handleNavigateToReport}
                   variant="desktop"
                 />

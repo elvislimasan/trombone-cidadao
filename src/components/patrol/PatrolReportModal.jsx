@@ -1,3 +1,4 @@
+import { poleCode } from '@/lib/poleDisplay';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { X, Camera, Image as GalleryIcon, Loader2, MapPin, Check, Move } from 'lucide-react';
 
@@ -151,18 +152,28 @@ export default function PatrolReportModal({
 
   const selecionarPoste = useCallback((marcador) => {
     const poste = marcador?.data;
-    if (!poste) return;
-    const plaqueta = String(poste.plate || poste.identifier || marcador.title || '').trim();
+    const local = marcador?.location;
+    if (!poste || !Number.isFinite(local?.lat) || !Number.isFinite(local?.lng)) return false;
+    if (origem && haversine(origem, local) > RAIO_AJUSTE_M) {
+      showAppError({
+        title: 'Poste fora da área permitida',
+        description: `Selecione um poste a até ${RAIO_AJUSTE_M} metros do ponto original.`,
+      });
+      return false;
+    }
+    const plaqueta = poleCode(poste.plate || poste.identifier || marcador.title);
+    setPonto({ lat: local.lat, lng: local.lng });
     setExtras((atual) => ({
       ...atual,
       pole_id: poste.pole_id,
       pole_number: plaqueta,
-      reported_pole_distance_m: poste.distance_m ?? null,
+      reported_pole_distance_m: 0,
       reported_post_identifier: poste.identifier ?? null,
       reported_plate: poste.plate ?? null,
     }));
     setTocados((atual) => ({ ...atual, pole_number: true }));
-  }, []);
+    return true;
+  }, [origem]);
 
   // Título sugerido pela categoria. Editável: quem está no local sabe mais que
   // a categoria escolhida às pressas por quem passou de carro.
@@ -191,6 +202,14 @@ export default function PatrolReportModal({
       return;
     }
     setPonto({ lat: novo.lat, lng: novo.lng });
+    setExtras((atual) => atual.pole_id ? {
+      ...atual,
+      pole_id: null,
+      pole_number: '',
+      reported_pole_distance_m: null,
+      reported_post_identifier: null,
+      reported_plate: null,
+    } : atual);
   }, [origem]);
 
   const deslocamento = useMemo(
@@ -404,7 +423,7 @@ export default function PatrolReportModal({
                       .filter((poste) => Number.isFinite(poste.latitude) && Number.isFinite(poste.longitude))
                       .map((poste) => ({
                         id: poste.pole_id,
-                        title: poste.plate || poste.identifier || `Poste ${poste.pole_id}`,
+                        title: poleCode(poste.identifier || poste.plate || `Poste ${poste.pole_id}`),
                         distanceLabel: poste.distance_m != null ? `${poste.distance_m}m` : '',
                         isBroken: !!poste.is_broken,
                         location: { lat: poste.latitude, lng: poste.longitude },
@@ -412,6 +431,7 @@ export default function PatrolReportModal({
                       }))}
                     selectedOverlayMarkerId={extras.pole_id || null}
                     onOverlayMarkerSelect={selecionarPoste}
+                    snapToOverlayOnSelect
                     // Esta é A tela que precisa funcionar sem rede: quem chegou
                     // até aqui está de pé no local do problema, que é onde o
                     // sinal falta. Lê os tiles que a patrulha baixou de véspera

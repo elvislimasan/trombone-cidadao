@@ -123,15 +123,15 @@ const createPoleIcon = ({ isSelected, distanceLabel, showBrokenX }) =>
   L.divIcon({
     html: `
       <div style="position: relative; width: 44px; height: 64px;">
-        <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); padding: 2px 6px; border-radius: 999px; font-size: 11px; line-height: 14px; font-weight: 700; color: ${
+        ${distanceLabel ? `<div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); padding: 2px 6px; border-radius: 999px; font-size: 11px; line-height: 14px; font-weight: 700; color: ${
           isSelected ? "#ffffff" : "#111827"
         }; background: ${
       isSelected ? "#dc2626" : "rgba(255,255,255,0.95)"
     }; border: 1px solid ${
       isSelected ? "#dc2626" : "rgba(17,24,39,0.15)"
     }; box-shadow: 0 6px 14px rgba(0,0,0,0.18); white-space: nowrap;">
-          ${distanceLabel || ""}
-        </div>
+          ${distanceLabel}
+        </div>` : ''}
         <div style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 44px; height: 52px; display: flex; align-items: center; justify-content: center;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 80" width="44" height="52" style="display:block; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.18));">
             <rect x="27" y="30" width="6" height="50" rx="2" fill="#888780"/>
@@ -165,13 +165,25 @@ const MapClickHandler = ({ onMapClick }) => {
   return null;
 };
 
+const MapViewportReporter = ({ onChange }) => {
+  const map = useMapEvents({
+    moveend() { onChange(map.getBounds()); },
+  });
+  useEffect(() => { onChange(map.getBounds()); }, [map, onChange]);
+  return null;
+};
+
 const LocationPickerMap = ({
   onLocationChange,
   initialPosition,
+  focusPosition = null,
+  onViewportChange,
   existingMarkers = [],
   overlayMarkers = [],
   selectedOverlayMarkerId = null,
   onOverlayMarkerSelect,
+  // O consumidor salva a mesma coordenada em onOverlayMarkerSelect.
+  snapToOverlayOnSelect = false,
   focusOverlayOnSelect = true,
   showSatelliteToggle = false,
   showLocateButton = false,
@@ -194,6 +206,7 @@ const LocationPickerMap = ({
    * tiles que ninguém tinha buscado ainda: cinza garantido sem rede.
    */
   initialZoom = null,
+  children,
 }) => {
   const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
   const [mapLayer, setMapLayer] = useState("osm");
@@ -219,6 +232,9 @@ const LocationPickerMap = ({
   // limite do layer ativo.
   const zoomComPosicao = Math.min(initialZoom || 19, activeMaxZoom);
   const zoomDeAbertura = initialPosition ? zoomComPosicao : INITIAL_ZOOM;
+  const focusLat = focusPosition?.lat;
+  const focusLng = focusPosition?.lng;
+  const focusNonce = focusPosition?.nonce;
 
   useEffect(() => {
     if (initialPosition && !userMovedRef.current) {
@@ -231,6 +247,16 @@ const LocationPickerMap = ({
       }
     }
   }, [initialPosition]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!Number.isFinite(focusLat) || !Number.isFinite(focusLng)) return;
+    userMovedRef.current = true;
+    setPosition({ lat: focusLat, lng: focusLng });
+    const frame = window.requestAnimationFrame(() => {
+      if (mapRef.current) mapRef.current.flyTo([focusLat, focusLng], Math.max(mapRef.current.getZoom(), 17), { animate: true, duration: 0.5 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusLat, focusLng, focusNonce]);
 
   // Sem posição inicial: centraliza na cidade informada (ex.: cadastro de obra
   // pelo embaixador). Não move o marcador — só reposiciona a vista do mapa.
@@ -307,9 +333,11 @@ const LocationPickerMap = ({
         className="w-full h-full"
       >
         <MapController mapRef={mapRef} />
+        {onViewportChange && <MapViewportReporter onChange={onViewportChange} />}
 
         {/* Limita o zoom dinamicamente quando troca de layer */}
         <ZoomLimiter maxZoom={activeMaxZoom} />
+        {children}
 
         {/* So o mapa de ruas acompanha o tema; satelite e foto aerea. O
             satelite nao tem versao offline: o Esri nao e pre-carregado e a
@@ -345,13 +373,19 @@ const LocationPickerMap = ({
               <Marker
                 key={m.id}
                 position={[m.location.lat, m.location.lng]}
+                bubblingMouseEvents={false}
                 icon={createPoleIcon({
-                  isSelected: selectedOverlayMarkerId === m.id,
+                  isSelected: selectedOverlayMarkerId != null && String(selectedOverlayMarkerId) === String(m.id),
                   distanceLabel: m.distanceLabel,
                   showBrokenX: !!m.isBroken,
                 })}
                 eventHandlers={{
                   click() {
+                    if (onOverlayMarkerSelect?.(m) === false) return;
+                    if (snapToOverlayOnSelect && !readOnly) {
+                      userMovedRef.current = true;
+                      setPosition(m.location);
+                    }
                     if (focusOverlayOnSelect && mapRef.current) {
                       try {
                         mapRef.current.flyTo(
@@ -361,7 +395,6 @@ const LocationPickerMap = ({
                         );
                       } catch {}
                     }
-                    if (onOverlayMarkerSelect) onOverlayMarkerSelect(m);
                   },
                 }}
               >

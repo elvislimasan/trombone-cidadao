@@ -65,13 +65,15 @@ export const isUserCancelled = (err) =>
 /** Compressão web via Canvas (fallback browser) */
 export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
   let objectUrl = null;
+  let img = null;
+  let canvas = null;
   try {
     // createObjectURL em vez de readAsDataURL: nao carrega a imagem inteira em
     // base64 na memoria (fotos de 12MP viravam strings de ~16MB) e evita o
     // FileReader travar sem onerror.
     objectUrl = URL.createObjectURL(file);
 
-    const img = new Image();
+    img = new Image();
     img.src = objectUrl;
 
     // `onload` sinaliza metadados prontos, NAO pixels decodificados: em alguns
@@ -95,7 +97,7 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
       width = Math.floor(width * r);
       height = Math.floor(height * r);
     }
-    const canvas = document.createElement('canvas');
+    canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
@@ -132,6 +134,9 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
     console.warn('[useNativeCamera] compressToJpeg falhou, usando original:', err);
     return file;
   } finally {
+    // Libera pixels decodificados e o buffer do canvas antes da próxima foto.
+    if (canvas) { canvas.width = 0; canvas.height = 0; }
+    if (img) { img.onload = null; img.onerror = null; img.src = ''; }
     // A imagem ja foi copiada para o canvas; segurar a URL so vazaria memoria.
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   }

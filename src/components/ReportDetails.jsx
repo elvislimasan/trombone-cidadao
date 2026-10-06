@@ -14,6 +14,7 @@ import MediaViewer from '@/components/MediaViewer';
 import MarkResolvedModal from '@/components/MarkResolvedModal';
 import { Combobox } from "@/components/ui/combobox";
 import { supabase } from '@/lib/customSupabaseClient';
+import { poleCode, poleReferenceText } from '@/lib/poleDisplay';
 import DynamicSEO from './DynamicSeo';
 import { Capacitor } from '@capacitor/core';
 import { getReportShareUrl, getBaseAppUrl } from '@/lib/shareUtils';
@@ -25,6 +26,9 @@ import { mascarar } from '@/lib/profanity';
 import { showAppError, showAppInfo } from '@/lib/appError';
 import { TIPOS_DE_PROBLEMA_ILUMINACAO, TIPOS_DE_PROBLEMA_ESGOTO } from '@/lib/reportCategoryFields';
 import { optimizeImageFile } from '@/lib/optimizeImage';
+import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
+import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
+import { createReportPole, mergeNearbyReportPoles } from '@/lib/reportPole';
 
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
@@ -187,6 +191,7 @@ const ReportDetails = ({
   const { user } = useAuth();
   const { activeUploads } = useUpload();
   const navigate = useNavigate();
+  const { resolveCityIdFromLocation, resetCityCache } = useCityIdFromLocation();
   const [showEvaluation, setShowEvaluation] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [evaluation, setEvaluation] = useState({ rating: 0, comment: '' });
@@ -196,6 +201,7 @@ const ReportDetails = ({
     if (!startInEdit || !report) return null;
     return {
       ...report,
+      pole_number: poleCode(report.pole_number),
       newPhotos: [],
       newVideos: [],
       removedMedia: [],
@@ -218,14 +224,20 @@ const ReportDetails = ({
   const [isFlagging, setIsFlagging] = useState(false);
   const [isCreatingPendingPole, setIsCreatingPendingPole] = useState(false);
   const [nearbyPoles, setNearbyPoles] = useState([]);
+  const [localPendingPoles, setLocalPendingPoles] = useState([]);
   const [nearbyPolesLoading, setNearbyPolesLoading] = useState(false);
   const [nearbyPolesError, setNearbyPolesError] = useState(null);
+  const addressLookupRequestRef = useRef(0);
+  const [isAddressLookupLoading, setIsAddressLookupLoading] = useState(false);
+  const [addressLookupFailed, setAddressLookupFailed] = useState(false);
+
+  useEffect(() => () => { addressLookupRequestRef.current += 1; }, []);
 
  
   const categories = {
     'iluminacao': 'Iluminação Pública',
     'buracos': 'Buracos na Via',
-    'esgoto': 'Esgoto Entupido',
+    'esgoto': 'Esgoto',
     'limpeza': 'Limpeza Urbana',
     'poda': 'Poda de Árvore',
     'vazamento-de-agua': 'Vazamento de Água',
@@ -422,7 +434,7 @@ const ReportDetails = ({
     }
     
     const shareUrl = getReportShareUrl(report.id);
-    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${shareUrl}`;
+    const shareText = `*Trombone Cidadão*\n\n*${poleReferenceText(report.title || 'Bronca')}*\n\nVeja em:\n${shareUrl}`;
     
 //     console.log('Generating Share URL:', shareUrl);
 
@@ -433,7 +445,7 @@ const ReportDetails = ({
 //         console.log('Sharing with report image:', shareImageUrl);
     }
 
-    // const shareText = `Confira esta solicitação em Floresta-PE: "${report.title}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
+    // const shareText = `Confira esta solicitação em Floresta-PE: "${poleReferenceText(report.title)}". Protocolo: ${report.protocol}. Ajude a cobrar uma solução!`;
     // const fullShareText = `${shareText} ${shareUrl}`; 
 
 
@@ -570,7 +582,7 @@ const ReportDetails = ({
 
   const handleWhatsAppShare = () => {
     const shareUrl = getReportShareUrl(report.id);
-    const shareText = `*Trombone Cidadão*\n\n*${report.title || 'Bronca'}*\n\nVeja em:\n${shareUrl}`;
+    const shareText = `*Trombone Cidadão*\n\n*${poleReferenceText(report.title || 'Bronca')}*\n\nVeja em:\n${shareUrl}`;
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -607,8 +619,12 @@ const ReportDetails = ({
   };
 
   const handleEdit = () => {
+    addressLookupRequestRef.current += 1;
+    setIsAddressLookupLoading(false);
+    setAddressLookupFailed(false);
     setEditData({ 
       ...report,
+      pole_number: poleCode(report.pole_number),
       newPhotos: [],
       newVideos: [],
       removedMedia: [],
@@ -635,6 +651,9 @@ const ReportDetails = ({
   };
 
   const handleCancelEdit = () => {
+    addressLookupRequestRef.current += 1;
+    setIsAddressLookupLoading(false);
+    setAddressLookupFailed(false);
     if (startInEdit) {
       onClose();
       return;
@@ -645,7 +664,40 @@ const ReportDetails = ({
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'address') {
+      addressLookupRequestRef.current += 1;
+      setIsAddressLookupLoading(false);
+      setAddressLookupFailed(false);
+    }
     setEditData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const lookupEditAddress = async (location, zoom = 18) => {
+    const requestId = ++addressLookupRequestRef.current;
+    setAddressLookupFailed(false);
+    if (location?.lat == null || location?.lng == null ||
+        !Number.isFinite(Number(location.lat)) || !Number.isFinite(Number(location.lng))) {
+      setIsAddressLookupLoading(false);
+      setAddressLookupFailed(true);
+      return;
+    }
+
+    setIsAddressLookupLoading(true);
+    let result;
+    try {
+      result = await reverseGeocodePin(location, {
+        invoke: supabase.functions.invoke.bind(supabase.functions),
+        zoom,
+      });
+    } catch {
+      result = null;
+    }
+    if (requestId !== addressLookupRequestRef.current) return;
+
+    const address = result?.address?.trim();
+    setIsAddressLookupLoading(false);
+    setAddressLookupFailed(!address);
+    if (address) setEditData(prev => prev ? ({ ...prev, address }) : prev);
   };
 
   const handleEditPoleNumberChange = (e) => {
@@ -662,6 +714,7 @@ const ReportDetails = ({
   };
 
   const handleCreatePendingPoleForEdit = async () => {
+    if (isCreatingPendingPole || editData?.pole_id) return;
     if (!user) {
       showAppError({ title: "Acesso restrito", description: "Você precisa estar logado para cadastrar poste.", variant: "destructive" });
       navigate('/login');
@@ -688,19 +741,13 @@ const ReportDetails = ({
 
     setIsCreatingPendingPole(true);
     try {
-      const { data, error } = await supabase.rpc('create_pending_pole', {
-        p_lat: lat,
-        p_lng: lng,
-        p_identifier: normalizedIdentifier,
-        p_address: editData.address || null,
-        p_plate: null,
+      const cityId = await resolveCityIdFromLocation({ lat, lng });
+      const createdPole = await createReportPole({
+        client: supabase, cityId, location: { lat, lng },
+        identifier: normalizedIdentifier, address: editData.address,
       });
-      if (error) throw error;
-
-      const createdPole = Array.isArray(data) ? data[0] : data;
-      if (!createdPole?.pole_id) {
-        throw new Error('Não foi possível obter o ID do poste criado.');
-      }
+      setLocalPendingPoles((prev) => mergeNearbyReportPoles(prev, [createdPole], { lat, lng }));
+      setNearbyPoles((prev) => mergeNearbyReportPoles(prev, [createdPole], { lat, lng }));
 
       setEditData(prev => ({
         ...prev,
@@ -723,7 +770,20 @@ const ReportDetails = ({
   };
 
   const handleLocationChange = (newLocation) => {
-    setEditData(prev => ({ ...prev, location: newLocation }));
+    resetCityCache();
+    setEditData(prev => ({
+      ...prev,
+      location: newLocation,
+      address: '',
+      ...(prev.category_id === 'iluminacao' && prev.pole_id ? {
+        pole_id: null,
+        pole_number: '',
+        reported_pole_distance_m: null,
+        reported_post_identifier: null,
+        reported_plate: null,
+      } : {}),
+    }));
+    void lookupEditAddress(newLocation);
   };
 
   useEffect(() => {
@@ -751,13 +811,13 @@ const ReportDetails = ({
       if (cancelled) return;
 
       if (error) {
-        setNearbyPoles([]);
+        setNearbyPoles(mergeNearbyReportPoles([], localPendingPoles, { lat, lng }));
         setNearbyPolesError(error.message || 'Falha ao buscar postes próximos');
         setNearbyPolesLoading(false);
         return;
       }
 
-      setNearbyPoles(Array.isArray(data) ? data : []);
+      setNearbyPoles(mergeNearbyReportPoles(Array.isArray(data) ? data : [], localPendingPoles, { lat, lng }));
       setNearbyPolesLoading(false);
     }, 350);
 
@@ -765,7 +825,7 @@ const ReportDetails = ({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [isEditing, editData?.category_id, editData?.location?.lat, editData?.location?.lng]);
+  }, [isEditing, editData?.category_id, editData?.location?.lat, editData?.location?.lng, localPendingPoles]);
 
   const handleFileChange = async (e, fileType) => {
     const files = Array.from(e.target.files);
@@ -999,7 +1059,7 @@ const ReportDetails = ({
             status: 'rejected',
             rejectionTitle: rejectionTitle.trim(),
             rejectionDescription: rejectionDescription.trim(),
-            reportTitle: report.title,
+            reportTitle: poleReferenceText(report.title),
             reportUrl: `${window.location.origin}/perfil?tab=reports&report=${report.id}`
           }
         });
@@ -1027,7 +1087,9 @@ const ReportDetails = ({
   const statusInfo = getStatusInfo(effectiveStatus);
   const StatusIcon = statusInfo.icon;
   const canEdit = user && (user.is_admin || (user.id === report.author_id && report.moderation_status === 'pending_approval'));
-  const canChangeStatus = user && (user.is_admin || user.user_type === 'public_official');
+  // Servidores atuam pelo painel institucional, com escopo de secretaria
+  // validado no banco. O papel global não concede edição desta bronca.
+  const canChangeStatus = user && user.is_admin;
   // Sinal aberto não é matéria de moderação: não tem foto nem descrição para
   // julgar, e a migração 175 impede publicá-lo pelo banco. Sem esta exceção o
   // admin veria o botão Aprovar, clicaria e receberia um erro cru do Postgres —
@@ -1269,7 +1331,7 @@ const ReportDetails = ({
                 <input type="text" name="title" value={editData.title} onChange={handleEditChange} className="text-2xl font-bold bg-background border-b-2 border-primary w-full" />
               ) : (
                 <h2 className="text-2xl font-bold text-foreground flex items-center flex-wrap gap-2">
-                  {report.title}
+                  {poleReferenceText(report.title)}
                   {report.is_recurrent && <Repeat className="w-5 h-5 text-orange-500" title="Bronca Reincidente" />}
                 </h2>
               )}
@@ -1279,7 +1341,7 @@ const ReportDetails = ({
               </div>
               {report.category === 'iluminacao' && report.pole_number && (
                 <p className="text-xs font-semibold text-primary mt-1 flex items-center gap-1">
-                  N° do Poste: {report.pole_number}
+                  N° do Poste: {formatPoleLabel(report.pole_number)}
                 </p>
               )}
             </div>
@@ -1564,6 +1626,7 @@ const ReportDetails = ({
                     <LocationPickerMap
                       onLocationChange={handleLocationChange}
                       initialPosition={editData.location}
+                      snapToOverlayOnSelect={true}
                       overlayMarkers={
                         editData?.category_id === 'iluminacao'
                           ? nearbyPoles
@@ -1587,19 +1650,23 @@ const ReportDetails = ({
                       }
                       selectedOverlayMarkerId={editData?.pole_id}
                       onOverlayMarkerSelect={(m) => {
+                        const poleLocation = m.location;
+                        addressLookupRequestRef.current += 1;
+                        setIsAddressLookupLoading(false);
+                        setAddressLookupFailed(false);
                         setEditData((prev) => ({
                           ...prev,
+                          location: poleLocation,
                           pole_id: m.id,
-                          reported_pole_distance_m: m.data?.distance_m ?? null,
+                          reported_pole_distance_m: 0,
                           reported_post_identifier: m.data?.identifier ?? null,
                           reported_plate: m.data?.plate ?? null,
                           pole_number: formatPoleLabel(
                             m.data?.plate || m.data?.identifier || m.title || m.id
                           ),
-                          address: prev.address?.trim()
-                            ? prev.address
-                            : m.data?.address || prev.address || "",
+                          address: '',
                         }));
+                        void lookupEditAddress(poleLocation, 17);
                       }}
                       showSatelliteToggle={true}
                     />
@@ -1636,6 +1703,12 @@ const ReportDetails = ({
                   </div>
                 )}
                 <input type="text" name="address" value={editData.address} onChange={handleEditChange} className="w-full bg-background px-4 py-3 border border-input rounded-lg mt-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Endereço de referência" />
+                {isAddressLookupLoading && (
+                  <p className="mt-1 text-xs text-muted-foreground">Buscando endereço da nova localização...</p>
+                )}
+                {addressLookupFailed && !editData.address?.trim() && (
+                  <p className="mt-1 text-xs text-muted-foreground">Não foi possível encontrar o endereço. Informe uma referência antes de salvar.</p>
+                )}
               </div>
             ) : (
               report.address && <div className="flex items-center space-x-2 text-muted-foreground"><MapPin className="w-4 h-4" /><span className="text-sm">{report.address}</span></div>
@@ -1671,7 +1744,7 @@ const ReportDetails = ({
                     type="button"
                     variant="outline"
                     onClick={handleCreatePendingPoleForEdit}
-                    disabled={isCreatingPendingPole || !editData?.location || !formatPoleLabel(editData?.pole_number)}
+                    disabled={isCreatingPendingPole || !!editData?.pole_id || !editData?.location || !formatPoleLabel(editData?.pole_number)}
                     className="w-full sm:w-auto"
                   >
                     {isCreatingPendingPole ? (
@@ -1967,7 +2040,7 @@ const ReportDetails = ({
               {isEditing ? (
                 <>
                   <Button onClick={handleCancelEdit} variant="outline" className="flex-1 gap-2" disabled={isSaving}><X className="w-4 h-4" /> Cancelar</Button>
-                  <Button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 flex-1 gap-2" disabled={isSaving}>
+                  <Button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 flex-1 gap-2" disabled={isSaving || isAddressLookupLoading || (addressLookupFailed && !editData?.address?.trim())}>
                     {isSaving ? 'Salvando...' : <><Save className="w-4 h-4" /> Salvar</>}
                   </Button>
                 </>
@@ -2009,7 +2082,7 @@ const ReportDetails = ({
                       
                       {['pending', 'in-progress'].includes(report.status) && 
                        !report.resolution_submission && 
-                       (user?.id === report.author_id || user?.is_admin || user?.user_type === 'public_official') && (
+                       (user?.id === report.author_id || user?.is_admin) && (
                         <Button onClick={handleMarkResolvedClick} className="bg-green-600 hover:bg-green-700 gap-2 text-xs sm:text-sm">
                           <CheckCircle className="w-4 h-4" />
                           <span className="hidden sm:inline">Marcar Resolvido</span>
@@ -2137,7 +2210,7 @@ const ReportDetails = ({
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         url={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/share-report?id=${report.id}`}
-        title={report.title}
+        title={poleReferenceText(report.title)}
       />
 
       <Dialog open={showFlagDialog} onOpenChange={setShowFlagDialog}>

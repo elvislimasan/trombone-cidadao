@@ -7,6 +7,7 @@ import {
   getPatrolAvatarSexo,
   getPatrolAvatarVehicle,
   toPatrolUrbanAvatar,
+  toElectricianPatrolAvatar,
 } from '@/lib/patrolAvatarConfig';
 
 // Escolha curta do que aparece na patrulha.
@@ -23,12 +24,15 @@ import {
 // seria pedir uma escolha sem efeito, e o botão que abre esta folha promete
 // "escolher carro". Uma folha, duas perguntas, decididas pelo modo.
 
-export default function PatrolAvatarStudio({ avatar, modo = 'walking', onChange, onFechar }) {
+export default function PatrolAvatarStudio({ avatar, modo = 'walking', electrician = false, onChange, onFechar }) {
   const ehCarro = modo === 'driving';
   const sexoAtual = getPatrolAvatarSexo(avatar?.sexo);
   const veiculoAtual = getPatrolAvatarVehicle(avatar?.veiculo);
 
   const avatarUrbano = (troca = {}) => toPatrolUrbanAvatar({ ...avatar, ...troca });
+  const avatarDaPrevia = (troca = {}) => electrician
+    ? toElectricianPatrolAvatar({ ...avatar, ...troca })
+    : avatarUrbano(troca);
 
   const opcoes = ehCarro ? PATROL_AVATAR_VEHICLES : PATROL_AVATAR_SEXOS;
   const atual = ehCarro ? veiculoAtual : sexoAtual;
@@ -68,7 +72,7 @@ export default function PatrolAvatarStudio({ avatar, modo = 'walking', onChange,
               <p className="mt-1 text-xs leading-relaxed text-content-onBrand/85">
                 {ehCarro
                   ? 'O modelo que vai aparecer no mapa durante a patrulha.'
-                  : 'Feminino ou masculino, sempre com o estilo urbano padrão.'}
+                  : electrician ? 'Feminino ou masculino, com uniforme de eletricista.' : 'Feminino ou masculino, sempre com o estilo urbano padrão.'}
               </p>
             </div>
             <button
@@ -84,7 +88,7 @@ export default function PatrolAvatarStudio({ avatar, modo = 'walking', onChange,
           <div className="relative mt-3 flex h-[124px] items-start justify-center" aria-hidden="true">
             <PatrolAvatar
               modo={ehCarro ? 'driving' : 'walking'}
-              avatar={avatarUrbano()}
+              avatar={avatarDaPrevia()}
               camera="frente"
               emMovimento={false}
               sobreMarca
@@ -122,7 +126,7 @@ export default function PatrolAvatarStudio({ avatar, modo = 'walking', onChange,
 
                 <PatrolAvatar
                   modo={ehCarro ? 'driving' : 'walking'}
-                  avatar={avatarUrbano(trocaDe(opcao.id))}
+                  avatar={avatarDaPrevia(trocaDe(opcao.id))}
                   camera="frente"
                   emMovimento={false}
                   tamanho={82}
@@ -130,7 +134,7 @@ export default function PatrolAvatarStudio({ avatar, modo = 'walking', onChange,
                 />
                 <span className="text-sm font-extrabold">{opcao.label}</span>
                 <span className="text-[10px] font-semibold text-content-tertiary">
-                  {ehCarro ? 'De carro' : 'Urbano'}
+                  {ehCarro ? 'De carro' : electrician ? 'Eletricista' : 'Urbano'}
                 </span>
               </button>
             );

@@ -12,7 +12,7 @@ const AIReports = ({ reports, onClose }) => {
     { id: 'all', name: 'Todas as Categorias' },
     { id: 'iluminacao', name: 'Iluminação Pública' },
     { id: 'buracos', name: 'Buracos na Via' },
-    { id: 'esgoto', name: 'Esgoto Entupido' },
+    { id: 'esgoto', name: 'Esgoto' },
     { id: 'limpeza', name: 'Limpeza Urbana' },
     { id: 'outros', name: 'Outros' }
   ];

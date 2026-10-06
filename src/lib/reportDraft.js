@@ -189,6 +189,7 @@ export const saveReportDraft = ({ formData, wizardStep }) => {
     'description',
     'category',
     'address',
+    'reference_point',
     'location',
     'pole_number',
     'pole_id',

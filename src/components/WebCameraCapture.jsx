@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Camera, Video, Circle, Square } from 'lucide-react';
+import { X, Camera, Video, Circle, Square, Zap, ZapOff, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { webCameraCapabilities, photoZoomCrop, applyWebCameraControls, fitCameraPreview, clampCameraZoom } from '@/lib/webCameraControls';
 
 const pickRecorderMimeType = () => {
   const candidates = [
@@ -25,25 +26,61 @@ const extForMime = (mime) => {
   return 'webm';
 };
 
-export default function WebCameraCapture({ initialMode = 'photo', onCapture, onClose }) {
+export default function WebCameraCapture({ initialMode = 'photo', allowDeviceCamera = true, onCapture, onClose }) {
   const videoRef = useRef(null);
+  const previewRef = useRef(null);
   const streamRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const controlsQueueRef = useRef({ chain: Promise.resolve(), pending: 0 });
+  const controlsRef = useRef(webCameraCapabilities(null, initialMode));
+  const valuesRef = useRef({ zoom: 1, torch: false });
+  const pointersRef = useRef(new Map());
+  const pinchRef = useRef(null);
+  const mountedRef = useRef(false);
+  const capturingRef = useRef(false);
+  const nativeInputRef = useRef(null);
   const [error, setError] = useState('');
   const [isReady, setIsReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState('');
   const [mode] = useState(initialMode);
+  const [controls, setControls] = useState(() => webCameraCapabilities(null, initialMode));
+  const [zoom, setZoom] = useState(1);
+  const [torch, setTorch] = useState(false);
+  const [controlsBusy, setControlsBusy] = useState(false);
+  const [controlsError, setControlsError] = useState('');
+  const [usingDeviceCamera, setUsingDeviceCamera] = useState(false);
+  const [cameraSession, setCameraSession] = useState(0);
+  const [frameSize, setFrameSize] = useState({ width: 1280, height: 720 });
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
+  const fittedPreview = fitCameraPreview(previewSize.width, previewSize.height, frameSize.width, frameSize.height);
 
   const recorderMimeType = useMemo(() => pickRecorderMimeType(), []);
 
   useEffect(() => {
+    const preview = previewRef.current;
+    const measure = () => setPreviewSize({ width: preview.clientWidth, height: preview.clientHeight });
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(preview);
+    window.addEventListener('resize', measure);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
+    const pointers = pointersRef.current;
+    mountedRef.current = true;
 
     const start = async () => {
       try {
         setError('');
         setIsReady(false);
+        setControlsBusy(false);
+        setControlsError('');
+        controlsQueueRef.current = { chain: Promise.resolve(), pending: 0 };
 
         if (!navigator?.mediaDevices?.getUserMedia) {
           setError('Este navegador não suporta câmera.');
@@ -55,6 +92,8 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
             facingMode: { ideal: 'environment' },
             width: { ideal: 1280 },
             height: { ideal: 720 },
+            // Solicita também a permissão de zoom nos navegadores que a exigem.
+            ...(navigator.mediaDevices.getSupportedConstraints?.().zoom ? { zoom: true } : {}),
           },
           audio: mode === 'video'
             ? {
@@ -78,9 +117,17 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
           videoRef.current.volume = 0;
           await videoRef.current.play();
         }
-        setIsReady(true);
+        if (!cancelled) {
+          const detected = webCameraCapabilities(stream.getVideoTracks()[0], mode);
+          controlsRef.current = detected;
+          valuesRef.current = { zoom: detected.value, torch: detected.torchValue };
+          setControls(detected);
+          setZoom(detected.value);
+          setTorch(detected.torchValue);
+          setIsReady(true);
+        }
       } catch (e) {
-        setError(e?.message || 'Falha ao acessar a câmera.');
+        if (!cancelled) setError(e?.message || 'Falha ao acessar a câmera.');
       }
     };
 
@@ -88,6 +135,8 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
 
     return () => {
       cancelled = true;
+      mountedRef.current = false;
+      if (recorderRef.current) recorderRef.current.onstop = null;
       try {
         recorderRef.current?.stop?.();
       } catch {}
@@ -97,24 +146,145 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
       streamRef.current = null;
       recorderRef.current = null;
       chunksRef.current = [];
+      pointers.clear();
+      pinchRef.current = null;
     };
-  }, [mode]);
+  }, [mode, cameraSession]);
+
+  const changeControls = (next) => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const queue = controlsQueueRef.current;
+    queue.pending += 1;
+    setControlsBusy(true);
+    setControlsError('');
+    const isCurrent = () => mountedRef.current && streamRef.current?.getVideoTracks()[0] === track && track.readyState !== 'ended';
+    queue.chain = queue.chain.catch(() => {}).then(async () => {
+      try {
+        if (!isCurrent()) return;
+        const available = controlsRef.current;
+        const current = valuesRef.current;
+        if (next.zoom != null && !available.hardwareZoom) {
+          const digitalZoom = clampCameraZoom(next.zoom, available.zoom);
+          valuesRef.current.zoom = digitalZoom;
+          setZoom(digitalZoom);
+          return;
+        }
+        await applyWebCameraControls(track, {
+          ...(available.hardwareZoom ? { zoom: next.zoom ?? current.zoom } : {}),
+          ...(available.torch ? { torch: next.torch ?? current.torch } : {}),
+        });
+        if (!isCurrent()) return;
+        if (next.zoom != null) { valuesRef.current.zoom = next.zoom; setZoom(next.zoom); }
+        if (next.torch != null) { valuesRef.current.torch = next.torch; setTorch(next.torch); }
+      } catch (failure) {
+        if (!isCurrent()) return;
+        const failedControl = failure.constraint || (next.zoom != null ? 'zoom' : 'torch');
+        if (failedControl === 'zoom' && mode === 'photo') {
+          const fallback = webCameraCapabilities(null, mode);
+          controlsRef.current = { ...controlsRef.current, hardwareZoom: false, zoom: fallback.zoom };
+          valuesRef.current.zoom = 1;
+          setZoom(1);
+          setControls(controlsRef.current);
+          setControlsError('O zoom do aparelho não respondeu. Use a barra ou dois dedos para aproximar com zoom digital.');
+        } else {
+          if (failedControl === 'torch') {
+            controlsRef.current = { ...controlsRef.current, torch: false };
+            setControls(controlsRef.current);
+            setTorch(false);
+            valuesRef.current.torch = false;
+          }
+          setControlsError(allowDeviceCamera
+            ? 'Não foi possível ajustar a câmera. Use a câmera do aparelho para acessar seus controles.'
+            : 'Não foi possível ajustar a câmera. Você pode continuar fotografando sem esse controle.');
+        }
+      } finally {
+        queue.pending -= 1;
+        if (isCurrent()) setControlsBusy(queue.pending > 0);
+      }
+    });
+  };
+
+  const changeZoom = (value) => {
+    if (!isReady) return;
+    const nextZoom = clampCameraZoom(value, controlsRef.current.zoom);
+    if (controlsRef.current.hardwareZoom) changeControls({ zoom: nextZoom });
+    else { valuesRef.current.zoom = nextZoom; setZoom(nextZoom); }
+  };
+
+  const handlePointerDown = (event) => {
+    if (!isReady || controls.zoom.max <= controls.zoom.min) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom: valuesRef.current.zoom };
+    }
+  };
+
+  const handlePointerMove = (event) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size !== 2 || !pinchRef.current?.distance) return;
+    const [a, b] = [...pointersRef.current.values()];
+    changeZoom(pinchRef.current.zoom * Math.hypot(a.x - b.x, a.y - b.y) / pinchRef.current.distance);
+  };
+
+  const handlePointerEnd = (event) => {
+    pointersRef.current.delete(event.pointerId);
+    pinchRef.current = null;
+  };
+
+  const captureWithDevice = () => {
+    if (!allowDeviceCamera) return;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    setIsReady(false);
+    setUsingDeviceCamera(true);
+    pointersRef.current.clear();
+    pinchRef.current = null;
+    if (nativeInputRef.current) nativeInputRef.current.value = '';
+    nativeInputRef.current?.click();
+  };
+
+  const resumeWebCamera = () => {
+    setUsingDeviceCamera(false);
+    setCameraSession((session) => session + 1);
+  };
 
   const capturePhoto = async () => {
     const video = videoRef.current;
-    if (!video) return;
-    if (!video.videoWidth || !video.videoHeight) return;
+    if (!isReady || capturingRef.current || controlsQueueRef.current.pending || !video?.videoWidth || !video.videoHeight) return;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    capturingRef.current = true;
+    setIsCapturing(true);
+    setCaptureError('');
+    let canvas;
+    try {
+      // Não alocar um canvas de 12/50 MP mesmo que o aparelho ignore a
+      // resolução solicitada ao stream. O recorte usa as dimensões originais.
+      const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+      canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.floor(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.floor(video.videoHeight * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas indisponível');
+      const crop = photoZoomCrop(video.videoWidth, video.videoHeight, controls.hardwareZoom ? 1 : zoom);
+      ctx.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-    if (!blob) return;
-    onCapture?.({ type: 'photo', file: blob });
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      if (!blob) throw new Error('Falha ao gerar a foto');
+      if (!mountedRef.current) return;
+      // Liberar câmera/flash antes de inserir a miniatura no modal.
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      setIsReady(false);
+      await onCapture?.({ type: 'photo', file: blob });
+    } catch {
+      if (mountedRef.current) setCaptureError('Não foi possível tirar a foto. Tente novamente.');
+    } finally {
+      if (canvas) { canvas.width = 0; canvas.height = 0; }
+      capturingRef.current = false;
+      if (mountedRef.current) setIsCapturing(false);
+    }
   };
 
   const startRecording = () => {
@@ -160,14 +330,24 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
           {mode === 'video' ? <Video className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
           {mode === 'video' ? 'Gravar vídeo' : 'Tirar foto'}
         </div>
-        <button type="button" onClick={onClose} className="p-2 rounded-md hover:bg-white/10">
+        <button type="button" onClick={onClose} aria-label="Fechar câmera" className="p-2 rounded-md hover:bg-white/10">
           <X className="h-6 w-6" />
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 relative">
-        <video ref={videoRef} playsInline muted className="w-full h-full object-contain" />
-        {!isReady && !error && (
+      <div ref={previewRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerEnd} onPointerCancel={handlePointerEnd} onLostPointerCapture={handlePointerEnd} style={{ touchAction: 'none' }} className="flex-1 min-h-0 relative overflow-hidden flex items-center justify-center">
+        <div className="overflow-hidden" style={fittedPreview}>
+          <video ref={videoRef} playsInline muted className="w-full h-full object-contain" onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            if (video.videoWidth && video.videoHeight) setFrameSize({ width: video.videoWidth, height: video.videoHeight });
+          }} style={controls.hardwareZoom ? undefined : { transform: `scale(${zoom})` }} />
+        </div>
+        {usingDeviceCamera ? (
+          <div className="absolute inset-0 flex flex-col gap-3 items-center justify-center text-white text-sm px-6 text-center">
+            <p>Use o zoom e o flash disponíveis na câmera do aparelho.</p>
+            <button type="button" onClick={resumeWebCamera} className="underline p-3">Voltar à câmera do navegador</button>
+          </div>
+        ) : !isReady && !error && (
           <div className="absolute inset-0 flex items-center justify-center text-white/80 text-sm">Abrindo câmera…</div>
         )}
         {error && (
@@ -175,6 +355,34 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
         )}
       </div>
 
+      <div className="px-4 pt-3 space-y-3 text-white">
+        {controls.zoom.max > controls.zoom.min && (
+          <div className="flex items-center gap-3 text-sm">
+            <span>Zoom</span>
+            <button type="button" aria-label="Diminuir zoom" disabled={!isReady || zoom <= controls.zoom.min} onClick={() => changeZoom(valuesRef.current.zoom - Math.max(0.5, controls.zoom.step))} className="p-2 disabled:opacity-40"><Minus className="h-5 w-5" /></button>
+            <input type="range" aria-label="Zoom da câmera" min={controls.zoom.min} max={controls.zoom.max} step={controls.zoom.step} value={zoom} disabled={!isReady} onChange={(event) => changeZoom(Number(event.target.value))} className="min-w-0 flex-1 accent-white" />
+            <button type="button" aria-label="Aumentar zoom" disabled={!isReady || zoom >= controls.zoom.max} onClick={() => changeZoom(valuesRef.current.zoom + Math.max(0.5, controls.zoom.step))} className="p-2 disabled:opacity-40"><Plus className="h-5 w-5" /></button>
+            <span className="w-12 text-right">{zoom.toFixed(1)}×</span>
+          </div>
+        )}
+        <button type="button" aria-pressed={controls.torch ? torch : undefined} disabled={isCapturing || controlsBusy || usingDeviceCamera || (controls.torch ? !isReady : mode !== 'photo' || !allowDeviceCamera)} onClick={() => controls.torch ? changeControls({ torch: !torch }) : captureWithDevice()} className="flex items-center gap-2 py-2 text-sm disabled:opacity-60">
+          {torch ? <Zap className="h-5 w-5" /> : <ZapOff className="h-5 w-5" />}
+          {controls.torch ? `Flash ${torch ? 'ligado' : 'desligado'}` : mode === 'photo' && allowDeviceCamera ? 'Flash: usar câmera do aparelho' : 'Flash indisponível neste navegador'}
+        </button>
+        {controlsError && <p role="status" className="text-sm text-amber-200">{controlsError}</p>}
+        {captureError && <p role="alert" className="text-sm text-amber-200">{captureError}</p>}
+        {mode === 'photo' && <p className="text-xs text-white/70">Use dois dedos ou a barra para aproximar.{!controls.hardwareZoom && ' O zoom digital também será aplicado à foto.'}</p>}
+        {mode === 'photo' && allowDeviceCamera && (
+          <>
+            <button type="button" disabled={controlsBusy || usingDeviceCamera} onClick={captureWithDevice} className="text-sm underline disabled:opacity-60">Usar câmera do aparelho</button>
+            <input ref={nativeInputRef} type="file" accept="image/*" capture="environment" className="hidden" onCancelCapture={resumeWebCamera} onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onCapture?.({ type: 'photo', file });
+              else resumeWebCamera();
+            }} />
+          </>
+        )}
+      </div>
       <div className="px-4 py-4 flex items-center justify-center gap-3">
         {mode === 'video' ? (
           isRecording ? (
@@ -189,7 +397,7 @@ export default function WebCameraCapture({ initialMode = 'photo', onCapture, onC
             </Button>
           )
         ) : (
-          <Button type="button" onClick={capturePhoto} disabled={!isReady} className="bg-surface-raised text-black hover:bg-white/90 rounded-full h-12 px-6">
+          <Button type="button" onClick={capturePhoto} disabled={!isReady || controlsBusy || isCapturing} className="bg-surface-raised text-black hover:bg-white/90 rounded-full h-12 px-6">
             <Camera className="h-5 w-5 mr-2" />
             Capturar
           </Button>

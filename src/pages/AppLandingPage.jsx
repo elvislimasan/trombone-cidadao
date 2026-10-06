@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { promptApp } from '@/lib/appConfirm';
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
@@ -66,7 +67,7 @@ const AppLandingPage = () => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      window.prompt("Copie o link:", shareUrl);
+      await promptApp({ title: 'Copie o link', description: 'Selecione e copie o endereço abaixo.', label: 'Link', initialValue: shareUrl, readOnly: true, confirmLabel: 'Fechar' });
     }
   };
 

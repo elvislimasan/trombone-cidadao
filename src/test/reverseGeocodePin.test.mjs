@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReverseGeocode, reverseGeocodePin } from '../lib/reverseGeocodePin.js';
+import { canonicalReportNeighborhood, normalizeReverseGeocode, reverseGeocodePin } from '../lib/reverseGeocodePin.js';
 
 test('extrai endereço e município do resultado direto do Nominatim', () => {
   assert.deepEqual(normalizeReverseGeocode({
@@ -19,6 +19,28 @@ test('usa o município quando o detalhe chama um bairro de cidade', () => {
     address: { city: 'Boa Vista', county: 'Recife', state: 'Pernambuco' },
   });
   assert.equal(result.city, 'Recife');
+  assert.equal(result.suburb, 'Boa Vista');
+});
+
+test('consulta direta também reconhece city_district como bairro', () => {
+  const result = normalizeReverseGeocode({ address: {
+    road: 'Rua A', suburb: ' ', city_district: 'Três Marias', city: 'Floresta', state: 'Pernambuco',
+  } });
+  assert.equal(result.suburb, 'Três Marias');
+  assert.equal(result.address, 'Rua A - Três Marias - Floresta - Pernambuco');
+  assert.equal(normalizeReverseGeocode({ address: { city_district: ' floresta ', city: 'Floresta' } }).suburb, null);
+});
+
+test('DNER usa o nome cadastrado em Floresta sem alterar o endereço', () => {
+  assert.equal(canonicalReportNeighborhood('DNER', 'Floresta', 'PE'), 'São Francisco de Assis (DNER)');
+  assert.equal(canonicalReportNeighborhood('São Francisco de Assis - DNER', 'Floresta', 'PE'), 'São Francisco de Assis (DNER)');
+  assert.equal(canonicalReportNeighborhood('DNER', 'Outra cidade', 'PE'), 'DNER');
+  const result = normalizeReverseGeocode({
+    address: 'Rua A - São Francisco de Assis - DNER - Floresta - Pernambuco',
+    city: 'Floresta', state_uf: 'PE', suburb: 'São Francisco de Assis - DNER',
+  });
+  assert.equal(result.suburb, 'São Francisco de Assis (DNER)');
+  assert.equal(result.address, 'Rua A - São Francisco de Assis - DNER - Floresta - Pernambuco');
 });
 
 test('consulta direta recupera endereço quando a função falha', async () => {
@@ -54,4 +76,25 @@ test('compartilha a consulta do mesmo pin entre endereço e cidade', async () =>
   ]);
   assert.deepEqual(first, second);
   assert.equal(calls, 1);
+});
+
+test('consulta a rua do poste em zoom 17 sem reutilizar endereço de prédio do zoom 18', async () => {
+  const calls = [];
+  const location = { lat: -8.12345, lng: -38.12345 };
+  const options = {
+    invoke: async (_name, { body }) => {
+      calls.push(body.zoom);
+      return { data: {
+        address: body.zoom === 17 ? 'Rua do Poste' : 'Rua de Outro Prédio',
+        city: 'Floresta', state_uf: 'PE',
+      }, error: null };
+    },
+    fetcher: () => { throw new Error('A resposta já está completa'); },
+  };
+
+  const building = await reverseGeocodePin(location, options);
+  const street = await reverseGeocodePin(location, { ...options, zoom: 17 });
+  assert.deepEqual(calls, [18, 17]);
+  assert.equal(building.address, 'Rua de Outro Prédio');
+  assert.equal(street.address, 'Rua do Poste');
 });

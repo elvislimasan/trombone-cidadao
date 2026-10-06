@@ -66,7 +66,7 @@ const EventoDaLinha = ({ evento, ultimo, formatDateTime, onAbrirEvidencia }) => 
             uma sem a outra não sustenta a afirmação. */}
         <p className="text-2xs text-content-tertiary mt-0.5">
           {ROTULO_DA_FONTE[evento.fonte]}
-          {evento.autorNome ? ` · ${evento.autorNome}` : ""}
+          {evento.autorNome && evento.autorNome !== ROTULO_DA_FONTE[evento.fonte] ? ` · ${evento.autorNome}` : ""}
           {evento.em
             ? ` · ${formatDateTime(evento.em).replace(",", " às")}`
             : " · sem data registrada"}
@@ -120,6 +120,7 @@ const ReportTimeline = ({
   report,
   atualizacoes = [],
   etapasOficiais = [],
+  atendimentoMunicipal = null,
   moderadores,
   integracaoComOrgao = false,
   formatDateTime,
@@ -129,6 +130,7 @@ const ReportTimeline = ({
     report,
     atualizacoes,
     etapasOficiais,
+    atendimentoMunicipal,
     moderadores,
     integracaoComOrgao,
   });

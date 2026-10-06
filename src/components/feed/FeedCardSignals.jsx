@@ -1,4 +1,4 @@
-import { reportAgeStoryFor } from '@/lib/reportAgeStory';
+import { historiaDeTempoDaBronca } from '@/lib/reportAgeStory';
 
 // Calcula os sinais de urgencia/engajamento de uma bronca.
 // story e community sao consumidos pela tela de detalhe (Fase 2);
@@ -32,7 +32,7 @@ export function computeSignals(report, { ageDays, ageHours }) {
   // mas o FeedCard atual (densidade enxuta) nao os renderiza.
   let story = null;
   if (!isResolved && isOld) {
-    story = reportAgeStoryFor(report.category_id, report.issue_type, ageDays);
+    story = historiaDeTempoDaBronca(report, ageDays);
   } else if (!isResolved && support >= 30) {
     story = `Mais de ${support} pessoas já apoiaram.`;
   } else if (!isResolved && (support >= 10 || comments >= 5)) {

@@ -73,6 +73,18 @@ type GeocodeResult = {
 // O cache reduz chamadas aos serviços públicos sem alterar a resposta do app.
 const resultCache = new Map<string, { expires: number; result: GeocodeResult }>()
 let nominatimBlockedUntil = 0
+// Photon pode devolver uma via ou um ponto de interesse de outro quarteirão.
+// Sem uma rua identificada perto da coordenada consultada, pedir endereço manual.
+const MAX_PHOTON_STREET_DISTANCE_M = 40
+
+const distanceMeters = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+  const radians = Math.PI / 180
+  const dLat = (lat2 - lat1) * radians
+  const dLng = (lng2 - lng1) * radians
+  const arc = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(arc)))
+}
 
 const fromPhoton = async (lat: number, lng: number): Promise<GeocodeResult | null> => {
   try {
@@ -84,14 +96,31 @@ const fromPhoton = async (lat: number, lng: number): Promise<GeocodeResult | nul
     if (!response.ok) return null
     const payload = await response.json()
     const features = Array.isArray(payload?.features) ? payload.features : []
-    const properties = features
-      .map((feature: { properties?: Record<string, unknown> }) => feature.properties)
-      .find((p: Record<string, unknown> | undefined) => {
+    type PhotonStreetCandidate = { properties: Record<string, unknown>; distance: number }
+    const nearbyStreets = features
+      .map((feature: {
+        properties?: Record<string, unknown>
+        geometry?: { coordinates?: unknown[] }
+      }): PhotonStreetCandidate | null => {
+        const p = feature.properties
+        const coordinates = feature.geometry?.coordinates
+        const featureLng = Number(coordinates?.[0])
+        const featureLat = Number(coordinates?.[1])
         const state = String(p?.state ?? "").trim()
-        return String(p?.countrycode ?? "").toUpperCase() === "BR"
-          && !!String(p?.city ?? p?.county ?? "").trim()
-          && !!(STATE_NAME_TO_UF[state] || p?.statecode)
+        const road = String(p?.street ?? (p?.type === "street" ? p?.name : "") ?? "").trim()
+        if (!p || !Array.isArray(coordinates) || coordinates.length < 2
+          || !Number.isFinite(featureLat) || !Number.isFinite(featureLng)
+          || Math.abs(featureLat) > 90 || Math.abs(featureLng) > 180
+          || String(p?.countrycode ?? "").toUpperCase() !== "BR"
+          || !String(p?.city ?? p?.county ?? "").trim()
+          || !(STATE_NAME_TO_UF[state] || p?.statecode)
+          || !road) return null
+        return { properties: p, distance: distanceMeters(lat, lng, featureLat, featureLng) }
       })
+      .filter((candidate: PhotonStreetCandidate | null): candidate is PhotonStreetCandidate =>
+        candidate !== null && candidate.distance <= MAX_PHOTON_STREET_DISTANCE_M)
+      .sort((a: PhotonStreetCandidate, b: PhotonStreetCandidate) => a.distance - b.distance)
+    const properties = nearbyStreets[0]?.properties
     if (!properties) return null
 
     const city = String(properties.city ?? properties.county ?? "").trim()
@@ -101,8 +130,7 @@ const fromPhoton = async (lat: number, lng: number): Promise<GeocodeResult | nul
     const road = String(properties.street ?? (properties.type === "street" ? properties.name : "") ?? "").trim()
     const houseNumber = String(properties.housenumber ?? "").trim()
     const suburb = String(properties.district ?? properties.locality ?? "").trim()
-    const reference = road || String(properties.name ?? "").trim()
-    const address = [[reference, houseNumber].filter(Boolean).join(", "), suburb, city, state]
+    const address = [[road, houseNumber].filter(Boolean).join(", "), suburb, city, state]
       .filter(Boolean).join(" - ")
     return {
       address: address || null,
@@ -197,8 +225,10 @@ serve(async (req) => {
       const rawCityDistrict = String(detailedAddress.city_district ?? "").trim()
       const cityDistrict = rawCityDistrict && rawCityDistrict.toLowerCase() !== (city ?? "").trim().toLowerCase()
         ? rawCityDistrict : ""
-      const suburb = String(detailedAddress.suburb ?? detailedAddress.neighbourhood
-        ?? detailedAddress.quarter ?? cityDistrict ?? "").trim() || null
+      const suburb = [detailedAddress.suburb, detailedAddress.neighbourhood,
+        detailedAddress.quarter, cityDistrict,
+        detailedCity && detailedCounty && detailedCity !== detailedCounty && detailedCity !== city ? detailedCity : ""]
+        .map((value) => String(value ?? "").trim()).find(Boolean) || null
       result = { address: buildAddress(detail), city, state_uf, suburb, raw: detail }
     }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
+import { confirmApp } from '@/lib/appConfirm';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -346,9 +347,9 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     }
   }, [activeTab, hasLegacyMedia, hasMeasurements]);
 
-  const goToTab = (nextTabId) => {
+  const goToTab = async (nextTabId) => {
     if ((activeTab === 'history' || activeTab === 'financial') && isMeasurementEditing) {
-      if (!window.confirm("Você possui um cadastro em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+      if (!await confirmApp({ title: 'Trocar de aba?', description: 'O cadastro em edição possui alterações não salvas que serão perdidas.', confirmLabel: 'Trocar de aba', destructive: true })) {
         return;
       }
     }
@@ -511,7 +512,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
     }
 
     if (isMeasurementEditing) {
-      if (!window.confirm("Você possui uma medição em edição. Ao salvar a obra, as alterações não salvas na medição serão perdidas. Deseja continuar mesmo assim?")) {
+      if (!await confirmApp({ title: 'Salvar a obra?', description: 'As alterações não salvas na medição em edição serão perdidas.', confirmLabel: 'Salvar obra', destructive: true })) {
         return;
       }
     }
@@ -569,10 +570,10 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   if (!formData) return null;
   
   return (
-    <Dialog open={!!work} onOpenChange={(open) => {
+    <Dialog open={!!work} onOpenChange={async (open) => {
       if (!open) {
         if (isMeasurementEditing) {
-          if (!window.confirm("Você possui uma medição em edição. Ao fechar, as alterações não salvas serão perdidas. Deseja continuar?")) {
+          if (!await confirmApp({ title: 'Fechar a edição?', description: 'As alterações não salvas na medição serão perdidas.', confirmLabel: 'Fechar edição', destructive: true })) {
             return;
           }
         }
@@ -940,9 +941,9 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
               type="button" 
               variant="outline" 
               disabled={EDIT_TABS.findIndex(t => t.id === activeTab) === 0}
-              onClick={() => {
+              onClick={async () => {
                 if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
-                  if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+                  if (!await confirmApp({ title: 'Trocar de aba?', description: 'As alterações não salvas na medição serão perdidas.', confirmLabel: 'Trocar de aba', destructive: true })) {
                     return;
                   }
                 }
@@ -958,7 +959,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                 (!formData?.id && !canProceed() && (activeTab === 'info' || EDIT_TABS.findIndex(t => t.id === activeTab) === EDIT_TABS.length - 1)) ||
                 (activeTab === 'info' && !canProceed())
               }
-              onClick={() => {
+              onClick={async () => {
                 const idx = EDIT_TABS.findIndex(t => t.id === activeTab);
                 if ((activeTab === 'info' || (!formData?.id && idx === EDIT_TABS.length - 1)) && !canProceed()) {
                   const missing = getMissingRequiredFields();
@@ -971,7 +972,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                 }
                 if (idx < EDIT_TABS.length - 1) {
                   if (activeTab === 'history' && hasUnsavedMeasurementChanges) {
-                    if (!window.confirm("Você possui uma medição em edição. Ao trocar de aba, as alterações não salvas serão perdidas. Deseja continuar?")) {
+                    if (!await confirmApp({ title: 'Trocar de aba?', description: 'As alterações não salvas na medição serão perdidas.', confirmLabel: 'Trocar de aba', destructive: true })) {
                       return;
                     }
                   }

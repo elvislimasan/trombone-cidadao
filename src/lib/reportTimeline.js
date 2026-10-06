@@ -294,28 +294,49 @@ const eventosOficiais = (etapasOficiais) =>
  * de detalhe, o card do feed e o alerta da patrulha já usam. Duas redações da
  * mesma regra divergem na primeira mudança de quórum.
  */
-const eventoDeVerificacao = (report, resolucao, atualizacoes) => {
+const eventoDeVerificacao = (report, resolucao, atualizacoes, atendimentoMunicipal) => {
   if (resolucao?.estado !== 'verificada') return null;
+
+  // O atendimento individual identifica a resolução pela equipe mesmo quando
+  // outras solicitações da mesma ordem continuam em andamento.
+  if (report?.status === 'resolved' && atendimentoMunicipal?.resolvida_pela_equipe === true) {
+    return {
+      id: 'verificada',
+      etapa: 'verificada',
+      titulo: 'Resolvida pela prefeitura',
+      em: data(atendimentoMunicipal.executada_em),
+      fonte: FONTE_ORGAO,
+      autorId: null,
+      autorNome: texto(atendimentoMunicipal.orgao) || 'Prefeitura',
+      detalhe: 'A equipe municipal registrou a resolução desta solicitação.',
+      evidencia: [],
+      motivo: null,
+    };
+  }
 
   const ultimaConfirmacao = lista(atualizacoes)
     .filter((u) => u?.update_type === 'solved' && u?.status !== 'rejected')
     .sort((a, b) => (data(b.created_at) ?? 0) - (data(a.created_at) ?? 0))[0];
 
   const porComunidade = resolucao.via === 'comunidade';
+  const porModeracao = resolucao.via === 'moderacao';
+  const fonte = porComunidade ? FONTE_COMUNIDADE : porModeracao ? FONTE_MODERACAO : FONTE_SISTEMA;
 
   return {
     id: 'verificada',
     etapa: 'verificada',
-    titulo: 'Resolução confirmada',
+    titulo: porComunidade || porModeracao ? 'Resolução confirmada' : 'Registrada como resolvida',
     em: data(report?.resolved_at) || data(ultimaConfirmacao?.created_at),
-    fonte: porComunidade ? FONTE_COMUNIDADE : FONTE_MODERACAO,
+    fonte,
     autorId: null,
     autorNome: porComunidade
       ? `${resolucao.confirmacoes} pessoas foram ao local`
-      : ROTULO_DA_FONTE[FONTE_MODERACAO],
+      : ROTULO_DA_FONTE[fonte],
     detalhe: porComunidade
       ? 'Confirmada por quem não tinha interesse no desfecho.'
-      : 'Confirmada por quem responde pela cidade.',
+      : porModeracao
+        ? 'Confirmada por quem responde pela cidade.'
+        : 'A bronca está registrada como resolvida.',
     evidencia: evidenciaDe(ultimaConfirmacao?.media),
     motivo: null,
   };
@@ -401,6 +422,7 @@ const avisoDeDependencia = (ultimaEtapa, resolucao) => {
  * @param {object}  args.report            a bronca, com author, report_media
  * @param {Array}   [args.atualizacoes]    linhas de report_updates (com media, author)
  * @param {Array}   [args.etapasOficiais]  linhas de report_official_steps
+ * @param {object}  [args.atendimentoMunicipal] atendimento público da solicitação
  * @param {Set|Array} [args.moderadores]   ids com poder de fechar (para resolution.js)
  * @param {boolean} [args.integracaoComOrgao]  a cidade tem canal oficial ligado?
  *
@@ -417,6 +439,7 @@ export const linhaDoTempo = ({
   report,
   atualizacoes = [],
   etapasOficiais = [],
+  atendimentoMunicipal = null,
   moderadores,
   integracaoComOrgao = false,
 } = {}) => {
@@ -438,7 +461,7 @@ export const linhaDoTempo = ({
     eventoDeModeracao(report),
     eventoDeValidacao(report, atualizacoes),
     ...eventosOficiais(etapasOficiais),
-    eventoDeVerificacao(report, resolucao, atualizacoes),
+    eventoDeVerificacao(report, resolucao, atualizacoes, atendimentoMunicipal),
   ].filter(Boolean);
 
   // Ordem: a etapa manda, a data desempata. Um evento sem data fica onde a

@@ -99,14 +99,32 @@ import AmbassadorPage from '@/pages/AmbassadorPage';
 import ManageMastersPage from '@/pages/admin/ManageMastersPage';
 import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
 import CompleteProfilePage from '@/pages/CompleteProfilePage';
+import { shouldCompleteProfile } from '@/lib/profileOnboarding';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
+import ManageMunicipalitiesPage from '@/pages/admin/ManageMunicipalitiesPage';
 import ManageCityIdentityPage from '@/pages/admin/ManageCityIdentityPage';
 import OrgaoRelatorioPage from '@/pages/OrgaoRelatorioPage';
+import MunicipalDemandsPage from '@/pages/MunicipalDemandsPage';
+import MunicipalOverviewPage from '@/pages/MunicipalOverviewPage';
+import MunicipalReportsPage from '@/pages/MunicipalReportsPage';
+import MunicipalLightingPage from '@/pages/MunicipalLightingPage';
+import MunicipalLightingStatsPage from '@/pages/MunicipalLightingStatsPage';
+import ElectricianPanelPage from '@/pages/ElectricianPanelPage';
+import ElectricianStatsPage from '@/pages/ElectricianStatsPage';
+import ElectricianOrderPage from '@/pages/ElectricianOrderPage';
+import ElectricianProfilePage from '@/pages/ElectricianProfilePage';
+import ElectricianPatrolPage from '@/pages/ElectricianPatrolPage';
+import MunicipalServiceSettingsPage from '@/pages/MunicipalServiceSettingsPage';
+import MunicipalityAccessPage from '@/pages/MunicipalityAccessPage';
+import MunicipalityInvitePage from '@/pages/MunicipalityInvitePage';
+import MunicipalityRegisterPage from '@/pages/MunicipalityRegisterPage';
+import MunicipalityTeamPage from '@/pages/MunicipalityTeamPage';
+import MunicipalityLayout from '@/components/municipality/MunicipalityLayout';
 import { notifyNative } from '@/lib/nativeNotification';
 import AppFeedbackBanner from '@/components/AppFeedbackBanner';
 import AgoraPage from '@/pages/AgoraPage';
@@ -116,6 +134,7 @@ import { isPatrolBlockedOnDesktop } from '@/lib/patrolPlatform';
 import AudienceTracker from '@/components/AudienceTracker';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 import FollowingActivityPage from '@/pages/FollowingActivityPage';
+import { shouldRedirectMunicipalityUser } from '@/lib/municipalityAccess';
 
 const SEO = () => {
   const location = useLocation();
@@ -253,11 +272,6 @@ const SEO = () => {
   );
 };
 
-// Profile obrigatório: quem entrou (inclusive via Google) sem telefone, cidade
-// ou sem aceitar os termos precisa completar o cadastro antes de usar o app.
-const isProfileIncomplete = (user) =>
-  !!user && (!user.phone || !user.city_id || !user.terms_accepted_at);
-
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -265,7 +279,7 @@ const PrivateRoute = ({ children }) => {
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-  if (isProfileIncomplete(user) && location.pathname !== '/completar-cadastro') {
+  if (shouldCompleteProfile({ user, loading, pathname: location.pathname })) {
     return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
   }
   return children;
@@ -339,7 +353,7 @@ const ModuleRoute = ({ module, adminOnly = false, children }) => {
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
   const isDesktopViewport = useIsDesktopViewport();
   const patrolBlockedOnDesktop = isPatrolBlockedOnDesktop({
@@ -365,14 +379,12 @@ function AppShell() {
     location.pathname.startsWith('/conferir') ||
     (location.pathname === '/rota-do-dia' &&
       new URLSearchParams(location.search).get('vista') === 'mapa');
+  const areaPrefeituraAtiva = location.pathname.startsWith('/prefeitura/');
+  const interfaceIsolada = patrulhaAtiva || areaPrefeituraAtiva;
 
-  // A key remonta o ErrorBoundary a cada navegação para que a tela de erro não
-  // sobreviva à saída da rota que quebrou.
-  //
-  // Antes havia uma exceção aqui: a patrulha era a MapPage com um overlay, e
-  // deixar a key mudar recarregaria o mapa inteiro. Agora a patrulha é página
-  // própria, e a regra volta a ser uma só.
-  const boundaryKey = location.pathname;
+  // O painel municipal mantém seu layout e as permissões durante a navegação.
+  // Seu boundary interno reinicia apenas o conteúdo da página que mudou.
+  const boundaryKey = areaPrefeituraAtiva ? '/prefeitura' : location.pathname;
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -705,6 +717,17 @@ function AppShell() {
     };
   }, [navigate]); // Remover location.pathname para evitar loops
 
+  if (!authLoading && shouldRedirectMunicipalityUser(user, location.pathname)) {
+    return <Navigate to="/prefeitura/visao-geral" replace />;
+  }
+
+  // O retorno OAuth e as páginas públicas (feed/mapa) também passam pelo gate.
+  // Visitantes continuam navegando; uma sessão com dados faltantes deve concluir
+  // o cadastro mesmo ao abrir um link direto ou reiniciar o app nativo.
+  if (shouldCompleteProfile({ user, loading: authLoading, pathname: location.pathname })) {
+    return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
+  }
+
   return (
     <UploadProvider>
       <SEO />
@@ -714,18 +737,18 @@ function AppShell() {
             (que reserva o espaco da bottom nav) deixava esse cinza claro
             aparecer como uma faixa no tema escuro ao chegar no fim da pagina. */}
         <div className="min-h-screen bg-surface-base text-content-primary flex flex-col">
-          {!patrulhaAtiva && (!isNative || !isInteractive) && <Header />}
-          {!patrulhaAtiva && isNative && isInteractive && <MobileHeader />}
-          {!isNative && !patrulhaAtiva && <AppDownloadBanner />}
+          {!interfaceIsolada && (!isNative || !isInteractive) && <Header />}
+          {!interfaceIsolada && isNative && isInteractive && <MobileHeader />}
+          {!isNative && !interfaceIsolada && <AppDownloadBanner />}
           <main
-            className={`flex-grow flex flex-col min-h-0 ${patrulhaAtiva ? '' : 'pb-20 lg:pb-0'}`}
+            className={`flex-grow flex flex-col min-h-0 ${interfaceIsolada ? '' : 'pb-20 lg:pb-0'}`}
             style={{
-              paddingTop: patrulhaAtiva
+              paddingTop: interfaceIsolada
                 ? 0
                 : (isNative && isInteractive)
                   ? 'calc(var(--header-bar-height) + var(--header-safe-top))'
                   : 'calc(var(--header-bar-height) + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
-              paddingBottom: patrulhaAtiva
+              paddingBottom: interfaceIsolada
                 ? 0
                 : (isNative && isInteractive)
                   ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
@@ -733,11 +756,10 @@ function AppShell() {
             }}
           >
             <div className="flex-1 min-h-0 flex flex-col">
-              {!patrulhaAtiva && <PendingInviteBanner />}
-              {!patrulhaAtiva && <AppFeedbackBanner />}
-              {/* key={pathname}: remonta o boundary a cada navegação, senão a tela
-                  de erro persistiria mesmo depois de sair da rota que quebrou. */}
-              <ErrorBoundary key={boundaryKey}>
+              {!interfaceIsolada && <PendingInviteBanner />}
+              {!interfaceIsolada && <AppFeedbackBanner />}
+              {/* Fora do painel municipal, a key reinicia a tela de erro ao navegar. */}
+              <ErrorBoundary key={boundaryKey} resetKey={location.pathname}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/cadastro" element={<RegisterPage />} />
@@ -749,6 +771,32 @@ function AppShell() {
                   Exigir cadastro de servidor público para confirmar recebimento
                   de um ofício seria garantir que ninguém confirmasse. */}
               <Route path="/orgao/relatorio/:token" element={<OrgaoRelatorioPage />} />
+              <Route path="/prefeitura/convite/:token" element={<MunicipalityInvitePage />} />
+              <Route path="/prefeitura/convite/:token/cadastro" element={<MunicipalityRegisterPage />} />
+              <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
+                <Route path="/prefeitura/eletricista" element={<ElectricianPanelPage />} />
+                <Route path="/prefeitura/eletricista/hoje" element={<Navigate to="/prefeitura/eletricista" replace />} />
+                <Route path="/prefeitura/eletricista/estatisticas" element={<ElectricianStatsPage />} />
+                <Route path="/prefeitura/eletricista/estatisticas/geral" element={<MunicipalLightingStatsPage />} />
+                <Route path="/prefeitura/eletricista/ordem/:id" element={<ElectricianOrderPage />} />
+                <Route path="/prefeitura/eletricista/perfil" element={<ElectricianProfilePage />} />
+                <Route path="/prefeitura/eletricista/patrulha" element={<ElectricianPatrolPage />} />
+                <Route path="/prefeitura/eletricista/patrulha/ativa" element={<ElectricianPatrolPage running />} />
+                <Route path="/prefeitura/eletricista/patrulhas" element={<MyPatrolsPage electrician />} />
+                <Route path="/prefeitura/visao-geral" element={<MunicipalOverviewPage />} />
+                <Route path="/prefeitura/demandas" element={<MunicipalDemandsPage />} />
+                <Route path="/prefeitura/demandas/nova" element={<MunicipalDemandsPage view="form" />} />
+                <Route path="/prefeitura/demandas/:id" element={<MunicipalDemandsPage view="form" />} />
+                <Route path="/prefeitura/broncas" element={<MunicipalReportsPage />} />
+                <Route path="/prefeitura/mapa" element={<MunicipalReportsPage view="map" />} />
+                <Route path="/prefeitura/broncas/:reportId" element={<MunicipalReportsPage />} />
+                <Route path="/prefeitura/iluminacao" element={<MunicipalLightingPage />} />
+                <Route path="/prefeitura/iluminacao/estatisticas" element={<MunicipalLightingStatsPage />} />
+                <Route path="/prefeitura/configuracoes" element={<MunicipalServiceSettingsPage />} />
+                <Route path="/prefeitura/secretarias" element={<ManageAgencyChannelsPage />} />
+                <Route path="/prefeitura/equipe" element={<MunicipalityTeamPage />} />
+              </Route>
+              <Route path="/prefeitura/acesso" element={<PrivateRoute><MunicipalityAccessPage /></PrivateRoute>} />
               <Route path="/app" element={<AppLandingPage />} />
               <Route path="/convite/:token" element={<AcceptInvitePage />} />
               
@@ -897,9 +945,8 @@ function AppShell() {
               <Route path="/meta/:id" element={<MetaComunitariaPage />} />
               <Route path="/admin/usuarios" element={<AdminRoute><ManageUsersPage /></AdminRoute>} />
               <Route path="/admin/permissoes" element={<MasterRoute><ManagePermissionsPage /></MasterRoute>} />
-              {/* Embaixador cadastra o canal da própria cidade; ativar é do
-                  admin, e essa regra vive no gatilho da 222, não neste guard. */}
-              <Route path="/admin/canais-do-orgao" element={<AmbassadorOrAdminRoute><ManageAgencyChannelsPage /></AmbassadorOrAdminRoute>} />
+              <Route path="/admin/prefeituras" element={<AdminRoute><ManageMunicipalitiesPage /></AdminRoute>} />
+              <Route path="/admin/canais-do-orgao" element={<Navigate to="/admin/prefeituras" replace />} />
               <Route path="/admin/servicos" element={<ModuleRoute module="services" adminOnly><ManageServicesPage /></ModuleRoute>} />
               <Route path="/servicos/gerenciar" element={<ModuleRoute module="services"><ManageServicesPage /></ModuleRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
@@ -933,14 +980,14 @@ function AppShell() {
               </ErrorBoundary>
             </div>
           </main>
-          {!patrulhaAtiva && (!isNative || !isInteractive) && <Footer />}
+          {!interfaceIsolada && (!isNative || !isInteractive) && <Footer />}
           {/* O modo navegação ocupa a tela inteira: a barra roubaria 64px da
               via à frente e oferece destinos que ninguém deve tocar dirigindo.
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
-          {!patrulhaAtiva && <BottomNav />}
-          <ReportSubmissionNotice />
-          <WebUploadIndicator />
-          <UploadStatusBar />
+          {!interfaceIsolada && <BottomNav />}
+          {!areaPrefeituraAtiva && <ReportSubmissionNotice />}
+          {!areaPrefeituraAtiva && <WebUploadIndicator />}
+          {!areaPrefeituraAtiva && <UploadStatusBar />}
         </div>
       </MobileHeaderProvider>
     </UploadProvider>

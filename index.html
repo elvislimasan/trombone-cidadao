@@ -5,15 +5,12 @@
   <!-- Script anti-flash: aplica classe dark antes do primeiro paint, evitando flash de tema claro. -->
   <script>
     (function () {
+      var isDark = false;
       try {
-        var p = localStorage.getItem('tc_theme_preference') || 'system';
-        var isDark =
-          p === 'dark' ||
-          (p === 'system' &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (isDark) document.documentElement.classList.add('dark');
-        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+        isDark = localStorage.getItem('tc_theme_preference') === 'dark';
       } catch (e) {}
+      document.documentElement.classList.toggle('dark', isDark);
+      document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
     })();
   </script>
 

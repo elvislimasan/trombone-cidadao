@@ -73,6 +73,10 @@ const NEUTRO = {
 // rabo de cavalo com colete tático. Agora corte e cor de cabelo são eixos
 // próprios da configuração, e todo traje aceita todo cabelo.
 export const ESTILOS = {
+  eletricista: {
+    roupa: '#24364d', calca: '#1c2c40',
+    refletivo: true, mangaLonga: true, capacete: true,
+  },
   classico: {
     roupa: 'primaria', calca: 'secundaria', saiaFeminina: true,
   },

@@ -30,7 +30,7 @@ test('resposta de acesso negado do Nominatim usa Photon no contrato do app antig
   const handler = makeHandler(async (url) => {
     calls.push(String(url));
     if (String(url).includes('nominatim')) return new Response('Access denied', { status: 403 });
-    return Response.json({ features: [{ properties: {
+    return Response.json({ features: [{ geometry: { coordinates: [-38.568, -8.602] }, properties: {
       street: 'Rua Capitão Emílio Novaes', district: 'Centro', city: 'Floresta',
       state: 'Pernambuco', countrycode: 'BR',
     } }] });
@@ -66,6 +66,62 @@ test('resposta válida do Nominatim continua sendo usada', async () => {
   assert.equal(data.address, 'Rua A - Centro - Floresta - Pernambuco');
   assert.equal(data.city, 'Floresta');
   assert.equal(calls.length, 1);
+});
+
+test('campo suburb vazio não oculta bairro em neighbourhood', async () => {
+  const handler = makeHandler(async () => Response.json({ address: {
+    road: 'Rua A', suburb: ' ', neighbourhood: 'Três Marias', city: 'Floresta',
+    county: 'Floresta', state: 'Pernambuco',
+  } }));
+  const response = await handler(request());
+  assert.equal((await response.json()).suburb, 'Três Marias');
+});
+
+test('bairro retornado como city continua associado ao município de county', async () => {
+  const handler = makeHandler(async (url) => Response.json({ address: {
+    road: 'Rua A', city: new URL(url).searchParams.get('zoom') === '10' ? 'Floresta' : 'Três Marias',
+    county: 'Floresta', state: 'Pernambuco',
+  } }));
+  const response = await handler(request());
+  const data = await response.json();
+  assert.equal(data.city, 'Floresta');
+  assert.equal(data.suburb, 'Três Marias');
+});
+
+test('Photon escolhe a rua mais próxima e ignora uma rua distante que veio primeiro', async () => {
+  const handler = makeHandler(async (url) => {
+    if (String(url).includes('nominatim')) return new Response('Access denied', { status: 403 });
+    return Response.json({ features: [
+      { geometry: { coordinates: [-38.575, -8.61] }, properties: {
+        street: 'Rua distante', city: 'Floresta', state: 'Pernambuco', countrycode: 'BR',
+      } },
+      { geometry: { coordinates: [-38.571, -8.605] }, properties: {
+        street: 'Rua do poste', city: 'Floresta', state: 'Pernambuco', countrycode: 'BR',
+      } },
+    ] });
+  });
+
+  const response = await handler(request(-8.605, -38.571));
+  assert.equal(response.status, 200);
+  assert.match((await response.json()).address, /^Rua do poste/);
+});
+
+test('Photon não atribui ao poste uma rua distante ou um nome de prédio', async () => {
+  const handler = makeHandler(async (url) => {
+    if (String(url).includes('nominatim')) return new Response('Access denied', { status: 403 });
+    return Response.json({ features: [
+      { geometry: { coordinates: [-38.581, -8.615] }, properties: {
+        street: 'Rua distante', city: 'Floresta', state: 'Pernambuco', countrycode: 'BR',
+      } },
+      { geometry: { coordinates: [-38.581, -8.616] }, properties: {
+        name: 'Prédio vizinho', type: 'building', city: 'Floresta', state: 'Pernambuco', countrycode: 'BR',
+      } },
+    ] });
+  });
+
+  const response = await handler(request(-8.615, -38.580));
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: 'reverse_geocode_unavailable' });
 });
 
 test('retorna erro explícito quando os dois provedores falham', async () => {

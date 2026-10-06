@@ -95,6 +95,8 @@ const WebUploadIndicator = () => {
       <motion.button
         layout
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={`Envio de arquivos: ${Math.round(totalProgress)}%. Ver detalhes`}
+        aria-expanded={isOpen}
         className={cn(
           "relative w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all border-2 pointer-events-auto",
           hasErrors ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" : 
@@ -159,6 +161,9 @@ const WebUploadIndicator = () => {
             </span>
         )}
       </motion.button>
+      {isUploading && <div role="status" className="rounded-lg border border-edge-subtle bg-surface-raised px-3 py-2 text-sm font-semibold text-content-primary shadow-md">
+        Enviando arquivos: {Math.round(totalProgress)}%
+      </div>}
     </div>
   );
 };

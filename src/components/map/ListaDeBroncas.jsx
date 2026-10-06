@@ -1,3 +1,4 @@
+import { poleCode, poleReferenceText } from '@/lib/poleDisplay';
 import { Link } from 'react-router-dom';
 import { Calendar, ChevronLeft, ChevronRight, Loader2, MapPin, Pencil, ThumbsUp } from 'lucide-react';
 
@@ -80,7 +81,7 @@ export default function ListaDeBroncas({
                     to={`/bronca/${bronca.id}`}
                     className="truncate text-sm font-bold text-content-primary hover:text-brand hover:underline"
                   >
-                    {bronca.title}
+                    {poleReferenceText(bronca.title)}
                   </Link>
                   <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${visual.classe}`}>
                     {visual.rotulo}
@@ -100,7 +101,7 @@ export default function ListaDeBroncas({
                     </span>
                   )}
                   {(bronca.pole_number || bronca.reported_plate || bronca.reported_post_identifier) && (
-                    <span className="inline-flex items-center gap-1">Poste/plaqueta: {bronca.pole_number || bronca.reported_plate || bronca.reported_post_identifier}</span>
+                    <span className="inline-flex items-center gap-1">Poste/plaqueta: {poleCode(bronca.pole_number || bronca.reported_plate || bronca.reported_post_identifier)}</span>
                   )}
                   {quando && (
                     <span className="inline-flex items-center gap-1">
@@ -120,7 +121,7 @@ export default function ListaDeBroncas({
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8"
-                    aria-label={`Editar ${bronca.title}`}
+                    aria-label={`Editar ${poleReferenceText(bronca.title)}`}
                     title="Editar"
                     onClick={() => onEditar(bronca)}
                   >

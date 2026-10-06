@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
 import { Camera } from '@capacitor/camera';
 import { App } from '@capacitor/app';
+import { alertApp } from '@/lib/appConfirm';
 
 // Fila global de operações da câmera para evitar race conditions no hardware
 let cameraQueue = Promise.resolve();
@@ -171,7 +172,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
         } catch (e) {
           console.error('Failed to start camera preview', e);
           if (mounted) {
-              alert('Erro ao iniciar câmera. Tente novamente.');
+              void alertApp({ title: 'Erro ao iniciar câmera', description: 'Tente novamente.' });
               onClose();
           }
         }
@@ -234,7 +235,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
       } catch (e) {
         console.error('Stop recording failed', e);
         setIsRecording(false);
-        alert('Erro ao parar gravação.');
+        void alertApp({ title: 'Erro ao parar gravação' });
       }
     } else {
       // Start recording
@@ -258,7 +259,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
       } catch (e) {
         console.error('Start recording failed', e);
         // Feedback mais detalhado para o usuário
-        alert(`Erro ao iniciar gravação: ${e.message || 'Verifique permissões de câmera/áudio'}`);
+        void alertApp({ title: 'Erro ao iniciar gravação', description: e.message || 'Verifique permissões de câmera/áudio.' });
       }
     }
   };
@@ -266,7 +267,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
   useEffect(() => {
     if (isRecording && recordingTime >= 180) {
         handleRecordToggle();
-        alert('O vídeo atingiu o limite máximo de 3 minutos.');
+        void alertApp({ title: 'Limite de gravação atingido', description: 'O vídeo atingiu o limite máximo de 3 minutos.' });
     }
   }, [recordingTime, isRecording]);
 
@@ -283,7 +284,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
     const timeoutId = setTimeout(() => {
         if (isCapturing) {
             setIsCapturing(false);
-            alert('A câmera demorou para responder. Tente novamente.');
+            void alertApp({ title: 'Câmera indisponível', description: 'A câmera demorou para responder. Tente novamente.' });
         }
     }, 5000); // Reduzido para 5s para feedback mais rápido
 
@@ -320,7 +321,7 @@ const CameraCapture = ({ onCapture, onClose, initialMode = 'photo' }) => {
     } catch (e) {
       clearTimeout(timeoutId);
       console.error('Capture failed', e);
-      alert('Erro ao tirar foto. Tente novamente.');
+      void alertApp({ title: 'Erro ao tirar foto', description: 'Tente novamente.' });
     } finally {
       setIsCapturing(false);
     }

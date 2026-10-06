@@ -55,7 +55,7 @@ export const ReportMap = ({ location, address }) => {
 
 // variant "mobile": bloco inline exibido so em telas pequenas (lg:hidden)
 // variant "desktop": card da sidebar exibido so em telas grandes (hidden lg:block)
-const ReportLocation = ({ location, address, onNavigate, variant = "mobile" }) => {
+const ReportLocation = ({ location, address, referencePoint, onNavigate, variant = "mobile" }) => {
   const hasCoords = typeof location?.lat === "number" && typeof location?.lng === "number";
 
   const wrapperClass =
@@ -90,6 +90,7 @@ const ReportLocation = ({ location, address, onNavigate, variant = "mobile" }) =
           <p className="text-xs text-content-secondary leading-relaxed">{address}</p>
         </div>
       )}
+      {referencePoint && <p className="px-4 pb-3 text-xs leading-relaxed text-content-secondary"><strong>Ponto de referência:</strong> {referencePoint}</p>}
     </div>
   );
 };

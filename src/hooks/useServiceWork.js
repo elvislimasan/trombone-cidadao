@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './SupabaseAuthContext';
 import { supabase } from '@/lib/supabaseClient';
+import { alertApp } from '@/lib/appConfirm';
 
 const NotificationContext = createContext();
 
@@ -133,7 +134,7 @@ export const NotificationProvider = ({ children }) => {
   // Solicitar permissão e subscrever para push
   const subscribeToPush = async () => {
     if (!pushSupported) {
-      alert('Seu navegador não suporta notificações push.');
+      void alertApp({ title: 'Notificações indisponíveis', description: 'Seu navegador não suporta notificações push.' });
       return false;
     }
 
@@ -141,7 +142,7 @@ export const NotificationProvider = ({ children }) => {
       // Solicitar permissão
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        alert('Permissão para notificações foi negada.');
+        void alertApp({ title: 'Permissão negada', description: 'Permissão para notificações foi negada.' });
         return false;
       }
 

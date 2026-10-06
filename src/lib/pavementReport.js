@@ -189,14 +189,17 @@ export const TIPOS_DE_RELATORIO = Object.freeze([
     id: 'unnamed',
     label: 'Ruas sem nome oficial',
     descricao: 'As que aguardam denominação — a lista que vira projeto de lei.',
-    montar: (ruas) => {
+    montar: (ruas, { baseUrl = 'https://trombonecidadao.com.br' } = {}) => {
       const alvo = ruas.filter((r) => r.is_unnamed);
       if (!alvo.length) return [];
       return [{
         titulo: `Ruas sem nome oficial (${alvo.length})`,
-        colunas: ['Identificação provisória', 'Bairro', 'Status'],
+        colunas: ['Identificação provisória', 'Bairro', 'Coordenadas', 'Página da rua'],
         linhas: [...alvo].sort(porBairroENome).map((r) => [
-          r.name || '—', nomeDoBairro(r), rotuloDoStatus(r.status),
+          r.name || '—', nomeDoBairro(r),
+          Number.isFinite(r.location?.lat) && Number.isFinite(r.location?.lng)
+            ? `${r.location.lat.toFixed(6)}, ${r.location.lng.toFixed(6)}` : 'Não informadas',
+          r.slug || r.id ? `${baseUrl.replace(/\/$/, '')}/share/rua/${encodeURIComponent(r.slug || r.id)}` : 'Não disponível',
         ]),
       }];
     },
@@ -322,7 +325,7 @@ export const tipoDeRelatorio = (id) =>
  * "312 ruas sem pavimentação" é um número muito diferente conforme a cidade
  * tenha 400 ou 4.000.
  */
-export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null, bairros = null } = {}) => {
+export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null, bairros = null, baseUrl } = {}) => {
   const todas = Array.isArray(ruas) ? ruas : [];
   const filtradas = Array.isArray(bairros) && bairros.length
     ? todas.filter((r) => bairros.includes(nomeDoBairro(r)))
@@ -346,7 +349,7 @@ export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null
       { rotulo: 'Sem nome oficial', valor: contagem.semNome },
       { rotulo: 'Sem CEP cadastrado', valor: contagem.semCep },
     ],
-    secoes: tipo.montar(filtradas),
+    secoes: tipo.montar(filtradas, { baseUrl }),
   };
 };
 

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { uniqueChannelTopic } from '@/lib/utils';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { alertApp } from '@/lib/appConfirm';
 
 const NotificationPermissionModal = lazy(() => import('@/components/NotificationPermissionModal'));
 
@@ -812,7 +813,7 @@ export const NotificationProvider = ({ children }) => {
   // Subscrever para push
   const subscribeToPush = async () => {
     if (!pushSupported) {
-      alert('Seu navegador não suporta notificações push.');
+      void alertApp({ title: 'Notificações indisponíveis', description: 'Seu navegador não suporta notificações push.' });
       return false;
     }
 
@@ -822,7 +823,7 @@ export const NotificationProvider = ({ children }) => {
         const permission = await PushNotifications.requestPermissions();
         
         if (permission.receive !== 'granted') {
-          alert('Permissão para notificações foi negada.');
+          void alertApp({ title: 'Permissão negada', description: 'Permissão para notificações foi negada.' });
           return false;
         }
 
@@ -839,13 +840,13 @@ export const NotificationProvider = ({ children }) => {
       const permission = await Notification.requestPermission();
       
       if (permission !== 'granted') {
-        alert('Permissão para notificações foi negada.');
+        void alertApp({ title: 'Permissão negada', description: 'Permissão para notificações foi negada.' });
         return false;
       }
 
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
-        alert('Erro de configuração: chave VAPID não encontrada.');
+        void alertApp({ title: 'Erro de configuração', description: 'Chave VAPID não encontrada.' });
         return false;
       }
 
@@ -864,7 +865,7 @@ export const NotificationProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error('Error subscribing:', error);
-      alert('Erro ao ativar notificações: ' + error.message);
+      void alertApp({ title: 'Erro ao ativar notificações', description: error.message });
       return false;
     }
   };
@@ -1144,7 +1145,7 @@ export const NotificationProvider = ({ children }) => {
   // Toggle push
   const togglePushNotifications = async (enabled) => {
     if (!pushSupported) {
-      alert('Seu navegador não suporta notificações push.');
+      void alertApp({ title: 'Notificações indisponíveis', description: 'Seu navegador não suporta notificações push.' });
       return;
     }
 

@@ -15,3 +15,8 @@ export function reportAgeStoryFor(category, issueType, ageDays) {
   };
   return messages[category] || `Esse problema está há ${days} dias sem solução.`;
 }
+
+export function historiaDeTempoDaBronca(report, ageDays) {
+  if (!report || report.status === 'resolved') return null;
+  return reportAgeStoryFor(report.category_id || report.category, report.issue_type, ageDays);
+}

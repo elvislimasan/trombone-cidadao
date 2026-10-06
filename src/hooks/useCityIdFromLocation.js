@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
+import { resolveRegisteredNeighborhood } from '../../supabase/functions/_shared/reportNeighborhoods.js';
 
 // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
 // Reutilizável por qualquer formulário com marcador no mapa (broncas, obras...).
@@ -12,6 +13,7 @@ export function useCityIdFromLocation() {
   // de bairro precisava exatamente disso. Guardar aqui evita uma segunda
   // chamada ao Nominatim, cujo uso contínuo a política dele proíbe.
   const resolvedNeighborhoodRef = useRef(null);
+  const requestRef = useRef(0);
 
   const resolveCityIdFromLocation = useCallback(async (loc) => {
     const lat = loc?.lat;
@@ -22,6 +24,12 @@ export function useCityIdFromLocation() {
     if (resolvedCityKeyRef.current === key && resolvedCityIdRef.current != null) {
       return resolvedCityIdRef.current;
     }
+    const requestId = ++requestRef.current;
+    resolvedCityIdRef.current = null;
+    resolvedCityKeyRef.current = null;
+    resolvedNeighborhoodRef.current = null;
+    let neighborhood = null;
+    let address = null;
 
     // match_city pode voltar bigint como number OU string ("159"). Normaliza.
     const parseCityId = (raw) => {
@@ -36,7 +44,11 @@ export function useCityIdFromLocation() {
       });
       if (!data) return null;
       const bairro = String(data.suburb ?? '').trim();
-      if (bairro) resolvedNeighborhoodRef.current = bairro;
+      // Zoom 10 identifica o município, sem precisão para substituir o bairro.
+      if (zoom === 18) {
+        neighborhood = bairro || null;
+        address = data.address;
+      }
       const city = data.city;
       const state_uf = data.state_uf;
       if (!city || !state_uf) return null;
@@ -48,8 +60,16 @@ export function useCityIdFromLocation() {
       let cityId = await matchFromGeocode(18);
       if (cityId == null) cityId = await matchFromGeocode(10);
       if (cityId != null) {
+        try {
+          const { data: neighborhoods, error } = await supabase.from('bairros').select('name').eq('city_id', cityId);
+          if (!error && neighborhoods) neighborhood = resolveRegisteredNeighborhood({ neighborhood, address }, neighborhoods);
+        } catch { /* A indisponibilidade do cadastro não impede enviar a bronca. */ }
+      }
+      if (requestId !== requestRef.current) return null;
+      if (cityId != null) {
         resolvedCityIdRef.current = cityId;
         resolvedCityKeyRef.current = key;
+        resolvedNeighborhoodRef.current = neighborhood;
         return cityId;
       }
     } catch (e) {
@@ -59,6 +79,7 @@ export function useCityIdFromLocation() {
   }, []);
 
   const resetCityCache = useCallback(() => {
+    requestRef.current += 1;
     resolvedCityIdRef.current = null;
     resolvedCityKeyRef.current = null;
     resolvedNeighborhoodRef.current = null;

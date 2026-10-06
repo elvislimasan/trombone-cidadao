@@ -8,11 +8,16 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { formatTimeAgo, uniqueChannelTopic } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../contexts/NotificationContext';
+import { ELECTRICIAN_NOTIFICATION_LINK_FILTER, isElectricianServiceNotification } from '@/lib/electricianNotifications';
 
-const Notifications = () => {
+const Notifications = ({ scope = 'all' }) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
+  const acceptsNotification = useCallback((notification) => (
+    (user?.is_admin || notification?.type !== 'moderation_required')
+    && (scope !== 'electrician' || isElectricianServiceNotification(notification))
+  ), [scope, user?.is_admin]);
   const [loading, setLoading] = useState(true);
   const {
     notificationsEnabled,
@@ -42,7 +47,6 @@ const Notifications = () => {
   const fetchNotifications = useCallback(async () => {
     if (!user || !notificationsEnabled) {
       setNotifications([]);
-      setUnreadCount(0);
       setLoading(false);
       return;
     }
@@ -57,6 +61,9 @@ const Notifications = () => {
   if (!user.is_admin) {
     query = query.neq('type', 'moderation_required');
   }
+  if (scope === 'electrician') {
+    query = query.eq('type', 'agency_case').or(ELECTRICIAN_NOTIFICATION_LINK_FILTER);
+  }
 
   const { data, error } = await query
     .order('created_at', { ascending: false })
@@ -66,12 +73,10 @@ const Notifications = () => {
       console.error('Erro ao buscar notificações:', error);
       setLoading(false);
   } else {
-      setNotifications(data || []);
-      const unread = (data || []).filter(n => !n.is_read).length;
-    setUnreadCount(unread);
+      setNotifications((data || []).filter(acceptsNotification));
       setLoading(false);
   }
-}, [user, notificationsEnabled]);
+}, [user, notificationsEnabled, scope, acceptsNotification]);
 
   // 🔥 Buscar notificações quando componente monta ou quando usuário/notificações mudam
   useEffect(() => {
@@ -79,13 +84,13 @@ const Notifications = () => {
       fetchNotifications();
     } else {
       setNotifications([]);
-      setUnreadCount(0);
       setLoading(false);
     }
   }, [user, notificationsEnabled, fetchNotifications]);
 
   // 🔥 Função para adicionar nova notificação ao estado
   const addNewNotification = useCallback((newNotification) => {
+    if (!acceptsNotification(newNotification)) return;
     // Adicionar nova notificação no início da lista
     setNotifications(prev => {
       // Verificar se já existe (evitar duplicatas)
@@ -95,11 +100,7 @@ const Notifications = () => {
       return [newNotification, ...prev].slice(0, 20);
     });
     
-    // Atualizar contador de não lidas
-    if (!newNotification.is_read) {
-      setUnreadCount(prev => prev + 1);
-    }
-  }, []);
+  }, [acceptsNotification]);
 
   // Escutar eventos de novas notificações disparados pelo NotificationContext
   // O contexto já tem seu próprio canal realtime (context-notifications:userId) que lida com
@@ -144,15 +145,10 @@ const Notifications = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          if (!user.is_admin && payload.new?.type === 'moderation_required') return;
+          if (!acceptsNotification(payload.new)) return;
           setNotifications(prev =>
             prev.map(n => n.id === payload.new.id ? payload.new : n)
           );
-          if (payload.new.is_read && !payload.old?.is_read) {
-            setUnreadCount(prev => Math.max(0, prev - 1));
-          } else if (!payload.new.is_read && payload.old?.is_read) {
-            setUnreadCount(prev => prev + 1);
-          }
         }
       )
       .subscribe();
@@ -163,7 +159,7 @@ const Notifications = () => {
       supabase.removeChannel(channel);
       realtimeChannelRef.current = null;
     };
-  }, [user, notificationsEnabled]);
+  }, [user, notificationsEnabled, acceptsNotification]);
 
 
   const handleToggleWithTimestamp = async (enabled) => {
@@ -174,7 +170,6 @@ const Notifications = () => {
       // AO DESATIVAR: salvar timestamp e limpar notificações
       localStorage.setItem('notifications-last-disabled', new Date().toISOString());
       setNotifications([]);
-      setUnreadCount(0);
     }
     
     await toggleNotifications(enabled);
@@ -194,7 +189,6 @@ const Notifications = () => {
       setNotifications(prev =>
         prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
     }
   };
 
@@ -209,7 +203,6 @@ const Notifications = () => {
 
     if (!error) {
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
     }
   };
 
@@ -244,6 +237,7 @@ const Notifications = () => {
           variant="ghost" 
           size="icon" 
           className="relative"
+          aria-label="Notificações"
           title={notificationsEnabled ? "Notificações ativas" : "Notificações desativadas"}
         >
           <NotificationIcon className="h-5 w-5" />

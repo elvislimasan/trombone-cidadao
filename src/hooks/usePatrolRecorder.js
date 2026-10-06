@@ -27,7 +27,7 @@ import { patrolTravelModeForRecord } from '@/lib/patrolTravelMode';
  */
 export function usePatrolRecorder(
   posicao,
-  { cityId = null, kind = 'patrol', travelMode = null } = {}
+  { cityId = null, kind = 'patrol', travelMode = null, lighting = false } = {}
 ) {
   const { user } = useAuth();
 
@@ -45,6 +45,9 @@ export function usePatrolRecorder(
     vazias: 0,
   });
   const [salvando, setSalvando] = useState(false);
+  const [poleCounts, setPoleCounts] = useState({ passed: 0, updated: 0 });
+  const passedPoles = useRef(new Set());
+  const updatedPoles = useRef(new Set());
 
   const inicioRef = useRef(null);
   // Sets em ref, não em estado: entram por callback durante o trajeto e só o
@@ -161,6 +164,19 @@ export function usePatrolRecorder(
     sincronizarContagens();
   }, [sincronizarContagens, marcarAcao]);
 
+  // IDs de postes são bigint; nunca entram nas listas uuid de broncas.
+  const registrarPostePassado = useCallback((id) => {
+    if (id == null) return;
+    passedPoles.current.add(String(id));
+    setPoleCounts({ passed: passedPoles.current.size, updated: updatedPoles.current.size });
+  }, []);
+  const registrarPosteAtualizado = useCallback((id) => {
+    if (id == null || updatedPoles.current.has(String(id))) return;
+    passedPoles.current.add(String(id)); updatedPoles.current.add(String(id));
+    marcarAcao('confirmacao');
+    setPoleCounts({ passed: passedPoles.current.size, updated: updatedPoles.current.size });
+  }, [marcarAcao]);
+
   /**
    * Guarda o percurso, numa tabela à parte.
    *
@@ -233,6 +249,9 @@ export function usePatrolRecorder(
     const fim = Date.now();
 
     const medidas = {
+      ...(lighting ? { lighting_patrol: true,
+        lighting_passed_pole_ids: [...passedPoles.current],
+        lighting_updated_pole_ids: [...updatedPoles.current] } : {}),
       started_at: new Date(inicio).toISOString(),
       ended_at: new Date(fim).toISOString(),
       travel_mode: modoPersistido,
@@ -303,7 +322,7 @@ export function usePatrolRecorder(
       // confirmações do resumo, e essa já foi enfileirada uma por uma.
       if (error && ehErroDeRede(error) && !salva) {
         const caminho = rastroParaBanco(rastro);
-        await enfileirar('saida', {
+        const queued = await enfileirar('saida', {
           patrulha: { user_id: user.id, city_id: cityId ?? null, kind, ...medidas, is_public: publica },
           percurso: {
             user_id: user.id,
@@ -312,6 +331,7 @@ export function usePatrolRecorder(
             actions: acoesRef.current.slice(0, 500),
           },
         });
+        if (!queued) throw new Error('Não foi possível guardar a patrulha neste aparelho.');
         return { ok: true, offline: true };
       }
       if (error) throw error;
@@ -329,7 +349,7 @@ export function usePatrolRecorder(
     } finally {
       setSalvando(false);
     }
-  }, [user, cityId, kind, modoPersistido, distanciaM, rastro, guardarPercurso]);
+  }, [user, cityId, kind, modoPersistido, distanciaM, rastro, guardarPercurso, lighting]);
 
 
   /** Segundos desde a primeira leitura de GPS. Lido ao abrir o resumo. */
@@ -342,6 +362,9 @@ export function usePatrolRecorder(
     rastro,
     distanciaM,
     contagens,
+    poleCounts,
+    registrarPostePassado,
+    registrarPosteAtualizado,
     salvando,
     duracaoAgora,
     registrarPassagem,
