@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { BarChart3, Download, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, Upload, X } from 'lucide-react';
+import { BarChart3, Download, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, Upload, X, Pentagon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -34,6 +34,9 @@ import { apelidosDaRua } from '@/lib/streetAliases';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { criarPdfDoMapaDeRuas, nomeDoArquivoDoMapa } from '@/lib/pavementMapPdf';
+import { carregarRuasDoMapa } from '@/lib/pavementMapData';
+import NeighborhoodBoundaryEditor from '@/components/pavement/NeighborhoodBoundaryEditor';
+import { loadNeighborhoodBoundaries, saveNeighborhoodBoundary, removeNeighborhoodBoundary } from '@/lib/neighborhoodBoundary';
 import {
   MAP_CANVAS_CLASS,
   MAP_GRID_CLASS,
@@ -158,6 +161,32 @@ const PavementMapPage = () => {
 
   const [editingStreet, setEditingStreet] = useState(null);
   const [bairros, setBairros] = useState([]);
+  const [boundaryState, setBoundaryState] = useState({ cityId: null, data: [] });
+  const [editingBoundaries, setEditingBoundaries] = useState(false);
+  const [openingBoundaries, setOpeningBoundaries] = useState(false);
+  const currentCityId = useRef(activeCityId);
+  currentCityId.current = activeCityId;
+  const boundaries = String(boundaryState.cityId) === String(activeCityId) ? boundaryState.data : [];
+
+  useEffect(() => {
+    setEditingBoundaries(false);
+    setBoundaryState({ cityId: activeCityId, data: [] });
+  }, [activeCityId]);
+
+  const openBoundaries = async () => {
+    const cityId = activeCityId;
+    setOpeningBoundaries(true);
+    try {
+      const data = await loadNeighborhoodBoundaries(supabase, cityId);
+      if (String(currentCityId.current) !== String(cityId)) return;
+      setBoundaryState({ cityId, data });
+      setEditingBoundaries(true);
+    } catch (error) {
+      showAppError({ title: 'Não foi possível abrir os contornos', description: error.code === 'PGRST205' || error.code === '42P01'
+        ? 'A edição de bairros precisa da atualização do banco de dados (migração 353).'
+        : error.message, variant: 'destructive' });
+    } finally { setOpeningBoundaries(false); }
+  };
 
   const abrirCadastroDeRua = () => setEditingStreet({
     id: null,
@@ -569,10 +598,20 @@ const PavementMapPage = () => {
       if (!activeCityId) throw new Error('Selecione uma cidade antes de gerar o desenho do mapa.');
       // Permite pintar o estado de carregamento antes do desenho vetorial.
       await new Promise((resolve) => setTimeout(resolve, 0));
+      let savedBoundaries;
+      try { savedBoundaries = await loadNeighborhoodBoundaries(supabase, activeCityId); }
+      catch (error) {
+        // Mantém a exportação existente durante a implantação do novo banco.
+        if (error.code !== 'PGRST205' && error.code !== '42P01') throw error;
+        savedBoundaries = [];
+      }
+      const ruasDoMapa = await carregarRuasDoMapa(supabase, activeCityId);
+      const updates = [...ruasDoMapa, ...savedBoundaries].map(record => Date.parse(record.updated_at)).filter(Number.isFinite);
       const doc = criarPdfDoMapaDeRuas({
-        ruas: filteredStreets,
+        ruas: ruasDoMapa,
         cidade: activeCityName,
-        atualizadoEm: lastUpdate,
+        atualizadoEm: updates.length ? new Date(Math.max(...updates)).toISOString() : null,
+        contornosBairros: savedBoundaries,
       });
       const fileName = nomeDoArquivoDoMapa(activeCityName);
 
@@ -695,12 +734,18 @@ const PavementMapPage = () => {
                 variant="outline"
                 className="h-9 gap-2 rounded-full border-brand/30 bg-surface-raised px-4 text-xs font-bold text-brand shadow-sm hover:bg-brand-subtleBg"
                 onClick={handleDownloadMapPdf}
-                disabled={downloadingMap || !activeCityId || filteredStreets.length === 0}
-                title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Mapa geral A1 com quadras em azul claro e nomes das ruas em destaque. Inclui todas as ruas dos filtros atuais.'}
+                disabled={downloadingMap || !activeCityId || streetData.length === 0}
+                title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Mapa geral A1 com todas as ruas da cidade e os contornos dos bairros. Uma única planta, sem relatório de ruas.'}
               >
                 {downloadingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {downloadingMap ? 'Gerando mapa...' : 'Baixar mapa detalhado (PDF)'}
               </Button>
+              {canManageStreets && activeCityId && (
+                <Button type="button" size="sm" variant="outline" className="h-9 gap-2 rounded-full text-xs" onClick={openBoundaries} disabled={openingBoundaries}>
+                  {openingBoundaries ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pentagon className="h-4 w-4" />}
+                  Traçado dos bairros
+                </Button>
+              )}
             </div>
           </div>
         {/* A FAIXA DE NÚMEROS É A PRIMEIRA COISA DA TELA.
@@ -1032,6 +1077,28 @@ const PavementMapPage = () => {
         </DrawerContent>
       </Drawer>
 
+
+      {editingBoundaries && canManageStreets && activeCity && (
+        <NeighborhoodBoundaryEditor
+          key={activeCityId}
+          bairros={bairros}
+          boundaries={boundaries}
+          streets={streetData}
+          city={activeCity}
+          initialBairroId={filtros.bairro}
+          onClose={() => setEditingBoundaries(false)}
+          onSave={async ({ bairro, points, color, previous, removing, source }) => {
+            if (String(bairro.city_id) !== String(activeCityId)) throw new Error('Selecione um bairro da cidade atual.');
+            let saved;
+            if (removing) await removeNeighborhoodBoundary({ supabase, previous });
+            else saved = await saveNeighborhoodBoundary({ supabase, bairro, points, color, previous, source });
+            if (String(currentCityId.current) === String(activeCityId)) setBoundaryState((current) => ({
+              cityId: activeCityId,
+              data: [...current.data.filter((record) => String(record.bairro_id) !== String(bairro.id)), ...(saved ? [saved] : [])],
+            }));
+          }}
+        />
+      )}
 
       <PavementEditModal
         street={editingStreet}

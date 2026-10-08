@@ -54,33 +54,54 @@ const anguloLegivel = ({ anterior, atual }) => {
 
 // Primeiro reserva um nome para cada rua. Repetições de vias longas só usam
 // o espaço que sobra; trechos curtos e pontos recebem chamadas com ligação.
-export function planejarRotulosDeRuas(ruas, mapa, medirTexto) {
+export function nomeDaRuaNoMapa(rua) {
+  const chave = texto => String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const nome = String(rua.name || '').trim().replace(/\s+\((.*)\)$/, (anotacao, bairro) =>
+    chave(bairro) === chave(rua.bairro?.name) ? '' : anotacao);
+  if (nome !== nome.toLocaleUpperCase('pt-BR')) return nome;
+  return nome.split(/\s+/).map((palavra, index) => {
+    if (['AABB', 'DNER', 'BR', 'PE'].includes(palavra)) return palavra;
+    const minuscula = palavra.toLocaleLowerCase('pt-BR');
+    return index && ['de', 'da', 'do', 'das', 'dos', 'e'].includes(minuscula)
+      ? minuscula : minuscula.charAt(0).toLocaleUpperCase('pt-BR') + minuscula.slice(1);
+  }).join(' ');
+}
+
+export function planejarRotulosDeRuas(ruas, mapa, medirTexto, {
+  permitirChamadas = true, nomeVisual = rua => rua.name, tamanhos = [7, 6, 5, 4.5],
+  quebrarTexto = null, alturaMaxima = Infinity, margemTexto = 1.2, margemVertical = 0.6,
+} = {}) {
   const rotulos = [];
   const nomeadas = new Set();
   const ordenadas = ruas.filter((rua) => String(rua.name || '').trim())
     .map((rua) => ({ rua, trechos: trechosParaRotulos(rua.linhasProjetadas) }))
     .sort((a, b) => (a.trechos[0]?.comprimento || 0) - (b.trechos[0]?.comprimento || 0));
   const tentar = (rua, x, y, angulo, tamanho, comprimento = Infinity, ancora = null) => {
-    const texto = String(rua.name).trim();
-    const largura = medirTexto(texto, tamanho) + 1.2;
+    const texto = String(nomeVisual(rua)).trim();
+    const linhas = quebrarTexto && Number.isFinite(comprimento)
+      ? quebrarTexto(texto, Math.max(comprimento - margemTexto, 0), tamanho) : [texto];
+    if (!linhas.length) return false;
+    const largura = Math.max(...linhas.map(linha => medirTexto(linha, tamanho))) + margemTexto;
     if (largura > comprimento) return false;
-    const caixa = caixaDoRotulo(x, y, largura, tamanho * 0.3528 + 0.6, angulo);
+    const altura = tamanho * 0.3528 * (linhas.length - 1 + (quebrarTexto ? 0.8 : 1)) + margemVertical;
+    if (altura > alturaMaxima) return false;
+    const caixa = caixaDoRotulo(x, y, largura, altura, angulo);
     if (caixa.some(([px, py]) => px < mapa.x || px > mapa.x + mapa.largura
       || py < mapa.y || py > mapa.y + mapa.altura)
       || rotulos.some((outro) => rotulosColidem(caixa, outro.caixa))) return false;
-    rotulos.push({ rua, texto, x, y, angulo, tamanho, caixa, ancora });
+    rotulos.push({ rua, texto, linhas, x, y, angulo, tamanho, caixa, ancora });
     nomeadas.add(rua);
     return true;
   };
   const tentarNaRua = ({ rua, trechos }, repetir = false) => {
     for (const segmento of trechos) {
       const angulo = anguloLegivel(segmento);
-      for (const t of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+      for (const t of [0.5, 0.35, 0.65, 0.2, 0.8, 0.1, 0.9, 0.425, 0.575, 0.275, 0.725]) {
         const x = segmento.anterior[0] + (segmento.atual[0] - segmento.anterior[0]) * t;
         const y = segmento.anterior[1] + (segmento.atual[1] - segmento.anterior[1]) * t;
         if (repetir && rotulos.some((outro) => outro.rua === rua
           && Math.hypot(outro.x - x, outro.y - y) < 65)) continue;
-        for (const tamanho of [7, 6, 5]) {
+        for (const tamanho of tamanhos) {
           if (tentar(rua, x, y, angulo, tamanho, segmento.comprimento * 2 * Math.min(t, 1 - t) - 1)) {
             if (!repetir) return;
             break;
@@ -92,6 +113,7 @@ export function planejarRotulosDeRuas(ruas, mapa, medirTexto) {
   for (const entrada of ordenadas) tentarNaRua(entrada);
 
   for (const { rua, trechos } of ordenadas) {
+    if (!permitirChamadas) continue;
     if (nomeadas.has(rua)) continue;
     const ancoras = trechos.length ? trechos.map((segmento) => ({
       ponto: [(segmento.anterior[0] + segmento.atual[0]) / 2,

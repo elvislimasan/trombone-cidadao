@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { caixaDoRotulo, planejarRotulosDeRuas, rotulosColidem, trechosParaRotulos } from '../lib/streetMapLabels.js';
+import { caixaDoRotulo, planejarRotulosDeRuas, rotulosColidem, trechosParaRotulos, nomeDaRuaNoMapa } from '../lib/streetMapLabels.js';
 import { criarPdfDoMapaDeRuas } from '../lib/pavementMapPdf.js';
 
 test('rótulo aproveita rua com muitos vértices sem cortar uma curva', () => {
@@ -40,18 +40,49 @@ test('mapas extensos exportam somente o mapa geral', () => {
   assert.equal(doc.getNumberOfPages(), 1);
 });
 
-test('PDF inclui nome completo de trecho curto e rua cadastrada apenas por ponto', () => {
+test('download padrão é somente a planta, sem índice ou rótulos deslocados das ruas', () => {
   const nomes = ['Rua principal', 'Rua Professora Maria de Lourdes Xavier Ferraz', 'Rua apenas por ponto'];
   const doc = criarPdfDoMapaDeRuas({ ruas: [
     { name: nomes[0], linhas: [[[0, 0], [0, 0.02]]] },
     { name: nomes[1], linhas: [[[0.001, 0.01], [0.001, 0.0101]]] },
     { name: nomes[2], location: { lat: 0.002, lng: 0.01 } },
   ] });
-  assert.equal(doc.tromboneMapStats.ruasComNomeNoMapa, 3);
+  assert.equal(doc.tromboneMapStats.ruasComNomeNoMapa, 1);
   assert.equal(doc.tromboneMapStats.ruasSomentePonto, 1);
+  assert.deepEqual(doc.tromboneMapStats.ruasSemNomeNoMapa.map(r => r.name), nomes.slice(1));
+  assert.equal(doc.getNumberOfPages(), 1);
+  const comandosMapa = doc.internal.pages[1].join('\n');
+  assert.ok(comandosMapa.includes(`(${nomes[0]})`));
+  for (const nome of nomes.slice(1)) assert.ok(!comandosMapa.includes(`(${nome})`));
+  assert.equal(doc.lastAutoTable, false);
+});
+
+test('rótulos institucionais ficam no eixo e não repetem bairro; apelidos e nomes cadastrados são preservados', () => {
+  const rua = { name: 'Rua Projetada 15 (Parque das Acácias)', bairro: { name: 'Parque das Acácias' }, linhasProjetadas: [[[0, 20], [150, 20]]] };
+  const rotulos = planejarRotulosDeRuas([rua, { name: 'Rua sem traçado', linhasProjetadas: [[[10, 20]]] }],
+    { x: 0, y: 0, largura: 150, altura: 50 }, (texto, tamanho) => texto.length * tamanho * 0.18,
+    { permitirChamadas: false, nomeVisual: nomeDaRuaNoMapa });
+  assert.ok(rotulos.length > 0);
+  assert.ok(rotulos.every(r => r.y === 20 && r.ancora === null && r.texto === 'Rua Projetada 15'));
+  assert.equal(rua.name, 'Rua Projetada 15 (Parque das Acácias)');
+  assert.equal(nomeDaRuaNoMapa({ name: 'Rua Pedro (Piduca)', bairro: { name: 'Centro' } }), 'Rua Pedro (Piduca)');
+  assert.equal(nomeDaRuaNoMapa({ name: 'RUA BIANÔR ALVES DE BARROS' }), 'Rua Bianôr Alves de Barros');
+});
+
+test('nomes cabem em ruas curtas da planta geral usando linhas dentro do corredor da via', () => {
+  const ruas = [
+    { id: 'bianor', name: 'RUA BIANÔR ALVES DE BARROS', linhas: [[[-8.597119686, -38.580464137], [-8.598635081, -38.580979265]]] },
+    { id: 'proj1', name: 'Rua Projetada 01 (Pedras de Josina)', bairro: { name: 'Pedras de Josina' }, linhas: [[[-8.606, -38.575], [-8.606, -38.57463]]] },
+    { id: 'proj2', name: 'Rua Projetada 02 (Pedras de Josina)', bairro: { name: 'Pedras de Josina' }, linhas: [[[-8.6063, -38.575], [-8.6063, -38.57469]]] },
+    { id: 'extent', name: 'Rua principal', linhas: [[[-8.6097976, -38.604902], [-8.588532, -38.563052]]] },
+  ];
+  const original = structuredClone(ruas);
+  const doc = criarPdfDoMapaDeRuas({ ruas });
+  assert.equal(doc.tromboneMapStats.ruasComNomeNoMapa, 4);
   assert.deepEqual(doc.tromboneMapStats.ruasSemNomeNoMapa, []);
-  const comandos = doc.internal.pages[1].join('\n');
-  for (const nome of nomes) assert.ok(comandos.includes(`(${nome})`), nome);
+  assert.equal(doc.getNumberOfPages(), 1);
+  assert.deepEqual(ruas, original);
+  assert.ok(doc.internal.pages[1].join('\n').includes('Bianôr'));
 });
 
 test('nomes em cruzamento denso usam chamadas sem sobrepor texto ou sair do mapa', () => {

@@ -1,7 +1,8 @@
 import { jsPDF } from 'jspdf';
 import { streetBlocks } from './streetBlocks.js';
 import 'jspdf-autotable';
-import { planejarRotulosDeRuas, caixaDoRotulo, rotulosColidem } from './streetMapLabels.js';
+import { planejarRotulosDeRuas, caixaDoRotulo, rotulosColidem, nomeDaRuaNoMapa } from './streetMapLabels.js';
+import { boundaryPoints, boundaryLabelPoint, neighborhoodColor, pointInBoundary } from './neighborhoodBoundary.js';
 
 const STATUS_STYLE = {
   paved: { label: 'Pavimentada', color: [22, 163, 74] },
@@ -298,6 +299,70 @@ const desenharPoligono = (doc, poligono, estilo = 'FD') => {
   doc.lines(segmentos, origem[0], origem[1], [1, 1], estilo, true);
 };
 
+const organizarLegenda = (doc, registros, largura) => {
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(16);
+  const linhas = [];
+  const porLinha = registros.length > 7 ? Math.ceil(registros.length / 2) : Math.max(1, registros.length);
+  let itens = [], ocupada = 0;
+  for (const record of [...registros].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))) {
+    const texto = doc.splitTextToSize(record.nome, Math.min(140, largura - 30));
+    const item = { record, texto, largura: Math.max(...texto.map(linha => doc.getTextWidth(linha))) + 28 };
+    if (itens.length && (itens.length >= porLinha || ocupada + item.largura > largura)) {
+      linhas.push({ itens, largura: ocupada, altura: Math.max(...itens.map(entrada => entrada.texto.length)) * 6.5 + 5 });
+      itens = []; ocupada = 0;
+    }
+    itens.push(item); ocupada += item.largura;
+  }
+  if (itens.length) linhas.push({ itens, largura: ocupada, altura: Math.max(...itens.map(item => item.texto.length)) * 6.5 + 5 });
+  return linhas;
+};
+
+// Pesquisa toda a área do bairro, inclusive espaços entre ruas. O tamanho e
+// a quebra de linha se adaptam à área livre sem esconder nomes de logradouros.
+const posicionarNomeDoBairro = (doc, bairro, mapa, caixasOcupadas) => {
+  const areas = bairro.poligono ? [bairro.poligono] : bairro.quadras || [];
+  const pontos = areas.length ? areas.flat() : bairro.amostras;
+  const minX = Math.max(mapa.x, Math.min(...pontos.map(p => p[0])));
+  const maxX = Math.min(mapa.x + mapa.largura, Math.max(...pontos.map(p => p[0])));
+  const minY = Math.max(mapa.y, Math.min(...pontos.map(p => p[1])));
+  const maxY = Math.min(mapa.y + mapa.altura, Math.max(...pontos.map(p => p[1])));
+  const dentro = ponto => areas.some(area => pointInBoundary(ponto, area));
+  const candidatos = [bairro.centro, ...areas.map(boundaryLabelPoint)];
+  for (let y = minY + 1; y < maxY; y += 2) {
+    for (let x = minX + 1; x < maxX; x += 2) {
+      if (!areas.length || dentro([x, y])) candidatos.push([x, y]);
+    }
+  }
+  candidatos.sort((a, b) => Math.hypot(a[0] - bairro.centro[0], a[1] - bairro.centro[1])
+    - Math.hypot(b[0] - bairro.centro[0], b[1] - bairro.centro[1]));
+  doc.setFont('helvetica', 'bold');
+  for (const tamanho of [10, 8, 6]) {
+    doc.setFontSize(tamanho);
+    for (const limite of [90, 50, 32, 22, 14]) {
+      const texto = doc.splitTextToSize(bairro.nome.toUpperCase(), limite);
+      // Não divide palavras do nome do bairro para encaixar o rótulo.
+      if (texto.join(' ') !== bairro.nome.toUpperCase()) continue;
+      const largura = Math.max(...texto.map(linha => doc.getTextWidth(linha))) + 1;
+      const entreLinhas = tamanho * 0.3528 * 1.15;
+      const altura = tamanho * 0.3528 * 0.8 + (texto.length - 1) * entreLinhas + 1;
+      for (const [x, y] of candidatos) {
+        const caixa = caixaDoRotulo(x, y, largura, altura, 0);
+        if (caixa.some(([px, py]) => px < mapa.x || px > mapa.x + mapa.largura
+          || py < mapa.y || py > mapa.y + mapa.altura)) continue;
+        // Canto, centro e borda do texto devem permanecer na mesma área,
+        // inclusive quando o contorno tem reentrâncias.
+        if (areas.length && !areas.some(area => [...caixa, [x, y],
+          ...caixa.map((p, i) => [(p[0] + caixa[(i + 1) % 4][0]) / 2, (p[1] + caixa[(i + 1) % 4][1]) / 2]),
+        ].every(p => pointInBoundary(p, area)))) continue;
+        if (caixasOcupadas.some(outra => rotulosColidem(caixa, outra))) continue;
+        return { nome: bairro.nome, texto, tamanho, entreLinhas, x, y, caixa };
+      }
+    }
+  }
+  return null;
+};
+
 export const criarPdfDoMapaDeRuas = ({
   ruas = [],
   cidade = 'Cidade',
@@ -306,16 +371,43 @@ export const criarPdfDoMapaDeRuas = ({
   mostrarNomesRuas = true,
   incluirIndice = false,
   toleranciaEncontro = 1,
+  contornosBairros = [],
 } = {}) => {
-  const ruasDesenhadas = ruasComGeometria(ruas);
+  // O nome original da fonte também identifica associações revisadas, como
+  // Né Maniçoba - AABB. Usa o contorno salvo sem duplicar o bairro na planta.
+  const idsComContorno = new Set(contornosBairros.map(record => String(record.bairro_id)));
+  const aliases = contornosBairros.filter(record => record.source?.provider === 'osm' && record.source.source_name);
+  const ruasDaPlanta = ruas.map(rua => {
+    if (idsComContorno.has(String(rua.bairro_id))) return rua;
+    // Alguns cadastros acrescentam o nome do loteamento ao bairro da fonte.
+    // A correspondência continua exata para o nome principal e deve ser única.
+    const nomePrincipal = String(rua.bairro?.name || '').replace(/\s+-\s+Loteamento\s+.+$/i, '').trim();
+    const correspondencias = aliases.filter(record => record.source.source_name === nomePrincipal);
+    if (correspondencias.length !== 1) return rua;
+    return { ...rua, bairro_id: correspondencias[0].bairro_id, bairro: correspondencias[0].bairro };
+  });
+  const ruasDesenhadas = ruasComGeometria(ruasDaPlanta);
   if (ruasDesenhadas.length === 0) throw new Error('Esta cidade ainda não possui ruas posicionadas no mapa.');
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a1', compress: true });
   const larguraPagina = doc.internal.pageSize.getWidth();
   const alturaPagina = doc.internal.pageSize.getHeight();
-  const mapa = { x: 12, y: 31, largura: larguraPagina - 24, altura: alturaPagina - 53 };
+  const margemPagina = 24;
+  const larguraUtil = larguraPagina - margemPagina * 2;
+  const mapa = { x: margemPagina + larguraUtil * 0.04, y: 55, largura: larguraUtil * 0.92, altura: 0 };
 
-  const pontos = ruasDesenhadas.flatMap((rua) => rua.linhasDoMapa.flat());
+  const bairrosDasRuas = new Set(ruasDesenhadas.map((rua) => String(rua.bairro_id || '')));
+  // O PDF mantém o recorte das ruas; bairros sem ruas no recorte não ampliam a planta.
+  const contornos = contornosBairros
+    .filter((record) => bairrosDasRuas.has(String(record.bairro_id)))
+    .map((record) => ({ ...record, pontos: boundaryPoints(record.boundary), cor: neighborhoodColor(record.color) }))
+    .filter((record) => record.pontos.length > 2)
+    .sort((a, b) => String(a.bairro_id).localeCompare(String(b.bairro_id)));
+  const nomeDoContorno = (record) => record.bairro?.name || ruasDesenhadas.find((rua) => String(rua.bairro_id) === String(record.bairro_id))?.bairro?.name || 'Bairro';
+  const legenda = organizarLegenda(doc, contornos.map(record => ({ ...record, nome: nomeDoContorno(record), rgb: record.cor.slice(1).match(/../g).map(value => parseInt(value, 16)) })), larguraUtil);
+  const alturaLegenda = 13 + legenda.reduce((total, linha) => total + linha.altura, 0);
+  const pontos = [...ruasDesenhadas.flatMap((rua) => rua.linhasDoMapa.flat()),
+    ...contornos.flatMap((record) => record.pontos.map(([lng, lat]) => [lat, lng]))];
   const latitudeMedia = pontos.reduce((total, ponto) => total + Number(ponto[0]), 0) / pontos.length;
   const escalaLongitude = Math.max(Math.cos((latitudeMedia * Math.PI) / 180), 0.2);
   const coordenadas = pontos.map(([lat, lng]) => ({ x: Number(lng) * escalaLongitude, y: Number(lat) }));
@@ -323,12 +415,17 @@ export const criarPdfDoMapaDeRuas = ({
   let maxX = Math.max(...coordenadas.map((ponto) => ponto.x));
   let minY = Math.min(...coordenadas.map((ponto) => ponto.y));
   let maxY = Math.max(...coordenadas.map((ponto) => ponto.y));
-  const folgaX = Math.max((maxX - minX) * 0.04, 0.00005);
-  const folgaY = Math.max((maxY - minY) * 0.04, 0.00005);
+  const folgaX = Math.max((maxX - minX) * 0.025, 0.00005);
+  const folgaY = Math.max((maxY - minY) * 0.025, 0.00005);
   minX -= folgaX;
   maxX += folgaX;
   minY -= folgaY;
   maxY += folgaY;
+
+  // A altura acompanha a extensão geográfica e reserva espaço para a legenda.
+  // Cabeçalho e legenda ficam próximos da planta, sem esticar coordenadas.
+  const alturaMaxima = alturaPagina - mapa.y - alturaLegenda - (mostrarPavimentacao ? 47 : 33);
+  mapa.altura = Math.min(alturaMaxima, mapa.largura * (maxY - minY) / (maxX - minX) + 24);
 
   const escala = Math.min(mapa.largura / (maxX - minX), mapa.altura / (maxY - minY));
   const larguraDesenho = (maxX - minX) * escala;
@@ -340,12 +437,20 @@ export const criarPdfDoMapaDeRuas = ({
     margemY + (maxY - Number(lat)) * escala,
   ];
 
-  doc.setFillColor(255, 255, 255);
-  doc.rect(mapa.x, mapa.y, mapa.largura, mapa.altura, 'F');
+  doc.setFillColor(245, 247, 249);
+  doc.setDrawColor(229, 233, 237);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(margemPagina, mapa.y - 9, larguraUtil, mapa.altura + 18, 3, 3, 'FD');
 
   const ruasProjetadas = ruasDesenhadas.map((rua) => ({
     ...rua,
     linhasProjetadas: rua.linhasDoMapa.map((linha) => linha.map(projetar)),
+  }));
+  const contornosProjetados = contornos.map((record) => ({
+    ...record,
+    poligono: record.pontos.map(([lng, lat]) => projetar([lat, lng])),
+    nome: nomeDoContorno(record),
+    rgb: record.cor.slice(1).match(/../g).map((value) => parseInt(value, 16)),
   }));
 
   const gruposDeBairro = new Map();
@@ -372,29 +477,39 @@ export const criarPdfDoMapaDeRuas = ({
     { snapTolerance: toleranciaEncontro },
   );
   const quadrasPorBairro = {};
+  const areasDasQuadras = new Map();
   for (const quadra of quadras) {
     const indice = indiceDoBairroDaQuadra(quadra, gruposOrdenados);
-    const cor = [191, 225, 238];
-    const nomeDoBairro = indice < 0 ? 'Sem bairro definido' : gruposOrdenados[indice].nome;
+    const cor = [220, 231, 240];
+    const centro = quadra.reduce((sum, p) => [sum[0] + p[0] / quadra.length, sum[1] + p[1] / quadra.length], [0, 0]);
+    const contorno = contornosProjetados.find((record) => pointInBoundary(centro, record.poligono));
+    const nomeDoBairro = contorno?.nome || (indice < 0 ? 'Sem bairro definido' : gruposOrdenados[indice].nome);
     quadrasPorBairro[nomeDoBairro] = (quadrasPorBairro[nomeDoBairro] || 0) + 1;
+    if (!areasDasQuadras.has(nomeDoBairro)) areasDasQuadras.set(nomeDoBairro, []);
+    areasDasQuadras.get(nomeDoBairro).push(quadra);
     doc.setFillColor(...cor);
     desenharPoligono(doc, quadra, 'F');
   }
+  // A área manual é desenhada depois das quadras estimadas, preservando a divisa
+  // exata mesmo quando ela atravessa uma quadra ou não há vias fechadas.
+  for (const record of contornosProjetados) {
+    doc.setFillColor(...record.rgb);
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.5);
+    desenharPoligono(doc, record.poligono, 'FD');
+    rotulosDeBairro.push({ nome: record.nome, centro: boundaryLabelPoint(record.poligono), poligono: record.poligono });
+  }
   for (const grupo of gruposOrdenados) {
-    rotulosDeBairro.push({ nome: grupo.nome, centro: centroDasAmostras(grupo.amostras), oficial: true });
+    if (contornosProjetados.some((record) => record.nome === grupo.nome)) continue;
+    rotulosDeBairro.push({ nome: grupo.nome, centro: centroDasAmostras(grupo.amostras),
+      amostras: grupo.amostras, quadras: areasDasQuadras.get(grupo.nome) || [] });
   }
   doc.setLineDashPattern([], 0);
 
-  // Um corredor branco sob cada traçado recorta visualmente os quarteirões,
-  // como no desenho cadastral usado como referência. A cor fina aplicada logo
-  // depois continua dizendo a situação da pavimentação sem transformar cada
-  // bairro numa mancha sem ruas.
-  if (quadras.length > 0) {
-    doc.setDrawColor(255, 255, 255);
-    doc.setFillColor(255, 255, 255);
-    doc.setLineCap('round');
-    doc.setLineJoin('round');
-    doc.setLineWidth(2.8);
+  // Bordas discretas e corredor branco preservam a leitura das vias.
+  for (const [largura, cor] of [[2.9, [184, 194, 204]], [2.5, [255, 255, 255]]]) {
+    doc.setDrawColor(...cor);
+    doc.setLineCap('round'); doc.setLineJoin('round'); doc.setLineWidth(largura);
     for (const rua of ruasProjetadas) {
       for (const linha of rua.linhasProjetadas) {
         if (linha.length === 1) {
@@ -426,11 +541,8 @@ export const criarPdfDoMapaDeRuas = ({
       }
     }
   } else {
-    // Mantém a rede completa legível mesmo onde os eixos ainda não formam uma
-    // quadra fechada. O traço fino se aproxima da planta cadastral de referência
-    // sem competir com os corredores brancos e as cores dos bairros.
-    doc.setDrawColor(178, 182, 185);
-    doc.setFillColor(178, 182, 185);
+    doc.setDrawColor(184, 194, 204);
+    doc.setFillColor(184, 194, 204);
     doc.setLineCap('round');
     doc.setLineJoin('round');
     doc.setLineWidth(0.12);
@@ -440,127 +552,146 @@ export const criarPdfDoMapaDeRuas = ({
           doc.circle(linha[0][0], linha[0][1], 0.28, 'S');
           continue;
         }
-        for (let i = 1; i < linha.length; i += 1) {
-          doc.line(linha[i - 1][0], linha[i - 1][1], linha[i][0], linha[i][1]);
-        }
       }
     }
   }
 
   const caixasDosNomes = [];
   const ruasNomeadas = new Set();
-  // Planeja todos os nomes antes de desenhar, para reservar espaço para ruas
-  // curtas e pontos antes das repetições das vias longas.
+  const tamanhosDosNomes = [];
+  // Os nomes acompanham os segmentos reais, sem caixas ou chamadas externas.
   if (mostrarNomesRuas) {
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(38, 52, 69);
     const rotulos = planejarRotulosDeRuas(ruasProjetadas, mapa, (texto, tamanho) => {
       doc.setFontSize(tamanho);
       return doc.getTextWidth(texto);
+    }, {
+      permitirChamadas: false, nomeVisual: nomeDaRuaNoMapa,
+      tamanhos: [4, 3.5, 3, 2.5, 2, 1.8, 1.5],
+      alturaMaxima: 2.5, margemTexto: 0.3, margemVertical: 0.3,
+      quebrarTexto: (texto, largura, tamanho) => {
+        if (largura <= 0) return [];
+        doc.setFontSize(tamanho);
+        return doc.splitTextToSize(texto, largura);
+      },
     });
-    doc.setDrawColor(90, 98, 105);
-    doc.setFillColor(90, 98, 105);
-    doc.setLineWidth(0.15);
-    for (const { x, y, ancora } of rotulos) {
-      if (!ancora) continue;
-      doc.line(ancora[0], ancora[1], x, y);
-      doc.circle(ancora[0], ancora[1], 0.3, 'F');
-    }
-    for (const { rua, texto, x, y, angulo, tamanho, caixa } of rotulos) {
+    for (const { rua, linhas, x, y, angulo, tamanho, caixa } of rotulos) {
       doc.setFontSize(tamanho);
-      doc.setFillColor(255, 255, 255);
-      desenharPoligono(doc, caixa, 'F');
       // Desloca a linha de base perpendicularmente ao texto girado.
       const r = angulo * Math.PI / 180;
       const base = tamanho * 0.3528 * 0.32;
-      const metade = doc.getTextWidth(texto) / 2;
-      doc.text(texto, x - Math.cos(r) * metade + Math.sin(r) * base,
-        y + Math.sin(r) * metade + Math.cos(r) * base, { angle: angulo });
+      linhas.forEach((linha, index) => {
+        const offset = base + (index - (linhas.length - 1) / 2) * tamanho * 0.3528;
+        const metade = doc.getTextWidth(linha) / 2;
+        doc.text(linha, x - Math.cos(r) * metade + Math.sin(r) * offset,
+          y + Math.sin(r) * metade + Math.cos(r) * offset, { angle: angulo });
+      });
       caixasDosNomes.push(caixa);
+      tamanhosDosNomes.push(tamanho);
       ruasNomeadas.add(rua);
     }
   }
 
   const caixasDeBairro = [];
+  const bairrosNomeados = [];
+  const rotulosDosBairros = [];
   for (const bairro of rotulosDeBairro) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(bairro.oficial ? 7.2 : 8.5);
-    const texto = bairro.nome.toUpperCase();
-    let [x, y] = bairro.centro;
-    if (bairro.oficial) {
-      const largura = doc.getTextWidth(texto) + 4;
-      const altura = 5.2;
-      const deslocamentos = [[0, 0], [0, -7], [0, 7], [-12, 0], [12, 0], [-10, -7], [10, 7]];
-      const posicao = deslocamentos
-        .map(([dx, dy]) => ({ x: x + dx, y: y + dy }))
-        .find((candidata) => {
-          const caixa = {
-            esquerda: candidata.x - largura / 2,
-            direita: candidata.x + largura / 2,
-            topo: candidata.y - altura + 0.8,
-            base: candidata.y + 0.8,
-          };
-          const dentro = caixa.esquerda >= mapa.x && caixa.direita <= mapa.x + mapa.largura
-            && caixa.topo >= mapa.y && caixa.base <= mapa.y + mapa.altura;
-          const livre = caixasDeBairro.every((outra) => (
-            caixa.direita < outra.esquerda || caixa.esquerda > outra.direita
-            || caixa.base < outra.topo || caixa.topo > outra.base
-          ));
-          const semRua = caixasDosNomes.every((outra) => !rotulosColidem(
-            caixaDoRotulo(candidata.x, candidata.y - altura / 2 + 0.8, largura, altura, 0), outra,
-          ));
-          if (dentro && livre && semRua) {
-            caixasDeBairro.push(caixa);
-            return true;
-          }
-          return false;
-        });
-      if (!posicao) continue;
-      ({ x, y } = posicao);
-    }
-    doc.setTextColor(25, 25, 25);
-    doc.text(texto, x, y, { align: 'center' });
+    const posicao = posicionarNomeDoBairro(doc, bairro, mapa, [...caixasDeBairro, ...caixasDosNomes]);
+    if (!posicao) continue;
+    caixasDeBairro.push(posicao.caixa);
+    const { texto, tamanho, entreLinhas, x, y } = posicao;
+    doc.setTextColor(36, 50, 71);
+    doc.text(texto, x, y - (texto.length - 1) * entreLinhas / 2 + tamanho * 0.3528 * 0.32,
+      { align: 'center', lineHeightFactor: 1.15 });
+    bairrosNomeados.push(bairro.nome);
+    rotulosDosBairros.push(posicao);
   }
 
-  doc.setTextColor(17, 24, 39);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(17);
-  doc.text(`TROMBONE CIDADÃO — ${String(cidade).toUpperCase()}`, larguraPagina / 2, 14, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
   doc.setTextColor(75, 85, 99);
-  const referencia = atualizadoEm
-    ? `Base do Trombone Cidadão • atualizada em ${new Date(atualizadoEm).toLocaleDateString('pt-BR')}`
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('TROMBONE CIDADÃO', margemPagina, 15);
+  doc.setTextColor(36, 50, 71);
+  doc.setFontSize(26);
+  const nomeCidade = String(cidade).replace(/\s[·-]\s([A-Z]{2})$/, '/$1');
+  doc.text(`Mapa de ruas — ${nomeCidade}`, margemPagina, 28);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(13);
+  doc.setTextColor(75, 85, 99);
+  doc.text('Divisão territorial e identificação de logradouros', margemPagina, 37);
+  doc.setFontSize(10);
+  const dataAtualizacao = new Date(atualizadoEm);
+  const referencia = atualizadoEm && Number.isFinite(dataAtualizacao.getTime())
+    ? `Última atualização: ${dataAtualizacao.toLocaleDateString('pt-BR', { timeZone: 'America/Fortaleza' })}`
     : 'Base colaborativa do Trombone Cidadão';
-  doc.text(referencia, larguraPagina / 2, 21, { align: 'center' });
-  doc.setDrawColor(220, 38, 38);
-  doc.setLineWidth(0.8);
-  doc.line(larguraPagina / 2 - 12, 25, larguraPagina / 2 + 12, 25);
+  doc.text(referencia, larguraPagina - margemPagina, 27, { align: 'right' });
+  doc.setDrawColor(224, 230, 236);
+  doc.setLineWidth(0.3);
+  doc.line(margemPagina, 42, larguraPagina - margemPagina, 42);
 
-  let legendaX = 14;
-  const legendaY = alturaPagina - 11;
-  doc.setFontSize(7.5);
-  for (const estilo of (mostrarPavimentacao ? Object.values(STATUS_STYLE) : [])) {
-    doc.setFillColor(...estilo.color);
-    doc.roundedRect(legendaX, legendaY - 3, 5, 3, 0.6, 0.6, 'F');
-    doc.setTextColor(55, 65, 81);
-    doc.text(estilo.label, legendaX + 7, legendaY);
-    legendaX += doc.getTextWidth(estilo.label) + 15;
+  let legendaY = mapa.y + mapa.altura + 19;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(36, 50, 71);
+  doc.text(legenda.length ? 'Legenda de bairros' : 'Mapa de ruas', margemPagina, legendaY);
+  doc.setFont('helvetica', 'normal');
+  legendaY += 8;
+  const itensDaLegenda = [];
+  for (const linha of legenda) {
+    let x = margemPagina + (larguraUtil - linha.largura) / 2;
+    for (const { record, texto, largura } of linha.itens) {
+      doc.setFillColor(...record.rgb);
+      doc.setDrawColor(220, 226, 232);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(x, legendaY - 5, 11, 7, 1, 1, 'FD');
+      doc.setTextColor(38, 52, 69);
+      doc.text(texto, x + 16, legendaY, { lineHeightFactor: 1.15 });
+      itensDaLegenda.push({ bairro_id: record.bairro_id, nome: record.nome, cor: record.cor, x, y: legendaY });
+      x += largura;
+    }
+    legendaY += linha.altura;
   }
-  if (!mostrarPavimentacao) {
-    doc.setTextColor(55, 65, 81);
-    doc.text('Mapa geral de ruas | Quadras em azul claro | Vias em branco', legendaX, legendaY);
+  if (!legenda.length) {
+    doc.setFontSize(12);
+    doc.setTextColor(75, 85, 99);
+    doc.text('Quadras estimadas em azul claro · ruas em branco', margemPagina, legendaY);
+    legendaY += 11;
   }
-
-  doc.setTextColor(107, 114, 128);
-  doc.text(`${ruasDesenhadas.length} ruas representadas`, larguraPagina - 14, legendaY, { align: 'right' });
-  doc.setFontSize(6.5);
+  if (mostrarPavimentacao) {
+    let x = margemPagina;
+    doc.setFontSize(11);
+    for (const estilo of Object.values(STATUS_STYLE)) {
+      doc.setDrawColor(...estilo.color);
+      doc.setLineWidth(0.7);
+      doc.line(x, legendaY - 1, x + 9, legendaY - 1);
+      doc.setTextColor(55, 65, 81);
+      doc.text(estilo.label, x + 13, legendaY);
+      x += doc.getTextWidth(estilo.label) + 26;
+    }
+    legendaY += 12;
+  }
+  doc.setFontSize(10);
+  doc.setTextColor(75, 85, 99);
+  const ruasSemNomeNoMapa = mostrarNomesRuas ? ruasProjetadas
+    .filter(rua => String(rua.name || '').trim() && !ruasNomeadas.has(rua))
+    .map(rua => ({ id: rua.id, name: rua.name })) : [];
+  const usarIndice = incluirIndice;
+  const ruasSomentePonto = ruasDesenhadas.filter(rua => rua.linhasDoMapa.every(linha => linha.length === 1)).length;
+  doc.text(`${ruasDesenhadas.length} ruas representadas${ruasSomentePonto ? ` · ${ruasSomentePonto} com localização apenas por ponto` : ''}${usarIndice ? ' · consulte os nomes completos no índice' : ''}`, margemPagina, legendaY);
+  doc.setFontSize(8.5);
   doc.text(
-    'Quadras estimadas pelos traçados cadastrados; não são limites cadastrais oficiais.',
-    larguraPagina / 2,
-    alturaPagina - 4.5,
-    { align: 'center' },
+    contornosProjetados.some((record) => record.source?.provider === 'osm')
+      ? 'Bairros: © OpenStreetMap contributors (ODbL) — https://www.openstreetmap.org/copyright. Possíveis ajustes locais. Quadras estimadas; limites sem homologação oficial.'
+      : contornosProjetados.length
+      ? 'Contornos de bairros desenhados manualmente; quadras estimadas pelas ruas. Não são limites cadastrais oficiais.'
+      : 'Quadras estimadas pelos traçados cadastrados; não são limites cadastrais oficiais.',
+    margemPagina,
+    legendaY + 7,
   );
+  if (contornosProjetados.some(record => record.source?.reference_type === 'pdf')) {
+    doc.text('Contornos complementares aproximados a partir do mapa em PDF de referência.', margemPagina, legendaY + 13);
+  }
   const estatisticas = {
     fonteCartografica: 'Trombone Cidadão — traçados cadastrados',
     ruas: ruasDesenhadas.length,
@@ -568,14 +699,18 @@ export const criarPdfDoMapaDeRuas = ({
     ruasSomentePonto: ruasDesenhadas.filter((rua) => rua.linhasDoMapa.every((linha) => linha.length === 1)).length,
     quadras: quadras.length,
     quadrasPorBairro,
+    contornosBairros: contornosProjetados.map((record) => ({ bairro_id: record.bairro_id, nome: record.nome, cor: record.cor, pontos: record.pontos.length })),
+    estilo: 'institucional', mapa, linhasLegenda: legenda.length, itensLegenda: itensDaLegenda,
+    bairrosComNomeNoMapa: bairrosNomeados,
+    bairrosSemNomeNoMapa: rotulosDeBairro.filter(bairro => !bairrosNomeados.includes(bairro.nome)).map(bairro => bairro.nome),
+    rotulosDeBairros: rotulosDosBairros,
+    tamanhoMinimoNomeRua: tamanhosDosNomes.length ? Math.min(...tamanhosDosNomes) : null,
     toleranciaEncontro,
     ruasComNomeNoMapa: ruasNomeadas.size,
-    ruasSemNomeNoMapa: mostrarNomesRuas ? ruasProjetadas
-      .filter((rua) => String(rua.name || '').trim() && !ruasNomeadas.has(rua))
-      .map((rua) => ({ id: rua.id, name: rua.name })) : [],
+    ruasSemNomeNoMapa,
     rotulosDeRuas: caixasDosNomes.length,
   };
-  if (incluirIndice) {
+  if (usarIndice) {
     doc.addPage('a4', 'portrait');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(25, 25, 25);
@@ -585,7 +720,8 @@ export const criarPdfDoMapaDeRuas = ({
     doc.setFontSize(9);
     doc.text(doc.splitTextToSize(String(cidade), 180), 14, 24);
     doc.setFontSize(8);
-    doc.text('Planta geral em A1.', 14, 36);
+    doc.text('Planta geral em A1. Nomes na planta acompanham somente os traçados onde há espaço.', 14, 32);
+    doc.text('Este índice mantém os nomes completos, inclusive ruas representadas apenas por ponto.', 14, 37);
     doc.autoTable({
       startY: 42,
       head: [['Rua', 'Bairro', 'Situação', 'Representação']],
