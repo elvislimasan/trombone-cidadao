@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://trombonecidadao.com.br/sitemap.xml

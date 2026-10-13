@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { poleDisplayLabel, poleReferenceText } from '@/lib/poleDisplay';
 import { LAMP_TYPES } from '@/lib/lightingCatalog';
+import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 import { showAppNotice } from '@/lib/appError';
 
 const POLE_FIELDS = 'id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w';
@@ -108,7 +109,19 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
         <p className="text-sm text-content-secondary">Situação atual no mapa: <strong className="text-content-primary">{STATUS_LABEL[currentStatus] || 'Sem problema registrado'}</strong></p>
         <form id="electrician-pole-update" onSubmit={save} className="space-y-4">
           <label className="block text-sm font-semibold">Situação após a visita<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={saving || historyLoading} className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">{Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          {activeReports.length > 0 && <fieldset className="space-y-2 rounded-xl border border-edge-subtle p-3"><legend className="px-1 text-sm font-bold">Solicitações em aberto</legend><p className="text-xs text-content-secondary">{status === 'aceso' ? 'Ao salvar, a solicitação selecionada será resolvida. Outras solicitações abertas manterão o poste entre os apagados.' : 'A solicitação selecionada só será resolvida se você confirmar que o poste está aceso / funcionando.'}</p>{activeReports.map((report) => <label key={report.report_id} className="flex items-start gap-2 rounded-lg border border-edge-subtle p-2 text-xs"><input type="radio" name="active-report" checked={reportId === report.report_id} onChange={() => setReportId(report.report_id)} disabled={saving || (report.ordem_id && !report.atribuida_a_mim)} className="mt-0.5 accent-brand" /><span className="min-w-0"><strong className="block break-words">{poleReferenceText(report.title || 'Solicitação de iluminação')}</strong>{report.ordem_id && <span className="mt-0.5 block text-content-secondary">{report.atribuida_a_mim ? `Ordem ${report.ordem_protocolo || ''} em execução` : 'Ordem atribuída a outro eletricista ou ainda não aceita'}</span>}{report.ordem_id && report.atribuida_a_mim && <Link to={`/prefeitura/eletricista/ordem/${report.ordem_id}`} className="mt-1 inline-block font-semibold text-brand underline">Abrir ordem</Link>}</span></label>)}</fieldset>}
+          {activeReports.length > 0 && <fieldset className="space-y-2 rounded-xl border border-edge-subtle p-3">
+            <legend className="px-1 text-sm font-bold">Solicitações em aberto</legend>
+            <p className="text-xs text-content-secondary">{status === 'aceso' ? 'Ao salvar, a solicitação selecionada será resolvida. Outras solicitações abertas manterão o poste entre os apagados.' : 'A solicitação selecionada só será resolvida se você confirmar que o poste está aceso / funcionando.'}</p>
+            {activeReports.map((report) => <label key={report.report_id} className="flex items-start gap-2 rounded-lg border border-edge-subtle p-2 text-xs">
+              <input type="radio" name="active-report" checked={reportId === report.report_id} onChange={() => setReportId(report.report_id)} disabled={saving || (report.ordem_id && !report.atribuida_a_mim)} className="mt-0.5 accent-brand" />
+              <span className="min-w-0">
+                <strong className="block break-words">{poleReferenceText(report.title || 'Solicitação de iluminação')}</strong>
+                <span className="mt-1 block break-words text-content-secondary">Tipo do problema: <span className="font-semibold text-content-primary">{rotuloDoTipoDeProblemaIluminacao(report.issue_type)}</span></span>
+                {report.ordem_id && <span className="mt-0.5 block text-content-secondary">{report.atribuida_a_mim ? `Ordem ${report.ordem_protocolo || ''} em execução` : 'Ordem atribuída a outro eletricista ou ainda não aceita'}</span>}
+                {report.ordem_id && report.atribuida_a_mim && <Link to={`/prefeitura/eletricista/ordem/${report.ordem_id}`} className="mt-1 inline-block font-semibold text-brand underline">Abrir ordem</Link>}
+              </span>
+            </label>)}
+          </fieldset>}
           <label className="block text-sm font-semibold">Tipo de lâmpada instalado <span className="font-normal text-content-secondary">(opcional)</span><select value={lampType} onChange={(event) => setLampType(event.target.value)} disabled={saving} className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"><option value="">Não informado</option>{lampType && !LAMP_TYPES.includes(lampType) && <option value={lampType}>{lampType} (cadastro anterior)</option>}{LAMP_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
           <label className="block text-sm font-semibold">Potência (W) <span className="font-normal text-content-secondary">(opcional)</span><Input type="number" min="0.01" step="0.01" value={power} onChange={(event) => setPower(event.target.value)} disabled={saving} className="mt-2" /></label>
           <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={serviceDone} onChange={(event) => setServiceDone(event.target.checked)} disabled={saving} className="h-4 w-4 accent-brand" />Realizei um serviço neste poste</label>

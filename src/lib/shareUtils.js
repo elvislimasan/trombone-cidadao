@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { rotaDoVereador } from './pavementStreetHistory.js';
 
 const getConfiguredPublicUrl = () => {
   const configured = String(import.meta.env.VITE_APP_URL || '').trim().replace(/\/$/, '');
@@ -129,7 +130,6 @@ export const getPublicProfileShareUrl = (username) => {
 
 /** URL com prévia social rica de uma página legislativa. */
 export const getCouncilorShareUrl = (councilor) => {
-  const cityId = councilor?.city_id || '';
-  const slug = councilor?.slug || '';
-  return `${getBaseAppUrl()}/share/vereador/${encodeURIComponent(cityId)}/${encodeURIComponent(slug)}`;
+  const path = rotaDoVereador(councilor?.city_id, councilor?.slug);
+  return `${getBaseAppUrl()}${path ? path.replace('/vereadores/', '/share/vereador/') : '/mapa-pavimentacao'}`;
 };

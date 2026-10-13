@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
+import { publicDetailSeo } from '@/lib/publicPageSeo';
+import { fetchPublicDetail } from '@/lib/publicDetailResource';
+import PublicDetailState from '@/components/PublicDetailState';
 import { Calendar, User, Share2, Send, MessageSquare, Video, Image as ImageIcon, MapPin, ArrowUpRight, Megaphone, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +33,8 @@ const NewsDetailsPage = () => {
   const { setTitle, setActions, setShowBack, setOnBack, reset } = useMobileHeader();
   const { isInteractive } = useNativeUIMode();
   const [newsItem, setNewsItem] = useState(null);
+  const [loadState, setLoadState] = useState({ status: 'loading', id: newsId });
+  const loadRequest = useRef(0);
   const [newComment, setNewComment] = useState('');
   const [gallery, setGallery] = useState([]);
   const [mediaViewerState, setMediaViewerState] = useState({ isOpen: false, startIndex: 0 });
@@ -42,18 +47,17 @@ const NewsDetailsPage = () => {
   const bodyRef = useRef(null);
 
   const fetchNewsDetails = useCallback(async () => {
-    const { data, error } = await supabase
+    const request = ++loadRequest.current;
+    setLoadState({ status: 'loading', id: newsId });
+    const result = await fetchPublicDetail(() => supabase
       .from('news')
       .select('*, comments(*, author:profiles(name, avatar_url))')
       .eq('id', newsId)
-      .single();
-    
-    if (error) {
-      showAppError({ title: "Erro ao buscar notícia", description: error.message, variant: "destructive" });
-      navigate('/noticias');
-    } else {
-      setNewsItem(data);
-    }
+      .maybeSingle());
+    if (request !== loadRequest.current) return;
+    setLoadState({ status: result.status, id: newsId });
+    if (result.status !== 'ready') return;
+    setNewsItem(result.data);
 
     // Buscar galeria de imagens
     const { data: mediaData, error: mediaError } = await supabase
@@ -149,7 +153,7 @@ const NewsDetailsPage = () => {
     } else if (relNewsErr) {
       console.error('Erro ao buscar notícias relacionadas:', relNewsErr);
     }
-  }, [newsId, navigate]);
+  }, [newsId]);
 
   useEffect(() => {
     fetchNewsDetails();
@@ -413,18 +417,19 @@ const NewsDetailsPage = () => {
     }
   }, [isInstagram, videoEmbedUrl]);
 
-  if (!newsItem) {
-    return <div className="container mx-auto px-4 py-12 text-center">Carregando notícia...</div>;
+  if (loadState.id !== newsId || newsItem?.id !== newsId || !['ready', 'loading'].includes(loadState.status)) {
+    return <PublicDetailState status={loadState.id === newsId ? loadState.status : 'loading'} label="Notícia" backTo="/noticias" onRetry={fetchNewsDetails} />;
   }
-
-
+  const seo = publicDetailSeo({ path: 'noticias', id: newsItem.id, title: newsItem.title, description: newsItem.subtitle || newsItem.description });
   return (
     <>
       <Helmet>
-        <title>{`${newsItem.title} - Trombone Cidadão`}</title>
-        <meta name="description" content={newsItem.subtitle || newsItem.description || ''} />
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <link rel="canonical" href={seo.url} />
+        <meta property="og:url" content={seo.url} />
         <meta property="og:title" content={newsItem.title} />
-        <meta property="og:description" content={newsItem.subtitle || newsItem.description || ''} />
+        <meta property="og:description" content={seo.description} />
         <meta property="og:image" content={newsItem.image_url || ''} />
         <meta property="og:type" content="article" />
         <meta property="twitter:card" content="summary_large_image" />

@@ -1,5 +1,5 @@
 // DynamicSEO.jsx
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet';
 import React from 'react';
 import { Capacitor } from '@capacitor/core';
 
@@ -8,7 +8,8 @@ const DynamicSEO = ({
   description, 
   image, 
   url, 
-  type = "website" 
+  type = "website",
+  robots,
 }) => {
   const siteName = "Trombone Cidadão";
   
@@ -94,11 +95,15 @@ const DynamicSEO = ({
   
   // Garantir que a URL final seja válida
   const finalImageUrl = absoluteImageUrl || defaultImage;
+  const deepLinkPath = url?.match(/\/(bronca|obras-publicas)\/([^?#]+)/);
+  const deepLinkUrl = deepLinkPath ? `trombonecidadao://${deepLinkPath[1]}/${deepLinkPath[2]}` : null;
 
   return (
     <Helmet>
       <title>{title}</title>
       <meta name="description" content={description} />
+      {url && <link rel="canonical" href={url} />}
+      {robots && <meta name="robots" content={robots} />}
       
       {/* Open Graph - Essencial para preview do link compartilhado */}
       {/* IMPORTANTE: Sempre definir og:image para garantir que a imagem da bronca seja usada */}
@@ -131,42 +136,15 @@ const DynamicSEO = ({
       
       {/* Deep Links - App Links (Android) e Universal Links (iOS) */}
       {/* Isso faz com que o link abra no app se estiver instalado */}
-      {url && url.includes('/bronca/') && (() => {
-        const reportId = url.split('/bronca/')[1]?.split('?')[0]?.split('#')[0] || '';
-        if (!reportId) return null;
-        const deepLinkUrl = `trombonecidadao://bronca/${reportId}`;
-        return (
-          <>
-            <meta property="al:android:app_name" content="Trombone Cidadão" />
-            <meta property="al:android:package" content="com.trombonecidadao.app" />
-            <meta property="al:android:url" content={deepLinkUrl} />
-            <meta property="al:ios:app_name" content="Trombone Cidadão" />
-            <meta property="al:ios:app_store_id" content="" />
-            <meta property="al:ios:url" content={deepLinkUrl} />
-            <meta property="al:web:url" content={url} />
-            <meta property="al:web:should_fallback" content="true" />
-          </>
-        );
-      })()}
+      {deepLinkUrl && <meta property="al:android:app_name" content={siteName} />}
+      {deepLinkUrl && <meta property="al:android:package" content="com.trombonecidadao.app" />}
+      {deepLinkUrl && <meta property="al:android:url" content={deepLinkUrl} />}
+      {deepLinkUrl && <meta property="al:ios:app_name" content={siteName} />}
+      {deepLinkUrl && <meta property="al:ios:app_store_id" content="" />}
+      {deepLinkUrl && <meta property="al:ios:url" content={deepLinkUrl} />}
+      {deepLinkUrl && <meta property="al:web:url" content={url} />}
+      {deepLinkUrl && <meta property="al:web:should_fallback" content="true" />}
 
-      {url && url.includes('/obras-publicas/') && (() => {
-        const workId = url.split('/obras-publicas/')[1]?.split('?')[0]?.split('#')[0] || '';
-        if (!workId) return null;
-        const deepLinkUrl = `trombonecidadao://obras-publicas/${workId}`;
-        return (
-          <>
-            <meta property="al:android:app_name" content="Trombone Cidadão" />
-            <meta property="al:android:package" content="com.trombonecidadao.app" />
-            <meta property="al:android:url" content={deepLinkUrl} />
-            <meta property="al:ios:app_name" content="Trombone Cidadão" />
-            <meta property="al:ios:app_store_id" content="" />
-            <meta property="al:ios:url" content={deepLinkUrl} />
-            <meta property="al:web:url" content={url} />
-            <meta property="al:web:should_fallback" content="true" />
-          </>
-        );
-      })()}
-      
       {/* JSON-LD para SEO estruturado */}
       <script type="application/ld+json">
         {JSON.stringify({

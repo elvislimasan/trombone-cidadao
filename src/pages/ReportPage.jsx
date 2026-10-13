@@ -22,6 +22,8 @@ import { getReportShareUrl } from "@/lib/shareUtils";
 import { rotuloDoTipoDeProblemaEsgoto } from "@/lib/reportCategoryFields";
 import { useUpvote } from "../hooks/useUpvotes";
 import DynamicSEO from "../components/DynamicSeo";
+import { fetchPublicDetail } from '@/lib/publicDetailResource';
+import PublicDetailState from '@/components/PublicDetailState';
 import DonationModal from "@/components/DonationModal";
 import MarkResolvedModal from "@/components/MarkResolvedModal";
 import MediaViewer from "@/components/MediaViewer";
@@ -94,6 +96,8 @@ const ReportPage = () => {
   const { isInteractive } = useNativeUIMode();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadState, setLoadState] = useState({ id: reportId, status: 'loading' });
+  const loadRequest = useRef(0);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [showMarkResolvedModal, setShowMarkResolvedModal] = useState(false);
@@ -1066,110 +1070,121 @@ const ReportPage = () => {
   }, [report?.id, reportPhotos, seoImage, seoTitle, baseUrl]);
 
   const fetchReport = useCallback(async () => {
+    const request = ++loadRequest.current;
+    setLoadState({ id: reportId, status: 'loading' });
     setLoading(true);
     try {
-      if (reportId)
-        await supabase.rpc("increment_views", {
-          table_name: "reports",
-          item_id: reportId,
-        });
-    } catch (e) {
-      console.error(e);
-    }
-    const { data, error } = await supabase
-      .from("reports")
-      .select(
-        // `city` entra para o card de compartilhamento dizer a cidade em vez
-        // de "BRASIL". É uma linha só e uma tabela pequena — o custo é o de um
-        // join contra a chave primária de `cities`.
-        "*, pole_number, city:cities(name, states(uf)), pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config, username, public_profile_enabled), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)"
-      )
-      .eq("id", reportId)
-      .single();
-    if (error || !data) {
-      setLoading(false);
-      showAppError({
-        title: "Bronca não encontrada",
-        description:
-          "A solicitação que você está procurando não existe ou foi removida.",
-        variant: "destructive",
+      try {
+        if (reportId)
+          await supabase.rpc("increment_views", {
+            table_name: "reports",
+            item_id: reportId,
+          });
+      } catch (e) {
+        console.error(e);
+      }
+      const result = await fetchPublicDetail(() => supabase
+        .from("reports")
+        .select(
+          // `city` entra para o card de compartilhamento dizer a cidade em vez
+          // de "BRASIL". É uma linha só e uma tabela pequena — o custo é o de um
+          // join contra a chave primária de `cities`.
+          "*, pole_number, city:cities(name, states(uf)), pole:poles(id, identifier, plate, address), category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config, username, public_profile_enabled), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), timeline:report_timeline(*), report_media(*), upvotes:signatures(count), favorite_reports(user_id), petitions(id, status)"
+        )
+        .eq("id", reportId)
+        .maybeSingle());
+      if (request !== loadRequest.current) return;
+      if (result.status !== 'ready') {
+        setReport(null);
+        setLoadState({ id: reportId, status: result.status });
+        setLoading(false);
+        return;
+      }
+      const data = result.data;
+      let userHasSigned = false;
+      if (user) {
+        const { data: sig } = await supabase
+          .from("signatures")
+          .select("id")
+          .eq("report_id", reportId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        userHasSigned = !!sig;
+      }
+      if (request !== loadRequest.current) return;
+      setReport({
+        ...data,
+        location: data.location
+          ? {
+              lat: data.location.coordinates[1],
+              lng: data.location.coordinates[0],
+            }
+          : null,
+        category: data.category_id,
+        categoryName: data.category?.name,
+        categoryIcon: data.category?.icon,
+        pole: data.pole || null,
+        authorName: data.author?.name || "Anônimo",
+        authorAvatar: data.author?.avatar_url,
+        authorUsername: !data.is_anonymous && data.author?.public_profile_enabled ? data.author?.username : null,
+
+        photos: (data.report_media || [])
+          .filter((m) => m.type === "photo")
+          .sort(
+            (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
+          ),
+        videos: (data.report_media || []).filter((m) => m.type === "video"),
+        comments: (data.comments || [])
+          .filter((c) => c.moderation_status === "approved")
+          .map((c) => ({ ...c, authorName: c.author?.name || "Anônimo" })),
+        upvotes: data.upvotes?.[0]?.count || 0,
+        user_has_upvoted: userHasSigned,
+        is_favorited: user
+          ? (data.favorite_reports || []).some((fav) => fav.user_id === user.id)
+          : false,
+        petitionId: data.petitions?.[0]?.id || null,
+        petitionStatus: data.petitions?.[0]?.status || null,
+        is_from_water_utility: data.is_from_water_utility,
       });
-      setTimeout(() => navigate("/"), 0);
-      return;
-    }
-    let userHasSigned = false;
-    if (user) {
-      const { data: sig } = await supabase
-        .from("signatures")
-        .select("id")
+
+      const { data: updatesData } = await supabase
+        .from("report_updates")
+        .select(
+          // rejection_reason/note/at entram aqui porque a linha rejeitada agora
+          // aparece para quem a enviou, e sem o motivo ela voltaria a ser o que
+          // era antes da 207: um sumiço com selo novo.
+          "id, report_id, author_id, update_type, message, status, confirmed_by, confirmed_at, created_at, rejection_reason, rejection_note, rejected_at, author:profiles!report_updates_author_id_fkey(name, avatar_type, avatar_url, avatar_config), media:report_update_media(*)"
+        )
         .eq("report_id", reportId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      userHasSigned = !!sig;
+        .order("created_at", { ascending: false });
+      if (request !== loadRequest.current) return;
+      setReportUpdates(updatesData || []);
+
+      // A pagina publica recebe apenas etapas registradas por uma pessoa. As
+      // linhas de papel `sistema` pertencem ao transporte do e-mail (endereco,
+      // entrega, bounce etc.) e ficam exclusivamente no Canal do orgao.
+      const { data: etapasData } = await supabase
+        .from("report_official_steps")
+        .select("*")
+        .eq("report_id", reportId)
+        .or("registrado_por_papel.is.null,registrado_por_papel.neq.sistema")
+        .order("ocorreu_em", { ascending: true });
+      if (request !== loadRequest.current) return;
+      setOfficialSteps(etapasData || []);
+
+      setLoading(false);
+      setLoadState({ id: reportId, status: 'ready' });
+    } catch {
+      if (request === loadRequest.current) {
+        setLoading(false);
+        setLoadState({ id: reportId, status: 'error' });
+      }
     }
-    setReport({
-      ...data,
-      location: data.location
-        ? {
-            lat: data.location.coordinates[1],
-            lng: data.location.coordinates[0],
-          }
-        : null,
-      category: data.category_id,
-      categoryName: data.category?.name,
-      categoryIcon: data.category?.icon,
-      pole: data.pole || null,
-      authorName: data.author?.name || "Anônimo",
-      authorAvatar: data.author?.avatar_url,
-      authorUsername: !data.is_anonymous && data.author?.public_profile_enabled ? data.author?.username : null,
-
-      photos: (data.report_media || [])
-        .filter((m) => m.type === "photo")
-        .sort(
-          (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
-        ),
-      videos: (data.report_media || []).filter((m) => m.type === "video"),
-      comments: (data.comments || [])
-        .filter((c) => c.moderation_status === "approved")
-        .map((c) => ({ ...c, authorName: c.author?.name || "Anônimo" })),
-      upvotes: data.upvotes[0]?.count || 0,
-      user_has_upvoted: userHasSigned,
-      is_favorited: user
-        ? data.favorite_reports.some((fav) => fav.user_id === user.id)
-        : false,
-      petitionId: data.petitions?.[0]?.id || null,
-      petitionStatus: data.petitions?.[0]?.status || null,
-      is_from_water_utility: data.is_from_water_utility,
-    });
-
-    const { data: updatesData } = await supabase
-      .from("report_updates")
-      .select(
-        // rejection_reason/note/at entram aqui porque a linha rejeitada agora
-        // aparece para quem a enviou, e sem o motivo ela voltaria a ser o que
-        // era antes da 207: um sumiço com selo novo.
-        "id, report_id, author_id, update_type, message, status, confirmed_by, confirmed_at, created_at, rejection_reason, rejection_note, rejected_at, author:profiles!report_updates_author_id_fkey(name, avatar_type, avatar_url, avatar_config), media:report_update_media(*)"
-      )
-      .eq("report_id", reportId)
-      .order("created_at", { ascending: false });
-    setReportUpdates(updatesData || []);
-
-    // A pagina publica recebe apenas etapas registradas por uma pessoa. As
-    // linhas de papel `sistema` pertencem ao transporte do e-mail (endereco,
-    // entrega, bounce etc.) e ficam exclusivamente no Canal do orgao.
-    const { data: etapasData } = await supabase
-      .from("report_official_steps")
-      .select("*")
-      .eq("report_id", reportId)
-      .or("registrado_por_papel.is.null,registrado_por_papel.neq.sistema")
-      .order("ocorreu_em", { ascending: true });
-    setOfficialSteps(etapasData || []);
-
-    setLoading(false);
-  }, [reportId, navigate, user]);
+  }, [reportId, user]);
 
   useEffect(() => {
     fetchReport();
+    return () => { loadRequest.current += 1; };
   }, [fetchReport]);
 
   // O histórico e o painel usam o mesmo atendimento. Recarregar ao mudar o
@@ -1510,6 +1525,10 @@ const ReportPage = () => {
     return p.url || p.publicUrl || p.photo_url || p.image_url || null;
   }, [reportPhotos]);
 
+  if (loadState.id !== reportId || report?.id !== reportId || !['ready', 'loading'].includes(loadState.status)) {
+    return <PublicDetailState status={loadState.id === reportId ? loadState.status : 'loading'} label="Bronca" backTo="/mapa" onRetry={fetchReport} />;
+  }
+
   return (
     <>
       <DynamicSEO
@@ -1524,15 +1543,6 @@ const ReportPage = () => {
       {loading && (
         <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
           <p>Carregando...</p>
-        </div>
-      )}
-
-      {!loading && !report && (
-        <div className="container mx-auto px-4 py-12 text-center">
-          <h1 className="text-2xl font-bold">Bronca não encontrada</h1>
-          <Button asChild className="mt-4">
-            <Link to="/">Voltar para Home</Link>
-          </Button>
         </div>
       )}
 

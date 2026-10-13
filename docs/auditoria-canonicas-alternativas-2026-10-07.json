@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-07",
+  "http_samples": [
+    {
+      "url": "https://trombonecidadao.com.br/?from=AppAgg.com&utm_campaign=AppAgg.com&utm_medium=referral&utm_source=AppAgg.com",
+      "agent": "Mozilla/5.0",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://trombonecidadao.com.br/?from=AppAgg.com&utm_campaign=AppAgg.com&utm_medium=referral&utm_source=AppAgg.com",
+      "agent": "Googlebot",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/",
+      "agent": "Mozilla/5.0",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/",
+      "agent": "Googlebot",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/servicos",
+      "agent": "Mozilla/5.0",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/servicos",
+      "agent": "Googlebot",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/cadastro",
+      "agent": "Mozilla/5.0",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/cadastro",
+      "agent": "Googlebot",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/termos-de-uso",
+      "agent": "Mozilla/5.0",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/termos-de-uso",
+      "agent": "Googlebot",
+      "status": 200,
+      "location": null,
+      "initial_html_canonical": [],
+      "link_header": null
+    }
+  ],
+  "tls_note": "Website diagnostics ignored certificate verification; no application TLS change.",
+  "local_canonical_checks": [
+    {
+      "url": "https://trombonecidadao.com.br/?from=AppAgg.com&utm_campaign=AppAgg.com&utm_medium=referral&utm_source=AppAgg.com",
+      "canonical": "https://trombonecidadao.com.br/",
+      "method": "SSR of actual App SEO component with production base URL"
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/",
+      "canonical": "https://trombonecidadao.com.br/",
+      "method": "SSR of actual App SEO component with production base URL"
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/cadastro",
+      "canonical": "https://trombonecidadao.com.br/cadastro",
+      "method": "SSR of actual App SEO component with production base URL"
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/termos-de-uso",
+      "canonical": "https://trombonecidadao.com.br/termos-de-uso",
+      "method": "SSR of actual App SEO component with production base URL"
+    },
+    {
+      "url": "https://www.trombonecidadao.com.br/servicos",
+      "canonical": "https://trombonecidadao.com.br/guia-da-cidade",
+      "method": "Legacy redirect resolver and guide SEO helper"
+    }
+  ]
+}

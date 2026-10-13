@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Helmet } from 'react-helmet';
+import { publicDetailSeo } from '@/lib/publicPageSeo';
+import { fetchPublicDetail } from '@/lib/publicDetailResource';
+import PublicDetailState from '@/components/PublicDetailState';
 import { confirmApp } from '@/lib/appConfirm';
 import { useNavigate, useParams } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
@@ -280,8 +284,9 @@ export default function WorkDetailsPageProject() {
     useMobileHeader();
   const { isInteractive } = useNativeUIMode();
 
-  const [loading, setLoading] = useState(true);
   const [work, setWork] = useState(null);
+  const [loadState, setLoadState] = useState({ status: 'loading', id: workId });
+  const loadRequest = useRef(0);
   const [isAmbassadorOfWork, setIsAmbassadorOfWork] = useState(false);
 
   // Pode gerir esta obra? Admin/master OU embaixador ativo da cidade da obra.
@@ -718,14 +723,20 @@ export default function WorkDetailsPageProject() {
 
   const loadData = useCallback(async () => {
     if (!workId) return;
-    setLoading(true);
+    const request = ++loadRequest.current;
+    setLoadState({ status: 'loading', id: workId });
     try {
-      const { data: workData, error: workError } = await supabase
+      const result = await fetchPublicDetail(() => supabase
         .from("public_works")
         .select("*, work_category:work_categories(name), bairro:bairros(name)")
         .eq("id", workId)
-        .single();
-      if (workError) throw workError;
+        .maybeSingle());
+      if (request !== loadRequest.current) return;
+      if (result.status !== 'ready') {
+        setLoadState({ status: result.status, id: workId });
+        return;
+      }
+      const workData = result.data;
 
       const { data: measurementsData, error: measurementsError } =
         await supabase
@@ -752,20 +763,16 @@ export default function WorkDetailsPageProject() {
         .order("name", { ascending: true });
       if (folderError && folderError.code !== '42P01') throw folderError;
 
+      if (request !== loadRequest.current) return;
       setWork(workData);
       setMeasurements(measurementsData || []);
       setMedia(mediaData || []);
       setDocumentFolders(folderData || []);
-    } catch (e) {
-      showAppError("Erro ao carregar obra", {
-        description: e?.message || "Tente novamente.",
-        variant: "destructive",
-      });
-      navigate("/obras-publicas");
-    } finally {
-      setLoading(false);
+      setLoadState({ status: 'ready', id: workId });
+    } catch {
+      if (request === loadRequest.current) setLoadState({ status: 'error', id: workId });
     }
-  }, [navigate, workId]);
+  }, [workId]);
 
   const handleSaveCurrentPhaseSelection = useCallback(async () => {
     if (!canManageWork) return;
@@ -2198,26 +2205,11 @@ export default function WorkDetailsPageProject() {
     };
   }, [paymentForm.commitment_number, paymentForm.commitment_type, allPayments]);
 
-  if (loading && !work) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-10 text-muted-foreground">
-          Carregando…
-        </div>
-      </div>
-    );
+  if (loadState.id !== workId || work?.id !== workId || !['ready', 'loading'].includes(loadState.status)) {
+    return <PublicDetailState status={loadState.id === workId ? loadState.status : 'loading'} label="Obra" backTo="/obras-publicas" onRetry={loadData} />;
   }
 
-  if (!work) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-10 text-muted-foreground">
-          Obra não encontrada.
-        </div>
-      </div>
-    );
-  }
-
+  const seo = publicDetailSeo({ path: 'obras-publicas', id: work.id, title: work.title, description: work.description });
   const fundingSourceText = Array.isArray(currentMeasurement?.funding_source)
     ? currentMeasurement.funding_source
         .map((src) => (src === "state" ? "estadual" : src))
@@ -2304,6 +2296,15 @@ export default function WorkDetailsPageProject() {
 
   return (
     <div className="min-h-screen bg-surface-base">
+      <Helmet>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <link rel="canonical" href={seo.url} />
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={seo.url} />
+        <meta property="og:title" content={seo.title} />
+        <meta property="og:description" content={seo.description} />
+      </Helmet>
       {Capacitor.isNativePlatform() && isInteractive ? null : (
         <ObraHeader
           title={work.title}

@@ -858,6 +858,7 @@ const PetitionPage = () => {
       <Helmet>
         <title>{petition.title} | Trombone Cidadão</title>
         <meta name="description" content={petition.description.substring(0, 160)} />
+        <link rel="canonical" href={seoData.url} />
       </Helmet>
 
       <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">

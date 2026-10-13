@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, MapPin } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
+import { cepsDaRua } from '@/lib/pavementReport';
+import { correspondeABuscaDeRua } from '@/lib/pavementStreetSearch';
 
 // A busca de rua do mapa de pavimentação.
 //
@@ -24,22 +26,15 @@ import { Input } from '@/components/ui/input';
 /** Quantas sugestões cabem sem virar a mesma lista infinita de antes. */
 const MAXIMO = 8;
 
-const dobrar = (valor) => String(valor || '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase()
-  .trim();
-
 export default function BuscaDeRua({ streets, valor, onValorChange, onEscolher }) {
   const [aberto, setAberto] = useState(false);
   const [ativo, setAtivo] = useState(0);
   const containerRef = useRef(null);
 
   const sugestoes = useMemo(() => {
-    const termo = dobrar(valor);
-    if (!termo) return [];
+    if (!valor.trim()) return [];
     return (streets || [])
-      .filter((rua) => dobrar(rua.name).includes(termo) || dobrar(rua.bairro?.name).includes(termo))
+      .filter((rua) => correspondeABuscaDeRua(rua, valor))
       .slice(0, MAXIMO);
   }, [streets, valor]);
 
@@ -85,7 +80,8 @@ export default function BuscaDeRua({ streets, valor, onValorChange, onEscolher }
       <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-content-tertiary" />
       <Input
         type="text"
-        placeholder="Fazer Busca"
+        placeholder="Buscar rua, bairro ou CEP"
+        aria-label="Buscar rua, bairro ou CEP"
         className="h-9 border-edge-subtle bg-surface-raised pl-9 text-xs md:text-sm"
         value={valor}
         onChange={(e) => { onValorChange(e.target.value); setAberto(true); }}
@@ -124,6 +120,11 @@ export default function BuscaDeRua({ streets, valor, onValorChange, onEscolher }
                   {rua.bairro?.name && (
                     <span className="block truncate text-[11px] text-content-tertiary">
                       {rua.bairro.name}
+                    </span>
+                  )}
+                  {cepsDaRua(rua).length > 0 && (
+                    <span className="block truncate text-[11px] text-content-tertiary">
+                      CEP {cepsDaRua(rua).map(({ cep }) => cep).join(', ')}
                     </span>
                   )}
                 </span>

@@ -30,7 +30,7 @@ import { showAppError } from '@/lib/appError';
 import PavementEditModal from '@/components/pavement/PavementEditModal';
 import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
 import { savePavementStreet } from '@/lib/savePavementStreet';
-import { apelidosDaRua } from '@/lib/streetAliases';
+import { correspondeABuscaDeRua } from '@/lib/pavementStreetSearch';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { criarPdfDoMapaDeRuas, nomeDoArquivoDoMapa } from '@/lib/pavementMapPdf';
@@ -285,12 +285,7 @@ const PavementMapPage = () => {
   // `ignorarSituacao` existe para a faixa de números: ver o comentário de
   // `resumoDosCartoes`, mais abaixo.
   const passaNosFiltros = (street, { ignorarSituacao = false } = {}) => {
-    const termo = searchTerm.trim().toLowerCase();
-    const searchMatch = termo === ''
-      || street.name.toLowerCase().includes(termo)
-      || apelidosDaRua(street).some((apelido) => apelido.toLowerCase().includes(termo))
-      || (street.bairro?.name || '').toLowerCase().includes(termo);
-    if (!searchMatch) return false;
+    if (!correspondeABuscaDeRua(street, searchTerm)) return false;
 
     if (!ignorarSituacao && filtros.situacao !== 'all' && street.status !== filtros.situacao) return false;
     if (filtros.bairro !== 'all' && String(street.bairro_id || '') !== filtros.bairro) return false;

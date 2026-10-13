@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
+import { legacyGuideRoute } from '@/lib/legacyGuideRoute';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -239,11 +240,7 @@ const SEO = () => {
       <meta name="description" content={pageDescription} />
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* Favicons (forçar presença em todas as rotas) */}
-      <link rel="icon" href="/favicon.ico" />
-      <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-      <link rel="manifest" href="/manifest.json" />
+      {/* Favicons e manifest ficam no head estático do index.html, em todas as rotas. */}
       <meta name="theme-color" content="#dc2626" />
       
       {/* Open Graph Meta Tags */}
@@ -295,7 +292,7 @@ const ParaOMapaDeBroncas = () => {
 
 const LegacyGuideRedirect = () => {
   const { pathname, search, hash } = useLocation();
-  return <Navigate to={{ pathname: pathname.replace(/^\/(?:servicos|guiadacidade)(?=\/|$)/, '/guia-da-cidade'), search, hash }} replace />;
+  return <Navigate to={legacyGuideRoute({ pathname, search, hash })} replace />;
 };
 
 // O antigo painel pessoal agora faz parte de /perfil. Preservamos a query para

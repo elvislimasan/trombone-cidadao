@@ -20,6 +20,7 @@ const NotFoundPage = () => {
     <>
       <Helmet>
         <title>404 – Trombone Cidadão</title>
+        <meta name="robots" content="noindex" />
       </Helmet>
       <div className="w-full bg-surface-base">
         <div className="relative container mx-auto flex flex-col items-center px-4 py-16 md:py-20 text-center">

@@ -30,8 +30,24 @@ export const chaveDeAutor = (valor) => textoLimpo(valor)
 
 export const slugDeVereador = (valor) => chaveDeAutor(valor).replace(/\s+/g, '-');
 
-export const rotaDoVereador = (cityId, nomeOuSlug) =>
-  `/vereadores/${cityId}/${/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(nomeOuSlug || '')) ? nomeOuSlug : slugDeVereador(nomeOuSlug)}`;
+export const cityIdDeVereador = (value) => {
+  const id = String(value ?? '').trim();
+  return /^[1-9]\d*$/.test(id) ? id : null;
+};
+
+export const rotaDoVereador = (cityId, nomeOuSlug) => {
+  const id = cityIdDeVereador(cityId);
+  const slug = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(nomeOuSlug || '')) ? nomeOuSlug : slugDeVereador(nomeOuSlug);
+  return id && slug ? `/vereadores/${id}/${slug}` : null;
+};
+
+// Sem filtro de cidade, só vincula o autor quando suas ruas indicam uma cidade única.
+export const cidadeDoAutor = (streets, name) => {
+  const cities = new Set((streets || [])
+    .filter((street) => autoresDaRua(street).some((author) => chaveDeAutor(author) === chaveDeAutor(name)))
+    .map((street) => cityIdDeVereador(street.city_id)));
+  return cities.size === 1 ? [...cities][0] : null;
+};
 
 /** Autores de um projeto, incluindo os cadastros antigos de autor unico. */
 export const autoresDoProjeto = (documento) => {

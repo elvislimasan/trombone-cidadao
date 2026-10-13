@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, Share2, ShieldCheck, User, UserPlus } from 'lucide-react';
 
 import BackButton from '@/components/BackButton';
@@ -8,7 +8,10 @@ import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
 import CouncilorStoryModal from '@/components/councilor/CouncilorStoryModal';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
-import { autoresDaRua, chaveDeAutor, normalizarFotos, rotaDoVereador, slugDeVereador } from '@/lib/pavementStreetHistory';
+import { cityIdDeVereador, normalizarFotos, rotaDoVereador } from '@/lib/pavementStreetHistory';
+import { legacyCouncilorRoute } from '@/lib/legacyCouncilorRoute';
+import { fetchCouncilorPublicResource } from '@/lib/councilorPublicResource';
+import PublicDetailState from '@/components/PublicDetailState';
 import { getCouncilorShareUrl, streetPath } from '@/lib/shareUtils';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -22,7 +25,10 @@ export default function CouncilorProfilePage() {
   const [streets, setStreets] = useState([]);
   const [cityStreets, setCityStreets] = useState([]);
   const [cityName, setCityName] = useState('');
-  const [loading, setLoading] = useState(true);
+  const resourceKey = `${cityId}/${slug}`;
+  const [loadState, setLoadState] = useState({ key: resourceKey, status: 'loading' });
+  const loadRequest = useRef(0);
+  const loading = loadState.key !== resourceKey || loadState.status === 'loading';
   const [accountIdentity, setAccountIdentity] = useState(null);
   const [requestStatus, setRequestStatus] = useState(null);
   const [managedPage, setManagedPage] = useState(null);
@@ -30,77 +36,85 @@ export default function CouncilorProfilePage() {
   const [autoRequestAttempted, setAutoRequestAttempted] = useState(false);
   const [reportCount, setReportCount] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
+  const [legacyPath, setLegacyPath] = useState(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const [profileResult, streetsResult, cityResult] = await Promise.all([
-      supabase.from('councilors').select('*').eq('city_id', cityId).eq('slug', slug).maybeSingle(),
-      supabase.from('pavement_streets').select('id, slug, name, city_id, historical_documents, historical_photos, bairro:bairros!pavement_streets_bairro_id_fkey(name)').eq('city_id', cityId),
-      supabase.from('cities').select('name, states(uf)').eq('id', cityId).maybeSingle(),
-    ]);
-
-    const matchingStreets = (streetsResult.data || []).filter((street) =>
-      autoresDaRua(street).some((author) => slugDeVereador(author) === slug)
-    );
-    const inferredName = matchingStreets.flatMap(autoresDaRua).find((author) => slugDeVereador(author) === slug);
-    const profile = profileResult.data || (inferredName ? {
-      id: null,
-      city_id: Number(cityId),
-      name: inferredName,
-      normalized_name: chaveDeAutor(inferredName),
-      slug,
-    } : null);
-
-    setCouncilor(profile);
-    setStreets(matchingStreets);
-    setCityStreets(streetsResult.data || []);
-    setCityName(cityResult.data ? `${cityResult.data.name}${cityResult.data.states?.uf ? ` - ${cityResult.data.states.uf}` : ''}` : '');
-    if (profile?.user_id) {
-      const { count } = await supabase
-        .from('reports')
-        .select('id', { count: 'exact', head: true })
-        .eq('author_id', profile.user_id)
-        .eq('is_anonymous', false)
-        .eq('moderation_status', 'approved')
-        .neq('status', 'rejected');
-      setReportCount(count || 0);
-    } else {
-      setReportCount(0);
-    }
-    if (profile?.id) {
-      const { data } = await supabase.rpc('get_councilor_account_identity', { p_councilor_id: profile.id });
-      setAccountIdentity(data || null);
-      if (user?.id) {
-        const [{ data: ownRequest }, { data: existingManagedPage }] = await Promise.all([
-          supabase
-            .from('councilor_link_requests')
-            .select('status')
-            .eq('councilor_id', profile.id)
-            .eq('requester_id', user.id)
-            .maybeSingle(),
-          supabase
-            .from('councilors')
-            .select('id, name, city_id, slug')
-            .eq('user_id', user.id)
-            .neq('id', profile.id)
-            .limit(1)
-            .maybeSingle(),
-        ]);
-        setRequestStatus(ownRequest?.status || null);
-        setManagedPage(existingManagedPage || null);
+    const request = ++loadRequest.current;
+    setLoadState({ key: resourceKey, status: 'loading' });
+    setLegacyPath(null);
+    try {
+      if (!cityIdDeVereador(cityId)) {
+        const path = await legacyCouncilorRoute(supabase, slug);
+        if (request !== loadRequest.current) return;
+        setLegacyPath(path);
+        setCouncilor(null);
+        setLoadState({ key: resourceKey, status: path ? 'ready' : 'missing' });
+        return;
+      }
+      const result = await fetchCouncilorPublicResource(supabase, cityId, slug);
+      if (request !== loadRequest.current) return;
+      if (result.status !== 'ready') {
+        setCouncilor(null);
+        setLoadState({ key: resourceKey, status: result.status });
+        return;
+      }
+      const { councilor: profile, streets: matchingStreets, cityStreets: allStreets, cityName: name } = result.data;
+      setCouncilor(profile);
+      setStreets(matchingStreets);
+      setCityStreets(allStreets);
+      setCityName(name);
+      if (profile?.user_id) {
+        const { count } = await supabase
+          .from('reports')
+          .select('id', { count: 'exact', head: true })
+          .eq('author_id', profile.user_id)
+          .eq('is_anonymous', false)
+          .eq('moderation_status', 'approved')
+          .neq('status', 'rejected');
+        if (request !== loadRequest.current) return;
+        setReportCount(count || 0);
       } else {
+        setReportCount(0);
+      }
+      if (profile?.id) {
+        const { data } = await supabase.rpc('get_councilor_account_identity', { p_councilor_id: profile.id });
+        if (request !== loadRequest.current) return;
+        setAccountIdentity(data || null);
+        if (user?.id) {
+          const [{ data: ownRequest }, { data: existingManagedPage }] = await Promise.all([
+            supabase
+              .from('councilor_link_requests')
+              .select('status')
+              .eq('councilor_id', profile.id)
+              .eq('requester_id', user.id)
+              .maybeSingle(),
+            supabase
+              .from('councilors')
+              .select('id, name, city_id, slug')
+              .eq('user_id', user.id)
+              .neq('id', profile.id)
+              .limit(1)
+              .maybeSingle(),
+          ]);
+          if (request !== loadRequest.current) return;
+          setRequestStatus(ownRequest?.status || null);
+          setManagedPage(existingManagedPage || null);
+        } else {
+          setRequestStatus(null);
+          setManagedPage(null);
+        }
+      } else {
+        setAccountIdentity(null);
         setRequestStatus(null);
         setManagedPage(null);
       }
-    } else {
-      setAccountIdentity(null);
-      setRequestStatus(null);
-      setManagedPage(null);
+      setLoadState({ key: resourceKey, status: 'ready' });
+    } catch {
+      if (request === loadRequest.current) setLoadState({ key: resourceKey, status: 'error' });
     }
-    setLoading(false);
-  }, [cityId, slug, user?.id]);
+  }, [cityId, slug, resourceKey, user?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => { loadRequest.current += 1; }; }, [load]);
 
   const isAdmin = Boolean(user?.is_admin || user?.is_master);
   const hasActiveLink = Boolean(
@@ -174,14 +188,9 @@ export default function CouncilorProfilePage() {
 
   const councilorFirstName = String(councilor?.name || '').trim().split(/\s+/)[0] || 'vereador';
 
+  if (!loading && legacyPath) return <Navigate to={{ pathname: legacyPath, search: searchParams.toString() ? `?${searchParams}` : '' }} replace />;
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-brand" /></div>;
-  if (!councilor) return (
-    <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <User className="mx-auto h-10 w-10 text-content-tertiary" />
-      <h1 className="mt-3 text-2xl font-extrabold">Vereador não encontrado</h1>
-      <Button asChild variant="outline" className="mt-5"><Link to="/mapa-pavimentacao">Voltar ao mapa de ruas</Link></Button>
-    </div>
-  );
+  if (loadState.status !== 'ready' || !councilor) return <PublicDetailState status={loadState.status} label="Vereador" backTo="/mapa-pavimentacao" onRetry={load} />;
 
   const profilePhoto = councilor.photo_url || accountIdentity?.profile?.avatar_url;
   const linkedProfile = accountIdentity?.profile || null;
@@ -192,6 +201,7 @@ export default function CouncilorProfilePage() {
     <div className="min-h-screen bg-surface-subtle pb-16">
       <Helmet>
         <title>{councilor.name} — Ruas e projetos | Trombone Cidadão</title>
+        <link rel="canonical" href={`https://trombonecidadao.com.br${rotaDoVereador(councilor.city_id, councilor.slug)}`} />
         <meta name="description" content={`${councilor.name} aparece como autor de ${streets.length} projetos de denominação de ruas em ${cityName}.`} />
       </Helmet>
 

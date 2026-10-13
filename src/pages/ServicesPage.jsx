@@ -1,4 +1,6 @@
 import { guideCategoryIds, guideCategoryCounts } from '@/lib/guideCategories';
+import { guidePageSeo } from '@/lib/publicPageSeo';
+import { useGuideDirectory } from '@/hooks/useGuideDirectory';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -185,9 +187,7 @@ const ServicesPage = () => {
       (isPureAmbassador && activeCityId && myActiveCityIds.some((id) => String(id) === String(activeCityId))))
     && canWrite('services')
   );
-  const [directory, setDirectory] = useState([]);
-  const [directoryCategories, setDirectoryCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { directory, directoryCategories, loading, dataReady, fetchData } = useGuideDirectory(supabase, activeCityId, showAppError);
   const [searchInput, setSearchInput] = useState(searchTerm);
   const [sortBy, setSortBy] = useState('recentes');
   const [viewMode, setViewMode] = useState('lista');
@@ -212,22 +212,6 @@ const ServicesPage = () => {
     else if (/^\d+$/.test(linkedCityId || '') && cities.some((city) => String(city.id) === linkedCityId)) setCityId(linkedCityId);
   }, [linkedCityId, cities, setCityId]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    let directoryQuery = supabase.from('directory').select('*').eq('status', 'approved');
-    if (activeCityId) directoryQuery = directoryQuery.eq('city_id', activeCityId);
-    const [{ data: entries, error: directoryError }, { data: categories, error: categoriesError }] = await Promise.all([
-      directoryQuery,
-      supabase.from('directory_categories').select('*').eq('active', true).order('sort_order').order('name'),
-    ]);
-    if (directoryError) showAppError({ title: 'Erro ao buscar Guia da Cidade', description: directoryError.message, variant: 'destructive' });
-    if (categoriesError) showAppError({ title: 'Erro ao buscar categorias do Guia', description: categoriesError.message, variant: 'destructive' });
-    setDirectory(entries || []);
-    setDirectoryCategories(categories || []);
-    setLoading(false);
-  }, [activeCityId]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     if (!isPureAmbassador || !user?.id) { setMyActiveCityIds([]); return; }
     supabase.from('ambassador_cities').select('city_id').eq('user_id', user.id).eq('status', 'active')
@@ -358,20 +342,22 @@ const ServicesPage = () => {
   }
 
   const listingProps = { sortBy, setSortBy, viewMode, setViewMode, page, setPage };
+  const seo = guidePageSeo({ categoryId: selectedCategoryId, category: selectedCategory, entries: isCategoryPage ? selectedEntries : directory, cityId: activeCityId, cityName: activeCityName, loading, dataReady });
 
   return <>
     <Helmet>
-      <title>{selectedCategory ? `${selectedCategory.name} - Guia da Cidade` : 'Guia da Cidade - Trombone Cidadão'}</title>
-      <meta name="description" content={`Encontre informações úteis sobre ${activeCityName || 'sua cidade'}: pontos turísticos, transportes e Guia da Cidade.`} />
-      <link rel="canonical" href={`https://trombonecidadao.com.br${selectedCategoryId ? categoryLink(selectedCategoryId) : '/guia-da-cidade'}`} />
-      <meta property="og:url" content={`https://trombonecidadao.com.br${selectedCategoryId ? categoryLink(selectedCategoryId) : '/guia-da-cidade'}`} />
+      <title>{seo.title}</title>
+      <meta name="description" content={seo.description} />
+      {seo.robots && <meta name="robots" content={seo.robots} />}
+      <link rel="canonical" href={seo.url} />
+      <meta property="og:url" content={seo.url} />
       <meta property="og:title" content={shareTitle} />
-      <meta property="og:description" content={`Encontre locais e informações úteis sobre ${activeCityName || 'sua cidade'} no Guia da Cidade.`} />
+      <meta property="og:description" content={seo.description} />
       <meta property="og:image" content={shareImage} />
       <meta property="og:image:alt" content={shareTitle} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={shareTitle} />
-      <meta name="twitter:description" content={`Encontre locais e informações úteis sobre ${activeCityName || 'sua cidade'} no Guia da Cidade.`} />
+      <meta name="twitter:description" content={seo.description} />
       <meta name="twitter:image" content={shareImage} />
     </Helmet>
 

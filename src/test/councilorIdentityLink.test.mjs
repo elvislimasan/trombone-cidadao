@@ -56,7 +56,8 @@ test('conta e página legislativa possuem navegação nos dois sentidos', async 
   const management = await read('src/pages/ManageMyCouncilorPage.jsx');
   assert.match(management, /to=\{publicPath\}>Ver página pública/);
   assert.match(publicProfile, /Atuação pública verificada/);
-  assert.match(councilorPage, /accountIdentity\?\.profile\?\.username && <Link to=\{`\/u\//);
+  // O perfil público canônico usa /username; /u/username é um alias legado.
+  assert.match(councilorPage, /accountIdentity\?\.profile\?\.username && <Link to=\{`\/\$\{accountIdentity\.profile\.username\}`\}/);
 });
 
 test('admin e titular encontram a edição do perfil legislativo', async () => {

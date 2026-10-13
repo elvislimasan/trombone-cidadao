@@ -33,10 +33,12 @@ export default function CouncilorAttributionCard({ street }) {
       <div className="grid gap-3 p-4 sm:p-5">
         {authors.map((author) => {
           const profile = profiles.get(chaveDeAutor(author));
+          const path = rotaDoVereador(street.city_id, profile?.slug || author);
+          const Entry = path ? Link : 'div';
           return (
-            <Link
+            <Entry
               key={chaveDeAutor(author)}
-              to={rotaDoVereador(street.city_id, profile?.slug || author)}
+              {...(path ? { to: path } : {})}
               className="group flex items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-3 transition-all hover:border-brand/30 hover:shadow-sm"
             >
               {profile?.photo_url ? (
@@ -53,8 +55,8 @@ export default function CouncilorAttributionCard({ street }) {
                   {profile?.biography || `Vereador autor de projeto de lei relacionado a ${street.name}.`}
                 </span>
               </span>
-              <ChevronRight className="h-5 w-5 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5" />
-            </Link>
+              {path && <ChevronRight className="h-5 w-5 shrink-0 text-content-tertiary transition-transform group-hover:translate-x-0.5" />}
+            </Entry>
           );
         })}
       </div>

@@ -10,7 +10,6 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { MapModeProvider } from './contexts/MapModeContext';
 import { MissionProgressProvider } from './contexts/MissionProgressContext';
 import { OfflineQueueProvider } from './contexts/OfflineQueueContext';
-import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from '@/design-system/theme/ThemeProvider';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
@@ -257,7 +256,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <CityProvider>
             <NotificationProvider>
               <MapModeProvider>
-              <HelmetProvider>
                 <MissionProgressProvider>
                   {/* O carteiro da fila offline. Uma instância só — ver o
                       cabeçalho do contexto. */}
@@ -265,7 +263,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                     <App />
                   </OfflineQueueProvider>
                 </MissionProgressProvider>
-              </HelmetProvider>
               </MapModeProvider>
             </NotificationProvider>
           </CityProvider>

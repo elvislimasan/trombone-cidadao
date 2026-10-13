@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ArrowLeft, MapPin, Phone, Instagram, Building, ShoppingCart, Pencil, Navigation, Clock, Share2, MessageCircle, Route, ExternalLink, ChevronRight, Maximize2 } from 'lucide-react';
 import { whatsappNumber } from '@/lib/utils';
 import ServicesRankingSidebar from '@/components/ServicesRankingSidebar';
-import { showAppError } from '@/lib/appError';
+import { fetchPublicDetail } from '@/lib/publicDetailResource';
+import PublicDetailState from '@/components/PublicDetailState';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { normalizarInstagram } from '@/lib/externalLinks';
@@ -25,7 +26,8 @@ const DirectoryDetailsPage = () => {
   const { user } = useAuth();
   const { canWrite } = usePermissions();
   const [item, setItem] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadState, setLoadState] = useState({ id, status: 'loading' });
+  const loadRequest = useRef(0);
   const [related, setRelated] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editOpen, setEditOpen] = useState(false);
@@ -34,50 +36,49 @@ const DirectoryDetailsPage = () => {
   const [ambassadorCityIds, setAmbassadorCityIds] = useState([]);
 
   const fetchItem = useCallback(async () => {
-    setLoading(true);
-    
-    const { data, error } = await supabase
+    const request = ++loadRequest.current;
+    setLoadState({ id, status: 'loading' });
+    const result = await fetchPublicDetail(() => supabase
       .from('directory')
       .select('*, category:directory_categories(name)')
       .eq('id', id)
-      .single();
-
-    if (error) {
-      showAppError({
-        title: 'Erro ao buscar detalhes',
-        description: 'Não foi possível carregar as informações. Tente novamente.',
-        variant: 'destructive',
-      });
-      console.error(error);
-    } else {
-      let publicItem = data;
-      if (!guideLocation(data.location) && data.legacy_source === 'tourist_spots' && data.legacy_source_id) {
-        const { data: legacySpot } = await supabase.from('tourist_spots')
-          .select('location')
-          .eq('id', data.legacy_source_id)
-          .maybeSingle();
-        if (guideLocation(legacySpot?.location)) publicItem = { ...data, location: legacySpot.location };
-      }
-      setItem(publicItem);
-      if (data.status === 'approved' && data.category_id && data.city_id) {
-        const { data: relatedData } = await supabase.from('directory')
-          .select('id, name, image_url, address')
-          .eq('status', 'approved')
-          .eq('city_id', data.city_id)
-          .or(`category_id.eq.${data.category_id},category_ids.cs.{${data.category_id}}`)
-          .neq('id', data.id)
-          .order('name')
-          .limit(6);
-        setRelated(relatedData || []);
-      } else {
-        setRelated([]);
-      }
+      .maybeSingle());
+    if (request !== loadRequest.current) return;
+    if (result.status !== 'ready') {
+      setItem(null);
+      setLoadState({ id, status: result.status });
+      return;
     }
-    setLoading(false);
+    const data = result.data;
+
+    let publicItem = data;
+    if (!guideLocation(data.location) && data.legacy_source === 'tourist_spots' && data.legacy_source_id) {
+      const { data: legacySpot } = await fetchPublicDetail(() => supabase.from('tourist_spots')
+        .select('location')
+        .eq('id', data.legacy_source_id)
+        .maybeSingle());
+      if (guideLocation(legacySpot?.location)) publicItem = { ...data, location: legacySpot.location };
+    }
+    if (request !== loadRequest.current) return;
+    setItem(publicItem);
+    setRelated([]);
+    setLoadState({ id, status: 'ready' });
+    if (data.status === 'approved' && data.category_id && data.city_id) {
+      const { data: relatedData } = await fetchPublicDetail(() => supabase.from('directory')
+        .select('id, name, image_url, address')
+        .eq('status', 'approved')
+        .eq('city_id', data.city_id)
+        .or(`category_id.eq.${data.category_id},category_ids.cs.{${data.category_id}}`)
+        .neq('id', data.id)
+        .order('name')
+        .limit(6));
+      if (request === loadRequest.current) setRelated(relatedData || []);
+    }
   }, [id]);
 
   useEffect(() => {
     fetchItem();
+    return () => { loadRequest.current += 1; };
   }, [fetchItem]);
 
   useEffect(() => {
@@ -98,20 +99,8 @@ const DirectoryDetailsPage = () => {
       .then(({ data }) => setAmbassadorCityIds((data || []).map((row) => row.city_id)));
   }, [user]);
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
-  }
-
-  if (!item) {
-    return (
-      <div className="container mx-auto px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold">Item não encontrado</h1>
-        <p className="text-muted-foreground">O item que você está procurando não existe ou foi removido.</p>
-        <Link to="/guia-da-cidade">
-          <Button className="mt-4">Voltar ao Guia da Cidade</Button>
-        </Link>
-      </div>
-    );
+  if (loadState.id !== id || loadState.status !== 'ready' || !item) {
+    return <PublicDetailState status={loadState.id === id ? loadState.status : 'loading'} label="Local" backTo="/guia-da-cidade" onRetry={fetchItem} />;
   }
 
   const initialPosition = guideLocation(item.location) || guideLocation(item.address);

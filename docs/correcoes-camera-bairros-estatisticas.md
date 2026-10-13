@@ -47,6 +47,14 @@ Prévia sem geocodificação feita em 05/10/2026 no projeto de desenvolvimento:
 2.262 postes, 1.290 associações recuperáveis e 972 ainda não identificadas.
 Nenhuma associação remota foi alterada durante essa prévia.
 
+Na seleção de poste em `ReportModal`, um endereço já cadastrado aparece sem
+manter o estado de carregamento. Se a lista antiga veio com endereço vazio,
+o modal consulta o cadastro atualizado, tenta a rua mapeada e só então a
+geocodificação da coordenada do poste. Falhas liberam o campo para preenchimento
+manual. Trocar de poste ou editar o endereço impede que uma resposta anterior
+sobrescreva a escolha atual. As migrações precedem `poles:addresses --apply`;
+o backfill pode continuar enquanto essa correção do frontend é preparada.
+
 ## Câmera e Gemini
 
 A câmera web oferece zoom pelo hardware quando disponível e zoom digital

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
+import PublicDetailState from '@/components/PublicDetailState';
 import { motion } from 'framer-motion';
 import {
   Share2,
@@ -80,6 +81,7 @@ export default function PublicProfilePage() {
     profile,
     loading,
     error,
+    refetchProfile,
     reports,
     reportsLoading,
     statusFilter,
@@ -274,11 +276,16 @@ export default function PublicProfilePage() {
     );
   }
 
-  if (error || !profile || !profile.public_profile_enabled) {
+  if (error) {
+    return <PublicDetailState status="error" label="Perfil" backTo="/" onRetry={refetchProfile} />;
+  }
+
+  if (!profile || !profile.public_profile_enabled) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 py-12">
         <Helmet>
           <title>Perfil não encontrado - Trombone Cidadão</title>
+          <meta name="robots" content="noindex" />
         </Helmet>
         <EmptyState
           icon="profile"
