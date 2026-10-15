@@ -12,6 +12,7 @@ import MapModeToggle from '@/components/MapModeToggle';
 import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
+import MapResizeObserver from '@/components/map/MapResizeObserver';
 
 // Status de obra -> sufixo do token --pin-work-*. Fora dessa lista cai em
 // 'unknown', o cinza neutro.
@@ -154,6 +155,7 @@ const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = fal
   return (
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
+        <MapResizeObserver />
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
         <FitToWorks works={works} activeCity={activeCity} />

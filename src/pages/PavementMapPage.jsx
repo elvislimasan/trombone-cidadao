@@ -6,6 +6,7 @@ import { BarChart3, Download, HelpCircle, List, Loader2, Map as MapaIcone, PlusC
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -15,7 +16,7 @@ import { getBaseAppUrl } from '@/lib/shareUtils';
 import { autoresDeProjetos, correspondeAoFiltroDeAutor, temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 import { resumoDeExtensao } from '@/lib/pavementLength';
 import PavementStats from '@/components/pavement/PavementStats';
-import PavementSidebar, { FiltrosDePavimentacao } from '@/components/pavement/PavementSidebar';
+import PavementSidebar, { descreverFiltrosDePavimentacao, FiltrosDePavimentacao } from '@/components/pavement/PavementSidebar';
 import PavementMapLegend from '@/components/pavement/PavementMapLegend';
 import PavementReportsPanel from '@/components/pavement/PavementReportsPanel';
 import PavementStreetList from '@/components/pavement/PavementStreetList';
@@ -45,6 +46,8 @@ import {
 
 const PavementMapPage = () => {
   const [streetData, setStreetData] = useState([]);
+  const [streetsLoading, setStreetsLoading] = useState(true);
+  const streetsRequest = useRef(0);
   const [lastUpdate, setLastUpdate] = useState(null);
   // TODOS OS FILTROS NUM OBJETO SÓ.
   //
@@ -131,22 +134,17 @@ const PavementMapPage = () => {
       }
       mapUrl = supabase.storage.from('work-media').getPublicUrl(filePath).data.publicUrl;
     }
-    const { error } = await supabase
-      .from('cities')
-      .update({
-        pavement_street_map_url: mapUrl,
-        pavement_cep_list_url: limpar(editandoLinks.pavement_cep_list_url),
-      })
-      .eq('id', activeCityId);
+    const { error } = await supabase.rpc('salvar_referencias_mapa_ruas', {
+      p_city_id: activeCityId,
+      p_map_url: mapUrl,
+      p_cep_url: limpar(editandoLinks.pavement_cep_list_url),
+    });
     setSalvandoLinks(false);
 
     if (error) {
-      // A permissão de escrita em `cities` vive no painel do Supabase, fora do
-      // git. Se ela não cobrir quem está tentando, é aqui que se descobre — e a
-      // mensagem precisa dizer isso, não um "erro" genérico.
       showAppError({
         title: 'Não foi possível salvar os links',
-        description: `${error.message}. Se a mensagem fala em permissão, a policy de UPDATE de cities precisa liberar seu perfil.`,
+        description: error.message,
         variant: 'destructive',
       });
       return;
@@ -156,7 +154,7 @@ const PavementMapPage = () => {
   };
 
 
-  const { canManage: canManageStreets, isPureAmbassador, myActiveCityIds } =
+  const { canManage: canManageStreets, canEdit: canEditStreets, allowedCityIds } =
     useCanManagePavement(activeCityId);
 
   const [editingStreet, setEditingStreet] = useState(null);
@@ -208,45 +206,36 @@ const PavementMapPage = () => {
 
   // Os bairros só interessam ao modal, então só quem pode editar paga a busca.
   useEffect(() => {
-    if (!canManageStreets) { setBairros([]); return; }
+    if (!canEditStreets) { setBairros([]); return; }
     let cancelled = false;
     supabase.from('bairros').select('*').order('name').then(({ data }) => {
       if (!cancelled) setBairros(data || []);
     });
     return () => { cancelled = true; };
-  }, [canManageStreets]);
+  }, [canEditStreets]);
 
   const fetchStreets = useCallback(async () => {
-    let query = supabase
-      .from('pavement_streets')
-      .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)');
-    if (activeCityId) query = query.eq('city_id', activeCityId);
-    const { data, error } = await query;
-    if (error) {
+    const requestId = ++streetsRequest.current;
+    if (!activeCityId) { setStreetData([]); setLastUpdate(null); setStreetsLoading(false); return; }
+    setStreetsLoading(true);
+    try {
+      const data = await carregarRuasDoMapa(supabase, activeCityId);
+      if (requestId !== streetsRequest.current) return;
+      setStreetData(data);
+      const updates = data.map(street => Date.parse(street.updated_at)).filter(Number.isFinite);
+      setLastUpdate(updates.length ? new Date(Math.max(...updates)).toISOString() : null);
+    } catch (error) {
+      if (requestId !== streetsRequest.current) return;
+      setStreetData([]);
       showAppError({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
-    } else {
-      const formattedData = data.map(s => ({
-        ...s,
-        location: s.location ? { lat: s.location.coordinates[1], lng: s.location.coordinates[0] } : null,
-        // O PostGIS/PostgREST devolve [lng,lat]; o Leaflet quer [lat,lng]. A
-        // inversão acontece aqui, num lugar só, e nunca no componente.
-        linhas: Array.isArray(s.path?.coordinates)
-          ? s.path.coordinates.map((linha) => linha.map(([lng, lat]) => [lat, lng]))
-          : [],
-      }));
-      setStreetData(formattedData);
-      if (data.length > 0) {
-        const mostRecent = data.reduce((latest, street) => {
-            const streetDate = new Date(street.updated_at || 0);
-            return streetDate > latest ? streetDate : latest;
-        }, new Date(0));
-        if (mostRecent.getTime() > 0) setLastUpdate(mostRecent.toISOString());
-      }
+    } finally {
+      if (requestId === streetsRequest.current) setStreetsLoading(false);
     }
   }, [activeCityId]);
 
   useEffect(() => {
     fetchStreets();
+    return () => { streetsRequest.current += 1; };
   }, [fetchStreets]);
 
   // "VER NO MAPA", VINDO DA LISTA
@@ -387,6 +376,7 @@ const PavementMapPage = () => {
   // funciona num tamanho de tela e nao no outro, que e o tipo de defeito que
   // so aparece no aparelho de outra pessoa.
   const filtrosLigados = Object.values(filtros).filter((v) => v !== 'all').length;
+  const filtrosDoRelatorio = descreverFiltrosDePavimentacao(filtros, { bairros: bairrosComRua, autores: autoresComProjeto, busca: searchTerm });
 
   const propsDoPainel = {
     streets: streetData,
@@ -442,6 +432,11 @@ const PavementMapPage = () => {
     if (relatorio.recorte) {
       doc.text(`Bairros: ${relatorio.recorte}`, 14, y);
       y += 6;
+    }
+    if (relatorio.filtros?.length) {
+      const linhas = doc.splitTextToSize(`Filtros: ${relatorio.filtros.join(' · ')}`, doc.internal.pageSize.getWidth() - 28);
+      doc.text(linhas, 14, y);
+      y += linhas.length * 5 + 3;
     }
 
     // O resumo acompanha todo tipo: a lista so significa alguma coisa ao lado
@@ -514,6 +509,7 @@ const PavementMapPage = () => {
     cidade: activeCityName,
     baseUrl: getBaseAppUrl(),
     atualizadoEm: lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null,
+    filtros: filtrosDoRelatorio,
   });
 
   // O CSV É PARA TRABALHAR, O PDF É PARA ANEXAR
@@ -600,7 +596,7 @@ const PavementMapPage = () => {
         if (error.code !== 'PGRST205' && error.code !== '42P01') throw error;
         savedBoundaries = [];
       }
-      const ruasDoMapa = await carregarRuasDoMapa(supabase, activeCityId);
+      const ruasDoMapa = filteredStreets;
       const updates = [...ruasDoMapa, ...savedBoundaries].map(record => Date.parse(record.updated_at)).filter(Number.isFinite);
       const doc = criarPdfDoMapaDeRuas({
         ruas: ruasDoMapa,
@@ -641,9 +637,11 @@ const PavementMapPage = () => {
     },
     tipoRelatorio,
     onTipoRelatorioChange: setTipoRelatorio,
-    downloading,
+    downloading: downloading || streetsLoading,
     onDownloadCsv: handleDownloadCsv,
     onDownloadPdf: handleDownloadPdf,
+    totalFiltrado: filteredStreets.length,
+    filtrosAtivos: filtrosDoRelatorio,
   };
 
   return (
@@ -656,20 +654,13 @@ const PavementMapPage = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          /* ESTA PÁGINA É MAIS LARGA QUE O RESTO DO SITE, E DE PROPÓSITO.
-
-             O site usa 88rem com sobra nas laterais — largura de leitura, que é
-             o certo para texto: linha longa demais cansa. Mapa não se lê, se
-             examina, e cada rem que sobra na lateral é rua que não aparece.
-
-             112rem ainda deixa margem numa tela de 1920 (uns 80px de cada lado),
-             então a página continua parecendo do mesmo site — só não paga o
-             preço de uma regra feita para outro tipo de conteúdo. */
+          /* O mapa ocupa a largura disponível. Os gutters somados ao wrapper
+             externo ficam em 56 px no desktop, inclusive em 1920 px. */
           /* Coluna flex a partir de 1100px — o título e os indicadores ocupam o
              espaço natural deles, e o painel fica com o restante da janela.
              O cálculo acompanha as mesmas variáveis usadas pelo layout global:
              header, banner opcional e reserva inferior. */
-          className={`mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
+          className={`flex min-w-0 w-full flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
             modo === 'mapa'
               ? MAP_PAGE_VIEWPORT_CLASS
               : ''
@@ -729,11 +720,11 @@ const PavementMapPage = () => {
                 variant="outline"
                 className="h-9 gap-2 rounded-full border-brand/30 bg-surface-raised px-4 text-xs font-bold text-brand shadow-sm hover:bg-brand-subtleBg"
                 onClick={handleDownloadMapPdf}
-                disabled={downloadingMap || !activeCityId || streetData.length === 0}
+                disabled={downloadingMap || streetsLoading || !activeCityId || filteredStreets.length === 0}
                 title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Mapa geral A1 com todas as ruas da cidade e os contornos dos bairros. Uma única planta, sem relatório de ruas.'}
               >
                 {downloadingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloadingMap ? 'Gerando mapa...' : 'Baixar mapa detalhado (PDF)'}
+                {downloadingMap ? 'Gerando mapa...' : filtrosDoRelatorio.length ? 'Baixar mapa filtrado (PDF)' : 'Baixar mapa detalhado (PDF)'}
               </Button>
               {canManageStreets && activeCityId && (
                 <Button type="button" size="sm" variant="outline" className="h-9 gap-2 rounded-full text-xs" onClick={openBoundaries} disabled={openingBoundaries}>
@@ -836,7 +827,7 @@ const PavementMapPage = () => {
           <PavementStreetList
             emPagina
             streets={filteredStreets}
-            canManage={canManageStreets}
+            canManage={canEditStreets}
             onEditStreet={setEditingStreet}
             onIrParaOMapa={irParaOMapa}
           />
@@ -952,10 +943,11 @@ const PavementMapPage = () => {
 
           <div className={MAP_CANVAS_CLASS}>
             <div className="absolute inset-0">
+              <FullscreenMapPanel title="Mapa de ruas">
               <PavementMapView
                 ref={mapViewRef}
                 streets={filteredStreets}
-                canManage={canManageStreets}
+                canManage={canEditStreets}
                 onEditStreet={setEditingStreet}
               />
 
@@ -966,6 +958,7 @@ const PavementMapPage = () => {
                   onRecarregar={fetchStreets}
                 />
               </div>
+              </FullscreenMapPanel>
             </div>
 
             {/* Recolhido, o painel vira este botão. O contador diz quantos
@@ -975,7 +968,7 @@ const PavementMapPage = () => {
               <button
                 type="button"
                 onClick={() => setPainelAberto(true)}
-                className="absolute left-3 top-3 z-[700] hidden items-center gap-2 rounded-full border border-edge-subtle bg-surface-overlay/95 px-3 py-2 text-xs font-bold text-content-secondary shadow-lg backdrop-blur-sm min-[1100px]:inline-flex"
+                className="absolute left-3 top-16 z-[700] hidden items-center gap-2 rounded-full border border-edge-subtle bg-surface-overlay/95 px-3 py-2 text-xs font-bold text-content-secondary shadow-lg backdrop-blur-sm min-[1100px]:inline-flex"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filtros
@@ -1102,8 +1095,7 @@ const PavementMapPage = () => {
             supabase,
             streetToSave,
             bairros,
-            isScopedAmbassador: isPureAmbassador,
-            myActiveCityIds,
+            allowedCityIds,
           });
           if (ok) {
             await fetchStreets();

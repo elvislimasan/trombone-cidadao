@@ -41,6 +41,17 @@ const SELETORES = [
   { id: 'nome', rotulo: 'Nome oficial', vazio: 'Todas', opcoes: [['com', 'Com nome oficial'], ['sem', 'Sem nome oficial']] },
 ];
 
+export function descreverFiltrosDePavimentacao(filtros, { bairros = [], autores = [], busca = '' } = {}) {
+  const resumo = busca.trim() ? [`Busca: ${busca.trim()}`] : [];
+  for (const { id, rotulo, opcoes = [] } of SELETORES) {
+    const valor = filtros[id];
+    if (!valor || valor === 'all') continue;
+    const lista = id === 'bairro' ? bairros : id === 'autor' ? [['sem', 'Sem autor vinculado'], ...autores.map(nome => [nome, nome])] : opcoes;
+    resumo.push(`${rotulo}: ${lista.find(([key]) => String(key) === String(valor))?.[1] || valor}`);
+  }
+  return resumo;
+}
+
 const Titulo = ({ children, acao = null }) => (
   <div className="mb-2 flex items-center justify-between gap-2">
     <h2 className="text-[10px] font-bold uppercase tracking-wider text-content-tertiary">{children}</h2>

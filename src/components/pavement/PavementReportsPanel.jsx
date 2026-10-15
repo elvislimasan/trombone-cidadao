@@ -23,6 +23,8 @@ export default function PavementReportsPanel({
   resumo = null,
   atualizadoEm = null,
   detalhado = false,
+  totalFiltrado = 0,
+  filtrosAtivos = [],
 }) {
   const [seletorAberto, setSeletorAberto] = useState(false);
 
@@ -129,6 +131,15 @@ export default function PavementReportsPanel({
           </p>
         )}
 
+        <div className="mt-2 rounded-lg bg-surface-subtle p-2.5 text-xs text-content-secondary" aria-live="polite">
+          <p className="font-semibold">{totalFiltrado} {totalFiltrado === 1 ? 'rua selecionada' : 'ruas selecionadas'} pelos filtros</p>
+          <p className="mt-1 text-[11px] leading-relaxed">{filtrosAtivos.length ? filtrosAtivos.join(' · ') : 'Todas as ruas da cidade, sem filtros adicionais.'}</p>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Atalhos de relatório">
+          {[['completo', 'Lista filtrada'], ['ceps', 'Conferir CEPs']].map(([id, label]) => <button key={id} type="button"
+            aria-pressed={tipoRelatorio === id} onClick={() => onTipoRelatorioChange(id)}
+            className={`rounded-lg border px-2 py-1.5 text-[11px] font-semibold ${tipoRelatorio === id ? 'border-brand bg-brand-subtleBg text-brand' : 'border-edge-subtle text-content-secondary'}`}>{label}</button>)}
+        </div>
         <Popover open={seletorAberto} onOpenChange={setSeletorAberto}>
           <PopoverTrigger asChild>
             <button
@@ -243,7 +254,7 @@ export default function PavementReportsPanel({
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Button
             onClick={onDownloadCsv}
-            disabled={downloading}
+            disabled={downloading || totalFiltrado === 0}
             variant="outline"
             size="sm"
             className="min-w-0 gap-1.5 px-2 text-[11px]"
@@ -254,7 +265,7 @@ export default function PavementReportsPanel({
           </Button>
           <Button
             onClick={onDownloadPdf}
-            disabled={downloading}
+            disabled={downloading || totalFiltrado === 0}
             size="sm"
             className="min-w-0 gap-1.5 px-2 text-[11px]"
           >

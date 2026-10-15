@@ -12,6 +12,7 @@ import MapDisplayControls, {
   MapBaseLayer,
 } from '@/components/map/MapDisplayControls';
 import { Pencil } from 'lucide-react';
+import MapResizeObserver from '@/components/map/MapResizeObserver';
 
 // Casa: nao ha equivalente no design system (os icones de la sao por categoria
 // de bronca), entao fica inline. O traco herda a cor do corpo via currentColor,
@@ -98,6 +99,7 @@ export default function RentalPropertiesMapView({ properties, onSelectProperty, 
   return (
     <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
       <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
+        <MapResizeObserver />
         <MapController mapRef={mapRef} />
         <FitToProperties properties={list} activeCity={activeCity} />
         <MapBaseLayer layer={mapLayer} />

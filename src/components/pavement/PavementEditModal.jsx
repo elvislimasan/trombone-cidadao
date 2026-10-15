@@ -13,6 +13,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import DesenharTracado from '@/components/pavement/DesenharTracado';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import { cepsDaRua } from '@/lib/pavementReport';
 import {
   buildOverpassQueryAround,
@@ -1337,6 +1338,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
           <div>
             <Label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2"><MapPin className="w-4 h-4" /> Localização</Label>
             <div className="h-64 w-full rounded-lg overflow-hidden border border-input">
+              <FullscreenMapPanel title="Localização da rua">
               <Suspense fallback={<div className="w-full h-full bg-muted animate-pulse flex items-center justify-center">Carregando mapa...</div>}>
                 <LocationPickerMap
                   onLocationChange={handleLocationChange}
@@ -1345,6 +1347,7 @@ const PavementEditModal = ({ street, onSave, onClose, bairros, existingStreets =
                   fallbackCityCenter={fallbackCityCenter}
                 />
               </Suspense>
+              </FullscreenMapPanel>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Button type="button" size="sm" variant="outline" className="gap-2" onClick={buscarTracado} disabled={buscandoTracado}>

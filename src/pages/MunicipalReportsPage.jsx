@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import MunicipalReportDrawer from '@/components/municipality/MunicipalReportDrawer';
 import MunicipalDemandDrawer from '@/components/municipality/MunicipalDemandDrawer';
 import MunicipalServiceOrderDialog from '@/components/municipality/MunicipalServiceOrderDialog';
+import MunicipalExportDialog from '@/components/municipality/MunicipalExportDialog';
 import MunicipalReportCreateDialog from '@/components/municipality/MunicipalReportCreateDialog';
 import { selectPageRecords } from '@/lib/municipalExport';
 import AgencyReportImage from '@/components/municipality/AgencyReportImage';
@@ -84,6 +85,7 @@ export default function MunicipalReportsPage({ view = 'list' }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [revision, setRevision] = useState(0);
   const [serviceOrderOpen, setServiceOrderOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [reportCreateOpen, setReportCreateOpen] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
@@ -141,7 +143,7 @@ export default function MunicipalReportsPage({ view = 'list' }) {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [municipalityId, cityId, context.enabledCategoryIds, neighborhood, phase, age, query, dateFrom, dateTo, visibility, revision, view]);
 
-  useEffect(() => { setSelectedIds([]); setServiceOrderOpen(false); }, [municipalityId]);
+  useEffect(() => { setSelectedIds([]); setServiceOrderOpen(false); setExportOpen(false); }, [municipalityId]);
 
   const change = (key, value) => {
     if (key === 'visibilidade' || key === 'fase') setSelectedIds([]);
@@ -270,7 +272,10 @@ export default function MunicipalReportsPage({ view = 'list' }) {
 
   return <div className="page-shell-fluid min-w-0 pb-10 pt-6 sm:pt-8" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
     <Helmet><title>{view === 'map' ? 'Mapa de solicitações' : 'Consulta de solicitações'} | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Escuta da cidade" title="Solicitações da cidade" description="Acompanhe as solicitações públicas e internas da cidade e gere ordens de serviço." action={context.canEdit && <div className="flex flex-wrap gap-2"><Button onClick={() => setReportCreateOpen(true)} variant="outline" className="h-9 border-amber-400 bg-amber-400 shadow-md px-3 text-xs text-amber-950 hover:border-amber-500 hover:bg-amber-500 hover:text-amber-950 sm:h-10 sm:text-sm"><Megaphone className="mr-1.5 h-4 w-4" />Criar solicitação de serviço</Button>{view !== 'map' && <Button onClick={() => setServiceOrderOpen(true)} className="h-9 px-3 text-xs sm:h-10 sm:text-sm"><Download className="mr-1.5 h-4 w-4" /><span className="sm:hidden">Gerar OS</span><span className="hidden sm:inline">Gerar Ordem de Serviço</span></Button>}</div>}>
+    <MunicipalPageHeader eyebrow="Escuta da cidade" title="Solicitações da cidade" description="Acompanhe as solicitações públicas e internas da cidade e gere ordens de serviço." action={<div className="flex flex-wrap gap-2">
+      {view !== 'map' && <Button variant="outline" onClick={() => setExportOpen(true)} className="h-9 px-3 text-xs sm:h-10 sm:text-sm"><Download className="mr-1.5 h-4 w-4" />Baixar PDF ou planilha</Button>}
+      {context.canEdit && <><Button onClick={() => setReportCreateOpen(true)} variant="outline" className="h-9 border-amber-400 bg-amber-400 shadow-md px-3 text-xs text-amber-950 hover:border-amber-500 hover:bg-amber-500 hover:text-amber-950 sm:h-10 sm:text-sm"><Megaphone className="mr-1.5 h-4 w-4" />Criar solicitação de serviço</Button>{view !== 'map' && <Button onClick={() => setServiceOrderOpen(true)} className="h-9 px-3 text-xs sm:h-10 sm:text-sm"><Download className="mr-1.5 h-4 w-4" /><span className="sm:hidden">Gerar OS</span><span className="hidden sm:inline">Gerar Ordem de Serviço</span></Button>}</>}
+    </div>}>
       <nav className="flex gap-1 rounded-lg border border-edge-subtle bg-surface-subtle p-1" aria-label="Visualização das solicitações">{[['list', '/prefeitura/broncas', 'Lista', LayoutList], ['map', '/prefeitura/mapa', 'Mapa', MapIcon]].map(([key, to, label, ViewIcon]) => <Button key={key} asChild variant={view === key ? 'default' : 'ghost'} size="sm" className="h-8 text-xs"><Link to={to} aria-current={view === key ? 'page' : undefined}><ViewIcon className="mr-2 h-4 w-4" />{label}</Link></Button>)}</nav>
     </MunicipalPageHeader>
     {view === 'map' ? <Suspense fallback={<div className="mt-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}><ReportsMap cityId={cityId} municipalityId={municipalityId} enabledCategoryIds={context.enabledCategoryIds} revision={revision} onSelect={(id) => change('bronca', id)} /></Suspense> : <>
@@ -342,6 +347,10 @@ export default function MunicipalReportsPage({ view = 'list' }) {
     </>}
     {serviceOrderOpen && <MunicipalServiceOrderDialog context={context} selectedIds={selectedIds} onRemove={(id) => setSelectedIds((current) => current.filter((value) => value !== id))} onClose={() => setServiceOrderOpen(false)} onCreated={() => { setRevision((value) => value + 1); setSelectedIds([]); }} onOpenOrder={(id) => { setServiceOrderOpen(false); openDemand(id); }} />}
     <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={municipalityId} municipalCityId={cityId} enabledCategoryIds={context.enabledCategoryIds} onClose={() => setReportCreateOpen(false)} onCreated={() => setRevision((value) => value + 1)} onReceiptClose={(created) => { if (created?.id) setParams(new URLSearchParams({ bronca: created.id, ...(created.is_public === false ? { visibilidade: 'internas' } : {}) }), { replace: true }); }} />
+    {exportOpen && <MunicipalExportDialog kind="reports" context={context} selectedIds={selectedIds}
+      initialFilters={{ query, category, issueType, visibility, neighborhood: neighborhood === 'all' ? '' : neighborhood,
+        statuses: REPORT_PHASES.find(([id]) => id === phase)?.[2] || [], age, dateFrom, dateTo, sort }}
+      onClose={() => setExportOpen(false)} />}
     <MunicipalReportDrawer open={Boolean(activeReportId) && !activeDemandId} reportId={activeReportId} context={context} onClose={closeReport} onCreateDemand={(id) => { closeReport(); setSelectedIds([id]); setServiceOrderOpen(true); }} onOpenDemand={(id) => openDemand(id)} onUpdated={() => { setSelectedIds([]); setRevision((value) => value + 1); }} />
     <MunicipalDemandDrawer open={Boolean(activeDemandId)} demandId={activeDemandId} reportId={linkedReportId} context={context} onClose={closeDemand} onSaved={saved} onRemoved={saved} />
   </div>;

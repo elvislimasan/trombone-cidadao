@@ -19,6 +19,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { showAppError } from '@/lib/appError';
 import TelaDeMapa from '@/components/map/TelaDeMapa';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import CartoesDeMapa from '@/components/map/CartoesDeMapa';
 import LimparFiltros from '@/components/map/LimparFiltros';
 import { useTelaLarga } from '@/hooks/useTelaLarga';
@@ -470,12 +471,14 @@ const RentalPropertiesPage = () => {
         ) : filteredProperties.length > 0 ? (
           view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-              <RentalPropertiesMapView
-                properties={filteredProperties}
-                onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)}
-                canManage={canManageProperties}
-                onEditProperty={handleEditProperty}
-              />
+              <FullscreenMapPanel title="Imóveis Alugados pela Prefeitura" buttonClassName="left-14 top-3">
+                <RentalPropertiesMapView
+                  properties={filteredProperties}
+                  onSelectProperty={(p) => navigate(`/imoveis-alugados/${p.id}`)}
+                  canManage={canManageProperties}
+                  onEditProperty={handleEditProperty}
+                />
+              </FullscreenMapPanel>
             </div>
           ) : (
             <>

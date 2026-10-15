@@ -94,6 +94,8 @@ const MobileHeader = () => {
     else if (path === '/guia-da-cidade') setPageTitle('Guia da Cidade');
     else if (path === '/contato') setPageTitle('Contato');
     else if (path === '/mapa-pavimentacao') setPageTitle('Pavimentação');
+    else if (path === '/mapa-arborizacao') setPageTitle('Arborização');
+    else if (path === '/arborizacao/gerenciar' || path === '/admin/arborizacao') setPageTitle('Gerenciar arborização');
     else if (path === '/abaixo-assinados') setPageTitle('Abaixo-Assinados');
     else if (path === '/estatisticas') setPageTitle('Estatísticas');
     else if (path === '/favoritos') setPageTitle('Favoritos');

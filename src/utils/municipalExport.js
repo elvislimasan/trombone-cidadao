@@ -13,10 +13,10 @@ export function municipalExportCsv(records, kind, groupBy = 'none') {
   const demands = kind === 'demands';
   const headers = demands
     ? ['Protocolo', 'Título', 'Descrição', 'Categoria', 'Endereço', 'Bairro', 'Secretaria', 'Responsável', 'Prioridade', 'Status', 'Criada em', 'Prazo', 'Previsão', 'Próxima ação', 'Data da próxima ação', 'Atrasada', 'Revisão pendente', 'Solicitações vinculadas', 'Endereços vinculados', 'Bairros vinculados']
-    : ['ID', 'Título', 'Descrição', 'Categoria', 'Endereço', 'Bairro', 'Status', 'Publicada em', 'Idade (dias)', 'Ordem de serviço', 'Secretaria', 'Responsável'];
+    : ['Protocolo / ID', 'Título', 'Descrição', 'Categoria', 'Endereço', 'Bairro', 'Status', 'Publicada em', 'Idade (dias)', 'Ordem de serviço', 'Secretaria', 'Responsável'];
   const rows = groupExportRecords(records, groupBy).flatMap((group) => group.rows).map((item) => demands
     ? [item.reference, item.title, item.description, item.category, item.address, item.neighborhood, item.channel, item.responsible, item.priority, item.status, date(item.createdAt), date(item.dueAt), date(item.forecastAt), item.nextAction, date(item.nextActionAt), item.overdue ? 'Sim' : 'Não', item.review ? 'Sim' : 'Não', item.linkedLocations?.length || 0, (item.linkedLocations || []).map((location, index) => `${index + 1}. ${location.address || 'Endereço não informado'}`).join('\n'), (item.linkedLocations || []).map((location, index) => `${index + 1}. ${location.neighborhood || 'Bairro não informado'}`).join('\n')]
-    : [item.id, item.title, item.description, item.category, item.address, item.neighborhood, item.status, date(item.createdAt), item.age, item.orderReference, item.channel, item.responsible]);
+    : [item.reference || item.id, item.title, item.description, item.category, item.address, item.neighborhood, item.status, date(item.createdAt), item.age, item.orderReference, item.channel, item.responsible]);
   return '\uFEFF' + [headers, ...rows].map((row) => row.map(quoteCsv).join(';')).join('\r\n');
 }
 
@@ -102,6 +102,7 @@ export async function buildMunicipalExportPdf({ records, kind, municipality, fil
         heading(`${demands ? item.reference : '#' + item.reference} | ${item.title}`, 10);
         const details = [
           ['Status / categoria', `${item.status} / ${item.category}${demands ? ' / Prioridade: ' + item.priority : ''}`],
+          ...(!demands ? [['Número do poste', item.poleNumber || 'Não informado'], ['Tipo de problema', item.issueType || 'Não informado']] : []),
           ['Endereço / bairro', `${item.address}\n${item.neighborhood}`],
           ['Secretaria / responsável', `${item.channel}\n${item.responsible}`],
           [demands ? 'Datas e prazos' : 'Publicação / idade', demands ? `Criada: ${date(item.createdAt)} | Prazo: ${date(item.dueAt)}${item.overdue ? ' (ATRASADA)' : ''}\nPrevisão: ${date(item.forecastAt)}` : `${date(item.createdAt)} | ${item.age ?? '-'} dias\nOrdem de serviço: ${item.orderReference}`],
@@ -116,11 +117,11 @@ export async function buildMunicipalExportPdf({ records, kind, municipality, fil
         }
       }
     } else {
-      const headers = demands ? ['Protocolo', 'Serviço / categoria', 'Endereço / bairro', 'Secretaria / responsável', 'Status / prioridade', 'Prazo / previsão'] : ['ID', 'Solicitação / categoria', 'Endereço / bairro', 'Status', 'Publicação / idade', 'Ordem de serviço', 'Secretaria / responsável'];
+      const headers = demands ? ['Protocolo', 'Serviço / categoria', 'Endereço / bairro', 'Secretaria / responsável', 'Status / prioridade', 'Prazo / previsão'] : ['ID', 'Solicitação / categoria / problema', 'Endereço / bairro / poste', 'Status', 'Publicação / idade', 'Ordem de serviço', 'Secretaria / responsável'];
       const widths = demands ? [30, 63, 46, 47, 45, 38] : [28, 65, 53, 31, 27, 26, 39];
       const pairs = group.rows.map((item) => demands
         ? [[item.reference, ''], [item.title, item.category], item.linkedLocations?.length ? [`${item.linkedLocations.length} ${item.linkedLocations.length === 1 ? 'local vinculado' : 'locais vinculados'}`, 'Endereços relacionados abaixo' + (item.serviceAddress ? '\nReferência: ' + item.serviceAddress : '')] : [item.address, item.neighborhood], [item.channel, item.responsible], [item.status, `${item.priority}${item.review ? '\nRevisão pendente' : ''}`], [date(item.dueAt) + (item.overdue ? ' · ATRASADA' : ''), 'Previsão: ' + date(item.forecastAt)]]
-        : [[item.reference || item.id, ''], [item.title, item.category], [item.address, item.neighborhood], [item.status, ''], [date(item.createdAt), `${item.age ?? '-'} dias`], [item.orderReference, ''], [item.channel, item.responsible]]);
+        : [[item.reference || item.id, ''], [item.title, `${item.category}\nTipo de problema: ${item.issueType || 'Não informado'}`], [item.address, `${item.neighborhood}\nPoste: ${item.poleNumber || 'Não informado'}`], [item.status, ''], [date(item.createdAt), `${item.age ?? '-'} dias`], [item.orderReference, ''], [item.channel, item.responsible]]);
       const prepared = pairs.map((row) => row.map(([primary, secondary], index) => {
         doc.setFont('helvetica', index < 2 ? 'bold' : 'normal'); doc.setFontSize(8.2);
         const primaryLines = doc.splitTextToSize(pdfText(primary), widths[index] - 4);

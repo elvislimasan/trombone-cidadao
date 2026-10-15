@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Map, Megaphone, FileSignature, Compass, Construction, Route, BarChart3, Briefcase, Newspaper, Building, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Map, Megaphone, FileSignature, Compass, Construction, Route, Trees, BarChart3, Briefcase, Newspaper, Building, ShieldCheck } from 'lucide-react';
 import CitySelector from '@/components/CitySelector';
 import SectionPageHeader from '@/components/SectionPageHeader';
 import CityEventCard from '@/components/agora/CityEventCard';
@@ -19,6 +19,7 @@ const groups = [
   { title: 'Acompanhe a cidade', items: [
     ['/obras-publicas', 'Obras públicas', 'Consulte o andamento das obras.', Construction],
     ['/mapa-pavimentacao', 'Ruas e pavimentação', 'Conheça a situação das ruas.', Route],
+    ['/mapa-arborizacao', 'Arborização urbana', 'Explore as árvores e os cuidados com o verde da cidade.', Trees],
   ] },
   { title: 'Informações e serviços', items: [
     ['/guia-da-cidade', 'Guia da Cidade', 'Comércio, serviços, turismo e transporte em um só lugar.', Briefcase],
@@ -32,7 +33,7 @@ export default function ExplorePage() {
   const { user } = useAuth();
   const radar = useCityEvents(activeCityId, { limite: 3 });
   return (
-    <div className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-5 lg:px-8 lg:py-8">
+    <div className="page-shell-fluid py-5 lg:py-8">
       <Helmet><title>Explorar — Trombone Cidadão</title></Helmet>
       <SectionPageHeader inlineChildren title="Explore sua cidade" description="Encontre informações, acompanhe mudanças e escolha como participar.">
         <CitySelector scope="global" />
@@ -60,7 +61,7 @@ export default function ExplorePage() {
         </Link>
       </section>
       <SuggestedProfiles cityId={activeCityId} limit={4} className="mt-6 max-w-6xl" />
-      {groups.map(group => <section key={group.title} className="mt-6 max-w-6xl">
+      {groups.map(group => <section key={group.title} className="mt-6">
         <h2 className="mb-2 text-base font-extrabold text-content-primary sm:text-lg">{group.title}</h2>
         <div className="grid gap-2 md:grid-cols-3">{group.items.map(([to, title, description, Icon]) => (
           <Link key={to} to={to === '/missoes' && !user ? '/login' : to} state={to === '/missoes' && !user ? { from: { pathname: to } } : undefined} className="group flex items-start gap-2.5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 transition-colors hover:border-brand/40 hover:bg-surface-subtle">

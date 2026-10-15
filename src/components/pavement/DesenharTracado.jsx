@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { MapContainer, CircleMarker, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { Check, CornerDownRight, MousePointerClick, Trash2, Undo2 } from 'lucide-react';
+import { Check, CornerDownRight, Maximize2, Minimize2, MousePointerClick, Trash2, Undo2 } from 'lucide-react';
+import MapResizeObserver from '@/components/map/MapResizeObserver';
 
 import { MapBaseLayer, MapLayerToggle, MAP_LAYER } from '@/components/map/MapDisplayControls';
 import { Button } from '@/components/ui/button';
@@ -97,6 +98,7 @@ export default function DesenharTracado({
   onConcluir,
   onFechar,
 }) {
+  const [expanded, setExpanded] = useState(false);
   // Sempre existe um trecho aberto para receber cliques — mesmo numa rua nova,
   // onde ele começa vazio.
   const [linhas, setLinhas] = useState(() =>
@@ -159,9 +161,11 @@ export default function DesenharTracado({
 
   return (
     <Dialog open={aberto} onOpenChange={(open) => !open && onFechar()}>
-      <DialogContent className="max-w-3xl gap-3">
+      <DialogContent className={expanded
+        ? '!inset-0 !h-[100dvh] !max-w-none !translate-x-0 !translate-y-0 !rounded-none flex flex-col gap-3 p-4 sm:p-6 overflow-y-auto'
+        : 'max-w-3xl gap-3 max-h-[94dvh] overflow-y-auto'}>
         <DialogHeader>
-          <DialogTitle className="text-tc-red">
+          <DialogTitle className="text-tc-red pr-8">
             {linhasIniciais.length > 0 ? 'Corrigir o traçado' : 'Desenhar o traçado'}
           </DialogTitle>
           <DialogDescription>
@@ -170,14 +174,19 @@ export default function DesenharTracado({
               : <>Marque o <strong>início</strong> e o <strong>fim</strong> de {nomeDaRua || 'a rua'} — a
                 linha é traçada entre os dois. Se a rua fizer curva, toque nos pontos do meio também.</>}
           </DialogDescription>
+          <Button type="button" variant="outline" size="sm" className="w-fit gap-2" onClick={() => setExpanded((value) => !value)}>
+            {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            {expanded ? 'Sair da tela cheia' : 'Editar em tela cheia'}
+          </Button>
         </DialogHeader>
 
         {/* O SATÉLITE AQUI NÃO É CONFORTO, É O QUE TORNA O DESENHO POSSÍVEL
             Boa parte das ruas sem pavimentação não existe no mapa padrão: o OSM
             não tem o traçado, e quem desenha fica clicando sobre um fundo em
             branco. Na imagem de satélite a rua está lá, de terra, visível. */}
-        <div className="relative h-[24rem] w-full overflow-hidden rounded-xl border border-edge-subtle">
+        <div className={`relative w-full overflow-hidden rounded-xl border border-edge-subtle ${expanded ? 'min-h-[16rem] flex-1' : 'h-[24rem]'}`}>
           <MapContainer center={[centro.lat, centro.lng]} zoom={ZOOM} className="desenhar-tracado h-full w-full">
+            <MapResizeObserver />
             <MapBaseLayer layer={camada} />
             <Cliques onClique={acrescentar} />
 

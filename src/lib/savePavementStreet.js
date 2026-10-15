@@ -46,6 +46,7 @@ export const savePavementStreet = async ({
   bairros,
   isScopedAmbassador = false,
   myActiveCityIds = [],
+  allowedCityIds = null,
 }) => {
   const { id, name, location, bairro, bairro_name, cep, ceps, work_id, path_wkt, path_source, path, cityIdDoPino, ...data } = streetToSave;
 
@@ -95,7 +96,8 @@ export const savePavementStreet = async ({
     return false;
   }
 
-  if (isScopedAmbassador && !myActiveCityIds.includes(resolvedCityId)) {
+  const cityScope = allowedCityIds ?? (isScopedAmbassador ? myActiveCityIds : null);
+  if (cityScope && !cityScope.some(cityId => String(cityId) === String(resolvedCityId))) {
     showAppError({ title: "Fora da sua área", description: "Você só pode gerenciar ruas nas suas cidades.", variant: "destructive" });
     return false;
   }

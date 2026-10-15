@@ -10,11 +10,14 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/customSupabaseClient';
 import { MODULES, MODULE_KEYS } from '@/hooks/usePermissions';
-import { showAppError } from '@/lib/appError';
+import { showAppError, showAppNotice } from '@/lib/appError';
+import { canWriteModule } from '@/lib/modulePermissions';
+import { notifyPermissionsChanged } from '@/lib/permissionUpdates';
 
 const ROLES = [
   { key: 'ambassador', label: 'Embaixador' },
   { key: 'admin', label: 'Admin' },
+  { key: 'urban_planner', label: 'Planejamento urbano' },
 ];
 
 const ManagePermissionsPage = () => {
@@ -41,8 +44,7 @@ const ManagePermissionsPage = () => {
 
   useEffect(() => { fetchRules(); }, [fetchRules]);
 
-  // Busca de usuários: masters ficam de fora, para o master não conseguir
-  // bloquear a si mesmo nem outro master.
+  // Masters têm acesso global; as demais contas podem receber concessões por cidade.
   useEffect(() => {
     const term = userSearch.trim();
     if (term.length < 2) { setCandidates([]); return; }
@@ -60,9 +62,7 @@ const ManagePermissionsPage = () => {
 
     supabase
       .from('profiles')
-      .select('id, name, phone, city, is_admin, is_ambassador, is_master')
-      .or('is_admin.eq.true,is_ambassador.eq.true')
-      .eq('is_master', false)
+      .select('id, name, phone, city, user_type, is_admin, is_ambassador, is_master, urban_planner_cities(city_id)')
       .or(`name.ilike.%${termoSeguro}%,phone.ilike.%${termoSeguro}%`)
       .order('name')
       .limit(8)
@@ -85,20 +85,23 @@ const ManagePermissionsPage = () => {
     setSaving(true);
     const existing = roleRule(role, module);
     let error;
-    if (allowed) {
-      // Liberar = voltar ao padrão: remove a regra de bloqueio.
-      if (existing) ({ error } = await supabase.from('permission_rules').delete().eq('id', existing.id));
+    const defaultAllowed = role !== 'urban_planner';
+    if (allowed === defaultAllowed) {
+      // Voltar ao padrão do cargo remove a exceção.
+      if (existing) ({ error } = await supabase.from('permission_rules').delete().eq('id', existing.id).select('id').single());
     } else if (existing) {
-      ({ error } = await supabase.from('permission_rules').update({ allowed: false }).eq('id', existing.id));
+      ({ error } = await supabase.from('permission_rules').update({ allowed }).eq('id', existing.id).select('id').single());
     } else {
       ({ error } = await supabase.from('permission_rules')
-        .insert({ scope: 'role', role_name: role, module, allowed: false }));
+        .insert({ scope: 'role', role_name: role, module, allowed }).select('id').single());
     }
     setSaving(false);
     if (error) {
       showAppError({ title: 'Erro ao salvar', description: [error.message, error.code && `Código: ${error.code}`, error.details, error.hint].filter(Boolean).join(' · '), variant: 'destructive' });
       return;
     }
+    notifyPermissionsChanged();
+    showAppNotice({ title: 'Permissão do cargo atualizada' });
     fetchRules();
   };
 
@@ -107,16 +110,18 @@ const ManagePermissionsPage = () => {
     const existing = userRule(userId, module);
     let error;
     if (existing) {
-      ({ error } = await supabase.from('permission_rules').update({ allowed }).eq('id', existing.id));
+      ({ error } = await supabase.from('permission_rules').update({ allowed }).eq('id', existing.id).select('id').single());
     } else {
       ({ error } = await supabase.from('permission_rules')
-        .insert({ scope: 'user', user_id: userId, module, allowed }));
+        .insert({ scope: 'user', user_id: userId, module, allowed }).select('id').single());
     }
     setSaving(false);
     if (error) {
       showAppError({ title: 'Erro ao salvar', description: [error.message, error.code && `Código: ${error.code}`, error.details, error.hint].filter(Boolean).join(' · '), variant: 'destructive' });
       return;
     }
+    notifyPermissionsChanged(userId);
+    showAppNotice({ title: 'Permissão do usuário atualizada' });
     fetchRules();
   };
 
@@ -124,26 +129,27 @@ const ManagePermissionsPage = () => {
     const existing = userRule(userId, module);
     if (!existing) return;
     setSaving(true);
-    const { error } = await supabase.from('permission_rules').delete().eq('id', existing.id);
+    const { error } = await supabase.from('permission_rules').delete().eq('id', existing.id).select('id').single();
     setSaving(false);
     if (error) {
       showAppError({ title: 'Erro ao remover exceção', description: error.message, variant: 'destructive' });
       return;
     }
+    notifyPermissionsChanged(userId);
+    showAppNotice({ title: 'Usuário seguindo a permissão do cargo' });
     fetchRules();
   };
 
   // Valor que o usuário herda do cargo (sem considerar exceção individual).
   const inheritedForUser = (user, module) => {
-    const strongest = user.is_admin ? 'admin' : (user.is_ambassador ? 'ambassador' : null);
-    if (!strongest) return true;
-    const r = roleRule(strongest, module);
-    return r ? r.allowed : true;
+    return canWriteModule(user, rules.filter(rule => rule.scope === 'role'), module,
+      (user.urban_planner_cities || []).map(row => row.city_id));
   };
 
   const selectedUserRoleLabel = useMemo(() => {
     if (!selectedUser) return '';
-    return selectedUser.is_admin ? 'Admin' : (selectedUser.is_ambassador ? 'Embaixador' : '—');
+    return [selectedUser.is_master ? 'Master' : selectedUser.is_admin ? 'Admin' : selectedUser.is_ambassador ? 'Embaixador' : null,
+      selectedUser.urban_planner_cities?.length ? 'Planejamento urbano' : null].filter(Boolean).join(' · ') || 'Cidadão';
   }, [selectedUser]);
 
   return (
@@ -152,7 +158,7 @@ const ManagePermissionsPage = () => {
         <title>Permissões - Admin</title>
         <meta name="description" content="Controle de acesso aos módulos de gestão por cargo e por usuário." />
       </Helmet>
-      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
+      <div className="page-shell-fluid py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -179,7 +185,7 @@ const ManagePermissionsPage = () => {
             </p>
             <p className="mt-1">
               A regra de um <strong>usuário específico</strong> sempre vence a do cargo.
-              Masters nunca são afetados.
+              O mapa de ruas exige o tipo <strong>Órgão Público</strong>, o cargo <strong>Planejamento urbano</strong> na cidade e permissão, inclusive para admin. Contas <strong>master</strong> têm acesso a todos os módulos e cidades, independentemente dessas regras.
             </p>
           </div>
         </div>
@@ -203,9 +209,9 @@ const ManagePermissionsPage = () => {
                   <div key={role.key}>
                     <p className="text-sm font-bold mb-3">{role.label}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {MODULE_KEYS.map((mod) => {
+                      {MODULE_KEYS.filter(mod => role.key === 'urban_planner' ? mod === 'urban_planning' : mod !== 'urban_planning').map((mod) => {
                         const rule = roleRule(role.key, mod);
-                        const allowed = rule ? rule.allowed : true;
+                        const allowed = rule ? rule.allowed : role.key !== 'urban_planner';
                         return (
                           <div
                             key={mod}
@@ -242,7 +248,7 @@ const ManagePermissionsPage = () => {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     className="pl-9"
-                    placeholder="Buscar admin ou embaixador por nome/e-mail..."
+                    placeholder="Buscar usuário por nome ou telefone..."
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                   />
@@ -258,7 +264,7 @@ const ManagePermissionsPage = () => {
                           <span className="font-medium">{u.name || 'Sem nome'}</span>
                           <span className="text-muted-foreground ml-2 text-xs">{u.email}</span>
                           <span className="ml-2 text-[10px] uppercase tracking-wide text-tc-red">
-                            {u.is_admin ? 'admin' : 'embaixador'}
+                            {u.urban_planner_cities?.length ? 'Planejamento urbano' : u.is_master ? 'Master' : u.is_admin ? 'Admin' : u.is_ambassador ? 'Embaixador' : 'Cidadão'}
                           </span>
                         </button>
                       ))}
@@ -281,10 +287,11 @@ const ManagePermissionsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {MODULE_KEYS.map((mod) => {
+                      {MODULE_KEYS.filter(mod => mod === 'urban_planning' || selectedUser.is_admin || selectedUser.is_ambassador || selectedUser.is_master).map((mod) => {
                         const exception = userRule(selectedUser.id, mod);
                         const inherited = inheritedForUser(selectedUser, mod);
-                        const effective = exception ? exception.allowed : inherited;
+                        const hasPlanningRole = Boolean(selectedUser.urban_planner_cities?.length);
+                        const effective = canWriteModule(selectedUser, rules, mod, (selectedUser.urban_planner_cities || []).map(row => row.city_id));
                         return (
                           <div key={mod} className="rounded-xl border p-3 bg-background">
                             <div className="flex items-center justify-between gap-3">
@@ -292,13 +299,13 @@ const ManagePermissionsPage = () => {
                               <Switch
                                 id={`user-${mod}`}
                                 checked={effective}
-                                disabled={saving}
+                                disabled={saving || selectedUser.is_master || (mod === 'urban_planning' && (!hasPlanningRole || selectedUser.user_type !== 'public_official'))}
                                 onCheckedChange={(v) => setUserAllowed(selectedUser.id, mod, v)}
                               />
                             </div>
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <span className="text-[11px] text-muted-foreground">
-                                {exception
+                                {selectedUser.is_master ? 'Master: acesso garantido' : mod === 'urban_planning' && selectedUser.user_type !== 'public_official' ? 'Selecione Órgão Público em Gerenciar usuários' : mod === 'urban_planning' && !hasPlanningRole ? 'Atribua o cargo e as cidades em Gerenciar usuários' : exception
                                   ? `Exceção individual (cargo: ${inherited ? 'liberado' : 'bloqueado'})`
                                   : 'Seguindo o cargo'}
                               </span>

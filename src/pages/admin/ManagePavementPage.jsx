@@ -14,7 +14,7 @@ import PavementEditModal from '@/components/pavement/PavementEditModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { cepsDaRua } from '@/lib/pavementReport';
 import { savePavementStreet, storagePathsFromStreet } from '@/lib/savePavementStreet';
@@ -29,10 +29,8 @@ import {
 } from '@/lib/streetGeometry';
 
 const ManagePavementPage = () => {
-  const { user } = useAuth();
-  const [myActiveCityIds, setMyActiveCityIds] = useState([]);
+  const { planningCityIds: myActiveCityIds, isMaster } = usePermissions();
   const [myCities, setMyCities] = useState([]); // [{ id, name, uf }]
-  const isScopedAmbassador = !!user && !user.is_admin && !user.is_master && !!user.is_ambassador;
   const [streets, setStreets] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [buscaRua, setBuscaRua] = useState('');
@@ -44,25 +42,26 @@ const ManagePavementPage = () => {
   const [importandoTracado, setImportandoTracado] = useState(null); // null | { feitas, total, achadas }
 
   useEffect(() => {
-    if (!isScopedAmbassador || !user?.id) return;
-    supabase
-      .from('ambassador_cities')
-      .select('city_id, cities(id, name, states(uf))')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .then(({ data }) => {
+    let cancelled = false;
+    if (!isMaster && !myActiveCityIds.length) { setMyCities([]); return; }
+    let query = supabase
+      .from('cities')
+      .select('id, name, states(uf)').order('name');
+    if (!isMaster) query = query.in('id', myActiveCityIds);
+    query.then(({ data }) => {
+        if (cancelled) return;
         const rows = data || [];
-        setMyActiveCityIds(rows.map((r) => r.city_id));
         setMyCities(rows.map((r) => ({
-          id: r.city_id,
-          name: r.cities?.name || null,
-          uf: r.cities?.states?.uf || null,
+          id: r.id,
+          name: r.name || null,
+          uf: r.states?.uf || null,
         })).filter((c) => c.name));
       });
-  }, [isScopedAmbassador, user?.id]);
+    return () => { cancelled = true; };
+  }, [myActiveCityIds, isMaster]);
 
   const fetchStreets = useCallback(async () => {
-    if (isScopedAmbassador && myActiveCityIds.length === 0) {
+    if (!isMaster && myActiveCityIds.length === 0) {
       setStreets([]);
       return;
     }
@@ -70,23 +69,20 @@ const ManagePavementPage = () => {
       .from('pavement_streets')
       .select('*, bairro:bairros!pavement_streets_bairro_id_fkey(name)')
       .order('updated_at', { ascending: false });
-    if (isScopedAmbassador) {
-      query = query.in('city_id', myActiveCityIds);
-    }
+    if (!isMaster) query = query.in('city_id', myActiveCityIds);
     const { data, error } = await query;
     if (error) showAppError({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     else setStreets(data.map(s => ({...s, bairro_name: s.bairro?.name})));
-  }, [isScopedAmbassador, myActiveCityIds]);
+  }, [myActiveCityIds, isMaster]);
 
   const fetchBairros = useCallback(async () => {
+    if (!isMaster && !myActiveCityIds.length) { setBairros([]); return; }
     let query = supabase.from('bairros').select('*').order('name');
-    if (isScopedAmbassador && myActiveCityIds.length > 0) {
-      query = query.in('city_id', myActiveCityIds);
-    }
+    if (!isMaster) query = query.in('city_id', myActiveCityIds);
     const { data, error } = await query;
     if (error) showAppError({ title: "Erro ao buscar bairros", description: error.message, variant: "destructive" });
     else setBairros(data);
-  }, [isScopedAmbassador, myActiveCityIds]);
+  }, [myActiveCityIds, isMaster]);
 
   useEffect(() => {
     fetchStreets();
@@ -98,8 +94,7 @@ const ManagePavementPage = () => {
       supabase,
       streetToSave,
       bairros,
-      isScopedAmbassador,
-      myActiveCityIds,
+      allowedCityIds: isMaster ? null : myActiveCityIds,
     });
     if (ok) {
       await fetchStreets();
@@ -319,7 +314,7 @@ const ManagePavementPage = () => {
         <title>Gerenciar Pavimentação - Admin</title>
         <meta name="description" content="Gerencie as ruas e o status de pavimentação." />
       </Helmet>
-      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
+      <div className="page-shell-fluid py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -331,7 +326,7 @@ const ManagePavementPage = () => {
             </Link>
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-tc-red">
-                {isScopedAmbassador ? 'Pavimentação da minha cidade' : 'Gerenciar Pavimentação'}
+                Gerenciar mapa de ruas
               </h1>
               <p className="mt-2 text-lg text-muted-foreground">Adicione, edite ou remova ruas do mapa de pavimentação.</p>
             </div>
@@ -486,8 +481,8 @@ const ManagePavementPage = () => {
         onClose={() => setEditingStreet(null)}
         bairros={bairros}
         existingStreets={streets}
-        defaultCityId={isScopedAmbassador && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null}
-        fallbackCityCenter={isScopedAmbassador && myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null}
+        defaultCityId={!isMaster && myActiveCityIds.length === 1 ? myActiveCityIds[0] : null}
+        fallbackCityCenter={myCities.length > 0 ? { name: myCities[0].name, uf: myCities[0].uf } : null}
         onBairroCreated={(newBairro) => setBairros((prev) => [...prev, newBairro])}
       />
 

@@ -1294,6 +1294,7 @@ export default function MapPage() {
               <Suspense fallback={<MapLoader />}>
                 <div className="absolute inset-0">
                   <MapView
+                    showLayerToggle
                     clusters={visibleClusters}
                     /* A LEGENDA É UMA SÓ, E ELA MORA NA COLUNA
                        O MapView desenha uma legenda flutuante sobre o canto do
@@ -1384,6 +1385,7 @@ export default function MapPage() {
         <Suspense fallback={<MapLoader />}>
           <div className="absolute inset-0">
             <MapView
+              showLayerToggle
               clusters={visibleClusters}
               initialCenter={initialUserPos}
               onReportClick={handleReportClick}

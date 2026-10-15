@@ -380,7 +380,7 @@ export default function PavementStreetPage() {
   const [baixandoPlaca, setBaixandoPlaca] = useState(null);
   const [mapLayer, setMapLayer] = useState(MAP_LAYER.STANDARD);
 
-  const { canManage, isPureAmbassador, myActiveCityIds } = useCanManagePavement(street?.city_id);
+  const { canManage, allowedCityIds } = useCanManagePavement(street?.city_id);
   // Minha Rua: o que esta acontecendo na regiao agora. A rua nunca guarda
   // copia do acontecimento — ela PERGUNTA (regra 3 do plano).
   const { eventos: acontecimentos, carregando: carregandoAcontecimentos } = useStreetCityEvents(street?.id);
@@ -991,8 +991,7 @@ export default function PavementStreetPage() {
             supabase,
             streetToSave,
             bairros,
-            isScopedAmbassador: isPureAmbassador,
-            myActiveCityIds,
+            allowedCityIds,
           });
           if (ok) {
             setEditando(false);

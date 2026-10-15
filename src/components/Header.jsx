@@ -14,10 +14,8 @@ import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
-// Entre `lg` e `4xl` não há largura para marca, dez destinos e ações da conta.
-// Estes são os caminhos de uso mais frequente; os demais continuam acessíveis
-// em "Mais". A ordem visual continua vindo da configuração administrativa.
-const COMPACT_PRIMARY_PATHS = new Set(['/', '/feed', '/explorar', '/seguindo']);
+// No desktop compacto, mantém os três primeiros destinos disponíveis e reúne
+// os demais em "Mais", respeitando a ordem e a visibilidade do menu.
 const PRIORIDADE_DESKTOP = new Map([['/', 0], ['/feed', 0], ['/explorar', 1], ['/seguindo', 2]]);
 
 
@@ -169,8 +167,8 @@ const Header = () => {
       const prioridadeB = PRIORIDADE_DESKTOP.get(b.path) ?? 100;
       return prioridadeA - prioridadeB;
     });
-  const compactPrimaryItems = visibleMenuItems.filter(item => COMPACT_PRIMARY_PATHS.has(item.path));
-  const compactMoreItems = visibleMenuItems.filter(item => !COMPACT_PRIMARY_PATHS.has(item.path));
+  const compactPrimaryItems = visibleMenuItems.slice(0, 3);
+  const compactMoreItems = visibleMenuItems.slice(3);
   const compactMoreIsActive = compactMoreItems.some(({ path }) => (
     path === '/' ? location.pathname === path : location.pathname.startsWith(path)
   ));
@@ -258,7 +256,7 @@ const Header = () => {
           </Link>
         </div>
 
-        {/* Navegação completa apenas quando os dez links realmente cabem. */}
+        {/* Navegação completa nas telas mais largas. */}
         <nav className="hidden min-w-0 items-center gap-5 4xl:flex">
           {visibleMenuItems.map(item => (
             <NavLink
@@ -272,7 +270,7 @@ const Header = () => {
           ))}
         </nav>
 
-        {/* Modo notebook: cinco destinos principais e um único menu secundário.
+        {/* Modo notebook: três destinos principais e um menu secundário.
             Nenhum rótulo quebra linha, portanto o header mantém altura fixa. */}
         <nav className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex 4xl:hidden xl:gap-4">
           {compactPrimaryItems.map(item => (

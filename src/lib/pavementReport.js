@@ -205,6 +205,24 @@ export const TIPOS_DE_RELATORIO = Object.freeze([
     },
   }),
   Object.freeze({
+    id: 'ceps',
+    label: 'Conferência de CEPs (com e sem CEP)',
+    descricao: 'Separa as ruas filtradas entre CEPs cadastrados e CEPs que faltam cadastrar.',
+    montar: (ruas) => [
+      { titulo: 'Ruas com CEP cadastrado', ruas: ruas.filter((r) => cepsDaRua(r).length > 0) },
+      { titulo: 'Ruas sem CEP cadastrado', ruas: ruas.filter((r) => cepsDaRua(r).length === 0) },
+    ].filter(({ ruas: alvo }) => alvo.length).map(({ titulo, ruas: alvo }) => ({ titulo: `${titulo} (${alvo.length})`, ...listaSimples(alvo, { comCep: true }) })),
+  }),
+  Object.freeze({
+    id: 'com-cep',
+    label: 'Ruas com CEP cadastrado',
+    descricao: 'Lista os CEPs cadastrados das ruas filtradas, incluindo ruas com mais de um CEP.',
+    montar: (ruas) => {
+      const alvo = ruas.filter((r) => cepsDaRua(r).length > 0);
+      return alvo.length ? [{ titulo: `Ruas com CEP (${alvo.length})`, ...listaSimples(alvo, { comCep: true }) }] : [];
+    },
+  }),
+  Object.freeze({
     id: 'sem-cep',
     label: 'Ruas sem CEP cadastrado',
     descricao: 'O que ainda falta preencher na base — serve de lista de trabalho.',
@@ -325,7 +343,7 @@ export const tipoDeRelatorio = (id) =>
  * "312 ruas sem pavimentação" é um número muito diferente conforme a cidade
  * tenha 400 ou 4.000.
  */
-export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null, bairros = null, baseUrl } = {}) => {
+export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null, bairros = null, baseUrl, filtros = [] } = {}) => {
   const todas = Array.isArray(ruas) ? ruas : [];
   const filtradas = Array.isArray(bairros) && bairros.length
     ? todas.filter((r) => bairros.includes(nomeDoBairro(r)))
@@ -338,6 +356,7 @@ export const montarRelatorio = (tipoId, ruas, { cidade = '', atualizadoEm = null
     tipo: tipo.id,
     titulo: `${tipo.id === 'completo' ? 'Relatório de Ruas' : 'Relatório de Pavimentação'}${cidade ? ` — ${cidade}` : ''}`,
     subtitulo: tipo.label,
+    filtros,
     atualizadoEm,
     recorte: Array.isArray(bairros) && bairros.length ? bairros.join(', ') : null,
     contagem,
@@ -378,6 +397,7 @@ export const relatorioParaCsv = (relatorio) => {
 
   if (relatorio.atualizadoEm) linhas.push([`Atualizado em: ${relatorio.atualizadoEm}`]);
   if (relatorio.recorte) linhas.push([`Bairros: ${relatorio.recorte}`]);
+  for (const filtro of relatorio.filtros || []) linhas.push([`Filtro: ${filtro}`]);
   linhas.push([]);
 
   for (const item of relatorio.resumo) {

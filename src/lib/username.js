@@ -61,6 +61,8 @@ export const RESERVED_USERNAMES = new Set([
   'noticia',
   'abaixo-assinados',
   'mapa-pavimentacao',
+  'mapa-arborizacao',
+  'arborizacao',
   'salvos-outros',
   'obras-favoritas',
   'configuracoes',

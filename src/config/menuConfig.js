@@ -19,6 +19,7 @@ export const defaultMenuSettings = {
     { name: 'Obras', path: '/obras-publicas', icon: 'Construction', isVisible: true },
     { name: 'Imóveis Alugados', path: '/imoveis-alugados', icon: 'Building', isVisible: true },
     { name: 'Ruas', path: '/mapa-pavimentacao', icon: 'Route', isVisible: true },
+    { name: 'Arborização', path: '/mapa-arborizacao', icon: 'Trees', isVisible: true },
     { name: 'Guia da Cidade', path: '/guia-da-cidade', icon: 'Briefcase', isVisible: true },
     { name: 'Abaixo-Assinados', path: '/abaixo-assinados', icon: 'FileSignature', isVisible: true },
     { name: 'Notícias', path: '/noticias', icon: 'Newspaper', isVisible: true },
@@ -64,6 +65,7 @@ export const defaultFooterSettings = {
       links: [
         { name: 'Obras Públicas', path: '/obras-publicas', isVisible: true },
         { name: 'Mapa de Ruas', path: '/mapa-pavimentacao', isVisible: true },
+        { name: 'Mapa de Arborização', path: '/mapa-arborizacao', isVisible: true },
         { name: 'Guia da Cidade', path: '/guia-da-cidade', isVisible: true },
         { name: 'Termos de Uso', path: '/termos-de-uso', isVisible: true },
       ],
@@ -72,6 +74,7 @@ export const defaultFooterSettings = {
 };
 
 export const availableIcons = [
+  'Trees',
   'LayoutDashboard', 'Info', 'BarChart2', 'User', 'Construction', 'Route', 'Megaphone',
   'Briefcase', 'Newspaper', 'Shield', 'Home', 'Settings', 'Mail', 'Phone',
   'MapPin', 'Globe', 'Server', 'Cloud', 'Code', 'Activity', 'Airplay', 'AlertCircle',

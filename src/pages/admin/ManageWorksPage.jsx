@@ -16,7 +16,6 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCityIdFromLocation } from '@/hooks/useCityIdFromLocation';
 import { useCity } from '@/contexts/CityContext';
-import { Progress } from '@/components/ui/progress';
 import { WorkMeasurementsTab } from '@/components/admin/WorkMeasurementsTab';
 import { WorkFinancialTab } from '@/components/admin/WorkFinancialTab';
 import { WorkGalleryManager } from '@/components/admin/WorkGalleryManager';
@@ -248,7 +247,12 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
   };
 
   const [activeTab, setActiveTab] = useState('info');
+  const activeTabRef = useRef(null);
   const [isMeasurementEditing, setIsMeasurementEditing] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' }));
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, formData?.id, isMeasurementEditing]);
   const [hasUnsavedMeasurementChanges, setHasUnsavedMeasurementChanges] = useState(false);
   const [hasMeasurements, setHasMeasurements] = useState(false);
   const [hasLegacyMedia, setHasLegacyMedia] = useState(false);
@@ -581,8 +585,15 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
         onClose();
       }
     }}>
-      <DialogContent hideClose className="w-full h-full max-w-full sm:max-w-5xl sm:h-auto sm:max-h-[90vh] flex flex-col bg-card border-border p-0 sm:p-6 gap-0">
-        <DialogHeader className="p-4 sm:p-0 border-b sm:border-none bg-background sm:bg-transparent sticky top-0 z-20 shrink-0">
+      {/* A largura deste modal de formulário é limitada para leitura; a página
+          de gestão continua ocupando a largura disponível. */}
+      <DialogContent hideClose onOpenAutoFocus={(event) => {
+        if (activeTabRef.current) {
+          event.preventDefault();
+          activeTabRef.current.focus();
+        }
+      }} className="w-full h-full max-w-full sm:max-w-5xl sm:h-auto sm:max-h-[90dvh] flex flex-col bg-card border-border p-0 sm:p-6 gap-0">
+        <DialogHeader className="p-4 sm:px-0 sm:pt-0 sm:pb-4 border-b border-edge-subtle bg-card sticky top-0 z-20 shrink-0">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
@@ -599,16 +610,18 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
           </div>
         </DialogHeader>
         
-        <div className="flex-grow overflow-hidden grid grid-cols-1 md:grid-cols-4 gap-6 p-4 sm:p-0">
-          <div className="hidden md:block md:col-span-1 overflow-y-auto pr-2">
-            <nav className="flex flex-col gap-2">
+        <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-4 sm:px-0 sm:pb-0 md:grid-cols-[10.5rem_minmax(0,1fr)] md:grid-rows-1 md:gap-5">
+          <div className="min-w-0 md:overflow-y-auto md:border-r md:border-edge-subtle md:pr-4">
+            <nav aria-label="Seções da obra" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-col md:overflow-visible">
               {EDIT_TABS.map(tab => (
                 <Button 
                   key={tab.id}
+                  ref={activeTab === tab.id ? activeTabRef : undefined}
                   type="button"
-                  variant={activeTab === tab.id ? 'secondary' : 'ghost'} 
+                  variant="ghost"
+                  aria-pressed={activeTab === tab.id}
                   onClick={() => goToTab(tab.id)} 
-                  className="justify-start gap-2"
+                  className={`h-10 shrink-0 justify-start gap-2 rounded-lg px-3 text-sm md:w-full ${activeTab === tab.id ? 'bg-brand-subtleBg font-semibold text-brand-subtleFg hover:bg-brand-subtleBg' : 'text-content-secondary'}`}
                 >
                   <tab.icon className="w-4 h-4" /> {tab.label}
                 </Button>
@@ -616,17 +629,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
             </nav>
           </div>
 
-          <div className="md:col-span-3 flex-grow overflow-y-auto pr-4 space-y-6">
-            {/* Mobile Tab Indicator */}
-            <div className="md:hidden mb-4 border-b pb-2">
-              <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
-                <span>Passo {EDIT_TABS.findIndex(t => t.id === activeTab) + 1} de {EDIT_TABS.length}</span>
-                <span className="font-medium text-foreground">
-                  {EDIT_TABS.find(t => t.id === activeTab)?.label}
-                </span>
-              </div>
-              <Progress value={((EDIT_TABS.findIndex(t => t.id === activeTab) + 1) / EDIT_TABS.length) * 100} className="h-1.5" />
-            </div>
+          <div className="min-h-0 min-w-0 overflow-y-auto pr-1 space-y-5">
 
             <div className={`space-y-6 ${activeTab === 'info' ? 'block' : 'hidden'}`}>
                 <Card>

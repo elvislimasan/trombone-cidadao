@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/lib/customSupabaseClient";
+import { PaymentMeasurementDetails } from './PaymentMeasurementDetails';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0);
@@ -105,6 +106,7 @@ export function ObraPayments({
   embedded = false,
   measurementId = null,
   defaultCreditorName = "",
+  defaultContractorId = null,
   canAdd = false,
   onAddPayment,
   onEditPayment,
@@ -343,6 +345,7 @@ export function ObraPayments({
           installment: String(edit.installment || "").trim() || null,
           payment_description: String(edit.history || "").trim() || null,
           creditor_name: creditorName,
+          contractor_id: defaultContractorId,
           portal_link: portalLink,
           portal_auth_code: portalAuthCode,
         };
@@ -409,7 +412,7 @@ export function ObraPayments({
     } finally {
       setImportLoading(false);
     }
-  }, [importPayload, importSelected, importEdits, measurementId, onRefresh, importCommitmentType]);
+  }, [importPayload, importSelected, importEdits, measurementId, onRefresh, importCommitmentType, defaultCreditorName, defaultContractorId]);
 
   const getPaymentDate = useCallback(
     (p) => {
@@ -937,11 +940,12 @@ export function ObraPayments({
                     {p.installment ? (
                       <>
                         <span>•</span>
-                        <span>Parcela {p.installment}</span>
+                        <span>Boletim nº {p.installment}</span>
                       </>
                     ) : null}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <PaymentMeasurementDetails payment={p} />
                     {String(p.description || "").trim().length > 120 ? (
                       <button
                         type="button"
@@ -1169,7 +1173,7 @@ export function ObraPayments({
                           </TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo</TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Parcela</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Boletim nº</TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Credor</TableHead>
                           <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">
                             Valor
@@ -1215,7 +1219,10 @@ export function ObraPayments({
                                 <TableCell className="whitespace-normal break-words text-foreground text-[11px]">
                                   {g.descriptionPreview}
                                 </TableCell>
-                                <TableCell className="text-center whitespace-nowrap text-muted-foreground">{g.installmentPreview}</TableCell>
+                                <TableCell className="text-center whitespace-nowrap text-muted-foreground">
+                                  {g.installmentPreview}
+                                  {g.count === 1 && <PaymentMeasurementDetails payment={g.items[0]} />}
+                                </TableCell>
                                 <TableCell className="whitespace-normal break-words text-foreground">{g.contractorLabel}</TableCell>
                                 <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">{formatCurrency(g.total)}</TableCell>
                                 <TableCell className="text-center">
@@ -1273,7 +1280,7 @@ export function ObraPayments({
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data do pagamento</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Tipo</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</TableHead>
-                                              <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Parcela</TableHead>
+                                              <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Boletim nº</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Credor</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Valor</TableHead>
                                               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Portal</TableHead>
@@ -1291,7 +1298,10 @@ export function ObraPayments({
                                                     </span>
                                                   </TableCell>
                                                   <TableCell className="whitespace-normal break-words text-foreground text-[11px]">{p.description || "—"}</TableCell>
-                                                <TableCell className="text-center whitespace-nowrap text-muted-foreground">{p.installment || "—"}</TableCell>
+                                                <TableCell className="text-center whitespace-nowrap text-muted-foreground">
+                                                  {p.installment || "—"}
+                                                  <PaymentMeasurementDetails payment={p} />
+                                                </TableCell>
                                                 <TableCell className="whitespace-normal break-words text-foreground">{p.contractor || "—"}</TableCell>
                                                 <TableCell className="text-right font-semibold text-foreground whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
                                                 <TableCell className="text-center">
@@ -1565,7 +1575,10 @@ export function ObraPayments({
                           <TableCell className="whitespace-nowrap text-red-600 font-semibold">{p.orderNumber || "—"}</TableCell>
                           <TableCell className="whitespace-nowrap">{paymentDateLabel}</TableCell>
                           <TableCell className="whitespace-nowrap">{formatTypeLabel(p.commitmentType)}</TableCell>
-                          <TableCell className="whitespace-normal break-words text-[11px]">{p.description || "—"}</TableCell>
+                          <TableCell className="whitespace-normal break-words text-[11px]">
+                            {p.description || "—"}
+                            <PaymentMeasurementDetails payment={p} showNumber />
+                          </TableCell>
                           <TableCell className="text-right font-semibold whitespace-nowrap">{formatCurrency(p.value)}</TableCell>
                           <TableCell className="sticky right-0 bg-inherit text-right whitespace-nowrap min-w-[220px] border-l border-border/60">
                             <div className="flex justify-end gap-2">
@@ -1644,6 +1657,7 @@ export function ObraPayments({
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3">
+                      <PaymentMeasurementDetails payment={p} showNumber />
                       <div className="text-xs text-muted-foreground">Valor</div>
                       <div className="text-sm font-semibold text-foreground">{formatCurrency(p.value)}</div>
                     </div>
@@ -1805,7 +1819,7 @@ export function ObraPayments({
                         <TableHeader className="bg-muted/20 sticky top-0 z-10">
                           <TableRow className="border-b border-border/60 hover:bg-transparent">
                             <TableHead className="w-[70px]" />
-                            <TableHead className="w-[90px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Parcela</TableHead>
+                            <TableHead className="w-[90px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Boletim nº</TableHead>
                             <TableHead className="w-[160px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Data</TableHead>
                             <TableHead className="w-[520px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Histórico</TableHead>
                             <TableHead className="w-[170px] text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Valor</TableHead>

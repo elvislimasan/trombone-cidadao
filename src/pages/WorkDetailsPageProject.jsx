@@ -13,6 +13,9 @@ import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { optimizeImageFile } from "@/lib/optimizeImage";
 import { optimizeStoredWorkImage } from "@/lib/optimizeStoredWorkImage";
+import { EMPTY_PAYMENT_MEASUREMENT, paymentMeasurementFields, resolvePaymentContractor, uploadPaymentMeasurementPdf } from '@/lib/workPaymentMeasurement';
+import { PaymentMeasurementDetails } from '@/components/project/obra/PaymentMeasurementDetails';
+import { PaymentMeasurementFields } from '@/components/project/obra/PaymentMeasurementFields';
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
 import { ObraCurrentPhase } from "@/components/project/obra/ObraCurrentPhase";
 import { ObraProgress } from "@/components/project/obra/ObraProgress";
@@ -334,6 +337,7 @@ export default function WorkDetailsPageProject() {
   const [paymentTabMeasurementId, setPaymentTabMeasurementId] = useState("");
   const currentPhaseTopRef = useRef(null);
   const [paymentForm, setPaymentForm] = useState({
+    ...EMPTY_PAYMENT_MEASUREMENT,
     measurement_id: "",
     commitment_date: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -358,6 +362,7 @@ export default function WorkDetailsPageProject() {
   const [editingMeasurementId, setEditingMeasurementId] = useState(null);
   const [isSavingCurrentPhase, setIsSavingCurrentPhase] = useState(false);
   const [currentPhaseContractors, setCurrentPhaseContractors] = useState([]);
+  const [paymentPdfFile, setPaymentPdfFile] = useState(null);
   const [showContribDialog, setShowContribDialog] = useState(false);
   const [contribDescription, setContribDescription] = useState("");
   const [contribVideoUrl, setContribVideoUrl] = useState("");
@@ -640,6 +645,7 @@ export default function WorkDetailsPageProject() {
     );
 
     return filteredPayments.map((p) => ({
+      ...p,
       id: p.id,
       commitment_date: p.commitment_date || "",
       payment_date: p.payment_date,
@@ -1568,6 +1574,13 @@ export default function WorkDetailsPageProject() {
     setCurrentPhaseContractors(data || []);
   }, [currentPhaseContractors.length]);
 
+  useEffect(() => {
+    if (!showPaymentDialog || !canManageWork) return;
+    ensureContractorsLoaded().catch((error) => showAppError('Erro ao carregar construtoras', {
+      description: error.message, variant: 'destructive',
+    }));
+  }, [showPaymentDialog, canManageWork, ensureContractorsLoaded]);
+
   const loadWorkOptions = useCallback(async () => {
     const [categoriesRes, areasRes, bairrosRes, contractorsRes] =
       await Promise.all([
@@ -1847,13 +1860,16 @@ export default function WorkDetailsPageProject() {
   }, [fetchFavoriteStatus]);
 
   const openNewPaymentDialog = useCallback(() => {
-    const defaultMeasurement = currentMeasurement || measurements?.[0] || null;
+    const defaultMeasurement = measurements.find((m) => m.id === paymentTabMeasurementId) || currentMeasurement || measurements?.[0] || null;
     const defaultMeasurementId = defaultMeasurement?.id || "";
     const defaultCreditorName = defaultMeasurement?.contractor?.name || "";
     setEditingPaymentId(null);
+    setPaymentPdfFile(null);
     setIsEditingCommitmentDate(false);
     setIsEditingCommitmentType(false);
     setPaymentForm({
+      ...EMPTY_PAYMENT_MEASUREMENT,
+      contractor_id: defaultMeasurement?.contractor_id || defaultMeasurement?.contractor?.id || '',
       measurement_id: defaultMeasurementId,
       commitment_date: "",
       payment_date: new Date().toISOString().split("T")[0],
@@ -1867,20 +1883,27 @@ export default function WorkDetailsPageProject() {
       portal_link: "",
     });
     setShowPaymentDialog(true);
-  }, [currentMeasurement, measurements]);
+  }, [currentMeasurement, measurements, paymentTabMeasurementId]);
 
   const openEditPaymentDialog = useCallback(
     (payment) => {
       if (!canManageWork) return;
       const id = payment?.id || null;
       if (!id) return;
-      const raw = currentPhasePayments.find((p) => p.id === id) || null;
+      const raw = allPayments.find((p) => p.id === id) || payment;
       const measurementId = raw?.measurement_id || currentMeasurement?.id || "";
       const numericValue = Number(raw?.value ?? payment?.value ?? 0);
       setEditingPaymentId(id);
+      setPaymentPdfFile(null);
       setIsEditingCommitmentDate(false);
       setIsEditingCommitmentType(false);
       setPaymentForm({
+        ...EMPTY_PAYMENT_MEASUREMENT,
+        contractor_id: resolvePaymentContractor(raw, currentPhaseContractors, null),
+        measurement_pdf_url: raw?.measurement_pdf_url || '',
+        measurement_date: raw?.measurement_date || '',
+        execution_start_date: raw?.execution_start_date || '',
+        execution_end_date: raw?.execution_end_date || '',
         measurement_id: measurementId,
         commitment_date: raw?.commitment_date || payment?.commitment_date || "",
         payment_date:
@@ -1905,7 +1928,8 @@ export default function WorkDetailsPageProject() {
     },
     [
       currentMeasurement?.id,
-      currentPhasePayments,
+      allPayments,
+      currentPhaseContractors,
       phase?.contractor?.name,
       canManageWork,
     ]
@@ -1998,11 +2022,20 @@ export default function WorkDetailsPageProject() {
     }
 
     setIsSavingPayment(true);
+    let uploadedPdfPath = null;
+    let paymentPersisted = false;
     try {
+      const metadata = paymentMeasurementFields({ ...paymentForm, measurement_pdf_url: paymentPdfFile ? '' : paymentForm.measurement_pdf_url }, currentPhaseContractors);
+      const pdf = await uploadPaymentMeasurementPdf(supabase, paymentForm.measurement_id, paymentPdfFile);
+      if (pdf) {
+        uploadedPdfPath = pdf.path;
+        metadata.measurement_pdf_url = pdf.url;
+      }
       const previousPayment = editingPaymentId
         ? allPayments.find((p) => p.id === editingPaymentId) || null
         : null;
       const payload = {
+        ...metadata,
         measurement_id: paymentForm.measurement_id,
         commitment_date: paymentForm.commitment_date || null,
         payment_date: paymentForm.payment_date,
@@ -2011,7 +2044,6 @@ export default function WorkDetailsPageProject() {
         commitment_type: paymentForm.commitment_type || null,
         banking_order: paymentForm.banking_order || null,
         installment: paymentForm.installment || null,
-        creditor_name: paymentForm.creditor_name || null,
         payment_description: paymentForm.payment_description || null,
         portal_link: paymentForm.portal_link || null,
       };
@@ -2022,6 +2054,7 @@ export default function WorkDetailsPageProject() {
           .update(payload)
           .eq("id", editingPaymentId);
         if (error) throw error;
+        paymentPersisted = true;
 
         const prevNumber = previousPayment?.commitment_number || null;
         const prevType = previousPayment?.commitment_type || null;
@@ -2052,6 +2085,7 @@ export default function WorkDetailsPageProject() {
           .from("public_work_payments")
           .insert(payload);
         if (error) throw error;
+        paymentPersisted = true;
 
         const updateObj = {};
         if (payload.commitment_date)
@@ -2079,8 +2113,10 @@ export default function WorkDetailsPageProject() {
       touchPageUpdatedAt();
       setShowPaymentDialog(false);
       setEditingPaymentId(null);
+      setPaymentPdfFile(null);
       await loadData();
     } catch (e) {
+      if (uploadedPdfPath && !paymentPersisted) await supabase.storage.from('work-media').remove([uploadedPdfPath]);
       showAppError("Erro ao salvar pagamento", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
@@ -2095,6 +2131,8 @@ export default function WorkDetailsPageProject() {
     touchPageUpdatedAt,
     canManageWork,
     allPayments,
+    currentPhaseContractors,
+    paymentPdfFile,
   ]);
 
   const handleDeletePayment = useCallback(
@@ -2684,6 +2722,7 @@ export default function WorkDetailsPageProject() {
                                 currentMeasurement?.id)
                           )?.contractor?.name || ""
                         }
+                        defaultContractorId={measurements.find((m) => m.id === (paymentTabMeasurementId || currentMeasurement?.id))?.contractor_id || null}
                         canAdd={Boolean(canManageWork)}
                         onAddPayment={openNewPaymentDialog}
                         onEditPayment={openEditPaymentDialog}
@@ -2787,6 +2826,7 @@ export default function WorkDetailsPageProject() {
                     setPaymentForm((prev) => ({
                       ...prev,
                       measurement_id: nextMeasurementId,
+                      contractor_id: prev.contractor_id || (!prev.creditor_name ? nextMeasurement?.contractor_id || nextMeasurement?.contractor?.id || '' : ''),
                       creditor_name: prev.creditor_name
                         ? prev.creditor_name
                         : nextMeasurement?.contractor?.name || "",
@@ -2909,19 +2949,6 @@ export default function WorkDetailsPageProject() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div className="grid gap-2">
-                <Label>Parcela</Label>
-                <Input
-                  placeholder="Ex.: 1/3"
-                  value={paymentForm.installment}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      installment: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label>Data do pagamento</Label>
                 <Input
                   type="date"
@@ -2938,16 +2965,22 @@ export default function WorkDetailsPageProject() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div className="grid gap-2">
-                <Label>Credor</Label>
-                <Input
-                  value={paymentForm.creditor_name}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      creditor_name: e.target.value,
-                    }))
-                  }
-                />
+                <Label htmlFor="payment-contractor">Credor (construtora)</Label>
+                <select id="payment-contractor"
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={paymentForm.contractor_id || (paymentForm.creditor_name ? '__legacy__' : '')}
+                  onChange={(e) => {
+                    const contractor = currentPhaseContractors.find((item) => item.id === e.target.value);
+                    setPaymentForm((prev) => ({ ...prev, contractor_id: contractor?.id || '', creditor_name: contractor?.name || '' }));
+                  }}>
+                  <option value="">Selecione uma construtora</option>
+                  {!paymentForm.contractor_id && paymentForm.creditor_name && (
+                    <option value="__legacy__" disabled>{paymentForm.creditor_name} (cadastro anterior)</option>
+                  )}
+                  {currentPhaseContractors.map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>{contractor.name}{contractor.cnpj ? ` — ${contractor.cnpj}` : ''}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid gap-2">
                 <Label>Valor (R$)</Label>
@@ -2971,6 +3004,11 @@ export default function WorkDetailsPageProject() {
                   }}
                 />
               </div>
+            </div>
+
+            <div className="mt-4">
+              <PaymentMeasurementFields form={paymentForm} onChange={setPaymentForm}
+                pdfFile={paymentPdfFile} onPdfFileChange={setPaymentPdfFile} disabled={isSavingPayment} />
             </div>
 
             <div className="grid gap-2 mt-4">
@@ -3498,7 +3536,7 @@ export default function WorkDetailsPageProject() {
                                 <th className="p-3 font-semibold">
                                   Empenho/Ordem
                                 </th>
-                                <th className="p-3 font-semibold">Parcela</th>
+                                <th className="p-3 font-semibold">Boletim nº</th>
                                 <th className="p-3 font-semibold">Credor</th>
                                 <th className="p-3 font-semibold">Portal</th>
                               </tr>
@@ -3526,6 +3564,7 @@ export default function WorkDetailsPageProject() {
                                   </td>
                                   <td className="p-3 whitespace-nowrap">
                                     {p.installment || "-"}
+                                    <PaymentMeasurementDetails payment={p} />
                                   </td>
                                   <td className="p-3">
                                     {p.creditor_name || "-"}

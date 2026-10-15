@@ -366,7 +366,6 @@ const posicionarNomeDoBairro = (doc, bairro, mapa, caixasOcupadas) => {
 export const criarPdfDoMapaDeRuas = ({
   ruas = [],
   cidade = 'Cidade',
-  atualizadoEm = null,
   mostrarPavimentacao = false,
   mostrarNomesRuas = true,
   incluirIndice = false,
@@ -422,9 +421,10 @@ export const criarPdfDoMapaDeRuas = ({
   minY -= folgaY;
   maxY += folgaY;
 
-  // A altura acompanha a extensão geográfica e reserva espaço para a legenda.
+  // Reserva a legenda e o rodapé junto à margem inferior, mesmo em mapas altos.
   // Cabeçalho e legenda ficam próximos da planta, sem esticar coordenadas.
-  const alturaMaxima = alturaPagina - mapa.y - alturaLegenda - (mostrarPavimentacao ? 47 : 33);
+  const reservaRodape = margemPagina + 37 + (!legenda.length ? 11 : 0) + (mostrarPavimentacao ? 12 : 0);
+  const alturaMaxima = alturaPagina - mapa.y - alturaLegenda - reservaRodape;
   mapa.altura = Math.min(alturaMaxima, mapa.largura * (maxY - minY) / (maxX - minX) + 24);
 
   const escala = Math.min(mapa.largura / (maxX - minX), mapa.altura / (maxY - minY));
@@ -608,24 +608,12 @@ export const criarPdfDoMapaDeRuas = ({
     rotulosDosBairros.push(posicao);
   }
 
-  doc.setTextColor(75, 85, 99);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TROMBONE CIDADÃO', margemPagina, 15);
-  doc.setTextColor(36, 50, 71);
-  doc.setFontSize(26);
-  const nomeCidade = String(cidade).replace(/\s[·-]\s([A-Z]{2})$/, '/$1');
-  doc.text(`Mapa de ruas — ${nomeCidade}`, margemPagina, 28);
+  doc.setTextColor(25, 25, 25);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(13);
-  doc.setTextColor(75, 85, 99);
-  doc.text('Divisão territorial e identificação de logradouros', margemPagina, 37);
-  doc.setFontSize(10);
-  const dataAtualizacao = new Date(atualizadoEm);
-  const referencia = atualizadoEm && Number.isFinite(dataAtualizacao.getTime())
-    ? `Última atualização: ${dataAtualizacao.toLocaleDateString('pt-BR', { timeZone: 'America/Fortaleza' })}`
-    : 'Base colaborativa do Trombone Cidadão';
-  doc.text(referencia, larguraPagina - margemPagina, 27, { align: 'right' });
+  doc.setFontSize(26);
+  const nomeCidade = String(cidade || 'Cidade').replace(/\s*[·–—/-]\s*[A-Z]{2}$/i, '').trim().toLocaleUpperCase('pt-BR');
+  doc.text(['PREFEITURA MUNICIPAL', ...doc.splitTextToSize(`DE ${nomeCidade}`, larguraUtil)],
+    larguraPagina / 2, 20, { align: 'center', lineHeightFactor: 1.15 });
   doc.setDrawColor(224, 230, 236);
   doc.setLineWidth(0.3);
   doc.line(margemPagina, 42, larguraPagina - margemPagina, 42);
@@ -678,19 +666,14 @@ export const criarPdfDoMapaDeRuas = ({
     .map(rua => ({ id: rua.id, name: rua.name })) : [];
   const usarIndice = incluirIndice;
   const ruasSomentePonto = ruasDesenhadas.filter(rua => rua.linhasDoMapa.every(linha => linha.length === 1)).length;
-  doc.text(`${ruasDesenhadas.length} ruas representadas${ruasSomentePonto ? ` · ${ruasSomentePonto} com localização apenas por ponto` : ''}${usarIndice ? ' · consulte os nomes completos no índice' : ''}`, margemPagina, legendaY);
-  doc.setFontSize(8.5);
-  doc.text(
-    contornosProjetados.some((record) => record.source?.provider === 'osm')
-      ? 'Bairros: © OpenStreetMap contributors (ODbL) — https://www.openstreetmap.org/copyright. Possíveis ajustes locais. Quadras estimadas; limites sem homologação oficial.'
-      : contornosProjetados.length
-      ? 'Contornos de bairros desenhados manualmente; quadras estimadas pelas ruas. Não são limites cadastrais oficiais.'
-      : 'Quadras estimadas pelos traçados cadastrados; não são limites cadastrais oficiais.',
-    margemPagina,
-    legendaY + 7,
-  );
-  if (contornosProjetados.some(record => record.source?.reference_type === 'pdf')) {
-    doc.text('Contornos complementares aproximados a partir do mapa em PDF de referência.', margemPagina, legendaY + 13);
+  const temCreditoOsm = contornosProjetados.some((record) => record.source?.provider === 'osm');
+  const rodapeX = larguraPagina - margemPagina;
+  const rodapeY = alturaPagina - margemPagina - (temCreditoOsm ? 13 : 7);
+  doc.text(`${ruasDesenhadas.length} ruas representadas${ruasSomentePonto ? ` · ${ruasSomentePonto} com localização apenas por ponto` : ''}${usarIndice ? ' · consulte os nomes completos no índice' : ''}`, rodapeX, rodapeY, { align: 'right' });
+  doc.text('Gerado pela plataforma www.trombonecidadao.com.br', rodapeX, rodapeY + 7, { align: 'right' });
+  if (temCreditoOsm) {
+    doc.setFontSize(8.5);
+    doc.text('Bairros: © OpenStreetMap contributors (ODbL) — https://www.openstreetmap.org/copyright.', rodapeX, rodapeY + 13, { align: 'right' });
   }
   const estatisticas = {
     fonteCartografica: 'Trombone Cidadão — traçados cadastrados',

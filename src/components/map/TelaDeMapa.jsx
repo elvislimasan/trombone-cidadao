@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal } from 'lucide-react';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import {
   MAP_CANVAS_CLASS,
   MAP_GRID_CLASS,
@@ -21,10 +22,8 @@ import {
 //
 // AS DECISÕES QUE ESTA MOLDURA CARREGA
 //
-// 1. 112rem, e não os 88rem do resto do site. Largura de leitura é regra para
-//    texto: linha longa cansa. Mapa não se lê, se examina, e cada rem de sobra
-//    na lateral é cidade que não aparece. Em 1920 ainda restam ~80px de cada
-//    lado, então a página continua parecendo do mesmo site.
+// 1. A página cresce com a viewport, com margens de até 56px no desktop.
+//    O mapa aproveita o espaço entre os painéis, sem limitar a página inteira.
 //
 // 2. O cabeçalho é o mesmo das telas de listagem do app: título centralizado,
 //    chamada de uma linha, um selo com o número que resume a tela e, abaixo, a
@@ -99,7 +98,7 @@ export default function TelaDeMapa({
           /* A altura de janela é do MODO MAPA. A lista é uma página: ela cresce
              e a página rola — travá-la na janela é o que faria a paginação
              encostar no rodapé. */
-          className={`mx-auto flex w-full max-w-[112rem] flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
+          className={`flex min-w-0 w-full flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
             modo === 'mapa'
               ? MAP_PAGE_VIEWPORT_CLASS
               : ''
@@ -140,13 +139,15 @@ export default function TelaDeMapa({
             )}
 
             <div className={MAP_CANVAS_CLASS}>
-              {mapa}
+              <FullscreenMapPanel title={titulo} buttonClassName="left-14 top-3">
+                {mapa}
+              </FullscreenMapPanel>
 
               {temFiltros && !painelAberto && (
                 <button
                   type="button"
                   onClick={() => setPainelAberto(true)}
-                  className="absolute left-3 top-3 z-[700] hidden items-center gap-2 rounded-full border border-edge-subtle bg-surface-overlay/95 px-3 py-2 text-xs font-bold text-content-secondary shadow-lg backdrop-blur-sm min-[1100px]:inline-flex"
+                  className="absolute left-14 top-16 z-[700] hidden items-center gap-2 rounded-full border border-edge-subtle bg-surface-overlay/95 px-3 py-2 text-xs font-bold text-content-secondary shadow-lg backdrop-blur-sm min-[1100px]:inline-flex"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   Filtros

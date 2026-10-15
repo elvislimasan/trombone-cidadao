@@ -23,6 +23,7 @@ import { FLORESTA_COORDS, INITIAL_ZOOM } from "@/config/mapConfig";
 import { useMapScrollLock } from "@/hooks/useMapScrollLock";
 import { useMapModeToggle } from "@/contexts/MapModeContext";
 import MapModeToggle from "@/components/MapModeToggle";
+import MapResizeObserver from "@/components/map/MapResizeObserver";
 import { createPinIcon } from "@/components/map/pinIcon";
 import { panParaOffsetDeTela } from "@/lib/navGeo";
 import { isPatrolTravelMode } from "@/lib/patrolTravelMode";
@@ -652,6 +653,7 @@ const MapView = ({
           className="absolute inset-0"
           style={{ height: "100%", width: "100%" }}
         >
+          <MapResizeObserver />
           {/* A url do satelite mora em MapDisplayControls, junto do botao que a
               liga — duas copias dela divergiriam no primeiro ajuste de zoom. */}
           <MapBaseLayer layer={camadaDoMapa} />
@@ -888,7 +890,7 @@ const MapView = ({
             modo/localizacao para nao brigar por espaco quando os dois estao
             ligados. */}
         {showLayerToggle && (
-          <div className="absolute top-3 right-3 z-[800]">
+          <div className={`absolute right-3 z-[800] ${showModeToggle ? 'top-48' : 'top-3'}`}>
             <MapLayerToggle layer={camadaDoMapa} onLayerChange={setCamadaDoMapa} />
           </div>
         )}

@@ -5,13 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { 
   PlusCircle, Edit, Trash2, FileText,
-  ArrowLeft, Save, Link2, Calculator, Search
+  Save, Link2, Calculator, Search
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { showAppError } from '@/lib/appError';
+import { EMPTY_PAYMENT_MEASUREMENT, paymentMeasurementFields, resolvePaymentContractor, uploadPaymentMeasurementPdf } from '@/lib/workPaymentMeasurement';
+import { PaymentMeasurementFields } from '@/components/project/obra/PaymentMeasurementFields';
+import { PaymentMeasurementDetails } from '@/components/project/obra/PaymentMeasurementDetails';
 
 export function WorkFinancialTab({ workId, onEditingChange }) {
   const [measurements, setMeasurements] = useState([]);
@@ -22,6 +25,9 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [currentMeasurement, setCurrentMeasurement] = useState(null);
   const [currentPayment, setCurrentPayment] = useState(null);
   const [paymentsQuery, setPaymentsQuery] = useState('');
+  const [contractors, setContractors] = useState([]);
+  const [paymentPdfFile, setPaymentPdfFile] = useState(null);
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
   const commitmentTypeOptions = ['Estimativo', 'Extra Orçamentário', 'Global', 'Ordinário'];
 
   const normalizeText = useCallback((value) => {
@@ -59,6 +65,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   };
 
   const [paymentForm, setPaymentForm] = useState({
+    ...EMPTY_PAYMENT_MEASUREMENT,
     commitment_date: '',
     payment_date: '',
     commitment_number: '',
@@ -96,6 +103,16 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       setLoading(false);
     }
   }, [workId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('contractors').select('id, name, cnpj').order('name').then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) showAppError({ title: 'Erro ao carregar construtoras', description: error.message, variant: 'destructive' });
+      else setContractors(data || []);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const allPayments = useMemo(() => {
     return (measurements || []).flatMap(m => m.payments || []);
@@ -143,12 +160,19 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
 
   // Payment Handlers
   const handleEditPayment = (measurementId, payment = null) => {
+    setPaymentPdfFile(null);
     setCurrentMeasurement({ id: measurementId }); // Store which measurement we're adding to
     setIsEditingCommitmentDate(false);
     setIsEditingCommitmentType(false);
     if (payment) {
       setCurrentPayment(payment);
       setPaymentForm({
+        ...EMPTY_PAYMENT_MEASUREMENT,
+        contractor_id: resolvePaymentContractor(payment, contractors),
+        measurement_pdf_url: payment.measurement_pdf_url || '',
+        measurement_date: payment.measurement_date || '',
+        execution_start_date: payment.execution_start_date || '',
+        execution_end_date: payment.execution_end_date || '',
         commitment_date: payment.commitment_date || '',
         payment_date: payment.payment_date,
         commitment_number: payment.commitment_number || payment.banking_order || '',
@@ -163,6 +187,8 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       const measurement = measurements.find(m => m.id === measurementId) || null;
       setCurrentPayment(null);
       setPaymentForm({
+        ...EMPTY_PAYMENT_MEASUREMENT,
+        contractor_id: measurement?.contractor_id || measurement?.contractor?.id || '',
         commitment_date: '',
         payment_date: new Date().toISOString().split('T')[0],
         commitment_number: '',
@@ -179,6 +205,9 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   };
 
   const handleSavePayment = async () => {
+    if (isSavingPayment) return;
+    let uploadedPdfPath = null;
+    let paymentPersisted = false;
     try {
       if (!paymentForm.payment_date || !paymentForm.value) {
         showAppError({ title: "Erro", description: "Data e valor são obrigatórios.", variant: "destructive" });
@@ -191,7 +220,15 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         return;
       }
 
+      const metadata = paymentMeasurementFields({ ...paymentForm, measurement_pdf_url: paymentPdfFile ? '' : paymentForm.measurement_pdf_url }, contractors);
+      setIsSavingPayment(true);
+      const pdf = await uploadPaymentMeasurementPdf(supabase, currentMeasurement.id, paymentPdfFile);
+      if (pdf) {
+        uploadedPdfPath = pdf.path;
+        metadata.measurement_pdf_url = pdf.url;
+      }
       const payload = {
+        ...metadata,
         measurement_id: currentMeasurement.id,
         commitment_date: paymentForm.commitment_date || null,
         payment_date: paymentForm.payment_date,
@@ -199,7 +236,6 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         commitment_type: paymentForm.commitment_type || null,
         payment_description: paymentForm.payment_description || null,
         installment: paymentForm.installment || null,
-        creditor_name: paymentForm.creditor_name || null,
         banking_order: paymentForm.commitment_number || null,
         value: numericValue,
         portal_link: paymentForm.portal_link || null
@@ -213,6 +249,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       }
 
       if (error) throw error;
+      paymentPersisted = true;
 
       // Sincronização em lote para empenhos
       if (payload.commitment_number) {
@@ -230,10 +267,14 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
       }
 
       setIsEditingPayment(false);
+      setPaymentPdfFile(null);
       if (onEditingChange) onEditingChange(false);
       fetchFinancialData();
     } catch (error) {
+      if (uploadedPdfPath && !paymentPersisted) await supabase.storage.from('work-media').remove([uploadedPdfPath]);
       showAppError({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSavingPayment(false);
     }
   };
 
@@ -288,26 +329,30 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
 
   if (isEditingPayment) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{currentPayment ? 'Editar Pagamento' : 'Novo Pagamento'}</CardTitle>
-          <CardDescription>
-            Registrando pagamento para: <strong>{measurements.find(m => m.id === currentMeasurement.id)?.title}</strong>
-          </CardDescription>
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 px-0 pb-4 pt-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand-subtleFg"><Calculator className="h-4 w-4" /></span>
+            <CardTitle className="text-lg">{currentPayment ? 'Editar pagamento' : 'Novo pagamento'}</CardTitle>
+          </div>
+          <span className="max-w-[45%] truncate rounded-full border border-edge-subtle bg-surface-subtle px-2.5 py-1 text-xs font-medium text-content-secondary" title={measurements.find(m => m.id === currentMeasurement.id)?.title}>
+            {measurements.find(m => m.id === currentMeasurement.id)?.title}
+          </span>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Data do Pagamento</Label>
-              <Input 
+        <CardContent className="space-y-4 px-0 pb-4">
+          <div className="rounded-xl border border-edge-subtle bg-surface-subtle/50 p-3 sm:p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="admin-payment-date" className="text-xs text-content-secondary">Data do pagamento</Label>
+              <Input id="admin-payment-date" className="h-11 bg-card"
                 type="date" 
                 value={paymentForm.payment_date} 
                 onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})} 
               />
             </div>
-            <div className="grid gap-2">
-              <Label>Valor (R$)</Label>
-              <Input
+            <div className="grid gap-1.5">
+              <Label htmlFor="admin-payment-value" className="text-xs text-content-secondary">Valor do pagamento (R$)</Label>
+              <Input id="admin-payment-value" className="h-11 bg-card text-lg font-semibold tabular-nums"
                 inputMode="decimal"
                 value={paymentForm.value}
                 onChange={(e) => setPaymentForm({ ...paymentForm, value: maskMoneyWhileTyping(e.target.value) })}
@@ -316,15 +361,32 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Número de empenho</Label>
-              <Input
+          <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="admin-commitment-number" className="text-xs text-content-secondary">Número de empenho</Label>
+              <Input id="admin-commitment-number" className="h-10 bg-card" placeholder="Opcional"
                 value={paymentForm.commitment_number}
                 onChange={(e) => setPaymentForm({ ...paymentForm, commitment_number: e.target.value })}
               />
             </div>
-            <div className={`grid gap-2 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+            <div className="grid gap-1.5">
+              <Label htmlFor="admin-payment-contractor" className="text-xs text-content-secondary">Credor (construtora)</Label>
+              <select id="admin-payment-contractor" className="h-10 min-w-0 w-full rounded-md border border-input bg-card px-3 py-2 text-sm"
+                value={paymentForm.contractor_id || (paymentForm.creditor_name ? '__legacy__' : '')}
+                disabled={isSavingPayment}
+                onChange={(event) => {
+                  const contractor = contractors.find((item) => item.id === event.target.value);
+                  setPaymentForm((previous) => ({ ...previous, contractor_id: contractor?.id || '', creditor_name: contractor?.name || '' }));
+                }}>
+                <option value="">Selecione uma construtora</option>
+                {!paymentForm.contractor_id && paymentForm.creditor_name && <option value="__legacy__" disabled>{paymentForm.creditor_name} (cadastro anterior)</option>}
+                {contractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name}{contractor.cnpj ? ` — ${contractor.cnpj}` : ''}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {paymentForm.commitment_number && (<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
               <div className="flex items-center justify-between">
                 <Label>Data do empenho</Label>
                 {existingCommitmentData.date && !isEditingCommitmentDate && (
@@ -342,13 +404,10 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 value={paymentForm.commitment_date}
                 disabled={Boolean(existingCommitmentData.date) && !isEditingCommitmentDate}
                 onChange={(e) => setPaymentForm({ ...paymentForm, commitment_date: e.target.value })}
-                className={existingCommitmentData.date && !isEditingCommitmentDate ? "bg-muted cursor-not-allowed opacity-70" : ""}
+                className={existingCommitmentData.date && !isEditingCommitmentDate ? "h-9 bg-muted cursor-not-allowed opacity-70" : "h-9"}
               />
             </div>
-          </div>
-
-          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-all duration-300 ${paymentForm.commitment_number ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <div className="flex items-center justify-between">
                 <Label>Tipo de empenho</Label>
                 {existingCommitmentData.type && !isEditingCommitmentType && (
@@ -362,7 +421,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 )}
               </div>
               <select
-                className={`h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ${existingCommitmentData.type && !isEditingCommitmentType ? "bg-muted cursor-not-allowed opacity-70" : ""}`}
+                className={`h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ${existingCommitmentData.type && !isEditingCommitmentType ? "bg-muted cursor-not-allowed opacity-70" : ""}`}
                 value={paymentForm.commitment_type}
                 disabled={Boolean(existingCommitmentData.type) && !isEditingCommitmentType}
                 onChange={(e) => setPaymentForm({ ...paymentForm, commitment_type: e.target.value })}
@@ -375,43 +434,33 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                 ))}
               </select>
             </div>
-            <div className="grid gap-2">
-              <Label>Parcela</Label>
-              <Input
-                placeholder="Ex.: 1/3"
-                value={paymentForm.installment}
-                onChange={(e) => setPaymentForm({ ...paymentForm, installment: e.target.value })}
-              />
-            </div>
+          </div>)}
           </div>
 
-          <div className="grid gap-2">
-            <Label>Credor</Label>
-            <Input
-              value={paymentForm.creditor_name}
-              onChange={(e) => setPaymentForm({ ...paymentForm, creditor_name: e.target.value })}
-            />
-          </div>
+          <PaymentMeasurementFields form={paymentForm} onChange={setPaymentForm}
+            pdfFile={paymentPdfFile} onPdfFileChange={setPaymentPdfFile} idPrefix="admin-" disabled={isSavingPayment} />
 
-          <div className="grid gap-2">
-            <Label>Descrição do pagamento</Label>
-            <Textarea
+          <div className="grid gap-3 border-t border-edge-subtle pt-3 sm:grid-cols-2">
+          <div className="grid content-start gap-1.5">
+            <Label htmlFor="admin-payment-description" className="text-xs text-content-secondary">Descrição (opcional)</Label>
+            <Textarea id="admin-payment-description" rows={2} className="min-h-[4.5rem] resize-y text-sm" placeholder="Sobre o que é este pagamento?"
               value={paymentForm.payment_description}
               onChange={(e) => setPaymentForm({ ...paymentForm, payment_description: e.target.value })}
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Link do Portal da Transparência</Label>
-            <Input 
+          <div className="grid content-start gap-1.5">
+            <Label htmlFor="admin-payment-portal" className="text-xs text-content-secondary">Portal da Transparência (opcional)</Label>
+            <Input id="admin-payment-portal" className="h-10"
               placeholder="https://..."
               value={paymentForm.portal_link} 
               onChange={(e) => setPaymentForm({...paymentForm, portal_link: e.target.value})} 
             />
           </div>
+          </div>
         </CardContent>
-        <CardFooter className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>Cancelar</Button>
-          <Button onClick={handleSavePayment} className="gap-2"><Save className="w-4 h-4" /> Salvar Pagamento</Button>
+        <CardFooter className="sticky bottom-0 z-10 flex justify-end gap-2 border-t border-edge-subtle bg-card px-0 py-3">
+          <Button variant="outline" disabled={isSavingPayment} onClick={() => { setIsEditingPayment(false); if(onEditingChange) onEditingChange(false); }}>Cancelar</Button>
+          <Button onClick={handleSavePayment} disabled={isSavingPayment} className="gap-2"><Save className="w-4 h-4" /> {isSavingPayment ? 'Salvando...' : 'Salvar Pagamento'}</Button>
         </CardFooter>
       </Card>
     );
@@ -503,6 +552,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                               <td className="px-3 py-2 text-content-secondary">{payment.commitment_number || payment.banking_order || '-'}</td>
                               <td className="px-3 py-2 text-content-secondary max-w-[220px]">
                                 <span className="line-clamp-1">{payment.creditor_name || '-'}</span>
+                                <PaymentMeasurementDetails payment={payment} showNumber />
                               </td>
                               <td className="px-3 py-2 font-bold text-blue-600 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
                               <td className="px-3 py-2">
@@ -516,7 +566,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                               </td>
                               <td className="px-3 py-2 text-right">
                                 <div className="flex justify-end gap-1">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Editar pagamento" onClick={() => handleEditPayment(measurement.id, payment)}>
                                     <Edit className="w-3 h-3" />
                                   </Button>
                                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeletePayment(payment.id)}>
@@ -559,7 +609,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                       <p className="text-sm text-muted-foreground line-clamp-2">{measurement.description}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="grid grid-cols-2 gap-3 mt-4">
                     <div className="bg-surface-raised p-2 rounded border shadow-sm">
                       <p className="text-[10px] font-bold text-muted-foreground uppercase">Valor do Contrato</p>
                       <p className="font-bold text-emerald-700">{formatCurrency(measurement.value)}</p>
@@ -590,7 +640,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                             <th className="px-3 py-2 font-bold">Data do empenho</th>
                             <th className="px-3 py-2 font-bold">Nº Empenho</th>
                             <th className="px-3 py-2 font-bold">Descrição</th>
-                            <th className="px-3 py-2 font-bold">Parcela</th>
+                            <th className="px-3 py-2 font-bold">Boletim nº</th>
                             <th className="px-3 py-2 font-bold">Credor</th>
                             <th className="px-3 py-2 font-bold text-right">Valor</th>
                             <th className="px-3 py-2 font-bold">Portal</th>
@@ -606,7 +656,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                                 <td className="px-3 py-2 whitespace-nowrap text-content-secondary">{payment.commitment_date ? formatDate(payment.commitment_date) : '-'}</td>
                                 <td className="px-3 py-2 text-content-secondary">{payment.commitment_number || payment.banking_order || '-'}</td>
                                 <td className="px-3 py-2 text-content-secondary max-w-[280px]"><span className="line-clamp-2">{payment.payment_description || '-'}</span></td>
-                                <td className="px-3 py-2 text-content-secondary">{payment.installment || '-'}</td>
+                                <td className="px-3 py-2 text-content-secondary">{payment.installment || '-'}<PaymentMeasurementDetails payment={payment} /></td>
                                 <td className="px-3 py-2 text-content-secondary">{payment.creditor_name || '-'}</td>
                                 <td className="px-3 py-2 font-bold text-blue-600 text-right whitespace-nowrap">{formatCurrency(payment.value)}</td>
                                 <td className="px-3 py-2">
@@ -620,7 +670,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
                                 </td>
                                 <td className="px-3 py-2 text-right">
                                   <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Editar pagamento" onClick={() => handleEditPayment(measurement.id, payment)}><Edit className="w-3 h-3" /></Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeletePayment(payment.id)}><Trash2 className="w-3 h-3" /></Button>
                                   </div>
                                 </td>

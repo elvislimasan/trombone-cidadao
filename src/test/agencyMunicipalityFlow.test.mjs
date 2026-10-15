@@ -43,7 +43,8 @@ test('broncas são consultadas separadamente e podem vincular uma ordem explíci
   assert.match(map, /Concentração de solicitações abertas/);
   assert.match(reports, /onCreateDemand=\{\(id\) => \{ closeReport\(\); setSelectedIds\(\[id\]\); setServiceOrderOpen\(true\); \}\}/);
   assert.match(reports, /Gerar Ordem de Serviço/);
-  assert.doesNotMatch(reports, /MunicipalExportDialog|Exportar relatório|Exportar selecionadas/);
+  assert.match(reports, /MunicipalExportDialog kind="reports"/);
+  assert.match(reports, /Baixar PDF ou planilha/);
   assert.doesNotMatch(reports, /atualizar_caso_do_orgao|encaminhar_caso_do_orgao/);
 });
 

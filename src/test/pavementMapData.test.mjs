@@ -25,3 +25,14 @@ test('falha de leitura interrompe o download em vez de exportar cidade incomplet
   await assert.rejects(carregarRuasDoMapa(supabase, 64), error);
   await assert.rejects(carregarRuasDoMapa(supabase, null), /Selecione uma cidade/);
 });
+
+test('base de relatórios mantém campos dos filtros e não trunca lotes menores que 500', async () => {
+  const rows = Array.from({ length: 237 }, (_, id) => ({ id, cep: '56400-123', ceps: [{ cep: '56400-456' }], is_unnamed: true, pavement_type: 'granite', historical_documents: [{ kind: 'lei', url: 'https://example.com/lei.pdf' }] }));
+  const client = { from() { return { select(value) { assert.ok(value.includes('*')); return this; }, eq() { return this; }, order() { return this; },
+    range(start, end) { return Promise.resolve({ data: rows.slice(start, Math.min(end + 1, start + 71)) }); } }; } };
+  const result = await carregarRuasDoMapa(client, 64);
+  assert.equal(result.length, 237);
+  assert.equal(result.at(-1).id, 236);
+  assert.deepEqual(result[0].ceps, rows[0].ceps);
+  assert.deepEqual(result[0].historical_documents, rows[0].historical_documents);
+});

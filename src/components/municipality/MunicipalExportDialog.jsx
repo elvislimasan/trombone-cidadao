@@ -7,20 +7,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { supabase } from '@/lib/customSupabaseClient';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES } from '@/lib/municipalDemand';
 import { REPORT_AGES, REPORT_STATUSES } from '@/lib/municipalReports';
-import { EXPORT_DEFAULT_FILTERS, EXPORT_QUEUES, exportLabel, groupExportRecords, loadMunicipalExport } from '@/lib/municipalExport';
+import { EXPORT_DEFAULT_FILTERS, EXPORT_QUEUES, exportLabel, groupExportRecords, loadMunicipalExport, loadMunicipalExportNeighborhoods } from '@/lib/municipalExport';
+import { TIPOS_DE_PROBLEMA_ESGOTO, TIPOS_DE_PROBLEMA_ILUMINACAO, rotuloDoTipoDeProblema } from '@/lib/reportCategoryFields';
 
 const controlClass = 'h-9 w-full min-w-0 rounded-lg border border-edge-default bg-surface-raised px-3 text-[13px] text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand';
 const GROUPS = [['none', 'Sem agrupamento'], ['status', 'Status'], ['responsible', 'Responsável'], ['channel', 'Secretaria'], ['neighborhood', 'Bairro'], ['category', 'Categoria']];
 
-function SelectField({ label, value, options, onChange, allLabel }) {
-  return <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{label}<select value={value} onChange={(event) => onChange(event.target.value)} className={controlClass}>
+function SelectField({ label, value, options, onChange, allLabel, disabled = false }) {
+  return <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{label}<select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} className={controlClass}>
     {allLabel && <option value="all">{allLabel}</option>}{options.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
   </select></label>;
 }
 
 export default function MunicipalExportDialog({ kind, context, initialFilters, selectedIds = [], onClose }) {
   const demands = kind === 'demands';
-  const [filters, setFilters] = useState(() => ({ ...EXPORT_DEFAULT_FILTERS, ...(selectedIds.length ? {} : initialFilters) }));
+  const [filters, setFilters] = useState(() => ({ ...EXPORT_DEFAULT_FILTERS, ...initialFilters }));
   const [scope, setScope] = useState(selectedIds.length ? 'selected' : 'filtered');
   const [format, setFormat] = useState('pdf');
   const [layout, setLayout] = useState('table');
@@ -31,12 +32,32 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
   const [downloadError, setDownloadError] = useState('');
   const [revision, setRevision] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [neighborhoods, setNeighborhoods] = useState({ names: [], loading: true, error: false });
+  const [neighborhoodRevision, setNeighborhoodRevision] = useState(0);
   const busy = result.loading || result.filters !== filters || result.scope !== scope;
   const statuses = demands ? DEMAND_STATUSES : REPORT_STATUSES;
+  const sortOptions = [['recentes', 'Mais recentes'], ['antigas', 'Mais antigas'], ...(demands ? [['prazo', 'Prazo mais próximo']] : [['status_asc', 'Status (A–Z)'], ['status_desc', 'Status (Z–A)']])];
   const members = useMemo(() => [...new Map((context.members || []).map((member) => [member.user_id, member.perfil?.name || 'Membro da equipe'])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR')), [context.members]);
   const channels = (context.channels || []).map((channel) => [String(channel.id), channel.nome]);
   const categories = (context.categories || []).map((category) => [category.id, category.name]);
-  const update = (key, value) => { setFilters((current) => ({ ...current, [key]: value })); setFeedback(''); setDownloadError(''); };
+  const neighborhoodOptions = useMemo(() => [...new Set([...neighborhoods.names, filters.neighborhood].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR')).map(name => [name, name]), [neighborhoods.names, filters.neighborhood]);
+  const issueTypes = filters.category === 'iluminacao' ? TIPOS_DE_PROBLEMA_ILUMINACAO : filters.category === 'esgoto' ? TIPOS_DE_PROBLEMA_ESGOTO : [];
+  const update = (key, value) => { setFilters((current) => ({ ...current, [key]: value, ...(key === 'category' ? { issueType: 'all' } : {}) })); setFeedback(''); setDownloadError(''); };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setNeighborhoods({ names: [], loading: true, error: false });
+    loadMunicipalExportNeighborhoods(supabase, {
+      kind, municipalityId: context.municipality.id, cityId: context.municipality.city_id,
+      enabledCategoryIds: context.enabledCategoryIds, visibility: filters.visibility, signal: controller.signal,
+    }).then(names => {
+      if (!controller.signal.aborted) setNeighborhoods({ names, loading: false, error: false });
+    }).catch(() => {
+      if (!controller.signal.aborted) setNeighborhoods({ names: [], loading: false, error: true });
+    });
+    return () => controller.abort();
+  }, [kind, context.municipality.id, context.municipality.city_id, context.enabledCategoryIds, filters.visibility, neighborhoodRevision]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,7 +84,9 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
     const rows = [['Abrangência', scope === 'selected' ? 'Selecionados' : 'Todas as páginas']];
     if (groupBy !== 'none') rows.push(['Agrupamento', exportLabel(GROUPS, groupBy)]);
     if (filters.statuses.length) rows.push(['Status', filters.statuses.map((id) => exportLabel(statuses, id)).join(', ')]);
-    else if (!demands) rows.push(['Status', 'Todas em aberto']);
+    else rows.push(['Status', 'Todos os status']);
+    if (!demands) rows.push(['Visibilidade', filters.visibility === 'internal' ? 'Internas' : 'Públicas']);
+    if (!demands && filters.issueType !== 'all') rows.push(['Tipo de problema', rotuloDoTipoDeProblema(filters.category, filters.issueType)]);
     if (filters.query.trim()) rows.push(['Busca', filters.query.trim()]);
     if (filters.responsible !== 'all') rows.push(['Responsável', exportLabel([['unassigned', 'Sem responsável'], ...members], filters.responsible)]);
     if (filters.channel !== 'all') rows.push(['Secretaria', exportLabel(channels, filters.channel)]);
@@ -76,16 +99,17 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
     if (filters.overdue) rows.push(['Prazo', 'Somente atrasadas']);
     if (filters.dueToday) rows.push(['Vencimento', 'Vencem hoje']);
     const date = (value) => value ? value.split('-').reverse().join('/') : 'Sem limite';
-    if (filters.dateFrom) rows.push([demands ? 'Criada a partir de' : 'Publicada a partir de', date(filters.dateFrom)]);
-    if (filters.dateTo) rows.push([demands ? 'Criada até' : 'Publicada até', date(filters.dateTo)]);
-    rows.push(['Ordenação', exportLabel([['recentes', 'Mais recentes'], ['antigas', 'Mais antigas'], ['prazo', 'Prazo mais próximo']], filters.sort)]);
+    if (filters.dateFrom) rows.push([demands ? 'Criada a partir de' : 'Registrada de', date(filters.dateFrom)]);
+    if (filters.dateTo) rows.push([demands ? 'Criada até' : 'Registrada até', date(filters.dateTo)]);
+    rows.push(['Ordenação', exportLabel(sortOptions, filters.sort)]);
     return rows;
   };
   const orderLinkOptions = [['all', 'Com e sem vínculo'], ['linked', demands ? 'Com solicitação vinculada' : 'Com ordem de serviço'], ['unlinked', demands ? 'Sem solicitação vinculada' : 'Sem ordem de serviço']];
-  const advancedCount = [filters.age !== 'all', filters.orderLink !== 'all', filters.sort !== 'recentes', Boolean(filters.dateFrom), Boolean(filters.dateTo), groupBy !== 'none', format === 'pdf' && layout !== 'table', demands && filters.priority !== 'all', demands && filters.queue !== 'all', demands && filters.overdue, demands && filters.dueToday].filter(Boolean).length;
+  const advancedCount = [filters.age !== 'all', filters.orderLink !== 'all', filters.sort !== 'recentes', groupBy !== 'none', format === 'pdf' && layout !== 'table', demands && filters.priority !== 'all', demands && filters.queue !== 'all', demands && filters.overdue, demands && filters.dueToday].filter(Boolean).length;
   const activeFilters = [];
   const chip = (key, label, value, reset) => activeFilters.push({ key, label, value, remove: () => update(key, reset) });
   if (filters.query.trim()) chip('query', 'Busca', filters.query.trim(), '');
+  if (!demands && filters.issueType !== 'all') chip('issueType', 'Tipo de problema', rotuloDoTipoDeProblema(filters.category, filters.issueType), 'all');
   filters.statuses.forEach((id) => activeFilters.push({ key: 'status-' + id, label: 'Status', value: exportLabel(statuses, id), remove: () => update('statuses', filters.statuses.filter((value) => value !== id)) }));
   if (filters.category !== 'all') chip('category', 'Categoria', exportLabel(categories, filters.category), 'all');
   if (filters.neighborhood.trim()) chip('neighborhood', 'Bairro', filters.neighborhood.trim(), '');
@@ -97,9 +121,9 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
   if (filters.queue !== 'all') chip('queue', 'Fila de atendimento', exportLabel(EXPORT_QUEUES, filters.queue), 'all');
   if (filters.overdue) chip('overdue', 'Prazo', 'Somente atrasadas', false);
   if (filters.dueToday) chip('dueToday', 'Vencimento', 'Vencem hoje', false);
-  if (filters.sort !== 'recentes') chip('sort', 'Ordenação', exportLabel([['antigas', 'Mais antigas'], ['prazo', 'Prazo mais próximo']], filters.sort), 'recentes');
-  if (filters.dateFrom) chip('dateFrom', demands ? 'Criada a partir de' : 'Publicada a partir de', filters.dateFrom.split('-').reverse().join('/'), '');
-  if (filters.dateTo) chip('dateTo', demands ? 'Criada até' : 'Publicada até', filters.dateTo.split('-').reverse().join('/'), '');
+  if (filters.sort !== 'recentes') chip('sort', 'Ordenação', exportLabel(sortOptions, filters.sort), 'recentes');
+  if (filters.dateFrom) chip('dateFrom', demands ? 'Criada a partir de' : 'Registrada de', filters.dateFrom.split('-').reverse().join('/'), '');
+  if (filters.dateTo) chip('dateTo', demands ? 'Criada até' : 'Registrada até', filters.dateTo.split('-').reverse().join('/'), '');
   const mainFilters = activeFilters.filter((filter) => ['category', 'neighborhood', 'responsible', 'channel', 'query'].includes(filter.key) || filter.key.startsWith('status-'));
   const download = async (event) => {
     event.preventDefault();
@@ -116,8 +140,11 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
   return <Dialog open onOpenChange={(open) => { if (!open && !exporting) onClose(); }}>
     <FormDialogContent hideClose={exporting} className="flex max-h-[94dvh] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85dvh] sm:w-[calc(100vw-4rem)] sm:max-w-5xl sm:rounded-xl">
       <DialogHeader className="shrink-0 border-b border-edge-subtle px-5 py-4 pr-12 text-left sm:px-6"><DialogTitle className="text-xl">Exportar {demands ? 'ordens de serviço' : 'solicitações'}</DialogTitle><DialogDescription className="mt-1 text-xs text-content-secondary">Prepare um relatório com todos os resultados ou com sua seleção.</DialogDescription></DialogHeader>
-      <form onSubmit={download} className="flex min-h-0 flex-col">
-        <fieldset disabled={exporting} className="min-h-0 min-w-0 overflow-y-auto px-5 py-4 sm:px-6">
+      <form onSubmit={download} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* A rolagem fica numa div: fieldset não encolhe de forma consistente
+            em contêineres flex e deixava os últimos filtros atrás do rodapé. */}
+        <div role="region" aria-label="Filtros e resumo da exportação" tabIndex={0} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <fieldset disabled={exporting} className="min-w-0 px-5 py-4 sm:px-6">
           <div className="mb-4 space-y-3 border-b border-edge-subtle pb-4">
             <fieldset className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"><legend className="sr-only">O que exportar</legend><span className="w-24 shrink-0 text-xs font-medium text-content-secondary">O que exportar</span><div className="inline-flex min-w-0 flex-wrap gap-1 rounded-lg border border-edge-default bg-surface-subtle p-1">
               {[["filtered", 'Todos os resultados', busy ? '…' : result.total?.toLocaleString('pt-BR')], ['selected', 'Selecionados', selectedIds.length.toLocaleString('pt-BR')]].map(([value, title, count]) => <label key={value} className={'flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-xs transition-colors ' + (scope === value ? 'bg-surface-raised font-semibold text-content-primary shadow-sm' : 'text-content-secondary') + (value === 'selected' && !selectedIds.length ? ' cursor-not-allowed opacity-50' : ' cursor-pointer')}><input type="radio" name="export-scope" value={value} checked={scope === value} disabled={value === 'selected' && !selectedIds.length} onChange={() => { setScope(value); setFeedback(''); }} className="accent-brand" /><span>{title} · <span className="tabular-nums">{count}</span></span></label>)}
@@ -129,10 +156,18 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
               <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Filtros</h3><Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs text-content-secondary" disabled={!activeFilters.length} onClick={() => { setFilters({ ...EXPORT_DEFAULT_FILTERS }); setFeedback(''); setDownloadError(''); }}>Limpar filtros</Button></div>
               {activeFilters.length > 0 && <section aria-label="Filtros ativos" className="space-y-2"><h4 className="text-[11px] font-medium text-content-secondary">Filtros ativos</h4><div className="flex flex-wrap gap-1.5">{activeFilters.map((filter) => <button key={filter.key} type="button" onClick={filter.remove} aria-label={'Remover filtro: ' + filter.label + ': ' + filter.value} className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-edge-subtle bg-surface-subtle px-2 py-1 text-[11px] text-content-secondary hover:border-edge-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="truncate">{filter.label}: {filter.value}</span><X className="h-3 w-3 shrink-0" /></button>)}</div></section>}
               <div className="grid min-w-0 gap-x-3 gap-y-3 sm:grid-cols-2">
+                <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{demands ? 'Criada a partir de' : 'Registrada de'}<Input type="date" value={filters.dateFrom} onChange={(event) => update('dateFrom', event.target.value)} className={controlClass} /></label>
+                <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{demands ? 'Criada até' : 'Registrada até'}<Input type="date" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={(event) => update('dateTo', event.target.value)} className={controlClass} /></label>
+                {!demands && <SelectField label="Visibilidade" value={filters.visibility} options={[["public", 'Públicas'], ['internal', 'Internas']]} onChange={(value) => update('visibility', value)} />}
+                {!demands && issueTypes.length > 0 && <SelectField label="Tipo de problema" value={filters.issueType} allLabel="Todos os tipos" options={issueTypes.map((item) => [item.value, item.label])} onChange={(value) => update('issueType', value)} />}
                 <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">Busca<Input value={filters.query} onChange={(event) => update('query', event.target.value)} placeholder={demands ? 'Título, protocolo ou local' : 'Título, descrição ou local'} className={controlClass} /></label>
-                <div className="grid min-w-0 gap-1.5"><span id="export-status-label" className="text-xs font-medium text-content-secondary">Status</span><Popover><PopoverTrigger asChild><button type="button" aria-labelledby="export-status-label" className={controlClass + ' flex items-center justify-between gap-2 text-left'} title={filters.statuses.map((id) => exportLabel(statuses, id)).join(', ')}><span className="truncate">{filters.statuses.length ? filters.statuses.map((id) => exportLabel(statuses, id)).join(', ') : demands ? 'Todos os status' : 'Todas em aberto'}</span><ChevronDown className="h-3.5 w-3.5 shrink-0 text-content-tertiary" /></button></PopoverTrigger><PopoverContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] space-y-1 overflow-y-auto rounded-lg border-edge-default bg-surface-raised p-2"><p className="px-2 py-1 text-[11px] text-content-secondary">Selecione um ou mais status</p><label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-surface-subtle"><input type="checkbox" checked={!filters.statuses.length} onChange={() => update('statuses', [])} disabled={exporting} className="accent-brand" />{demands ? 'Todos os status' : 'Todas em aberto'}</label>{statuses.map(([id, label]) => <label key={id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-surface-subtle"><input type="checkbox" checked={filters.statuses.includes(id)} disabled={exporting} onChange={(event) => update('statuses', event.target.checked ? [...filters.statuses, id] : filters.statuses.filter((value) => value !== id))} className="accent-brand" />{label}</label>)}</PopoverContent></Popover></div>
+                <div className="grid min-w-0 gap-1.5"><span id="export-status-label" className="text-xs font-medium text-content-secondary">Status</span><Popover><PopoverTrigger asChild><button type="button" aria-labelledby="export-status-label" className={controlClass + ' flex items-center justify-between gap-2 text-left'} title={filters.statuses.map((id) => exportLabel(statuses, id)).join(', ')}><span className="truncate">{filters.statuses.length ? filters.statuses.map((id) => exportLabel(statuses, id)).join(', ') : 'Todos os status'}</span><ChevronDown className="h-3.5 w-3.5 shrink-0 text-content-tertiary" /></button></PopoverTrigger><PopoverContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] space-y-1 overflow-y-auto rounded-lg border-edge-default bg-surface-raised p-2"><p className="px-2 py-1 text-[11px] text-content-secondary">Selecione um ou mais status</p><label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-surface-subtle"><input type="checkbox" checked={!filters.statuses.length} onChange={() => update('statuses', [])} disabled={exporting} className="accent-brand" />{'Todos os status'}</label>{statuses.map(([id, label]) => <label key={id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-surface-subtle"><input type="checkbox" checked={filters.statuses.includes(id)} disabled={exporting} onChange={(event) => update('statuses', event.target.checked ? [...filters.statuses, id] : filters.statuses.filter((value) => value !== id))} className="accent-brand" />{label}</label>)}</PopoverContent></Popover></div>
                 <SelectField label="Categoria" value={filters.category} allLabel="Todas as categorias" options={categories} onChange={(value) => update('category', value)} />
-                <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">Bairro<Input value={filters.neighborhood} onChange={(event) => update('neighborhood', event.target.value)} placeholder="Todos os bairros" className={controlClass} /></label>
+                <div className="min-w-0 space-y-1.5">
+                  <SelectField label="Bairro" value={filters.neighborhood || 'all'} allLabel={neighborhoods.loading ? 'Carregando bairros…' : 'Todos os bairros'}
+                    options={neighborhoodOptions} disabled={neighborhoods.loading} onChange={value => update('neighborhood', value === 'all' ? '' : value)} />
+                  {neighborhoods.error && <p role="alert" className="text-[11px] text-danger">Não foi possível carregar os bairros. <button type="button" className="font-semibold underline" onClick={() => setNeighborhoodRevision(value => value + 1)}>Tentar novamente</button></p>}
+                </div>
                 <SelectField label="Responsável" value={filters.responsible} allLabel="Todos os responsáveis" options={[["unassigned", 'Sem responsável'], ...members]} onChange={(value) => update('responsible', value)} />
                 <SelectField label="Secretaria" value={filters.channel} allLabel="Todas as secretarias" options={channels} onChange={(value) => update('channel', value)} />
               </div>
@@ -140,10 +175,8 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
                 {advancedOpen && <div id="export-advanced-filters" className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                   {demands ? <SelectField label="Prioridade" value={filters.priority} allLabel="Todas as prioridades" options={DEMAND_PRIORITIES} onChange={(value) => update('priority', value)} /> : <SelectField label="Idade da solicitação" value={filters.age} options={REPORT_AGES} onChange={(value) => update('age', value)} />}
                   <SelectField label={demands ? 'Vínculo com solicitação' : 'Ordem de serviço'} value={filters.orderLink} options={orderLinkOptions} onChange={(value) => update('orderLink', value)} />
-                  <SelectField label="Ordenação" value={filters.sort} options={[["recentes", 'Mais recentes'], ['antigas', 'Mais antigas'], ...(demands ? [['prazo', 'Prazo mais próximo']] : [])]} onChange={(value) => update('sort', value)} />
+                  <SelectField label="Ordenação" value={filters.sort} options={sortOptions} onChange={(value) => update('sort', value)} />
                   {demands && <SelectField label="Fila de atendimento" value={filters.queue} options={EXPORT_QUEUES} onChange={(value) => update('queue', value)} />}
-                  <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{demands ? 'Criada a partir de' : 'Publicada a partir de'}<Input type="date" value={filters.dateFrom} onChange={(event) => update('dateFrom', event.target.value)} className={controlClass} /></label>
-                  <label className="grid min-w-0 gap-1.5 text-xs font-medium text-content-secondary">{demands ? 'Criada até' : 'Publicada até'}<Input type="date" value={filters.dateTo} min={filters.dateFrom || undefined} onChange={(event) => update('dateTo', event.target.value)} className={controlClass} /></label>
                   {format === 'pdf' && <SelectField label="Apresentação" value={layout} options={[["table", 'Visão geral'], ['details', 'Fichas com descrição']]} onChange={(value) => { setLayout(value); setFeedback(''); }} />}
                   <SelectField label="Agrupamento" value={groupBy} options={GROUPS} onChange={(value) => { setGroupBy(value); setFeedback(''); }} />
                   {demands && <div className="flex flex-wrap gap-3 text-xs text-content-secondary sm:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={filters.overdue} onChange={(event) => update('overdue', event.target.checked)} className="accent-brand" />Somente atrasadas</label><label className="flex items-center gap-2"><input type="checkbox" checked={filters.dueToday} onChange={(event) => update('dueToday', event.target.checked)} className="accent-brand" />Vencem hoje</label></div>}
@@ -162,6 +195,7 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
             </aside>
           </div>
         </fieldset>
+        </div>
         {downloadError && <p role="alert" className="shrink-0 px-6 pb-3 text-xs text-danger">{downloadError}</p>}
         {feedback && <p role="status" className="flex shrink-0 items-center gap-2 px-6 pb-3 text-xs text-success-fg"><CheckCircle2 className="h-4 w-4" />{feedback}</p>}
         <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-3 sm:px-6"><Button type="button" variant="outline" disabled={exporting} onClick={onClose}>Cancelar</Button><Button type="submit" disabled={busy || exporting || Boolean(dateError || result.error) || !result.records.length}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}{exporting ? 'Gerando arquivo…' : `Baixar ${format === 'pdf' ? 'PDF' : 'planilha'} · ${busy ? '…' : result.records.length.toLocaleString('pt-BR')} ${result.records.length === 1 ? 'registro' : 'registros'}`}</Button></DialogFooter>

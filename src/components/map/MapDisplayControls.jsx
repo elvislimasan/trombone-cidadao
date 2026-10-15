@@ -70,6 +70,7 @@ export function MapLayerToggle({ layer, onLayerChange, className = '' }) {
       className={`${BOTAO_DE_MAPA} ${className}`}
       onClick={() => onLayerChange?.(satellite ? MAP_LAYER.STANDARD : MAP_LAYER.SATELLITE)}
       aria-label={satellite ? 'Usar mapa padrão' : 'Usar mapa de satélite'}
+      aria-pressed={satellite}
       title={satellite ? 'Mapa padrão' : 'Satélite'}
     >
       <Layers className="h-5 w-5" aria-hidden="true" />

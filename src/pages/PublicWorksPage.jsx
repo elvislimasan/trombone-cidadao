@@ -12,6 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import WorksMapView from '@/components/WorksMapView';
 import { formatCurrency, formatTimeAgo, cn } from '@/lib/utils';
 import TelaDeMapa from '@/components/map/TelaDeMapa';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import { useTelaLarga } from '@/hooks/useTelaLarga';
 import { Link } from 'react-router-dom';
 import { useCityView, CityViewProvider } from '@/contexts/CityContext';
@@ -789,7 +790,9 @@ const PublicWorksPage = () => {
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-              <WorksMapView ref={mapViewRef} works={filteredWorks} podeGerir={canManageWorks} onEditWork={handleEditWork} />
+              <FullscreenMapPanel title="Mapa de Obras Públicas" buttonClassName="left-14 top-3">
+                <WorksMapView ref={mapViewRef} works={filteredWorks} podeGerir={canManageWorks} onEditWork={handleEditWork} />
+              </FullscreenMapPanel>
             </div>
           ) : (
             <>

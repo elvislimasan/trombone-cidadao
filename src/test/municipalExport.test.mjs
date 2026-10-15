@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EXPORT_DEFAULT_FILTERS, collectExportRows, loadMunicipalExport, selectPageRecords } from '../lib/municipalExport.js';
+import { EXPORT_DEFAULT_FILTERS, collectExportRows, loadMunicipalExport, loadMunicipalExportNeighborhoods, selectPageRecords } from '../lib/municipalExport.js';
 import { createMunicipalServiceOrder, loadMunicipalServiceOrder, loadServiceOrderSelection, serviceOrderCoordinates } from '../lib/municipalServiceOrder.js';
 import { municipalExportCsv, buildMunicipalExportPdf } from '../utils/municipalExport.js';
 import { buildServiceOrderPdf } from '../utils/municipalServiceOrderPdf.js';
@@ -9,14 +9,15 @@ const context = { userId: 'gestor', userName: 'Gestor Municipal', canEdit: true,
 
 function fakeClient(tables, { cap = 500, linkError, saveError, saveResult } = {}) {
   const calls = [];
+  const selections = [];
   return {
-    calls,
+    calls, selections,
     from(table) {
       let rows = tables[table] || [];
       let start = 0; let end = Infinity; let signal; let single = false;
       const orders = [];
       const query = {
-        select() { return query; },
+        select(fields) { selections.push({ table, fields }); return query; },
         eq(key, value) { rows = rows.filter((item) => item[key] === value); return query; },
         in(key, values) { rows = rows.filter((item) => values.includes(item[key])); return query; },
         is(key, value) { rows = rows.filter((item) => (item[key] ?? null) === value); return query; },
@@ -57,9 +58,84 @@ function demand(index, overrides = {}) {
   return { id: String(index).padStart(4, '0'), prefeitura_id: 'prefeitura', protocolo: 'DEM-' + index, titulo: 'Serviço ' + index, created_at: '2026-09-28T10:00:00Z', updated_at: '2026-09-28T10:00:00Z', status: 'aberta', prioridade: 'normal', ...overrides };
 }
 function report(index, overrides = {}) {
-  return { id: String(index).padStart(4, '0'), city_id: 1, title: 'Poste apagado ' + index, status: 'pending', category_id: 'iluminacao', category: { name: 'Iluminação' }, created_at: '2026-09-28T10:00:00Z', ...overrides };
+  return { id: String(index).padStart(4, '0'), city_id: 1, title: 'Poste apagado ' + index, status: 'pending', is_public: true, moderation_status: 'approved', category_id: 'iluminacao', category: { name: 'Iluminação' }, created_at: '2026-09-28T10:00:00Z', ...overrides };
 }
 const exportOptions = { municipalityId: 'prefeitura', cityId: 1, userId: 'gestor', filters: { ...EXPORT_DEFAULT_FILTERS } };
+
+test('seletor de bairros reúne cadastro e nomes usados, sem duplicar nem incluir outra cidade ou categoria restrita', async () => {
+  const client = fakeClient({
+    bairros: [{ id: 1, city_id: 1, name: 'Três Marias' }, { id: 2, city_id: 1, name: 'Centro' }, { id: 3, city_id: 2, name: 'Cidade vizinha' }],
+    reports: [report(1, { neighborhood: 'Centro' }), report(2, { neighborhood: 'Bairro antigo', status: 'resolved' }),
+      report(3, { neighborhood: 'Interno', is_public: false }), report(4, { neighborhood: 'Outro município', city_id: 2 }),
+      report(5, { neighborhood: 'Categoria restrita', category_id: 'esgoto' }), report(6, { neighborhood: '  ' })],
+  }, { cap: 1 });
+  const options = { kind: 'reports', municipalityId: 'prefeitura', cityId: 1, enabledCategoryIds: ['iluminacao'] };
+  assert.deepEqual(await loadMunicipalExportNeighborhoods(client, options), ['Bairro antigo', 'Centro', 'Três Marias']);
+  assert.deepEqual(await loadMunicipalExportNeighborhoods(client, { ...options, visibility: 'internal' }), ['Centro', 'Interno', 'Três Marias']);
+});
+
+test('bairros de ordens respeitam a prefeitura e incluem todas as páginas', async () => {
+  const client = fakeClient({ bairros: [{ id: 1, city_id: 1, name: 'Centro' }], demandas_municipais: [
+    demand(1, { bairro: 'Centro' }), demand(2, { bairro: 'Alto', status: 'concluida' }),
+    demand(3, { bairro: 'Outra prefeitura', prefeitura_id: 'outra' }),
+  ] }, { cap: 1 });
+  assert.deepEqual(await loadMunicipalExportNeighborhoods(client, { kind: 'demands', municipalityId: 'prefeitura', cityId: 1 }), ['Alto', 'Centro']);
+});
+
+test('solicitações exportadas respeitam status finalizado, visibilidade, subtipo, bairro e último dia do período', async () => {
+  const base = { status: 'resolved', issue_type: 'lamp_off', neighborhood: 'Centro', created_at: new Date(2026, 9, 15, 23, 59, 59).toISOString() };
+  const rows = [report(1, { ...base, protocol: 'BR-001' }), report(2, { ...base, is_public: false }),
+    report(3, { ...base, issue_type: 'lamp_blinking' }), report(4, { ...base, status: 'pending' }),
+    report(5, { ...base, created_at: new Date(2026, 9, 16, 0, 0).toISOString() }), report(6, { ...base, city_id: 2 }), report(7, { ...base, neighborhood: 'Outro bairro' })];
+  const filters = { ...EXPORT_DEFAULT_FILTERS, statuses: ['resolved'], visibility: 'public', issueType: 'lamp_off', category: 'iluminacao', neighborhood: 'Centro', dateFrom: '2026-10-15', dateTo: '2026-10-15' };
+  const client = fakeClient({ reports: rows }, { cap: 1 });
+  const result = await loadMunicipalExport(client, { ...exportOptions, kind: 'reports', filters });
+  assert.deepEqual(result.map(item => item.id), ['0001']);
+  assert.ok(municipalExportCsv(result, 'reports').includes('BR-001'));
+  const internal = await loadMunicipalExport(client, { ...exportOptions, kind: 'reports', filters: { ...filters, visibility: 'internal' } });
+  assert.deepEqual(internal.map(item => item.id), ['0002']);
+});
+
+test('todos os status inclui resolvidas e andamento; seleção e ordenação mantêm o recorte completo', async () => {
+  const rows = [report(1, { status: 'resolved' }), report(2, { status: 'in-progress' }), report(3, { status: 'pending_resolution' })];
+  const client = fakeClient({ reports: rows }, { cap: 1 });
+  const result = await loadMunicipalExport(client, { ...exportOptions, kind: 'reports', filters: { ...EXPORT_DEFAULT_FILTERS, sort: 'status_desc' } });
+  assert.deepEqual(result.map(item => item.statusId), ['resolved', 'pending_resolution', 'in-progress']);
+  const selected = await loadMunicipalExport(client, { ...exportOptions, kind: 'reports', scope: 'selected', selectedIds: ['0001', '0002'], filters: { ...EXPORT_DEFAULT_FILTERS, statuses: ['resolved'] } });
+  assert.deepEqual(selected.map(item => item.id), ['0001']);
+});
+
+test('PDF de solicitações preserva o poste e o tipo do problema da consulta até a visão geral e as fichas', async () => {
+  const client = fakeClient({ reports: [
+    report(1, { pole: { identifier: '18 - X159189', plate: 'PLACA-1' }, pole_number: 'PLACA-ANTIGA', issue_type: 'lamp_blinking' }),
+    report(2, { pole_number: '00124', issue_type: 'lamp_off' }),
+    report(3, { pole_number: ' ', reported_post_identifier: 'P-003', issue_type: 'exposed_wiring' }),
+    report(4, { reported_plate: 'P-004', issue_type: 'pole_broken' }),
+    report(5, { pole: { identifier: '', plate: 'P-005' }, issue_type: 'lamp_on_daytime' }),
+    report(6, { category_id: 'esgoto', category: { name: 'Esgoto' }, issue_type: 'sewer_clogged' }),
+    report(7),
+  ] }, { cap: 2 });
+  const records = await loadMunicipalExport(client, { ...exportOptions, kind: 'reports' });
+  assert.deepEqual(records.map(item => item.poleNumber), ['X159189', '00124', 'P-003', 'P-004', 'P-005', '', '']);
+  assert.equal(records[0].issueType, 'piscando');
+  assert.equal(records[5].issueType, 'esgoto entupido');
+  assert.equal(records[6].issueType, 'Não informado');
+  const reportQueries = client.selections.filter(item => item.table === 'reports');
+  assert.ok(reportQueries.length > 1);
+  assert.ok(reportQueries.every(({ fields }) => ['pole_number', 'reported_post_identifier', 'reported_plate', 'pole:poles(identifier,plate)', 'issue_type'].every(field => fields.includes(field))));
+
+  for (const layout of ['table', 'details']) {
+    const doc = await buildMunicipalExportPdf({ records, kind: 'reports', municipality: context.municipality, layout });
+    const pdf = doc.output();
+    for (const code of ['X159189', '00124', 'P-003', 'P-004', 'P-005']) assert.ok(pdf.includes(code), `${layout}: poste ${code} ausente`);
+    assert.ok(pdf.includes('piscando'), `${layout}: tipo de problema ausente`);
+    assert.ok(pdf.includes('esgoto entupido'), `${layout}: subtipo de esgoto ausente`);
+    assert.ok(pdf.includes('Tipo de problema'));
+    assert.ok(pdf.includes('Não informado'));
+    assert.equal(pdf.includes('undefined'), false);
+    assert.equal(pdf.includes('PLACA-ANTIGA'), false);
+  }
+});
 
 test('exportação cobre mais de mil registros mesmo se o servidor reduzir o tamanho dos lotes', async () => {
   const rows = Array.from({ length: 1257 }, (_, index) => demand(index));

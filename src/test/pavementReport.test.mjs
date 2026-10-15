@@ -94,6 +94,22 @@ test('CEP vazio dentro da lista nao conta como cadastrado', () => {
 
 /* --- Contagem --- */
 
+test('conferência de CEPs usa somente o recorte recebido, separa pendências e preserva todos os CEPs', () => {
+  const selecionadas = [rua({ name: 'Rua com CEP', ceps: [{ cep: '56400-111' }, { cep: '56400-222' }] }), rua({ name: 'Rua sem CEP' })];
+  const report = montarRelatorio('ceps', selecionadas, { filtros: ['Bairro: Centro', 'Situação: Sem pavimentação'] });
+  assert.equal(report.contagem.total, 2);
+  assert.equal(report.contagem.semCep, 1);
+  assert.equal(report.secoes.length, 2);
+  assert.deepEqual(report.secoes.map(s => s.linhas.length), [1, 1]);
+  assert.equal(report.secoes[0].linhas[0][3], '56400-111 · 56400-222');
+  assert.equal(report.secoes[1].linhas[0][0], 'Rua sem CEP');
+  const csv = relatorioParaCsv(report);
+  assert.ok(csv.includes('Filtro: Bairro: Centro'));
+  assert.ok(csv.includes('56400-222'));
+  assert.equal(montarRelatorio('com-cep', selecionadas).secoes[0].linhas.length, 1);
+  assert.deepEqual(montarRelatorio('ceps', [selecionadas[1]]).secoes.map(s => s.titulo), ['Ruas sem CEP cadastrado (1)']);
+});
+
 test('a contagem por status bate com o que existe', () => {
   const c = contarPorStatus(BASE);
   assert.equal(c.total, 5);

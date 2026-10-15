@@ -23,6 +23,7 @@ import PublicWorksPage from '@/pages/PublicWorksPage';
 import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
 import RentalPropertiesPage from '@/pages/RentalPropertiesPage';
 import PavementMapPage from '@/pages/PavementMapPage';
+import ArborizationMapPage from '@/pages/ArborizationMapPage';
 import PavementStreetPage from '@/pages/PavementStreetPage';
 import CouncilorProfilePage from '@/pages/CouncilorProfilePage';
 import ManageMyCouncilorPage from '@/pages/ManageMyCouncilorPage';
@@ -213,6 +214,10 @@ const SEO = () => {
       pageTitle = `Mapa de Pavimentação - ${siteName}`;
       pageDescription = "Consulte o status da pavimentação das ruas da sua cidade e acompanhe o progresso.";
       break;
+    case '/mapa-arborizacao':
+      pageTitle = `Mapa de Arborização - ${siteName}`;
+      pageDescription = 'Conheça as árvores da cidade, suas espécies, estado de conservação e necessidades de manejo.';
+      break;
     case '/noticias':
       pageTitle = `Notícias - ${siteName}`;
       pageDescription = "Fique por dentro das últimas notícias e atualizações relevantes para a sua cidade.";
@@ -344,6 +349,7 @@ const ModuleRoute = ({ module, adminOnly = false, children }) => {
   const Guard = adminOnly ? AdminRoute : AmbassadorOrAdminRoute;
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
   if (!canWrite(module)) return <Navigate to="/" replace />;
+  if (module === 'urban_planning') return children;
   return <Guard>{children}</Guard>;
 };
 
@@ -886,6 +892,9 @@ function AppShell() {
               <Route path="/share/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
+              <Route path="/mapa-arborizacao" element={<ArborizationMapPage />} />
+              <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="urban_planning"><ArborizationMapPage management /></ModuleRoute>} />
+              <Route path="/admin/arborizacao" element={<ModuleRoute module="urban_planning"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/guia-da-cidade" element={<ServicesPage />} />
@@ -952,9 +961,9 @@ function AppShell() {
               <Route path="/admin/imoveis-alugados" element={<ModuleRoute module="rentals" adminOnly><ManageRentalPropertiesPage /></ModuleRoute>} />
               <Route path="/imoveis-alugados/gerenciar" element={<ModuleRoute module="rentals"><ManageRentalPropertiesPage /></ModuleRoute>} />
               <Route path="/admin/obras/opcoes" element={<ModuleRoute module="works" adminOnly><ManageWorkOptionsPage /></ModuleRoute>} />
-              <Route path="/admin/pavimentacao" element={<ModuleRoute module="pavement" adminOnly><ManagePavementPage /></ModuleRoute>} />
+              <Route path="/admin/pavimentacao" element={<ModuleRoute module="urban_planning"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/vereadores" element={<ModuleRoute module="pavement" adminOnly><ManageCouncilorsPage /></ModuleRoute>} />
-              <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="pavement"><ManagePavementPage /></ModuleRoute>} />
+              <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="urban_planning"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
               <Route path="/admin/identidade-da-cidade" element={<AdminRoute><ManageCityIdentityPage /></AdminRoute>} />
               <Route path="/admin/categorias" element={<AdminRoute><ManageCategoriesPage /></AdminRoute>} />

@@ -1,10 +1,11 @@
-import { poleReferenceText } from '@/lib/poleDisplay';
+import { poleCode, poleDisplayCode, poleReferenceText } from '@/lib/poleDisplay';
+import { rotuloDoTipoDeProblema } from './reportCategoryFields.js';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES, OPEN_DEMAND_STATUSES, demandReportLocations } from './municipalDemand.js';
 import { municipalReportsQuery, REPORT_STATUSES, reportAge } from './municipalReports.js';
 import { applyMunicipalCategoryFilter } from './municipalCategories.js';
 
 export const DEMAND_LIST_FIELDS = 'id,protocolo,titulo,bairro,endereco,prioridade,status,created_at,updated_at,prazo_em,previsto_em,primeira_resposta_prazo_em,primeira_resposta_em,report_id,atribuido_a,canal_id,revisao_pendente,proxima_acao,proxima_acao_em,category:categories(name),responsavel:profiles!demandas_municipais_atribuido_a_fkey(name),secretaria:orgao_canais(nome)';
-export const EXPORT_DEFAULT_FILTERS = { query: '', statuses: [], responsible: 'all', channel: 'all', category: 'all', neighborhood: '', priority: 'all', age: 'all', orderLink: 'all', queue: 'all', overdue: false, dueToday: false, dateFrom: '', dateTo: '', sort: 'recentes' };
+export const EXPORT_DEFAULT_FILTERS = { query: '', statuses: [], responsible: 'all', channel: 'all', category: 'all', neighborhood: '', priority: 'all', age: 'all', orderLink: 'all', queue: 'all', overdue: false, dueToday: false, dateFrom: '', dateTo: '', sort: 'recentes', visibility: 'public', issueType: 'all' };
 export const EXPORT_QUEUES = [['all', 'Todas as filas'], ['em_atendimento', 'Em andamento'], ['minhas', 'Minhas demandas'], ['sem_responsavel', 'Sem responsável'], ['revisao', 'Precisam de revisão'], ['primeira_resposta', 'Primeira resposta atrasada'], ['proxima_acao', 'Próxima ação em até 24h']];
 export const exportLabel = (options, key) => options.find(([id]) => String(id) === String(key))?.[1] || key || 'Não informado';
 
@@ -75,6 +76,23 @@ export async function collectExportRows(makeRequest, { signal, onProgress } = {}
   return rows;
 }
 
+// O seletor inclui o cadastro da cidade e os nomes já usados em registros
+// acessíveis à conta, mesmo que não estejam mais no cadastro de bairros.
+export async function loadMunicipalExportNeighborhoods(client, { kind, municipalityId, cityId, enabledCategoryIds, visibility = 'public', signal }) {
+  const filters = { ...EXPORT_DEFAULT_FILTERS, municipalityId, cityId, enabledCategoryIds, visibility, signal, includeAllStatuses: true };
+  const [registered, recorded] = await Promise.all([
+    collectExportRows(() => {
+      const request = client.from('bairros').select('id,name').eq('city_id', cityId).order('id');
+      return signal ? request.abortSignal(signal) : request;
+    }, { signal }),
+    collectExportRows(() => kind === 'demands'
+      ? municipalDemandsQuery(client, filters, { fields: 'id,bairro', count: undefined })
+      : municipalReportsQuery(client, filters, 'id,neighborhood'), { signal }),
+  ]);
+  return [...new Set([...registered.map(item => item.name), ...recorded.map(item => kind === 'demands' ? item.bairro : item.neighborhood)]
+    .map(name => String(name || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
 export async function loadMunicipalExport(client, { kind, municipalityId, cityId, userId, enabledCategoryIds, filters, selectedIds = [], scope = 'filtered', signal, onProgress }) {
   const snapshot = { ...filters, municipalityId, cityId, userId, enabledCategoryIds, signal, now: new Date() };
   if (scope === 'selected' && !selectedIds.length) return [];
@@ -86,8 +104,7 @@ export async function loadMunicipalExport(client, { kind, municipalityId, cityId
     const select = (request) => ids ? request.in('id', ids) : request;
     const batch = await collectExportRows(() => {
       if (kind === 'demands') return select(municipalDemandsQuery(client, snapshot, { fields: DEMAND_LIST_FIELDS + ',descricao', count: undefined }));
-      let request = municipalReportsQuery(client, { ...snapshot, status: 'all' }, 'id,protocol,title,description,address,neighborhood,created_at,status,category_id,category:categories(name)');
-      if (filters.statuses?.length) request = request.in('status', filters.statuses);
+      let request = municipalReportsQuery(client, { ...snapshot, status: 'all', includeAllStatuses: true }, 'id,protocol,title,description,address,neighborhood,created_at,status,category_id,issue_type,pole_number,reported_post_identifier,reported_plate,pole:poles(identifier,plate),category:categories(name)');
       return select(request);
     }, { signal, onProgress: (count) => onProgress?.(previousCount + count) });
     records = records.concat(batch);
@@ -145,6 +162,10 @@ export async function loadMunicipalExport(client, { kind, municipalityId, cityId
 }
 
 function sortExportRecords(records, sort, kind) {
+  if (kind !== 'demands' && ['status_asc', 'status_desc'].includes(sort)) {
+    return records.sort((a, b) => a.statusId.localeCompare(b.statusId) * (sort === 'status_asc' ? 1 : -1)
+      || new Date(b.createdAt) - new Date(a.createdAt) || String(a.id).localeCompare(String(b.id)));
+  }
   const key = sort === 'prazo' ? 'dueAt' : kind === 'demands' && sort !== 'antigas' ? 'updatedAt' : 'createdAt';
   return records.sort((a, b) => {
     if (!a[key] || !b[key]) return a[key] ? -1 : b[key] ? 1 : String(a.id).localeCompare(String(b.id));
@@ -166,6 +187,8 @@ export function normalizeExportRecord(item, kind, now = new Date()) {
     neighborhood: (demand ? item.bairro : item.neighborhood) || [...new Set(linkedLocations.map((location) => location.neighborhood).filter(Boolean))].join('; ') || 'Bairro não informado',
     linkedLocations, serviceAddress: demand ? item.endereco || '' : '',
     category: item.category?.name || 'Sem categoria', statusId: item.status,
+    poleNumber: demand ? '' : poleDisplayCode(item.pole) || [item.pole_number, item.reported_post_identifier, item.reported_plate].map(poleCode).find(Boolean) || '',
+    issueType: demand ? '' : rotuloDoTipoDeProblema(item.category_id, item.issue_type),
     status: exportLabel(demand ? DEMAND_STATUSES : REPORT_STATUSES, item.status),
     responsible: restricted ? 'Acesso restrito' : assignment?.responsavel?.name || 'Sem responsável',
     channel: restricted ? 'Acesso restrito' : assignment?.secretaria?.nome || 'Sem secretaria',
