@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm ci --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000",
   "rewrites": [
     {
       "source": "/share/guia/categoria/:id",
