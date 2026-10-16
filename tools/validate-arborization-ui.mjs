@@ -127,8 +127,7 @@ try {
     await closeDetails();
     await click('Lista'); await waitFor('document.querySelectorAll("article").length===2');
     await input('Buscar árvore', 'sao jose'); await waitFor('document.querySelectorAll("article").length===1');
-    assert.ok(await evaluate('document.body.innerText.includes("1 de 2 registros")'));
-    await click('Limpar filtros'); await select('Manejo', 'pending'); await waitFor('document.body.innerText.includes("1 de 2 registros")');
+    await click('Limpar filtros'); await select('Manejo', 'pending'); await waitFor('document.querySelectorAll("article").length===1');
     assert.ok(await evaluate('document.querySelector("article").innerText.includes("Nim")'));
     await click('Limpar filtros'); await click('Cadastrar árvore'); await waitFor('document.querySelector("[role=dialog]")');
     await input('Nome popular / identificação *', 'Oiti de teste');
@@ -181,7 +180,7 @@ try {
     await navigate(); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     await evaluate(`document.querySelector('button[aria-label="Selecionar cidade"]').click()`);
     await waitFor('document.querySelector("[role=option]")'); await evaluate('[...document.querySelectorAll("[role=option]")].find(e=>e.textContent.includes("Recife")).click()');
-    await waitFor('document.querySelector("#arborization-filters").textContent.includes("0 de 0 registros")');
+    await waitFor('document.querySelector("h1").parentElement.textContent.includes("Recife")&&!document.body.innerText.includes("Carregando árvores")&&document.querySelectorAll(".tree-map-pin").length===0');
     assert.ok(await evaluate('!document.body.innerText.includes("O inventário está começando")&&!document.body.innerText.includes("Cadastrar primeira árvore")'));
     assert.ok(await evaluate('!document.body.innerText.includes("Ipê-amarelo")&&![...document.querySelectorAll("button")].some(b=>b.textContent.includes("Cadastrar árvore"))'));
     results.push({ width, overflow: false, margins, mapControls: 'satélite, zoom 19, localização, reenquadramento, escala e camada preservada em tela cheia OK', filters: 'OK', createEditDelete: 'OK', modalDetailsAndList: 'OK', fullscreen: 'modal, edição e exclusão OK', publicAndCityScope: 'OK' });

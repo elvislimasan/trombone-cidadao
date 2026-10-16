@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Download, Leaf, List, Loader2, Map, MapPin, Pencil, Plus, RefreshCw, Search, ShieldAlert, SlidersHorizontal, Sprout, Trees, X } from 'lucide-react';
+import { Download, Leaf, List, Loader2, Map, MapPin, Pencil, Plus, Search, ShieldAlert, SlidersHorizontal, Sprout, Trees, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,24 +114,18 @@ function ArborizationContent({ management }) {
     </section>
     <Button variant="outline" className="gap-2 lg:hidden" aria-expanded={filtersOpen} aria-controls="arborization-filters" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal className="h-4 w-4" />{filtersOpen ? 'Ocultar filtros' : 'Filtros'}{activeFilters ? ' · ativos' : ''}</Button>
     <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)] 3xl:grid-cols-[280px_minmax(0,1fr)] 4xl:grid-cols-[320px_minmax(0,1fr)]">
-      <aside id="arborization-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 space-y-4 rounded-2xl border border-edge-subtle bg-surface-raised p-4 lg:block`}>
+      <aside id="arborization-filters" className={`${filtersOpen ? 'block' : 'hidden'} ${view === 'map' ? 'lg:h-[calc(100dvh-21rem)] lg:min-h-[520px] lg:overflow-y-auto' : ''} min-w-0 space-y-4 rounded-2xl border border-edge-subtle bg-surface-raised p-4 lg:block lg:space-y-2.5 lg:p-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Explore o inventário</h2>{activeFilters && <Button variant="ghost" size="sm" onClick={resetFilters}>Limpar filtros</Button>}</div>
-        <label className="grid gap-1.5 text-sm font-medium">Buscar árvore<div className="relative"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Espécie, rua ou bairro" value={filters.search} onChange={event => setFilter('search', event.target.value)} /></div></label>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        <label className="grid gap-1.5 text-sm font-medium lg:gap-1">Buscar árvore<div className="relative"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Espécie, rua ou bairro" value={filters.search} onChange={event => setFilter('search', event.target.value)} /></div></label>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 lg:gap-2">
           {[
             ['status', 'Situação', Object.entries(TREE_STATUS).map(([key, value]) => [key, value.label])],
             ['origin', 'Origem', Object.entries(TREE_ORIGINS)],
             ['neighborhood', 'Bairro', neighborhoods.map(value => [value, value])],
             ['action', 'Manejo', [['pending', 'Todos os manejos pendentes'], ...Object.entries(TREE_ACTIONS)]],
-          ].map(([key, label, options]) => <label key={key} className="grid min-w-0 gap-1.5 text-sm font-medium">{label}<select className={selectClass} value={filters[key]} onChange={event => setFilter(key, event.target.value)}><option value="all">Todos</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>)}
+          ].map(([key, label, options]) => <label key={key} className="grid min-w-0 gap-1.5 text-sm font-medium lg:gap-1">{label}<select className={selectClass} value={filters[key]} onChange={event => setFilter(key, event.target.value)}><option value="all">Todos</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>)}
         </div>
-        <div className="grid gap-2 border-t border-edge-subtle pt-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground" aria-live="polite">{loading ? 'Carregando inventário…' : `${filtered.length} de ${trees.length} registros`}</p>
-            <Button type="button" variant="ghost" size="icon" aria-label="Atualizar inventário" disabled={loading} onClick={() => { setSelected(null); setRevision(value => value + 1); }}>
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+        <div className="grid gap-2 border-t border-edge-subtle pt-3 lg:pt-2">
           <ToggleGroup type="single" value={view} onValueChange={value => value && setView(value)} className="justify-center rounded-md border" aria-label="Visualização">
             <ToggleGroupItem value="map" className="flex-1 gap-2" aria-label="Ver mapa"><Map className="h-4 w-4" />Mapa</ToggleGroupItem>
             <ToggleGroupItem value="list" className="flex-1 gap-2" aria-label="Ver lista"><List className="h-4 w-4" />Lista</ToggleGroupItem>
