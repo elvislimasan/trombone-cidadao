@@ -40,7 +40,7 @@ const stubs = {
 };
 if (!process.argv.includes('--reuse-assets')) {
 await build({
-  stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import L from 'leaflet';import ArborizationMapPage from '@/pages/ArborizationMapPage';L.Map.addInitHook(function(){window.testMap=this});if(location.search.includes('dark'))document.documentElement.classList.add('dark');createRoot(document.getElementById('root')).render(<MemoryRouter><ArborizationMapPage/></MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
+  stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import L from 'leaflet';import ArborizationMapPage from '@/pages/ArborizationMapPage';const maps=[];L.Map.addInitHook(function(){maps.push(this);window.testMap=this;this.on('unload',()=>{maps.splice(maps.indexOf(this),1);window.testMap=maps.at(-1)})});if(location.search.includes('dark'))document.documentElement.classList.add('dark');createRoot(document.getElementById('root')).render(<MemoryRouter><ArborizationMapPage/></MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, jsx: 'automatic', loader: { '.png': 'dataurl' }, outfile: path.join(out, 'preview.js'),
   define: { 'process.env.NODE_ENV': '"production"' }, alias: { '@': path.join(root, 'src') },
   plugins: [{ name: 'fixtures', setup(builder) {
@@ -51,7 +51,7 @@ await build({
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
-const css = await postcss([tailwind({ ...config, content: ['src/pages/ArborizationMapPage.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
+const css = await postcss([tailwind({ ...config, content: ['src/pages/ArborizationMapPage.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + '\n' + await fs.readFile('node_modules/leaflet/dist/leaflet.css', 'utf8'));
 }
 const server = http.createServer(async (req, res) => {
@@ -83,6 +83,9 @@ try {
   const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId); if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
   const waitFor = async expression => { for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(${expression})`)) return; await pause(100); } throw Error(`Timeout: ${expression}\n${await evaluate('document.body.innerText')}\n${JSON.stringify(errors)}`); };
   const click = label => evaluate(`(()=>{const scope=document.querySelector('[role=alertdialog]')||[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const button=[...scope.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!button)throw Error('Botão ausente: '+${JSON.stringify(label)});button.click()})()`);
+  const clickMapControl = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;scope.querySelector('button[aria-label=${JSON.stringify(label)}]').click()})()`);
+  const hasSatellite = 'Object.values(window.testMap._layers).some(layer=>layer._url?.includes("World_Imagery"))';
+  const zoomInsideMap = `(()=>{const map=window.testMap.getContainer();const bounds=map.getBoundingClientRect();const zoom=map.querySelector('.leaflet-control-zoom').getBoundingClientRect();return zoom.top>=bounds.top&&zoom.bottom<=bounds.bottom&&zoom.left>=bounds.left&&zoom.right<=bounds.right})()`;
   const input = (label, value) => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const element=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(element,${JSON.stringify(value)});element.dispatchEvent(new Event('input',{bubbles:true}))})()`);
   const addressValue = () => evaluate(`document.querySelector('[role=dialog] input[placeholder="Rua, número ou praça"]').value`);
   const waitForAddress = () => waitFor('document.querySelector("[role=dialog] [role=status]").textContent.includes("Rua e bairro preenchidos")');
@@ -99,6 +102,17 @@ try {
     const margins = await evaluate('(()=>{const r=document.querySelector("main").getBoundingClientRect();const p=getComputedStyle(document.querySelector("main"));return [r.left+parseFloat(p.paddingLeft),innerWidth-r.right+parseFloat(p.paddingRight)]})()');
     if (width >= 1200) assert.ok(margins.every(value => value <= 64), `gutters em ${width}: ${margins}`);
     await capture(`map-${width}`);
+    assert.ok(await evaluate(zoomInsideMap), `Zoom deve ficar visível dentro do mapa em ${width}px`);
+    await evaluate('void window.testMap.setView([-8.597,-38.574],19,{animate:false})');
+    await clickMapControl('Usar mapa de satélite'); await waitFor(hasSatellite);
+    assert.equal(await evaluate('window.testMap.getZoom()'), 19, 'Satélite preserva o zoom máximo');
+    await capture(`satellite-${width}`);
+    await clickMapControl('Ir para minha localização');
+    await waitFor('window.testMap.getCenter().distanceTo([-8.599,-38.571])<2');
+    await clickMapControl('Reenquadrar árvores no mapa');
+    await waitFor('window.testMap.getBounds().contains([-8.597,-38.574])&&window.testMap.getBounds().contains([-8.6,-38.57])');
+    await clickMapControl('Usar mapa padrão'); await waitFor(`!(${hasSatellite})`);
+    assert.ok(await evaluate('document.querySelector(".leaflet-control-scale-line").textContent.includes("m")'));
     await evaluate('document.querySelector(".tree-map-pin").click()');
     await waitFor('document.querySelector("[data-testid=tree-details-dialog]")');
     assert.ok(await evaluate('document.querySelector("[data-testid=tree-details-dialog]").innerText.includes("Manejo necessário")&&document.querySelector("[data-testid=tree-details-dialog]").innerText.includes("Coordenadas:")'));
@@ -117,7 +131,12 @@ try {
     await click('Limpar filtros'); await select('Manejo', 'pending'); await waitFor('document.body.innerText.includes("1 de 2 registros")');
     assert.ok(await evaluate('document.querySelector("article").innerText.includes("Nim")'));
     await click('Limpar filtros'); await click('Cadastrar árvore'); await waitFor('document.querySelector("[role=dialog]")');
-    await input('Nome popular / identificação *', 'Oiti de teste'); await click('Usar GPS');
+    await input('Nome popular / identificação *', 'Oiti de teste');
+    assert.ok(await evaluate(zoomInsideMap), 'Zoom deve ficar visível no mapa do formulário');
+    await clickMapControl('Usar mapa de satélite'); await waitFor(hasSatellite);
+    assert.equal(await evaluate('(window.addressRequests||[]).length'), 0, 'Trocar camada não seleciona uma posição no formulário');
+    await clickMapControl('Usar mapa padrão'); await waitFor(`!(${hasSatellite})`);
+    await click('Usar GPS');
     await waitFor('[...document.querySelectorAll("label")].find(e=>e.firstChild.textContent==="Latitude").querySelector("input").value==="-8.5990000"');
     await waitForAddress();
     assert.equal(await addressValue(), 'Rua Joaquim Marques de Sá');
@@ -139,7 +158,9 @@ try {
     await waitFor('!document.querySelector("[role=alertdialog]")');
     assert.equal(await evaluate('window.writes.filter(w=>w.operation==="delete").length'), 1);
     await click('Mapa'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    await clickMapControl('Usar mapa de satélite'); await waitFor(hasSatellite);
     await click('Tela cheia'); await waitFor('document.querySelector("[role=dialog] .leaflet-container")');
+    assert.ok(await evaluate(hasSatellite), 'Tela cheia preserva a camada de satélite');
     await evaluate('document.querySelector("[role=dialog] .tree-map-pin").click()');
     await waitFor('document.querySelector("[data-testid=tree-details-dialog]")');
     await click('Editar árvore'); await waitFor('document.querySelector("[role=dialog] form")');
@@ -151,6 +172,7 @@ try {
     assert.ok(await evaluate('document.querySelector("[role=dialog] .leaflet-container")!==null'));
     await click('Sair da tela cheia'); await waitFor('!document.querySelector("[role=dialog]")');
     assert.ok(await evaluate('document.querySelectorAll(".tree-map-pin").length===2'));
+    assert.ok(await evaluate(hasSatellite), 'Sair da tela cheia preserva a camada de satélite');
     await navigate('?public'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     assert.ok(await evaluate('![...document.querySelectorAll("button")].some(b=>b.textContent.includes("Cadastrar árvore"))'));
     await evaluate('document.querySelector(".tree-map-pin").click()');
@@ -162,7 +184,7 @@ try {
     await waitFor('document.querySelector("#arborization-filters").textContent.includes("0 de 0 registros")');
     assert.ok(await evaluate('!document.body.innerText.includes("O inventário está começando")&&!document.body.innerText.includes("Cadastrar primeira árvore")'));
     assert.ok(await evaluate('!document.body.innerText.includes("Ipê-amarelo")&&![...document.querySelectorAll("button")].some(b=>b.textContent.includes("Cadastrar árvore"))'));
-    results.push({ width, overflow: false, margins, filters: 'OK', createEditDelete: 'OK', modalDetailsAndList: 'OK', fullscreen: 'modal, edição e exclusão OK', publicAndCityScope: 'OK' });
+    results.push({ width, overflow: false, margins, mapControls: 'satélite, zoom 19, localização, reenquadramento, escala e camada preservada em tela cheia OK', filters: 'OK', createEditDelete: 'OK', modalDetailsAndList: 'OK', fullscreen: 'modal, edição e exclusão OK', publicAndCityScope: 'OK' });
     console.log(`Navegador ${width}px: CRUD, filtros, tela cheia e acesso por cidade OK`);
   }
   await navigate('?dark'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2'); await capture('map-dark-1920');

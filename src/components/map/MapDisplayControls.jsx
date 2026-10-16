@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { CircleMarker, TileLayer } from 'react-leaflet';
+import { CircleMarker } from 'react-leaflet';
 import { Layers, Loader2, LocateFixed } from 'lucide-react';
 
 import ThemedTileLayer from '@/components/map/ThemedTileLayer';
+import SatelliteTileLayer from '@/components/map/SatelliteTileLayer';
 import { showAppError } from '@/lib/appError';
 
 export const MAP_LAYER = {
@@ -10,20 +11,9 @@ export const MAP_LAYER = {
   SATELLITE: 'satellite',
 };
 
-const SATELLITE_URL =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-
 export function MapBaseLayer({ layer = MAP_LAYER.STANDARD }) {
   if (layer === MAP_LAYER.SATELLITE) {
-    return (
-      <TileLayer
-        key="satellite"
-        url={SATELLITE_URL}
-        attribution="&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-        maxZoom={18}
-        maxNativeZoom={18}
-      />
-    );
+    return <SatelliteTileLayer key="satellite" />;
   }
 
   return <ThemedTileLayer key="standard" maxZoom={19} />;
@@ -58,8 +48,8 @@ export const BOTAO_DE_MAPA =
  *
  * Fica separada do bloco completo porque "ver por satélite" e "ir para minha
  * localização" respondem a perguntas diferentes, e um mapa pode querer uma sem
- * a outra. O que NÃO pode é a url do satélite viver em dois lugares — ela mora
- * em `MapBaseLayer`, logo acima, e os dois caminhos passam por lá.
+ * a outra. A fonte de satélite é compartilhada em `SatelliteTileLayer`,
+ * usada por `MapBaseLayer` e pelos mapas municipais.
  */
 export function MapLayerToggle({ layer, onLayerChange, className = '' }) {
   const satellite = layer === MAP_LAYER.SATELLITE;
