@@ -113,9 +113,9 @@ function ArborizationContent({ management }) {
       {[[Trees, 'Árvores no inventário', stats.total], [Leaf, 'Nativas vivas', stats.native], [Sprout, 'Manejos pendentes', stats.pending], [ShieldAlert, 'Árvores em risco', stats.risk]].map(([Icon, label, value]) => <div key={label} className="flex min-w-0 items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-raised p-4"><Icon className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" /><div><p className="text-2xl font-bold tabular-nums">{loading ? '—' : value.toLocaleString('pt-BR')}</p><p className="text-xs text-muted-foreground">{label}</p></div></div>)}
     </section>
     <Button variant="outline" className="gap-2 lg:hidden" aria-expanded={filtersOpen} aria-controls="arborization-filters" onClick={() => setFiltersOpen(value => !value)}><SlidersHorizontal className="h-4 w-4" />{filtersOpen ? 'Ocultar filtros' : 'Filtros'}{activeFilters ? ' · ativos' : ''}</Button>
-    <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
+    <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)] 3xl:grid-cols-[280px_minmax(0,1fr)] 4xl:grid-cols-[320px_minmax(0,1fr)]">
       <aside id="arborization-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 space-y-4 rounded-2xl border border-edge-subtle bg-surface-raised p-4 lg:block`}>
-        <div className="flex items-center justify-between"><h2 className="font-semibold">Explore o inventário</h2>{activeFilters && <Button variant="ghost" size="sm" onClick={resetFilters}>Limpar filtros</Button>}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Explore o inventário</h2>{activeFilters && <Button variant="ghost" size="sm" onClick={resetFilters}>Limpar filtros</Button>}</div>
         <label className="grid gap-1.5 text-sm font-medium">Buscar árvore<div className="relative"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Espécie, rua ou bairro" value={filters.search} onChange={event => setFilter('search', event.target.value)} /></div></label>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
           {[
