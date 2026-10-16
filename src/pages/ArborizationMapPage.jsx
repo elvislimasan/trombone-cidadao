@@ -137,7 +137,6 @@ function ArborizationContent({ management }) {
             <ToggleGroupItem value="list" className="flex-1 gap-2" aria-label="Ver lista"><List className="h-4 w-4" />Lista</ToggleGroupItem>
           </ToggleGroup>
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">O mapa mostra árvores cadastradas no inventário. Uma área sem marcadores pode ainda não ter sido levantada.</p>
       </aside>
       <section className="min-w-0 space-y-3" aria-label="Resultados do inventário">
         {error ? <div role="alert" className="rounded-2xl border p-8 text-center"><p>{error}</p><Button variant="outline" className="mt-3" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></div> : loading ? <div className="flex h-[500px] items-center justify-center gap-2 rounded-2xl border"><Loader2 className="h-5 w-5 animate-spin" />Carregando árvores…</div> : <>
