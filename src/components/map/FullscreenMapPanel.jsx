@@ -4,7 +4,7 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
-export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', actions }) {
+export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', actions }) {
   const [expanded, setExpanded] = useState(false);
   const inlineRef = useRef(null);
   const [expandedHost, setExpandedHost] = useState(null);
@@ -30,7 +30,7 @@ export default function FullscreenMapPanel({ children, title = 'Mapa', className
       <Button type="button" size="sm" variant="outline"
         className={`absolute z-[850] gap-2 bg-background shadow-md ${buttonClassName}`}
         aria-label={`Expandir ${title.toLowerCase()} para tela cheia`} onClick={() => setExpanded(true)}>
-        <Maximize2 className="h-4 w-4" /> Tela cheia
+        <Maximize2 className="h-4 w-4" /> {buttonLabel}
       </Button>
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent hideClose aria-describedby={undefined}

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, Loader2, Pencil, Trees } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronRight, Clock3, FileText, Heart, Image as ImageIcon, Info, Landmark, Leaf, Loader2, Map, MapPin, MessageSquare, Pencil, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreeMap from '@/components/arborization/TreeMap';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
@@ -19,6 +21,7 @@ function TreeContent({ id }) {
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [history, setHistory] = useState(null), [historyError, setHistoryError] = useState('');
   const [revision, setRevision] = useState(0), [editing, setEditing] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [care, setCare] = useState({ service_type: 'poda', performed_on: '', notes: '' });
   const [saving, setSaving] = useState(false), [notice, setNotice] = useState('');
   const { canManage } = useCanManagePavement(tree?.city_id);
@@ -65,32 +68,40 @@ function TreeContent({ id }) {
   if (error || !tree) return <main className="page-shell-fluid space-y-4 py-8"><p role="alert">{error || 'Árvore não encontrada.'}</p>{error && retry}<Link className="block underline" to="/mapa-arborizacao">Voltar ao mapa de arborização</Link></main>;
   const timeline = history ? treeTimeline(tree, history.care, history.reports, history.updates) : [];
   const age = tree.estimated_birth_year ? new Date().getFullYear() - tree.estimated_birth_year : null;
-  return <main className="page-shell-fluid min-w-0 space-y-5 py-6" data-testid="tree-page">
+  return <main className="page-shell-fluid tree-profile-page" data-testid="tree-page">
     <Helmet><title>{tree.common_name} — Arborização</title><meta name="description" content={`Consulte o cadastro de ${tree.common_name}, sua localização e o histórico de cuidados e solicitações de serviço.`} /></Helmet>
-    <Link to="/mapa-arborizacao" className="inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" />Mapa de arborização</Link>
-    <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm text-muted-foreground">Inventário de arborização · {city?.name || 'Cidade'}</p><h1 className="mt-1 flex items-center gap-2 break-words text-3xl font-bold"><Trees className="h-7 w-7 shrink-0 text-emerald-700" />{tree.common_name}</h1>{tree.scientific_name && <p className="mt-1 italic text-muted-foreground">{tree.scientific_name}</p>}</div>{canManage && <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="mr-2 h-4 w-4" />Editar árvore</Button>}</header>
+    <nav className="tree-profile-breadcrumb" aria-label="Navegação estrutural"><Link to="/mapa-arborizacao"><ArrowLeft className="h-3.5 w-3.5" />Mapa de arborização</Link><ChevronRight className="h-3 w-3" aria-hidden="true" /><span>Inventário de arborização · {city?.name || 'Cidade'}</span></nav>
+    <header className="tree-profile-header"><div className="flex min-w-0 items-start gap-4"><span className="tree-profile-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><h1>{tree.common_name}</h1><p className="tree-profile-subtitle">{[city?.name, tree.neighborhood].filter(Boolean).join(' · ') || 'Localização não informada'}</p>{tree.scientific_name && <p className="tree-profile-scientific">{tree.scientific_name}</p>}</div></div>{canManage && <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Editar árvore</Button>}</header>
     {notice && <p role="status" className="rounded-xl border p-3 text-sm">{notice}</p>}
-    <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <section className="min-w-0 space-y-4 rounded-2xl border bg-surface-raised p-4 sm:p-6" aria-label="Dados da árvore">
-        {tree.photo_url && <img src={tree.photo_url} alt={`Foto de ${tree.common_name}`} className="max-h-96 w-full rounded-xl object-cover" />}
-        <h2 className="text-lg font-semibold">Sobre esta árvore</h2>
-        <dl className="grid min-w-0 gap-4 sm:grid-cols-2">{[
-          ['Cadastro na plataforma', dateLabel(tree.created_at)], ['Situação', TREE_STATUS[tree.status]?.label],
-          ['Bairro', tree.neighborhood || 'Não identificado'], ['Endereço', tree.address || 'Não informado'],
-          ['Origem', TREE_ORIGINS[tree.origin]], ['Data do plantio', dateLabel(tree.planted_at)],
-          ['Responsável pelo plantio', TREE_PLANTED_BY[tree.planted_by] || 'Não informado'], ['Idade estimada', age == null ? 'Não informada' : `${age} anos${age >= 100 ? ' · Centenária' : ''}`],
-          ['Sítio histórico', tree.is_historic_site ? 'Sim' : 'Não'], ['Altura / copa', `${tree.height_m ?? '—'} m / ${tree.crown_diameter_m ?? '—'} m`],
-          ['Manejo necessário', TREE_ACTIONS[tree.maintenance_action]], ['Prazo do manejo', dateLabel(tree.maintenance_due_at)],
-        ].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words text-sm font-medium">{value}</dd></div>)}</dl>
+    <div className="tree-profile-grid">
+      <section className="tree-profile-card tree-profile-overview" aria-label="Dados da árvore">
+        <figure className="tree-profile-photo">{tree.photo_url ? <><img src={tree.photo_url} alt={`Foto de ${tree.common_name}`} /><Button type="button" variant="secondary" onClick={() => setPhotoOpen(true)}><ImageIcon className="h-4 w-4" />Ver imagem completa</Button></> : <div className="tree-profile-photo-empty"><Trees className="h-12 w-12" aria-hidden="true" /><span>Foto ainda não cadastrada</span></div>}</figure>
+        <h2 className="tree-profile-section-title"><Leaf aria-hidden="true" />Sobre esta árvore</h2>
+        <dl className="tree-profile-facts">{[
+          ['Cadastro na plataforma', CalendarDays, dateLabel(tree.created_at)], ['Situação', Heart, TREE_STATUS[tree.status]?.label],
+          ['Bairro', MapPin, tree.neighborhood || 'Não identificado'], ['Endereço', Map, tree.address || 'Não informado'],
+          ['Origem', Leaf, TREE_ORIGINS[tree.origin]], ['Data do plantio', CalendarDays, dateLabel(tree.planted_at)],
+          ['Responsável pelo plantio', User, TREE_PLANTED_BY[tree.planted_by] || 'Não informado'], ['Idade estimada', Sprout, age == null ? 'Não informada' : `${age} anos${age >= 100 ? ' · Centenária' : ''}`],
+          ['Sítio histórico', Landmark, tree.is_historic_site ? 'Sim' : 'Não'], ['Altura / copa', Ruler, `${tree.height_m ?? '—'} m / ${tree.crown_diameter_m ?? '—'} m`],
+          ['Manejo necessário', Trees, TREE_ACTIONS[tree.maintenance_action]], ['Prazo do manejo', Clock3, dateLabel(tree.maintenance_due_at)],
+        ].map(([label, Icon, value]) => <div key={label} className="tree-profile-fact"><span className="tree-profile-fact-icon"><Icon aria-hidden="true" /></span><div className="min-w-0"><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl>
         {tree.notes && <p className="whitespace-pre-wrap break-words text-sm">{tree.notes}</p>}
-        <div className="relative isolate h-64 overflow-hidden rounded-xl border"><TreeMap trees={[tree]} selected={null} position={{ latitude: tree.latitude, longitude: tree.longitude }} /></div>
+        <section className="tree-profile-location" aria-labelledby="tree-location-title"><h3 id="tree-location-title" className="tree-profile-section-title"><MapPin aria-hidden="true" />Localização da árvore</h3><div className="tree-profile-location-map" data-testid="tree-profile-map"><FullscreenMapPanel title="Localização da árvore" buttonLabel="Ver no mapa maior" buttonClassName="left-3 top-3"><TreeMap trees={[tree]} /></FullscreenMapPanel></div></section>
       </section>
-      <section className="min-w-0 space-y-4 rounded-2xl border bg-surface-raised p-4 sm:p-6" aria-label="Linha do tempo da árvore">
-        <h2 className="text-lg font-semibold">Linha do tempo</h2><p className="text-sm text-muted-foreground">Cuidados registrados pela equipe municipal e dados das broncas vinculadas. Solicitações e conclusões informadas aparecem com sua origem.</p>
-        {historyError ? <div role="alert" className="space-y-2"><p>{historyError}</p>{retry}</div> : !history ? <p role="status">Carregando histórico…</p> : <><p className="text-sm font-medium">{history.reports.length} solicitações vinculadas · {history.care.length} serviços registrados pela equipe</p><ol className="space-y-4 border-l-2 border-emerald-700/30 pl-4">{timeline.map(entry => <li key={entry.id} className="min-w-0 space-y-1"><time className="text-xs text-muted-foreground" dateTime={entry.date}>{dateLabel(entry.date)}</time><h3 className="font-semibold">{entry.title}</h3><p className="text-xs text-emerald-700 dark:text-emerald-400">{entry.source}</p>{entry.description && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{entry.description}</p>}{entry.reportId && <Link to={`/bronca/${entry.reportId}`} className="inline-block text-sm underline">Ver bronca vinculada</Link>}</li>)}</ol>{!history.care.length && <p className="text-sm text-muted-foreground">Nenhum serviço registrado pela equipe municipal até o momento.</p>}</>}
-        {canManage && <form onSubmit={recordCare} className="space-y-3 border-t pt-4"><h3 className="font-semibold">Registrar serviço realizado</h3><fieldset disabled={saving} className="grid min-w-0 gap-3 sm:grid-cols-2"><label className="grid min-w-0 gap-1 text-sm">Serviço<select className={selectClass} value={care.service_type} onChange={event => setCare(current => ({ ...current, service_type: event.target.value }))}>{Object.entries(TREE_SERVICES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="grid min-w-0 gap-1 text-sm">Data de realização<Input required type="date" max={new Date().toLocaleDateString('en-CA')} value={care.performed_on} onChange={event => setCare(current => ({ ...current, performed_on: event.target.value }))} /></label><label className="grid gap-1 text-sm sm:col-span-2">Observações públicas<textarea className={`${selectClass} h-24 py-2`} maxLength={5000} value={care.notes} onChange={event => setCare(current => ({ ...current, notes: event.target.value }))} /></label><Button type="submit" disabled={saving}>{saving ? 'Registrando…' : 'Registrar no histórico'}</Button></fieldset></form>}
+      <section className="tree-profile-card tree-profile-history" aria-label="Linha do tempo da árvore">
+        <h2 className="tree-profile-section-title"><Clock3 aria-hidden="true" />Linha do tempo</h2><p className="tree-profile-description">Cuidados registrados pela equipe municipal e dados das broncas vinculadas. Solicitações e conclusões informadas aparecem com sua origem.</p>
+        {historyError ? <div role="alert" className="space-y-2"><p>{historyError}</p>{retry}</div> : !history ? <p role="status">Carregando histórico…</p> : <>
+          <ol className="tree-profile-timeline">{timeline.map(entry => {
+            const Icon = entry.id === 'registration' ? FileText : entry.reportId ? MessageSquare : Scissors;
+            return <li key={entry.id}><div className="tree-profile-event"><span className="tree-profile-event-icon"><Icon aria-hidden="true" /></span><div className="min-w-0"><time dateTime={entry.date}>{dateLabel(entry.date)}</time><h3>{entry.title}</h3><span className="tree-profile-event-source">{entry.source}</span>{entry.description && <p>{entry.description}</p>}{entry.reportId && <Link to={`/bronca/${entry.reportId}`}>Ver bronca vinculada<ChevronRight className="h-3 w-3" /></Link>}</div></div></li>;
+          })}</ol>
+          {!history.care.length && <p className="tree-profile-empty-history">Nenhum serviço registrado pela equipe municipal até o momento.</p>}
+          <p className="tree-profile-history-summary"><Info className="h-4 w-4" aria-hidden="true" />{history.reports.length} solicitações vinculadas · {history.care.length} serviços registrados pela equipe</p>
+        </>}
+        {canManage && <form onSubmit={recordCare} className="tree-profile-care-form"><h3 className="tree-profile-section-title"><Scissors aria-hidden="true" />Registrar serviço realizado</h3><p className="tree-profile-description">Registre aqui os cuidados realizados por sua equipe. O evento será adicionado à linha do tempo.</p><fieldset disabled={saving} className="tree-profile-care-fields"><label>Serviço<select className={selectClass} value={care.service_type} onChange={event => setCare(current => ({ ...current, service_type: event.target.value }))}>{Object.entries(TREE_SERVICES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Data de realização<Input required type="date" max={new Date().toLocaleDateString('en-CA')} value={care.performed_on} onChange={event => setCare(current => ({ ...current, performed_on: event.target.value }))} /></label><label className="tree-profile-care-notes">Observações públicas<textarea className={selectClass} placeholder="Descreva o serviço realizado, observações e demais informações…" maxLength={5000} value={care.notes} onChange={event => setCare(current => ({ ...current, notes: event.target.value }))} /><span className="tree-profile-character-count">{care.notes.length}/5000</span></label><Button type="submit" disabled={saving}><FileText className="h-4 w-4" />{saving ? 'Registrando…' : 'Registrar no histórico'}</Button></fieldset></form>}
       </section>
     </div>
+    {tree.photo_url && <Dialog open={photoOpen} onOpenChange={setPhotoOpen}><DialogContent className="tree-profile-photo-dialog" aria-describedby={undefined}><DialogTitle>Foto de {tree.common_name}</DialogTitle><img src={tree.photo_url} alt={`Foto completa de ${tree.common_name}`} /></DialogContent></Dialog>}
     {editing && canManage && <TreeFormDialog tree={tree} city={city} cityId={tree.city_id} onClose={() => setEditing(false)} onSave={saveTree} />}
   </main>;
 }

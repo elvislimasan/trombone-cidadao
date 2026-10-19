@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { BarChart3, Building2, CalendarDays, ChevronDown, ChevronRight, Download, FileText, Filter, Home, Info, Landmark, List, Loader2, Map, MapPin, Pencil, Plus, Scissors, Search, Trees, Trash2, X } from 'lucide-react';
+import { Building2, CalendarDays, ChevronDown, Download, FileText, Filter, Home, Info, Landmark, List, Loader2, Map, MapPin, Pencil, Plus, Scissors, Search, Trees, Trash2, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import CitySelector from '@/components/CitySelector';
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeMap from '@/components/arborization/TreeMap';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
+import TreeNeighborhoodSidebar from '@/components/arborization/TreeNeighborhoodSidebar';
 import { CityViewProvider, useCityView } from '@/contexts/CityContext';
 import { useCanManagePavement as useCanManageUrbanPlanning } from '@/hooks/useCanManagePavement';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -171,7 +172,7 @@ function ArborizationContent({ management }) {
     <div className="arborization-workspace">
       <aside id="arborization-filters" className={`arborization-filters ${filtersOpen ? 'is-expanded' : ''}`}>
         <form onSubmit={applyFilters}>
-        <div className="arborization-filter-heading"><h2><Filter className="h-4 w-4" aria-hidden="true" /><span className="hidden lg:inline">Explore o inventário</span><span className="lg:hidden">Filtros</span></h2><Button type="button" variant="ghost" size="sm" aria-label="Limpar filtros" onClick={resetFilters}><span className="hidden lg:inline">Limpar filtros</span><span className="lg:hidden">Limpar</span></Button></div>
+        <div className="arborization-filter-heading"><h2><Filter className="h-4 w-4" aria-hidden="true" /><span className="arborization-filter-title-full hidden lg:inline">Explore o inventário</span><span className="arborization-filter-title-short lg:hidden">Filtros</span></h2><Button type="button" variant="ghost" size="sm" aria-label="Limpar filtros" onClick={resetFilters}><span className="hidden lg:inline">Limpar filtros</span><span className="lg:hidden">Limpar</span></Button></div>
         <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search aria-hidden="true" /><Input placeholder="Busque por árvore, espécie, rua ou bairro…" value={draftFilters.search} onChange={event => setFilter('search', event.target.value)} /></label>
         <div className="arborization-filter-fields" id="arborization-filter-fields">
           {[
@@ -226,9 +227,9 @@ function ArborizationContent({ management }) {
           )}
           {view === 'list' && pageCount > 1 && <div className="flex items-center justify-end gap-3"><Button variant="outline" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span className="text-sm">{currentPage} / {pageCount}</span><Button variant="outline" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div>}
         </>}
-        {!loading && !error && <details className="arborization-neighborhoods"><summary><ChevronDown className="arborization-neighborhood-chevron h-4 w-4" aria-hidden="true" /><span className="min-w-0 flex-1"><strong>Árvores cadastradas por bairro</strong><span>Visualize a distribuição das árvores por bairro da cidade.</span></span><span className="arborization-chart-icon"><BarChart3 className="h-5 w-5" aria-hidden="true" /></span><ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" /></summary><div className="arborization-neighborhood-content"><p className="text-sm text-muted-foreground">Contagem de árvores vivas no inventário filtrado. O resultado depende do levantamento realizado e não representa a cobertura vegetal.</p><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{neighborhoodCounts.map(row => <div key={row.name} className="flex min-w-0 justify-between gap-3 rounded-lg bg-surface-subtle p-3 text-sm"><span className="break-words">{row.name}</span><strong>{row.count}</strong></div>)}</div><p className="mt-3 text-xs text-muted-foreground">{filtered.filter(tree => !tree.neighborhood && tree.status !== 'removida').length} árvores vivas sem bairro identificado. As idades consideram o ano de nascimento estimado.</p></div></details>}
-        <p className="arborization-data-note">Solicitações conforme sua permissão de acesso. Uma solicitação não significa serviço executado.</p>
       </section>
+      <p className="arborization-data-note">Solicitações conforme sua permissão de acesso. Uma solicitação não significa serviço executado.</p>
+      <TreeNeighborhoodSidebar neighborhoods={neighborhoodCounts} unidentified={filtered.filter(tree => !tree.neighborhood && tree.status !== 'removida').length} loading={loading} error={error} />
     </div>
     {form && canManage && <TreeFormDialog tree={form} city={city} cityId={cityId} onClose={() => setForm(null)} onSave={save} />}
     <Dialog open={Boolean(deleting)} onOpenChange={open => { if (!open && !busy) setDeleting(null); }}>
