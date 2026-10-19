@@ -17,21 +17,27 @@ const icons = Object.fromEntries(Object.entries(TREE_STATUS).map(([status, { col
   html: `<svg width="30" height="36" viewBox="0 0 30 36" xmlns="http://www.w3.org/2000/svg"><path d="M15 34V18" stroke="${color}" stroke-width="4" stroke-linecap="round"/><path d="M15 2C9 2 7 6 7 9c-6 2-6 12 0 14 4 2 6 0 8 0s4 2 8 0c6-2 6-12 0-14 0-3-2-7-8-7Z" fill="${color}" stroke="white" stroke-width="2"/></svg>`,
 })]));
 
-function MapTools({ layer, onLayerChange, onReframe, picking }) {
+function MapTools({ layer, onLayerChange, onReframe, picking, toolbar }) {
   const map = useMap();
   const mapRef = useMemo(() => ({ current: map }), [map]);
   const controlsRef = useRef(null);
+  const toolbarRef = useRef(null);
   const [currentLocation, setCurrentLocation] = useState(null);
 
   useEffect(() => {
     const node = controlsRef.current;
     L.DomEvent.disableClickPropagation(node);
     L.DomEvent.disableScrollPropagation(node);
+    if (toolbarRef.current) {
+      L.DomEvent.disableClickPropagation(toolbarRef.current);
+      L.DomEvent.disableScrollPropagation(toolbarRef.current);
+    }
   }, []);
 
   return <>
     <CurrentLocationMarker position={currentLocation} />
-    <div ref={controlsRef} className="absolute right-3 top-24 z-[800] flex flex-col gap-2">
+    {toolbar && <div ref={toolbarRef} className="arborization-map-toolbar absolute left-3 top-3 z-[850]">{toolbar}</div>}
+    <div ref={controlsRef} className="tree-map-tools absolute right-3 top-24 z-[800] flex flex-col gap-2">
       {picking ? <MapLayerToggle layer={layer} onLayerChange={onLayerChange} /> : <>
         <MapDisplayControls mapRef={mapRef} layer={layer} onLayerChange={onLayerChange} onLocated={setCurrentLocation} />
         <button type="button" className={BOTAO_DE_MAPA} onClick={onReframe}
@@ -67,18 +73,18 @@ function MapController({ trees, city, selected, position, onPick, resetKey }) {
   return null;
 }
 
-export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect, onDeselect, canManage = false, onEdit, onDelete, position, onPick, showLegend = false }) {
+export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect, onDeselect, canManage = false, onEdit, onDelete, position, onPick, showLegend = false, toolbar }) {
   const [layer, setLayer] = useState(MAP_LAYER.STANDARD);
   const [resetKey, setResetKey] = useState(0);
   const validTrees = useMemo(() => trees.filter(tree => Number.isFinite(Number(tree.latitude)) && Number.isFinite(Number(tree.longitude))), [trees]);
   return (
-    <MapContainer center={BRAZIL} zoom={4} zoomControl={false} scrollWheelZoom className="tree-map-canvas h-full w-full" style={{ minHeight: 'inherit', cursor: onPick ? 'crosshair' : undefined }}>
+    <MapContainer center={BRAZIL} zoom={4} zoomControl={false} scrollWheelZoom className={`tree-map-canvas h-full w-full ${toolbar ? 'tree-map-with-toolbar' : ''}`} style={{ minHeight: 'inherit', cursor: onPick ? 'crosshair' : undefined }}>
       <MapBaseLayer layer={layer} />
       <ZoomControl position="topright" />
       <ScaleControl position="bottomright" imperial={false} />
       <MapResizeObserver />
       <MapController trees={validTrees} city={city} selected={selected} position={position} onPick={onPick} resetKey={resetKey} />
-      <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />
+      <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} toolbar={toolbar} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />
       {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={icons[tree.status] || icons.saudavel}
         alt={tree.common_name} title={tree.common_name} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
       {position && <Marker position={[position.latitude, position.longitude]} icon={icons.saudavel} draggable eventHandlers={{ dragend: event => { const point = event.target.getLatLng(); onPick?.({ latitude: point.lat, longitude: point.lng }); } }} />}

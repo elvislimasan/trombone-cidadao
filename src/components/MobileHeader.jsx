@@ -95,6 +95,7 @@ const MobileHeader = () => {
     else if (path === '/contato') setPageTitle('Contato');
     else if (path === '/mapa-pavimentacao') setPageTitle('Pavimentação');
     else if (path === '/mapa-arborizacao') setPageTitle('Arborização');
+    else if (path.startsWith('/arborizacao/arvore/')) setPageTitle('Detalhes da árvore');
     else if (path === '/arborizacao/gerenciar' || path === '/admin/arborizacao') setPageTitle('Gerenciar arborização');
     else if (path === '/abaixo-assinados') setPageTitle('Abaixo-Assinados');
     else if (path === '/estatisticas') setPageTitle('Estatísticas');

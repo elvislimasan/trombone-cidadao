@@ -68,6 +68,7 @@ import { notifyNative } from '@/lib/nativeNotification';
 import PoleNumberSearch from '@/components/report/PoleNumberSearch';
 import { createReportPole, mergeNearbyReportPoles } from '@/lib/reportPole';
 import { resolveReportPoleAddress } from '@/lib/reportPoleAddress';
+import ReportTreePicker, { useNearbyReportTrees } from '@/components/report/ReportTreePicker';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
@@ -121,6 +122,10 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     videos: [],
     pole_number: "",
     pole_id: null,
+    tree_id: null,
+    tree_service: 'poda',
+    tree_registration: null,
+    tree_photo_file: null,
     reported_post_identifier: null,
     reported_plate: null,
     reported_pole_distance_m: null,
@@ -130,6 +135,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     is_public: false,
   });
   const [errors, setErrors] = useState({});
+  const treeNearby = useNearbyReportTrees(formData.category, formData.location, formData.city_id);
+  useEffect(() => {
+    if (formData.category !== 'poda' && (formData.tree_id || formData.tree_registration)) {
+      setFormData(current => ({ ...current, tree_id: null, tree_label: '', tree_registration: null, tree_photo_file: null, tree_service: 'poda' }));
+    }
+  }, [formData.category, formData.tree_id, formData.tree_registration]);
   const { registerUpload, queueWebUpload, failUploadBatch } = useUpload();
   const { user, session } = useAuth();
   // Mesma regra que decide moderation_status no envio: admin/master publicam
@@ -3083,6 +3094,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       ...prev,
       location: newLocation,
       city_id: undefined,
+      ...(prev.category === 'poda' ? { tree_id: null, tree_label: '', tree_registration: null, tree_photo_file: null } : {}),
       address: addressTouchedRef.current ? prev.address : "",
       ...(prev.category === "iluminacao" && prev.pole_id ? {
         pole_id: null,
@@ -3124,6 +3136,23 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       address: poleAddress,
     }));
     setErrors((prev) => ({ ...prev, location: undefined, pole_number: undefined }));
+  };
+
+  const handleTreeSelect = tree => {
+    const point = { lat: Number(tree.latitude), lng: Number(tree.longitude) };
+    handleLocationChange(point);
+    addressTouchedRef.current = !!tree.address;
+    setIsAddressLookupLoading(!tree.address);
+    setFormData(current => ({ ...current, tree_id: tree.id, tree_label: tree.common_name, tree_registration: null, tree_photo_file: null,
+      location: point, city_id: tree.city_id, address: tree.address || '' }));
+  };
+  const changeTreeData = changes => {
+    if (changes.location) {
+      handleLocationChange(changes.location);
+      addressTouchedRef.current = !!changes.address;
+      setIsAddressLookupLoading(!changes.address);
+    }
+    setFormData(current => ({ ...current, ...changes }));
   };
 
   const handleClose = () => {
@@ -3295,6 +3324,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         location: reportLocation,
         pole_number: formData.pole_number,
         pole_id: formData.pole_id,
+        tree_id: formData.category === 'poda' ? formData.tree_id || null : null,
+        tree_service: formData.category === 'poda' ? formData.tree_service || 'poda' : null,
         reported_post_identifier: formData.reported_post_identifier,
         reported_plate: formData.reported_plate,
         reported_pole_distance_m: formData.pole_id ? 0 : formData.reported_pole_distance_m,
@@ -3903,10 +3934,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                               }));
                           }}
                           initialPosition={formData.location}
-                          focusPosition={formData.pole_id ? formData.location : undefined}
+                          focusPosition={formData.pole_id || formData.tree_id ? formData.location : undefined}
                           showLocateButton={true}
                           snapToOverlayOnSelect={true}
-                          overlayMarkers={nearbyPoles
+                          overlayMarkers={formData.category === 'poda' ? treeNearby.trees.map(tree => ({
+                            id: tree.id, title: tree.common_name, kind: 'tree', distanceLabel: `${tree.distance_m}m`,
+                            location: { lat: Number(tree.latitude), lng: Number(tree.longitude) }, data: tree,
+                          })) : nearbyPoles
                             .filter(
                               (p) =>
                                 Number.isFinite(p?.latitude) &&
@@ -3923,8 +3957,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                               location: { lat: p.latitude, lng: p.longitude },
                               data: p,
                             }))}
-                          selectedOverlayMarkerId={formData.pole_id}
-                          onOverlayMarkerSelect={handlePoleSelect}
+                          selectedOverlayMarkerId={formData.category === 'poda' ? formData.tree_id : formData.pole_id}
+                          onOverlayMarkerSelect={formData.category === 'poda' ? marker => handleTreeSelect(marker.data) : handlePoleSelect}
                           showSatelliteToggle={true}
                         />
                       </Suspense>
@@ -3986,6 +4020,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                         Não foi possível obter o endereço {formData.pole_id ? "do poste" : "do pin"}. Informe um endereço de referência para continuar.
                       </p>
                     )}
+
+                    {formData.category === 'poda' && <ReportTreePicker value={formData} onChange={changeTreeData} nearby={treeNearby} onSelect={handleTreeSelect} resolveCity={resolveCityIdFromLocation} authenticated={!!user} />}
 
                     {formData.category === "iluminacao" && (
                       <div className="mt-4 space-y-2">
@@ -4810,10 +4846,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                             }));
                         }}
                         initialPosition={formData.location}
-                        focusPosition={formData.pole_id ? formData.location : undefined}
+                        focusPosition={formData.pole_id || formData.tree_id ? formData.location : undefined}
                         showLocateButton={true}
                         snapToOverlayOnSelect={true}
-                        overlayMarkers={nearbyPoles
+                        overlayMarkers={formData.category === 'poda' ? treeNearby.trees.map(tree => ({
+                            id: tree.id, title: tree.common_name, kind: 'tree', distanceLabel: `${tree.distance_m}m`,
+                            location: { lat: Number(tree.latitude), lng: Number(tree.longitude) }, data: tree,
+                          })) : nearbyPoles
                           .filter(
                             (p) =>
                               Number.isFinite(p?.latitude) &&
@@ -4830,8 +4869,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                             location: { lat: p.latitude, lng: p.longitude },
                             data: p,
                           }))}
-                        selectedOverlayMarkerId={formData.pole_id}
-                        onOverlayMarkerSelect={handlePoleSelect}
+                        selectedOverlayMarkerId={formData.category === 'poda' ? formData.tree_id : formData.pole_id}
+                        onOverlayMarkerSelect={formData.category === 'poda' ? marker => handleTreeSelect(marker.data) : handlePoleSelect}
                         showSatelliteToggle={true}
                       />
                     </Suspense>
@@ -4888,6 +4927,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     Não foi possível obter o endereço {formData.pole_id ? "do poste" : "do pin"}. Informe um endereço de referência para continuar.
                   </p>
                 )}
+
+                {formData.category === 'poda' && <ReportTreePicker value={formData} onChange={changeTreeData} nearby={treeNearby} onSelect={handleTreeSelect} resolveCity={resolveCityIdFromLocation} authenticated={!!user} />}
 
                 {formData.category === "iluminacao" && (
                   <div className="mt-4 space-y-2">

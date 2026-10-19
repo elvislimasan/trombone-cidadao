@@ -1624,6 +1624,7 @@ const ReportPage = () => {
 
                   {/* description */}
                   <ReportProblemDescription description={report.description} />
+                  {report.tree_id && <Link to={`/arborizacao/arvore/${report.tree_id}`} className="block rounded-2xl border border-edge-subtle bg-surface-raised p-4 text-sm font-semibold text-emerald-700 underline dark:text-emerald-400">Ver árvore vinculada e histórico de cuidados</Link>}
 
                   {/* details */}
                   <ReportProblemDetails

@@ -235,6 +235,10 @@ serve(async (req) => {
       is_anonymous: true,
       pole_number: isLighting ? (poleNumber || null) : null,
       pole_id: isLighting ? poleId : null,
+      ...(category === 'poda' ? {
+        tree_id: report?.tree_id || null,
+        tree_service: report?.tree_service || 'poda',
+      } : {}),
       reported_post_identifier: isLighting ? reportedPostIdentifier : null,
       reported_plate: isLighting ? reportedPlate : null,
       reported_pole_distance_m: isLighting ? reportedPoleDistanceM : null,

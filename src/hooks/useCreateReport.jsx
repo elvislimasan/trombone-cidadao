@@ -6,6 +6,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { activeMunicipalMembershipId } from '@/lib/municipalReportCreation';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
+import { uploadTreePhoto } from '@/lib/treeInventory';
 
 const STORAGE_KEYS = {
   reportsSubmitted: 'tc_reports_submitted_count',
@@ -67,6 +68,8 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
         if (!municipalityId) throw new Error('Não há prefeitura ativa vinculada a você nesta cidade.');
       }
 
+      const uploadedTreePhoto = newReportData.category === 'poda' && newReportData.tree_registration
+        ? await uploadTreePhoto(supabase, newReportData.tree_photo_file, cityId) : null;
       let insertQuery = supabase
         .from('reports')
         .insert({
@@ -82,6 +85,11 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
           protocol: `TROMB-${Date.now()}`,
           pole_number: category === 'iluminacao' ? pole_number : null,
           pole_id: category === 'iluminacao' ? pole_id : null,
+          ...(category === 'poda' ? {
+            tree_id: newReportData.tree_id || null,
+            tree_service: newReportData.tree_service || 'poda',
+            tree_registration: newReportData.tree_registration ? { ...newReportData.tree_registration, ...(uploadedTreePhoto ? { photo_url: uploadedTreePhoto.url } : {}) } : null,
+          } : {}),
           reported_post_identifier:
             category === 'iluminacao'
               ? normPole(reported_post_identifier) || normPole(pole_number) || null
@@ -113,6 +121,7 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
       const { data, error } = await insertQuery;
 
       if (error) {
+        if (uploadedTreePhoto) await supabase.storage.from('tree-photos').remove([uploadedTreePhoto.path]);
         throw error;
       }
 

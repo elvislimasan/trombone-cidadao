@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowRight, CalendarDays, Clock3, Leaf, MapPin, Ruler, Scissors, Sprout, Trash2, Trees } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -31,7 +32,8 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
         </div>
 
         <div className="mt-4 flex min-w-0 items-start gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-success-fg/20 bg-gradient-to-br from-success-bg to-surface-raised"><Trees className="h-7 w-7 text-success-fg" /></div>
+          {tree.photo_url && <img src={tree.photo_url} alt={tree.common_name} className="h-16 w-16 shrink-0 rounded-xl object-cover" />}
+          {!tree.photo_url && <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-success-fg/20 bg-gradient-to-br from-success-bg to-surface-raised"><Trees className="h-7 w-7 text-success-fg" /></div>}
           <div className="min-w-0 flex-1">
             <h3 className="break-words text-base font-bold leading-6">{tree.common_name}</h3>
             {tree.scientific_name && <p className="mt-0.5 break-words text-xs italic text-content-secondary">{tree.scientific_name}</p>}
@@ -49,11 +51,13 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
             ['Manejo necessário', Scissors, TREE_ACTIONS[tree.maintenance_action] || 'Não informado'],
             ['Prazo do manejo', CalendarDays, dateLabel(tree.maintenance_due_at)],
             ['Última atualização', Clock3, updatedAt],
+            ['Cadastro na plataforma', CalendarDays, tree.created_at ? new Date(tree.created_at).toLocaleDateString('pt-BR') : 'Não informado'],
           ].map(([label, Icon, value]) => <div key={label} className="flex min-w-0 items-start gap-2"><Icon className="mt-0.5 h-4 w-4 shrink-0 text-content-secondary" /><div className="min-w-0"><dt className="text-[11px] leading-4 text-content-secondary">{label}</dt><dd className="mt-0.5 break-words text-sm font-medium leading-5">{value}</dd></div></div>)}
         </dl>
 
         <div className="mt-4 flex min-w-0 items-start gap-2 rounded-xl border border-edge-subtle bg-surface-subtle p-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-content-secondary" /><div className="min-w-0"><p className="text-[11px] leading-4 text-content-secondary">Coordenadas:</p><p className="mt-0.5 break-words text-sm font-medium leading-5">{coordinates}</p></div></div>
         {tree.notes && <details className="mt-4 rounded-xl border border-edge-subtle bg-surface-subtle p-4"><summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Observações da árvore</summary><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-5 text-content-secondary">{tree.notes}</p></details>}
+        <Button asChild className="mt-4 w-full"><Link to={`/arborizacao/arvore/${tree.id}`}>Página da árvore e linha do tempo<ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
 
         {canManage && <div className="mt-5 grid grid-cols-2 gap-2 border-t border-edge-subtle pt-4">
           <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => onEdit?.(tree)}>Editar árvore<ArrowRight className="h-3.5 w-3.5 shrink-0" /></Button>

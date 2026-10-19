@@ -24,6 +24,7 @@ import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
 import RentalPropertiesPage from '@/pages/RentalPropertiesPage';
 import PavementMapPage from '@/pages/PavementMapPage';
 import ArborizationMapPage from '@/pages/ArborizationMapPage';
+import TreePage from '@/pages/TreePage';
 import PavementStreetPage from '@/pages/PavementStreetPage';
 import CouncilorProfilePage from '@/pages/CouncilorProfilePage';
 import ManageMyCouncilorPage from '@/pages/ManageMyCouncilorPage';
@@ -186,6 +187,7 @@ const SEO = () => {
   // Deixa o SEO próprio da página definir a imagem e metadados corretos
   const shortUsername = location.pathname.match(/^\/([a-z0-9][a-z0-9._]{1,28}[a-z0-9])\/?$/i)?.[1] || '';
   const isCustomMetaPage = location.pathname.startsWith('/bronca/')
+    || location.pathname.startsWith('/arborizacao/arvore/')
     || location.pathname.startsWith('/u/')
     || location.pathname.startsWith('/@')
     || location.pathname.startsWith('/guia-da-cidade')
@@ -893,6 +895,7 @@ function AppShell() {
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/mapa-arborizacao" element={<ArborizationMapPage />} />
+              <Route path="/arborizacao/arvore/:id" element={<TreePage />} />
               <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="urban_planning"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/admin/arborizacao" element={<ModuleRoute module="urban_planning"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />

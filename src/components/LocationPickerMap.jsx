@@ -155,6 +155,11 @@ const createPoleIcon = ({ isSelected, distanceLabel, showBrokenX }) =>
     popupAnchor: [0, -64],
   });
 
+const createTreeIcon = selected => L.divIcon({
+  className: 'tree-picker-marker', iconSize: [32, 40], iconAnchor: [16, 39], popupAnchor: [0, -36],
+  html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg"><path d="M16 38V20" stroke="#6b4f32" stroke-width="4"/><path d="M16 2C10 2 7 7 8 11c-8 4-7 15 1 16h14c8-1 9-12 1-16 1-4-2-9-8-9Z" fill="${selected ? '#065f46' : '#16a34a'}" stroke="${selected ? '#fbbf24' : '#fff'}" stroke-width="3"/></svg>`,
+});
+
 // Component to handle map clicks
 const MapClickHandler = ({ onMapClick }) => {
   useMapEvents({
@@ -374,7 +379,7 @@ const LocationPickerMap = ({
                 key={m.id}
                 position={[m.location.lat, m.location.lng]}
                 bubblingMouseEvents={false}
-                icon={createPoleIcon({
+                icon={m.kind === 'tree' ? createTreeIcon(String(selectedOverlayMarkerId) === String(m.id)) : createPoleIcon({
                   isSelected: selectedOverlayMarkerId != null && String(selectedOverlayMarkerId) === String(m.id),
                   distanceLabel: m.distanceLabel,
                   showBrokenX: !!m.isBroken,

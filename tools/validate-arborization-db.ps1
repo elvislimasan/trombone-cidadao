@@ -1,3 +1,4 @@
+param([string]$TestFile = 'supabase/tests/arborization.sql')
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $postgresBin = 'C:\Program Files\PostgreSQL\17\bin'
@@ -16,7 +17,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Não foi possível iniciar o PostgreSQL local.' }
   try {
     $ErrorActionPreference = 'Continue'
-    & (Join-Path $postgresBin 'psql.exe') -X -h 127.0.0.1 -p $testPort -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'set client_min_messages=warning;' -f 'supabase/tests/arborization.sql' > (Join-Path $testRoot 'result.log') 2>&1
+    & (Join-Path $postgresBin 'psql.exe') -X -h 127.0.0.1 -p $testPort -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'set client_min_messages=warning;' -f $TestFile > (Join-Path $testRoot 'result.log') 2>&1
     $ErrorActionPreference = 'Stop'
     if ($LASTEXITCODE -ne 0) { Get-Content -LiteralPath (Join-Path $testRoot 'result.log') -Tail 35; throw 'A verificação SQL falhou.' }
     Get-Content -LiteralPath (Join-Path $testRoot 'result.log') -Tail 8
