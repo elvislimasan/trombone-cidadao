@@ -18,6 +18,13 @@ export function canChangeMunicipalReportVisibility(report, context) {
     && report?.created_by_municipality === context.municipality.id);
 }
 
+export function canUpdateMunicipalReport(report, context, linked) {
+  if (!context?.canEdit || !report || linked
+    || Number(report.city_id) !== Number(context.municipality?.city_id)
+    || !['pending', 'in-progress', 'pending_resolution'].includes(report.status)) return false;
+  return report.is_public !== false || report.created_by_municipality === context.municipality?.id;
+}
+
 export function reportAge(value, now = new Date()) {
   const created = new Date(value);
   if (!value || !Number.isFinite(created.getTime())) return null;

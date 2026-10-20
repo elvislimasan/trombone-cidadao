@@ -20,7 +20,8 @@ export default function MunicipalServiceOrderDialog({ context, selectedIds, onRe
   const [candidatesLoading, setCandidatesLoading] = useState(true);
   const [candidatesError, setCandidatesError] = useState('');
   const [candidateRevision, setCandidateRevision] = useState(0);
-  const [filters, setFilters] = useState({ category: 'all', neighborhood: 'all', age: 'all', query: '' });
+  const [filters, setFilters] = useState({ category: 'all', visibility: 'all', neighborhood: 'all', age: 'all', query: '' });
+  const category = context.categories.length === 1 ? context.categories[0].id : filters.category;
   const [orderId] = useState(() => crypto.randomUUID());
   const [selection, setSelection] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,13 +47,13 @@ export default function MunicipalServiceOrderDialog({ context, selectedIds, onRe
     setCandidatesLoading(true); setCandidatesError('');
     const timer = window.setTimeout(() => loadPendingMapReports(supabase, {
       cityId: context.municipality.city_id,
-      ...filters, municipalityId: context.municipality.id, includeAllStatuses: true, statuses: OPEN_REPORT_STATUSES, signal: controller.signal,
-    }, 'id,title,address,neighborhood,created_at,category_id,category:categories(name)')
+      ...filters, category, enabledCategoryIds: context.enabledCategoryIds, municipalityId: context.municipality.id, includeAllStatuses: true, statuses: OPEN_REPORT_STATUSES, signal: controller.signal,
+    }, 'id,title,address,neighborhood,created_at,category_id,is_public,category:categories(name)')
       .then((rows) => { if (!controller.signal.aborted) { setCandidates(rows); setNeighborhoodOptions((current) => [...new Set([...current, ...rows.map((item) => item.neighborhood).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'pt-BR'))); } })
       .catch((failure) => { if (!controller.signal.aborted) { setCandidates([]); setCandidatesError(failure.message); } })
       .finally(() => { if (!controller.signal.aborted) setCandidatesLoading(false); }), filters.query ? 250 : 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [choosing, context.municipality.id, context.municipality.city_id, filters, candidateRevision]);
+  }, [choosing, context.municipality.id, context.municipality.city_id, context.enabledCategoryIds, filters, category, candidateRevision]);
 
   useEffect(() => {
     if (created || choosing) return undefined;
@@ -111,8 +112,9 @@ export default function MunicipalServiceOrderDialog({ context, selectedIds, onRe
     <DialogHeader className="shrink-0 pr-6"><DialogTitle className="flex items-center gap-2 text-xl"><ClipboardList className="h-5 w-5 text-brand" />{created ? `Ordem ${created.protocolo}` : 'Gerar Ordem de Serviço'}</DialogTitle><DialogDescription>{created ? 'A ordem está registrada e disponível em Ordens de serviço.' : choosing ? 'Filtre as solicitações pendentes e escolha as ocorrências que entrarão na ordem.' : 'Confira as ocorrências e o destino da equipe. O PDF poderá ser baixado depois do cadastro.'}</DialogDescription></DialogHeader>
     {choosing && !created ? <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-content-secondary">Categoria<select value={filters.category} onChange={(event) => setFilter('category', event.target.value)} className={controlClass}><option value="all">Todas</option>{context.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-content-secondary">Categoria<select value={category} disabled={context.categories.length <= 1} onChange={(event) => setFilter('category', event.target.value)} className={controlClass}>{context.categories.length !== 1 && <option value="all">{context.categories.length ? 'Todas' : 'Nenhuma habilitada'}</option>}{context.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-content-secondary">Visibilidade<select value={filters.visibility} onChange={(event) => setFilter('visibility', event.target.value)} className={controlClass}><option value="all">Todas</option><option value="public">Públicas</option><option value="internal">Internas (privadas)</option></select></label>
         <label className="grid min-w-0 gap-1 text-xs font-medium text-content-secondary">Bairro<select value={filters.neighborhood} onChange={(event) => setFilter('neighborhood', event.target.value)} className={controlClass}><option value="all">Todos</option>{neighborhoodOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
         <label className="grid min-w-0 gap-1 text-xs font-medium text-content-secondary">Idade<select value={filters.age} onChange={(event) => setFilter('age', event.target.value)} className={controlClass}>{REPORT_AGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
         <label className="relative grid min-w-0 gap-1 text-xs font-medium text-content-secondary">Buscar<span className="relative"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={filters.query} onChange={(event) => setFilter('query', event.target.value)} placeholder="Título ou endereço" className={controlClass + ' pl-9'} /></span></label>
@@ -120,7 +122,7 @@ export default function MunicipalServiceOrderDialog({ context, selectedIds, onRe
       <p className="text-xs text-content-secondary">{ids.length} selecionadas · {candidatesLoading ? 'Consultando…' : `${candidates.length} encontradas nos filtros`}</p>
       {candidatesError ? <div role="alert" className="text-sm text-danger">{candidatesError}<Button type="button" variant="outline" size="sm" className="ml-2" onClick={() => setCandidateRevision((value) => value + 1)}>Tentar novamente</Button></div> : <div className="min-w-0 overflow-hidden rounded-xl border border-edge-default">
         <label className="flex cursor-pointer items-center gap-2 border-b border-edge-subtle bg-surface-subtle p-3 text-xs font-semibold"><input type="checkbox" checked={allCandidatesSelected} disabled={candidatesLoading || !candidates.length} onChange={(event) => setIds((current) => event.target.checked ? [...new Set([...current, ...candidates.map((item) => item.id)])] : current.filter((id) => !candidates.some((item) => item.id === id)))} className="accent-brand" />Selecionar todas as solicitações filtradas</label>
-        <div className="max-h-72 divide-y divide-edge-subtle overflow-y-auto">{candidatesLoading ? <p role="status" className="p-5 text-center text-sm text-content-secondary">Carregando solicitações…</p> : candidates.length ? candidates.slice(0, 100).map((item) => <label key={item.id} className="flex cursor-pointer items-start gap-3 p-3 text-xs hover:bg-surface-subtle"><input type="checkbox" checked={ids.includes(item.id)} onChange={() => toggleCandidate(item.id)} className="mt-0.5 accent-brand" /><span className="min-w-0"><strong className="block break-words text-content-primary">{poleReferenceText(item.title || 'Solicitação sem título')}</strong><span className="mt-1 block break-words text-content-secondary">{[item.category?.name, item.neighborhood, item.address].filter(Boolean).join(' · ')}</span></span></label>) : <p className="p-5 text-center text-sm text-content-secondary">Nenhuma solicitação disponível para estes filtros.</p>}</div>
+        <div className="max-h-72 divide-y divide-edge-subtle overflow-y-auto">{candidatesLoading ? <p role="status" className="p-5 text-center text-sm text-content-secondary">Carregando solicitações…</p> : candidates.length ? candidates.slice(0, 100).map((item) => <label key={item.id} className="flex cursor-pointer items-start gap-3 p-3 text-xs hover:bg-surface-subtle"><input type="checkbox" checked={ids.includes(item.id)} onChange={() => toggleCandidate(item.id)} className="mt-0.5 accent-brand" /><span className="min-w-0"><strong className="block break-words text-content-primary">{poleReferenceText(item.title || 'Solicitação sem título')}</strong><span className="mt-1 block break-words text-content-secondary">{[item.is_public === false ? 'Interna' : 'Pública', item.category?.name, item.neighborhood, item.address].filter(Boolean).join(' · ')}</span></span></label>) : <p className="p-5 text-center text-sm text-content-secondary">Nenhuma solicitação disponível para estes filtros.</p>}</div>
       </div>}
       {candidates.length > 100 && <p className="text-xs text-content-secondary">Mostrando as primeiras 100. “Selecionar todas” inclui as {candidates.length} encontradas.</p>}
       </div>

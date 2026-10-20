@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadMunicipalReportFacets, loadMunicipalReportPage, loadPendingMapReports, reportAge, reportAgeBounds, reportPageNumbers } from '../lib/municipalReports.js';
+import { loadMunicipalReportFacets, loadMunicipalReportPage, loadPendingMapReports, reportAge, reportAgeBounds, reportPageNumbers, canUpdateMunicipalReport } from '../lib/municipalReports.js';
+
+test('atualização direta permite internas da própria prefeitura sem ordem e mantém as restrições', () => {
+  const context = { canEdit: true, municipality: { id: 'prefeitura', city_id: 64 } };
+  const internal = { city_id: 64, is_public: false, created_by_municipality: 'prefeitura', status: 'pending' };
+  assert.equal(canUpdateMunicipalReport(internal, context, null), true);
+  assert.equal(canUpdateMunicipalReport({ ...internal, status: 'in-progress' }, context, null), true);
+  assert.equal(canUpdateMunicipalReport({ ...internal, status: 'pending_resolution' }, context, null), true);
+  assert.equal(canUpdateMunicipalReport({ ...internal, is_public: true, created_by_municipality: null }, context, null), true);
+  for (const status of ['resolved', 'duplicate', 'pending_approval']) assert.equal(canUpdateMunicipalReport({ ...internal, status }, context, null), false);
+  assert.equal(canUpdateMunicipalReport(internal, context, { demanda_id: null }), false);
+  assert.equal(canUpdateMunicipalReport(internal, { ...context, canEdit: false }, null), false);
+  assert.equal(canUpdateMunicipalReport({ ...internal, city_id: 65 }, context, null), false);
+  assert.equal(canUpdateMunicipalReport({ ...internal, created_by_municipality: 'outra' }, context, null), false);
+  assert.equal(canUpdateMunicipalReport(null, context, null), false);
+});
 
 function fakeClient(rows, links = [], linkError = null, catalog = []) {
   rows = rows.map((item) => ({ status: 'pending', moderation_status: 'approved', is_public: true, ...item }));
@@ -57,6 +72,24 @@ function fakeClient(rows, links = [], linkError = null, catalog = []) {
   };
   return client;
 }
+
+test('candidatas à ordem respeitam categorias habilitadas e filtro de visibilidade', async () => {
+  const rows = [
+    { id: 'interna', city_id: 64, category_id: 'iluminacao', is_public: false, moderation_status: 'internal', created_at: '2026-10-01' },
+    { id: 'publica', city_id: 64, category_id: 'iluminacao', created_at: '2026-09-30' },
+    { id: 'vinculada', city_id: 64, category_id: 'iluminacao', created_at: '2026-09-29' },
+    { id: 'desabilitada', city_id: 64, category_id: 'buracos', created_at: '2026-09-28' },
+    { id: 'outra-cidade', city_id: 65, category_id: 'iluminacao', created_at: '2026-09-27' },
+    { id: 'resolvida', city_id: 64, category_id: 'iluminacao', status: 'resolved', created_at: '2026-09-26' },
+  ];
+  const client = fakeClient(rows, [{ report_id: 'vinculada', demanda_id: 'ordem' }]);
+  const filters = { cityId: 64, municipalityId: 'prefeitura', enabledCategoryIds: ['iluminacao'], category: 'all', includeAllStatuses: true, statuses: ['pending', 'in-progress'] };
+  for (const [visibility, expected] of [['all', ['interna', 'publica']], ['internal', ['interna']], ['public', ['publica']]]) {
+    const result = await loadPendingMapReports(client, { ...filters, visibility });
+    assert.deepEqual(result.map((item) => item.id), expected);
+  }
+  assert.deepEqual(await loadPendingMapReports(client, { ...filters, enabledCategoryIds: [] }), []);
+});
 
 test('solicitação interna da prefeitura aparece na lista sem entrar na moderação', async () => {
   const client = fakeClient([

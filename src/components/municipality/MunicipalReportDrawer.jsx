@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/customSupabaseClient';
 import { agencyCasePoint } from '@/lib/agencyCaseFilters';
 import { DEMAND_STATUSES } from '@/lib/municipalDemand';
-import { canChangeMunicipalReportVisibility } from '@/lib/municipalReports';
+import { canChangeMunicipalReportVisibility, canUpdateMunicipalReport } from '@/lib/municipalReports';
 import { rotuloDoTipoDeProblema } from '@/lib/reportCategoryFields';
 import { loadMunicipalReportReceiptUrl, municipalReceiptDownloadUrl, saveMunicipalReportReceipt } from '@/lib/municipalReportReceipt';
 
@@ -56,7 +56,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     (async () => {
       const [reportResult, linkedResult, stepsResult, updatesResult] = await Promise.all([
         supabase.from('reports')
-          .select('id,title,description,address,reference_point,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
+          .select('id,city_id,title,description,address,reference_point,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
           .eq('id', reportId).eq('city_id', context.municipality.city_id)
           .or(`moderation_status.eq.approved,moderation_status.eq.internal,moderation_status.is.null,created_by_municipality.eq.${context.municipality.id}`)
           .or('is_petition.eq.false,is_petition.is.null').maybeSingle(),
@@ -69,6 +69,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
       ]);
       if (!active) return;
       setReport(reportResult.data);
+      setUpdateStatus(reportResult.data?.status === 'in-progress' ? 'em_andamento' : reportResult.data?.status === 'pending_resolution' ? 'resolvida' : 'recebida');
       setLinked(linkedResult.data?.[0] || null);
       setSteps(stepsResult.data || []);
       setUpdates((updatesResult.data || []).filter((update) => !['rejected', 'pending_moderation'].includes(update.status)));
@@ -127,17 +128,24 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
 
   const publishUpdate = async (event) => {
     event.preventDefault();
-    if (!context.canEdit || updating) return;
+    if (!canUpdateMunicipalReport(report, context, linked) || updating) return;
     setUpdating(true); setUpdateError('');
-    const { error: failure } = await supabase.rpc('atualizar_bronca_prefeitura', {
-      p_prefeitura: context.municipality.id, p_report: reportId,
-      p_situacao: updateStatus, p_mensagem: updateMessage.trim(), p_canal: context.editableChannelIds?.[0] || null,
-    });
-    setUpdating(false);
-    if (failure) { setUpdateError(failure.message); return; }
-    setUpdateMessage(''); setRevision((value) => value + 1); onUpdated?.();
+    try {
+      const { error: failure } = await supabase.rpc('atualizar_bronca_prefeitura', {
+        p_prefeitura: context.municipality.id, p_report: reportId,
+        p_situacao: updateStatus, p_mensagem: updateMessage.trim(), p_canal: context.editableChannelIds?.[0] || null,
+      });
+      if (failure) throw failure;
+      setUpdateMessage(''); setRevision((value) => value + 1); onUpdated?.();
+    } catch (failure) {
+      setUpdateError(failure.message || 'Não foi possível registrar a atualização. Tente novamente.');
+    } finally {
+      setUpdating(false);
+    }
   };
 
+  const isInternal = report?.is_public === false && Boolean(report.created_by_municipality);
+  const canUpdate = canUpdateMunicipalReport(report, context, linked);
   const canChangeVisibility = canChangeMunicipalReportVisibility(report, context);
   const changeVisibility = async () => {
     if (!canChangeVisibility || visibilityBusy) return;
@@ -159,7 +167,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     .filter((media) => media.url && media.type !== 'photo' && !photos.includes(media.url))
     .map((media) => [media.url, media])).values()];
   const timeline = report ? [
-    { id: 'registro', title: 'Solicitação registrada', timestamp: report.created_at, source: 'Relato público', icon: FileText, tone: 'text-content-secondary bg-surface-subtle' },
+    { id: 'registro', title: 'Solicitação registrada', timestamp: report.created_at, source: isInternal ? 'Registro interno da prefeitura' : 'Relato público', icon: FileText, tone: 'text-content-secondary bg-surface-subtle' },
     ...steps.map((step) => ({ id: `etapa-${step.id}`, title: stepLabels[step.etapa] || step.etapa, timestamp: step.ocorreu_em, source: 'Andamento oficial', detail: [step.orgao, step.protocolo].filter(Boolean).join(' · '), message: step.observacao, icon: Clock3, tone: 'text-brand bg-brand-subtleBg' })),
     ...updates.map((update) => ({ id: `atualizacao-${update.id}`, title: 'Atualização da comunidade', timestamp: update.created_at, source: 'Comunidade', message: update.message || 'Atualização registrada', icon: MessageSquare, tone: 'text-status-progressFg bg-status-progressBg' })),
   ].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()) : [];
@@ -196,7 +204,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
           {report.created_by_municipality && <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-edge-subtle bg-surface-subtle p-4" aria-label="Visibilidade da solicitação"><div><p className="text-sm font-bold">{report.is_public ? 'Visível ao público' : 'Solicitação interna da prefeitura'}</p><p className="mt-1 text-xs text-content-secondary">{report.is_public ? 'Aparece no mapa e no feed sem moderação.' : 'Aparece apenas para a equipe municipal e pode ser vinculada a uma ordem mantendo essa visibilidade.'}</p></div>{canChangeVisibility && <Button type="button" variant="outline" size="sm" disabled={visibilityBusy} onClick={changeVisibility}>{visibilityBusy ? 'Salvando…' : report.is_public ? 'Tornar interna' : 'Tornar pública'}</Button>}{visibilityError && <p role="alert" className="w-full text-xs text-danger">{visibilityError}</p>}</section>}
           <section aria-labelledby="relato-da-solicitação">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h2 id="relato-da-solicitação" className="text-sm font-bold text-content-primary">Relato do cidadão</h2>
+              <h2 id="relato-da-solicitação" className="text-sm font-bold text-content-primary">{isInternal ? 'Descrição da solicitação' : 'Relato do cidadão'}</h2>
               {(report.is_public || !report.created_by_municipality) && <Link to={`/bronca/${report.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Ver página pública <ExternalLink className="h-3.5 w-3.5" /></Link>}
             </div>
             <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-content-secondary">{report.description || 'Sem descrição adicional.'}</p>
@@ -207,16 +215,23 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
               <h2 id="atendimento-da-solicitação" className="text-sm font-bold">Atendimento municipal</h2>
               {linkedStatus && <span className="rounded-md bg-status-progressBg px-2 py-0.5 text-xs font-semibold text-status-progressFg">{linkedStatus}</span>}
             </div>
-            <p className="mt-2 text-sm text-content-secondary">{linked ? linked.demanda_id ? `Ordem ${linked.protocolo || 'vinculada'} · em atendimento pela sua equipe` : `Ordem ${linked.protocolo || 'vinculada'} · atendimento de outra secretaria` : 'Aguardando ordem de serviço'}</p>
+            <p className="mt-2 text-sm text-content-secondary">{linked ? linked.demanda_id ? `Ordem ${linked.protocolo || 'vinculada'} · em atendimento pela sua equipe` : `Ordem ${linked.protocolo || 'vinculada'} · atendimento de outra secretaria` : 'Sem ordem de serviço vinculada'}</p>
             {steps[0] && <p className="mt-1 text-xs text-content-tertiary">Última etapa oficial: {stepLabels[steps[0].etapa] || steps[0].etapa} · {date(steps[0].ocorreu_em)}</p>}
           </section>
-          {context.canEdit && (report.is_public || !report.created_by_municipality) && !linked && !['resolved','duplicate'].includes(report.status) && <form onSubmit={publishUpdate} className="space-y-3 rounded-xl border border-edge-subtle bg-surface-raised p-4"><h3 className="text-sm font-semibold">Atualização da prefeitura</h3><p className="text-xs text-content-secondary">Informe o andamento ao cidadão sem criar uma ordem de serviço.</p><label className="block text-xs font-semibold">Situação<select value={updateStatus} onChange={(event) => setUpdateStatus(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-edge-default bg-surface-raised px-3 text-sm"><option value="recebida">Recebida</option><option value="em_andamento">Em andamento</option><option value="resolvida">Resolução informada</option></select></label><label className="block text-xs font-semibold">Mensagem pública<textarea value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} required minLength={5} maxLength={4000} className="mt-1 min-h-24 w-full rounded-lg border border-edge-default bg-surface-raised p-3 text-sm" placeholder="Descreva a providência ou o resultado…" /></label>{updateError && <p role="alert" className="text-xs text-danger">{updateError}</p>}<Button type="submit" size="sm" disabled={updating || updateMessage.trim().length < 5}>{updating ? 'Enviando…' : 'Publicar atualização'}</Button></form>}
+          {canUpdate && <form onSubmit={publishUpdate} className="space-y-3 rounded-xl border border-edge-subtle bg-surface-raised p-4">
+            <h3 className="text-sm font-semibold">Atualização da prefeitura</h3>
+            <p className="text-xs text-content-secondary">{isInternal ? 'Atualize a situação sem criar uma ordem de serviço. O registro fica visível apenas para a equipe municipal.' : 'Informe o andamento ao cidadão sem criar uma ordem de serviço.'}</p>
+            <label className="block text-xs font-semibold">Situação<select value={updateStatus} onChange={(event) => setUpdateStatus(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-edge-default bg-surface-raised px-3 text-sm" disabled={updating}><option value="recebida">Recebida</option><option value="em_andamento">Em andamento</option><option value="resolvida">{isInternal ? 'Resolvida' : 'Resolução informada'}</option></select></label>
+            <label className="block text-xs font-semibold">{isInternal ? 'Registro interno (opcional)' : 'Mensagem pública'}<textarea value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} required={!isInternal} minLength={isInternal ? undefined : 5} maxLength={4000} disabled={updating} className="mt-1 min-h-24 w-full rounded-lg border border-edge-default bg-surface-raised p-3 text-sm" placeholder="Descreva a providência ou o resultado…" /></label>
+            {updateError && <p role="alert" className="text-xs text-danger">{updateError}</p>}
+            <Button type="submit" size="sm" disabled={updating || (!isInternal && updateMessage.trim().length < 5)}>{updating ? 'Salvando…' : isInternal ? 'Salvar atualização' : 'Publicar atualização'}</Button>
+          </form>}
 
           <section className="border-t border-edge-subtle pt-5" aria-labelledby="dados-da-solicitação">
             <h2 id="dados-da-solicitação" className="text-sm font-bold">Dados da solicitação</h2>
             <dl className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2">
               <div className="min-w-0"><dt className="text-xs text-content-tertiary">Localidade</dt><dd className="mt-1 break-words text-sm font-medium">{neighborhood || place || 'Não informada'}</dd><button type="button" onClick={() => setTab('localizacao')} className="mt-1 text-xs font-semibold text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Ver endereço e mapa</button></div>
-              <div className="min-w-0"><dt className="text-xs text-content-tertiary">Protocolo público</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{report.protocol || '—'}</dd></div>
+              <div className="min-w-0"><dt className="text-xs text-content-tertiary">{isInternal ? 'Protocolo' : 'Protocolo público'}</dt><dd className="mt-1 break-all text-sm font-medium tabular-nums">{report.protocol || '—'}</dd></div>
               {report.reference_point && <div className="min-w-0 sm:col-span-2"><dt className="text-xs text-content-tertiary">Ponto de referência</dt><dd className="mt-1 break-words text-sm font-medium">{report.reference_point}</dd></div>}
               {(report.pole_number || report.issue_type) && <div className="min-w-0 sm:col-span-2"><dt className="text-xs text-content-tertiary">Detalhes do problema</dt><dd className="mt-1 break-words text-sm font-medium">{[report.issue_type && rotuloDoTipoDeProblema(report.category_id, report.issue_type), report.pole_number && `Poste ${poleCode(report.pole_number)}`].filter(Boolean).join(' · ')}</dd></div>}
             </dl>

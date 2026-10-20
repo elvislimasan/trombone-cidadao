@@ -39,7 +39,7 @@ function clusterIcon(item) {
   });
 }
 
-function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, showCurrentLocation }) {
+function MapFrame({ onBounds, onPoint, focus, focusZoom = 16, center, satellite, onSatellite, showCurrentLocation }) {
   const map = useMap();
   const [locating, setLocating] = useState(false);
   const [position, setPosition] = useState(null);
@@ -58,7 +58,7 @@ function MapFrame({ onBounds, onPoint, focus, center, satellite, onSatellite, sh
   }, [map, onBounds]);
   useMapEvents({ moveend: reportBounds, click: (event) => onPoint?.(event.latlng) });
   useEffect(() => { reportBounds(); }, [reportBounds]);
-  useEffect(() => { if (focus) map.flyTo(focus, Math.max(map.getZoom(), 16)); }, [map, focus]);
+  useEffect(() => { if (focus) map.flyTo(focus, Math.max(map.getZoom(), focusZoom)); }, [map, focus, focusZoom]);
   useEffect(() => {
     const observer = new ResizeObserver(() => { map.invalidateSize(); reportBounds(); });
     observer.observe(map.getContainer());
@@ -124,7 +124,7 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, showCurrentLocation = false }) {
+export default function MunicipalLightingMap({ center, focus, coordinateTarget, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, showCurrentLocation = false }) {
   const frameRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [satellite, setSatellite] = useState(false);
@@ -143,7 +143,11 @@ export default function MunicipalLightingMap({ center, focus, items, selected, l
   return <section aria-label="Mapa de iluminação pública" ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
     {center ? <MapContainer center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
       {satellite ? <SatelliteTileLayer /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
-      <MapFrame center={center} focus={focus} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} showCurrentLocation={showCurrentLocation} />
+      <MapFrame center={center} focus={focus} focusZoom={coordinateTarget ? 18 : 16} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} showCurrentLocation={showCurrentLocation} />
+      {coordinateTarget && <>
+        <Circle center={[coordinateTarget.lat, coordinateTarget.lng]} radius={coordinateTarget.radius} interactive={false} pathOptions={{ color: '#2563eb', weight: 1, dashArray: '5 5', fillColor: '#2563eb', fillOpacity: 0.04 }} />
+        <CircleMarker center={[coordinateTarget.lat, coordinateTarget.lng]} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }}><Tooltip permanent direction="top" offset={[0, -8]}>Coordenada pesquisada</Tooltip></CircleMarker>
+      </>}
       {selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude) && <CircleMarker center={[selected.latitude, selected.longitude]} radius={16} interactive={false} pathOptions={{ color: COLORS[lightingStatus(selected)], weight: 2, fillColor: COLORS[lightingStatus(selected)], fillOpacity: 0.18 }} />}
       <LightingMarkers items={located} onSelect={onSelect} />
     </MapContainer> : <div role="status" aria-label="Carregando mapa" className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}

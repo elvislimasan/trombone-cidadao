@@ -8,6 +8,7 @@ import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import PoleDetailsDialog from '@/components/municipality/PoleDetailsDialog';
 import MunicipalPoleFormSteps, { POLE_FORM_STEPS } from '@/components/municipality/MunicipalPoleFormSteps';
 import LightingPendingPanel from '@/components/municipality/LightingPendingPanel';
+import LightingCoordinateSearch from '@/components/municipality/LightingCoordinateSearch';
 import BulkLampDialog from '@/components/municipality/BulkLampDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { emptyPoleTechnicalDetails, poleTechnicalDetailsFromRecord, poleTechnicalDetailsPayload, validatePoleTechnicalDetails } from '@/lib/poleTechnicalDetails';
 import { normalizeLampType, isStandardLampType } from '@/lib/lightingCatalog';
 import { OPEN_DEMAND_STATUSES } from '@/lib/municipalDemand';
+import { filterLightingPoles as filterPoles } from '@/lib/lightingCoordinateSearch';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 
 const STATUS = [['aceso', 'Aceso / funcionando'], ['apagado', 'Apagado ou com problema'], ['removido', 'Removido']];
@@ -30,15 +32,6 @@ const inputClass = 'mt-1 h-10 w-full rounded-lg border border-input bg-backgroun
 const cleanTerm = (value) => value.trim().replace(/[%,()"'\\]/g, '');
 const STATUS_STYLES = { aceso: 'bg-success-bg text-success-fg', apagado: 'bg-danger-subtleBg text-danger-subtleFg', removido: 'bg-surface-subtle text-content-secondary' };
 const STATUS_DOTS = { aceso: 'bg-green-600', apagado: 'bg-red-600', removido: 'bg-slate-500' };
-function filterPoles(request, filters) {
-  if (!filters.removed && filters.status !== 'removido') request = request.neq('lighting_status', 'removido');
-  if (filters.status === 'apagado') request = request.neq('lighting_status', 'removido').or('lighting_status.eq.apagado,lighting_status.eq.manutencao,is_broken.eq.true');
-  else if (filters.status === 'aceso') request = request.or('lighting_status.eq.aceso,lighting_status.eq.nao_informado').or('is_broken.eq.false,is_broken.is.null');
-  else if (filters.status !== 'all') {
-    request = request.eq('lighting_status', filters.status);
-  }
-  return request;
-}
 function PoleStatus({ pole }) {
   const status = lightingStatus(pole);
   return <span className={'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ' + STATUS_STYLES[status]}><span className={'h-2 w-2 shrink-0 rounded-full ' + STATUS_DOTS[status]} />{status === 'apagado' ? 'Apagado ou com problema' : statusName(status)}</span>;
@@ -72,6 +65,8 @@ export default function MunicipalLightingPage() {
   const [searchCount, setSearchCount] = useState(0);
   const [selected, setSelected] = useState(null);
   const [focus, setFocus] = useState(null);
+  const [coordinateTarget, setCoordinateTarget] = useState(null);
+  const [coordinateReset, setCoordinateReset] = useState(0);
   const [form, setForm] = useState(empty);
   const [formStep, setFormStep] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -105,6 +100,8 @@ export default function MunicipalLightingPage() {
   const [revision, setRevision] = useState(0);
   const [related, setRelated] = useState({ orders: [], reports: [], history: [], loading: false, error: '' });
   const cityId = context.municipality?.city_id;
+
+  useEffect(() => { setCoordinateTarget(null); setFocus(null); }, [cityId]);
 
   useEffect(() => {
     if (!context.municipality?.id) return undefined;
@@ -434,7 +431,7 @@ export default function MunicipalLightingPage() {
   if (!context.municipality) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Acesso institucional necessário</h1></div>;
   if (!context.enabledCategoryIds?.includes('iluminacao')) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Iluminação indisponível</h1><p className="mt-2 text-sm text-content-secondary">Esta categoria está desativada para a prefeitura.</p></div>;
   const updateFilters = (next) => { setFilters(next); setDraftFilters(next); setSelected(null); setDetailsOpen(false); };
-  const clearFilters = () => { updateFilters(EMPTY_FILTERS); setSearch(''); };
+  const clearFilters = () => { updateFilters(EMPTY_FILTERS); setSearch(''); setCoordinateTarget(null); setCoordinateReset((value) => value + 1); };
   const activeFilterCount = Number(filters.status !== 'all') + Number(filters.removed);
   const lightingMetrics = [
     ['all', 'Postes cadastrados', LampDesk, 'bg-surface-subtle text-content-primary', 'border-edge-default'],
@@ -448,12 +445,13 @@ export default function MunicipalLightingPage() {
     <p className="mt-2 text-xs text-content-secondary">Indicadores de toda a cidade. “Sem problema registrado” não significa funcionamento verificado em campo.</p>
     {summaryError && <p role="status" className="mt-2 text-xs text-danger">Não foi possível carregar os indicadores. <button type="button" onClick={() => setRevision((value) => value + 1)} className="underline">Tentar novamente</button></p>}
     <section className="mt-5 grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] 4xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <div className="min-w-0"><MunicipalLightingMap center={center} focus={focus} items={mapItems} selected={selected} loading={loading} count={poleCount} onBounds={setBounds} onSelect={editPole} onFilters={() => { setPanel('filters'); if (window.innerWidth < 1200) sidebarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); window.setTimeout(() => document.getElementById('lighting-search')?.focus({ preventScroll: true }), 0); }} />{error && <p role="alert" className="mt-2 text-sm text-danger">{error}<button type="button" onClick={loadVisible} className="ml-2 underline">Tentar novamente</button></p>}</div>
+      <div className="min-w-0"><MunicipalLightingMap center={center} focus={focus} coordinateTarget={coordinateTarget} items={mapItems} selected={selected} loading={loading} count={poleCount} onBounds={setBounds} onSelect={editPole} onFilters={() => { setPanel('filters'); if (window.innerWidth < 1200) sidebarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); window.setTimeout(() => document.getElementById('lighting-search')?.focus({ preventScroll: true }), 0); }} />{error && <p role="alert" className="mt-2 text-sm text-danger">{error}<button type="button" onClick={loadVisible} className="ml-2 underline">Tentar novamente</button></p>}</div>
       <aside ref={sidebarRef} className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-1">
         <section className="min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm">
           <div role="tablist" aria-label="Ferramentas de iluminação" className="flex border-b border-edge-subtle px-3">{[['filters', 'Busca e filtros', SlidersHorizontal], ['report', 'Relatório', Download]].map(([key, label, Icon]) => <button key={key} id={'lighting-tab-' + key} role="tab" aria-selected={panel === key} aria-controls={'lighting-panel-' + key} type="button" onClick={() => setPanel(key)} className={'flex min-h-12 items-center gap-1.5 border-b-2 px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (panel === key ? 'border-brand text-brand' : 'border-transparent text-content-secondary hover:text-content-primary')}><Icon className="h-3.5 w-3.5 shrink-0" />{label}{key === 'filters' && activeFilterCount > 0 && <span className="rounded bg-brand-subtleBg px-1.5 py-0.5 text-[10px]">{activeFilterCount}</span>}</button>)}</div>
           {panel === 'filters' ? <div id="lighting-panel-filters" role="tabpanel" aria-labelledby="lighting-tab-filters" className="space-y-4 p-4">
-            <label className="block text-xs font-semibold" htmlFor="lighting-search">Buscar poste<div className="relative mt-1.5"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-secondary" /><Input id="lighting-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Número do poste ou endereço" className="bg-surface-subtle pl-9 text-xs" /></div></label>
+            <label className="block text-xs font-semibold" htmlFor="lighting-search">Buscar poste<div className="relative mt-1.5"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-secondary" /><Input id="lighting-search" value={search} onChange={(event) => { setSearch(event.target.value); if (coordinateTarget) { setCoordinateTarget(null); setCoordinateReset((value) => value + 1); } }} placeholder="Número do poste ou endereço" className="bg-surface-subtle pl-9 text-xs" /></div></label>
+            <LightingCoordinateSearch cityId={cityId} filters={filters} revision={revision} resetKey={coordinateReset} onLocate={(point) => { setSearch(''); setCoordinateTarget(point); setFocus([point.lat, point.lng]); setSelected(null); setDetailsOpen(false); }} onSelect={editPole} renderStatus={(pole) => <PoleStatus pole={pole} />} />
             <label className="block text-xs font-semibold">Status<select id="lighting-status-filter" className={inputClass + ' text-xs'} value={draftFilters.status} onChange={(event) => setDraftFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">Todos os status</option>{STATUS.map(([key, label]) => <option key={key} value={key}>{key === 'apagado' ? 'Apagado ou com problema' : label}</option>)}</select></label>
             <label className="flex items-center gap-2 text-xs text-content-secondary"><input type="checkbox" checked={draftFilters.removed} onChange={(event) => setDraftFilters((current) => ({ ...current, removed: event.target.checked }))} className="h-3.5 w-3.5 accent-brand" />Incluir postes removidos</label>
             <div className="grid grid-cols-2 gap-2"><Button size="sm" onClick={() => updateFilters(draftFilters)} className="text-xs"><Search className="mr-1.5 h-3.5 w-3.5" />Aplicar filtros</Button><Button size="sm" variant="outline" onClick={clearFilters} className="text-xs"><RotateCcw className="mr-1.5 h-3.5 w-3.5" />Limpar</Button></div>
