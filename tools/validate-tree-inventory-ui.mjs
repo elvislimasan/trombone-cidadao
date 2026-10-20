@@ -123,6 +123,13 @@ try {
   const fieldValue = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;return [...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input').value})()`);
   const choose = (label,value) => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input');Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`);
   const results=[];
+  const openFilters = async (advanced = false) => {
+    if (await evaluate('Boolean(document.querySelector(".arborization-filter-trigger"))')) {
+      await evaluate('document.querySelector(".arborization-filter-trigger").click()');
+      await waitFor('document.querySelector(".arborization-filter-dialog")');
+      if (advanced) await click('Mais filtros');
+    }
+  };
   const detailBottomsAligned = '(()=>{const summary=document.querySelector(".tree-profile-overview").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();return Math.abs(summary.bottom-history.bottom)<2})()';
   const panelsAligned = '(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return Math.abs(map.top-filters.top)<2&&Math.abs(map.bottom-filters.bottom)<2&&(innerWidth<1520||(Math.abs(sidebar.top-filters.top)<2&&Math.abs(sidebar.bottom-filters.bottom)<2))})()';
   for(const [width,height] of [[390,844],[800,900],[1280,800],[1366,768],[1440,900],[1920,1080]]){
@@ -134,12 +141,21 @@ try {
     const margins=await evaluate('(()=>{const r=document.querySelector("main").getBoundingClientRect();const p=getComputedStyle(document.querySelector("main"));return [r.left+parseFloat(p.paddingLeft),document.documentElement.clientWidth-r.right+parseFloat(p.paddingRight)]})()');
     if(width>=1200)assert.ok(margins.every(v=>v<=64),JSON.stringify({width,margins}));
     await capture('map-'+width);
-    assert.ok(await evaluate('document.querySelector("#arborization-filters").getBoundingClientRect().height>100'), 'Filtros básicos sempre visíveis');
     assert.ok(await evaluate('(()=>{const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const toggle=document.querySelector(".arborization-map-toolbar").getBoundingClientRect();return toggle.left>=map.left&&toggle.right<=map.right&&toggle.top>=map.top})()'), 'Alternância de visualização dentro do mapa');
     if(width<980){
+      assert.ok(await evaluate('!document.querySelector("#arborization-filters")&&document.querySelector(".arborization-mobile-controls").getBoundingClientRect().height<=44'),'Mobile exibe apenas botão de filtros e contagem, sem painel empurrando o mapa');
+      assert.ok(await evaluate('document.querySelector("[data-testid=tree-map]").getBoundingClientRect().top<innerHeight'),'Mapa aparece na primeira tela');
+      await openFilters();
+      assert.ok(await evaluate('(()=>{const dialog=document.querySelector(".arborization-filter-dialog").getBoundingClientRect();const apply=document.querySelector(".arborization-apply").getBoundingClientRect();return dialog.top>=0&&dialog.bottom<=innerHeight&&apply.top>=dialog.top&&apply.bottom<=dialog.bottom})()'),'Painel de filtros e botão aplicar cabem na tela');
       assert.ok(await evaluate('getComputedStyle(document.querySelector(".arborization-filter-advanced")).display==="none"'));
       await click('Mais filtros');
+      await capture('mobile-filters-'+width);
+      assert.ok(await evaluate('(()=>{const dialog=document.querySelector(".arborization-filter-dialog").getBoundingClientRect();const apply=document.querySelector(".arborization-apply").getBoundingClientRect();return apply.top>=dialog.top&&apply.bottom<=dialog.bottom})()'),'Aplicar continua visível com filtros avançados');
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);
+      await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('!document.querySelector(".arborization-filter-dialog")');
     }else{
+      assert.ok(await evaluate('document.querySelector("#arborization-filters").getBoundingClientRect().height>100'),'Filtros permanecem visíveis no desktop');
       assert.ok(await evaluate('(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return map.left>filters.right&&Math.abs(map.top-filters.top)<2&&(innerWidth<1520?(sidebar.top>=map.bottom&&Math.abs(sidebar.left-filters.left)<2&&Math.abs(sidebar.right-map.right)<2&&map.width>innerWidth*.65):(sidebar.left>map.right&&Math.abs(map.top-sidebar.top)<2))})()'), 'Notebook com resumo alinhado à largura das duas colunas; desktop amplo com sidebar à direita');
       assert.equal(await evaluate('new Set([...document.querySelectorAll(".arborization-stat")].map(el=>el.getBoundingClientRect().top)).size'),1,'Quatro indicadores na mesma linha');
       assert.ok(await evaluate(panelsAligned), 'Mapa e sidebar com a mesma altura dos filtros');
@@ -181,24 +197,33 @@ try {
       await evaluate('document.querySelector(".arborization-neighborhood-sidebar").scrollIntoView({block:"center",behavior:"instant"})');
       await capture('neighborhood-summary-'+width);await evaluate('window.scrollTo({top:0,behavior:"instant"})');
     }
+    await openFilters();
     await input('Buscar árvore','árvore ausente');await evaluate('document.querySelector(".arborization-apply").click()');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===0');
+    if(width<980){await waitFor('!document.querySelector(".arborization-filter-dialog")');assert.equal(await evaluate('document.querySelector(".arborization-filter-count").textContent'),'1');}
     assert.ok(await evaluate('document.querySelector(".arborization-neighborhood-sidebar").innerText.includes("Ainda não há árvores vivas com bairro identificado")'),'Resumo acompanha filtros sem resultados');
-    await evaluate('document.querySelector(".arborization-filter-heading button").click()');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    await openFilters();await evaluate('document.querySelector(".arborization-filter-heading button").click()');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');assert.ok(await evaluate('!document.querySelector(".arborization-filter-count")'));}
     await click('Lista');await waitFor('document.querySelectorAll("article").length===2');
     await click('Mapa');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    await openFilters(true);
     await evaluate('document.querySelector(".arborization-additional-filters").open=true');
     await choose('Responsável pelo plantio','prefeitura');await choose('Ano do plantio','2025');
     assert.equal(await evaluate('document.querySelectorAll(".tree-map-pin").length'),2,'Filtros aguardam a aplicação');
     await evaluate('document.querySelector(".arborization-apply").click()');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
+    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
+    await openFilters(true);
     await evaluate('document.querySelector(".arborization-filter-heading button").click()');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     await evaluate(`(()=>{const input=document.querySelector('[aria-label="Idade mínima"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'100');input.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     await evaluate('document.querySelector(".arborization-apply").click()');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
+    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
+    await openFilters();
     await evaluate('document.querySelector(".arborization-filter-heading button").click()');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');}
     await clickMapControl('Usar mapa de satélite');await waitFor(hasSatellite);
     await click('Tela cheia');await waitFor('document.querySelector("[role=dialog] .leaflet-container")');
     assert.ok(await evaluate(hasSatellite),'Tela cheia mantém a camada');

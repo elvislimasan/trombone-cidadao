@@ -100,7 +100,19 @@
 .arborization-additional-filters { margin-left: 42px; font-size: 11px; color: rgb(var(--text-secondary)); }
 .arborization-additional-filters summary { cursor: pointer; }
 .arborization-additional-filters label { margin-top: 10px; }
-.arborization-apply { width: 100%; min-height: 40px; font-size: 12px; font-weight: 500; }
+.arborization-apply { width: 100%; min-height: 40px; gap: 8px; font-size: 12px; font-weight: 500; }
+.arborization-mobile-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.arborization-mobile-controls > p { font-size: 12px; color: rgb(var(--text-secondary)); }
+.arborization-filter-trigger { height: 40px; gap: 8px; border-radius: 10px; background: rgb(var(--surface-raised)); font-size: 12px; }
+.arborization-filter-count { display: grid; place-items: center; min-width: 20px; height: 20px; padding-inline: 5px; border-radius: 50%; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 10px; font-weight: 700; }
+.arborization-filter-dialog { display: flex; flex-direction: column; max-height: 88dvh; overflow: hidden; padding: 20px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.arborization-filter-dialog form { min-height: 0; }
+.arborization-filter-dialog .arborization-filter-heading { padding-right: 26px; }
+.arborization-filter-dialog .arborization-filter-fields { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.arborization-filter-dialog .arborization-filter-heading,
+.arborization-filter-dialog .arborization-search,
+.arborization-filter-dialog .arborization-more-filters,
+.arborization-filter-dialog .arborization-apply { flex-shrink: 0; }
 .arborization-map-panel { height: max(480px, calc(100dvh - 430px)); background: rgb(var(--surface-subtle)); }
 .arborization-map-panel .arborization-fullscreen { height: 38px; border-radius: 9px; font-size: 11px; font-weight: 500; }
 .arborization-view-toggle { display: flex; gap: 3px; padding: 4px; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; background: rgb(var(--surface-raised)); box-shadow: 0 3px 10px rgb(0 0 0 / .08); }

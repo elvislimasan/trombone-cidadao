@@ -6,7 +6,7 @@ import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, FormDialogContent } from '@/components/ui/dialog';
 import CitySelector from '@/components/CitySelector';
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeMap from '@/components/arborization/TreeMap';
@@ -21,6 +21,7 @@ import { loadTreeCatalogs, treeNeighborhoodCounts, treeRequestCounts, uploadTree
 
 const EMPTY_FILTERS = { search: '', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
 const selectClass = 'arborization-select';
+const COMPACT_FILTERS_QUERY = '(max-width: 979px)';
 
 function InventoryBackdrop() {
   return <svg className="arborization-backdrop" viewBox="0 0 720 180" fill="none" aria-hidden="true">
@@ -59,6 +60,8 @@ function ArborizationContent({ management }) {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [compactFilters, setCompactFilters] = useState(() => typeof window !== 'undefined' && window.matchMedia(COMPACT_FILTERS_QUERY).matches);
   const [view, setView] = useState(management ? 'list' : 'map');
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(null);
@@ -69,6 +72,17 @@ function ArborizationContent({ management }) {
   const [catalogNeighborhoods, setCatalogNeighborhoods] = useState([]);
   const [counts, setCounts] = useState(null);
   const [summaryError, setSummaryError] = useState('');
+  useEffect(() => {
+    const media = window.matchMedia(COMPACT_FILTERS_QUERY);
+    const update = () => { setCompactFilters(media.matches); if (!media.matches) setFilterDialogOpen(false); };
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
   useEffect(() => {
     const refresh = () => setRevision(value => value + 1);
     window.addEventListener('reports-updated', refresh);
@@ -99,9 +113,10 @@ function ArborizationContent({ management }) {
   const neighborhoods = useMemo(() => [...new Set(trees.map(tree => tree.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [trees]);
   const previewCount = useMemo(() => filterTrees(trees, draftFilters).length, [trees, draftFilters]);
   const setFilter = (key, value) => setDraftFilters(current => ({ ...current, [key]: value }));
-  const applyFilters = event => { event.preventDefault(); setFilters(draftFilters); setPage(1); setSelected(null); };
+  const applyFilters = event => { event.preventDefault(); setFilters(draftFilters); setPage(1); setSelected(null); setFilterDialogOpen(false); };
   const resetFilters = () => { setFilters(EMPTY_FILTERS); setDraftFilters(EMPTY_FILTERS); setPage(1); setSelected(null); };
-  const activeFilters = Object.entries(filters).some(([key, value]) => value !== EMPTY_FILTERS[key]);
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => value !== EMPTY_FILTERS[key]).length;
+  const activeFilters = activeFilterCount > 0;
   const pageCount = Math.max(1, Math.ceil(filtered.length / 30));
   const currentPage = Math.min(page, pageCount);
 
@@ -150,6 +165,27 @@ function ArborizationContent({ management }) {
     finally { setBusy(false); }
   };
 
+  const filterForm = (
+        <form onSubmit={applyFilters}>
+        <div className="arborization-filter-heading"><h2><Filter className="h-4 w-4" aria-hidden="true" /><span className="arborization-filter-title-full hidden lg:inline">Explore o inventário</span><span className="arborization-filter-title-short lg:hidden">Filtros</span></h2><Button type="button" variant="ghost" size="sm" aria-label="Limpar filtros" onClick={resetFilters}><span className="hidden lg:inline">Limpar filtros</span><span className="lg:hidden">Limpar</span></Button></div>
+        <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search aria-hidden="true" /><Input placeholder="Busque por árvore, espécie, rua ou bairro…" value={draftFilters.search} onChange={event => setFilter('search', event.target.value)} /></label>
+        <div className="arborization-filter-fields" id="arborization-filter-fields">
+          {[
+            ['status', 'Situação', Trees, Object.entries(TREE_STATUS).map(([key, value]) => [key, value.label])],
+            ['origin', 'Origem', Info, Object.entries(TREE_ORIGINS)],
+            ['neighborhood', 'Bairro', MapPin, neighborhoods.map(value => [value, value])],
+            ['action', 'Manejo', Building2, [['pending', 'Todos os manejos pendentes'], ...Object.entries(TREE_ACTIONS)]],
+            ['plantedBy', 'Responsável pelo plantio', Home, Object.entries(TREE_PLANTED_BY)],
+            ['historic', 'Sítio histórico', Landmark, [['yes', 'Sim'], ['no', 'Não']]],
+          ].map(([key, label, Icon, options], index) => <div key={key} className={`arborization-filter-row ${index > 2 ? 'arborization-filter-advanced' : ''}`}><span className="arborization-field-icon"><Icon aria-hidden="true" /></span><label>{label}<select className={selectClass} value={draftFilters[key]} onChange={event => setFilter(key, event.target.value)}><option value="all">Todos</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label></div>)}
+          <div className="arborization-filter-row arborization-filter-advanced"><span className="arborization-field-icon"><CalendarDays aria-hidden="true" /></span><fieldset className="min-w-0 flex-1"><legend>Faixa de idade</legend><div className="arborization-age-range"><Input type="number" min="0" max={draftFilters.maxAge || undefined} aria-label="Idade mínima" placeholder="Mín." value={draftFilters.minAge} onChange={event => setFilter('minAge', event.target.value)} /><span>–</span><Input type="number" min={draftFilters.minAge || '0'} aria-label="Idade máxima" placeholder="Máx." value={draftFilters.maxAge} onChange={event => setFilter('maxAge', event.target.value)} /><span>anos</span></div></fieldset></div>
+          <details className="arborization-additional-filters arborization-filter-advanced"><summary>Outros filtros</summary><label>Ano do plantio<Input type="number" min="1" max={new Date().getFullYear()} placeholder="Ex.: 2025" value={draftFilters.plantedYear} onChange={event => setFilter('plantedYear', event.target.value)} /></label><label>Idade estimada<select className={selectClass} value={draftFilters.centenarian} onChange={event => setFilter('centenarian', event.target.value)}><option value="all">Todas as idades</option><option value="yes">Centenárias (100 anos ou mais)</option></select></label></details>
+        </div>
+        <Button type="button" variant="ghost" className="arborization-more-filters lg:hidden" aria-expanded={filtersOpen} aria-controls="arborization-filter-fields" onClick={() => setFiltersOpen(value => !value)}>{filtersOpen ? 'Menos filtros' : 'Mais filtros'}<ChevronDown className={`h-4 w-4 ${filtersOpen ? 'rotate-180' : ''}`} /></Button>
+        <Button type="submit" aria-label="Aplicar filtros" className="arborization-primary arborization-apply" disabled={loading}><Search className="h-4 w-4" />Aplicar filtros ({previewCount.toLocaleString('pt-BR')})</Button>
+        </form>
+  );
+
   return <main className="page-shell-fluid arborization-page" data-testid="arborization-page">
     <Helmet><title>{management ? 'Gerenciar arborização' : 'Mapa de arborização'} — Trombone Cidadão</title><meta name="description" content="Consulte o inventário de árvores da cidade, espécies, estado de conservação e necessidades de manejo." /></Helmet>
     <InventoryBackdrop />
@@ -174,27 +210,23 @@ function ArborizationContent({ management }) {
       {management && !permissionsLoading && !canManage && <p className="rounded-xl border bg-surface-raised p-3 text-sm text-muted-foreground">{cityId ? 'Consulta pública. O gerenciamento exige permissão de Planejamento Urbano nesta cidade.' : 'Selecione uma cidade para acessar o gerenciamento do inventário.'}</p>}
       {summaryError && <p role="alert" className="text-sm text-destructive">{summaryError} <Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></p>}
     </div>}
+    {compactFilters && <div className="arborization-mobile-controls">
+      <p>{loading ? 'Carregando árvores…' : `${filtered.length.toLocaleString('pt-BR')} ${filtered.length === 1 ? 'árvore encontrada' : 'árvores encontradas'}`}</p>
+      <Dialog open={filterDialogOpen} onOpenChange={open => {
+        if (open) { setDraftFilters(filters); setFiltersOpen(false); }
+        setFilterDialogOpen(open);
+      }}>
+        <DialogTrigger asChild><Button variant="outline" className="arborization-filter-trigger"><Filter className="h-4 w-4" />Filtros{activeFilterCount > 0 && <span className="arborization-filter-count">{activeFilterCount}</span>}</Button></DialogTrigger>
+        <FormDialogContent aria-describedby={undefined} id="arborization-filters" className={`arborization-filters arborization-filter-dialog ${filtersOpen ? 'is-expanded' : ''}`}>
+          <DialogTitle className="sr-only">Filtros de arborização</DialogTitle>
+          {filterForm}
+        </FormDialogContent>
+      </Dialog>
+    </div>}
     <div className="arborization-workspace">
-      <aside id="arborization-filters" className={`arborization-filters ${filtersOpen ? 'is-expanded' : ''}`}>
-        <form onSubmit={applyFilters}>
-        <div className="arborization-filter-heading"><h2><Filter className="h-4 w-4" aria-hidden="true" /><span className="arborization-filter-title-full hidden lg:inline">Explore o inventário</span><span className="arborization-filter-title-short lg:hidden">Filtros</span></h2><Button type="button" variant="ghost" size="sm" aria-label="Limpar filtros" onClick={resetFilters}><span className="hidden lg:inline">Limpar filtros</span><span className="lg:hidden">Limpar</span></Button></div>
-        <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search aria-hidden="true" /><Input placeholder="Busque por árvore, espécie, rua ou bairro…" value={draftFilters.search} onChange={event => setFilter('search', event.target.value)} /></label>
-        <div className="arborization-filter-fields" id="arborization-filter-fields">
-          {[
-            ['status', 'Situação', Trees, Object.entries(TREE_STATUS).map(([key, value]) => [key, value.label])],
-            ['origin', 'Origem', Info, Object.entries(TREE_ORIGINS)],
-            ['neighborhood', 'Bairro', MapPin, neighborhoods.map(value => [value, value])],
-            ['action', 'Manejo', Building2, [['pending', 'Todos os manejos pendentes'], ...Object.entries(TREE_ACTIONS)]],
-            ['plantedBy', 'Responsável pelo plantio', Home, Object.entries(TREE_PLANTED_BY)],
-            ['historic', 'Sítio histórico', Landmark, [['yes', 'Sim'], ['no', 'Não']]],
-          ].map(([key, label, Icon, options], index) => <div key={key} className={`arborization-filter-row ${index > 2 ? 'arborization-filter-advanced' : ''}`}><span className="arborization-field-icon"><Icon aria-hidden="true" /></span><label>{label}<select className={selectClass} value={draftFilters[key]} onChange={event => setFilter(key, event.target.value)}><option value="all">Todos</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label></div>)}
-          <div className="arborization-filter-row arborization-filter-advanced"><span className="arborization-field-icon"><CalendarDays aria-hidden="true" /></span><fieldset className="min-w-0 flex-1"><legend>Faixa de idade</legend><div className="arborization-age-range"><Input type="number" min="0" max={draftFilters.maxAge || undefined} aria-label="Idade mínima" placeholder="Mín." value={draftFilters.minAge} onChange={event => setFilter('minAge', event.target.value)} /><span>–</span><Input type="number" min={draftFilters.minAge || '0'} aria-label="Idade máxima" placeholder="Máx." value={draftFilters.maxAge} onChange={event => setFilter('maxAge', event.target.value)} /><span>anos</span></div></fieldset></div>
-          <details className="arborization-additional-filters arborization-filter-advanced"><summary>Outros filtros</summary><label>Ano do plantio<Input type="number" min="1" max={new Date().getFullYear()} placeholder="Ex.: 2025" value={draftFilters.plantedYear} onChange={event => setFilter('plantedYear', event.target.value)} /></label><label>Idade estimada<select className={selectClass} value={draftFilters.centenarian} onChange={event => setFilter('centenarian', event.target.value)}><option value="all">Todas as idades</option><option value="yes">Centenárias (100 anos ou mais)</option></select></label></details>
-        </div>
-        <Button type="button" variant="ghost" className="arborization-more-filters lg:hidden" aria-expanded={filtersOpen} aria-controls="arborization-filter-fields" onClick={() => setFiltersOpen(value => !value)}>{filtersOpen ? 'Menos filtros' : 'Mais filtros'}<ChevronDown className={`h-4 w-4 ${filtersOpen ? 'rotate-180' : ''}`} /></Button>
-        <Button type="submit" aria-label="Aplicar filtros" className="arborization-primary arborization-apply" disabled={loading}><Search className="h-4 w-4" />Aplicar filtros ({previewCount.toLocaleString('pt-BR')})</Button>
-        </form>
-      </aside>
+      {!compactFilters && <aside id="arborization-filters" className={`arborization-filters ${filtersOpen ? 'is-expanded' : ''}`}>
+        {filterForm}
+      </aside>}
       <section className="arborization-results min-w-0 space-y-3" aria-label="Resultados do inventário">
         {error ? <div role="alert" className="rounded-2xl border p-8 text-center"><p>{error}</p><Button variant="outline" className="mt-3" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></div> : loading ? <div className="flex h-[500px] items-center justify-center gap-2 rounded-2xl border"><Loader2 className="h-5 w-5 animate-spin" />Carregando árvores…</div> : <>
           {!filtered.length && trees.length > 0 && <div className="rounded-xl border border-dashed bg-surface-raised p-5 text-center"><Trees className="mx-auto mb-2 h-7 w-7 text-muted-foreground" /><h2 className="font-semibold">Nenhuma árvore encontrada</h2><p className="mt-1 text-sm text-muted-foreground">Ajuste os filtros para encontrar outros registros.</p>{activeFilters && <Button variant="outline" className="mt-3" onClick={resetFilters}>Limpar filtros</Button>}</div>}
