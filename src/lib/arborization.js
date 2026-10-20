@@ -5,6 +5,14 @@ export const TREE_STATUS = {
   removida: { label: 'Removida', color: '#64748b' },
 };
 
+export const TREE_MAP_STATES = { ...TREE_STATUS, linked: { label: 'Bronca vinculada', color: '#eab308' } };
+
+export function treeMapMarkerKey(tree, selected = false) {
+  if (tree?.status === 'removida') return 'removida';
+  if (selected || Number(tree?.service_requests) > 0) return 'linked';
+  return TREE_STATUS[tree?.status] ? tree.status : 'saudavel';
+}
+
 export const TREE_ORIGINS = { nativa: 'Nativa', exotica: 'Exótica', nao_identificada: 'Não identificada' };
 export const TREE_ACTIONS = { nenhuma: 'Sem manejo pendente', vistoria: 'Vistoria', poda: 'Poda', tratamento: 'Tratamento', remocao: 'Avaliação para remoção', plantio: 'Reposição / plantio' };
 export const TREE_SERVICES = { poda: 'Poda', remocao: 'Remoção', vistoria: 'Vistoria', tratamento: 'Tratamento', plantio: 'Plantio' };

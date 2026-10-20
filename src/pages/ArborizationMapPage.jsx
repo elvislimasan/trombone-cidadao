@@ -70,6 +70,11 @@ function ArborizationContent({ management }) {
   const [counts, setCounts] = useState(null);
   const [summaryError, setSummaryError] = useState('');
   useEffect(() => {
+    const refresh = () => setRevision(value => value + 1);
+    window.addEventListener('reports-updated', refresh);
+    return () => window.removeEventListener('reports-updated', refresh);
+  }, []);
+  useEffect(() => {
     let cancelled = false;
     setCounts(null); setSummaryError('');
     Promise.all([loadTreeCatalogs(supabase, cityId), treeRequestCounts(supabase, cityId)]).then(([catalogs, requests]) => {

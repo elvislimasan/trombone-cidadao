@@ -43,7 +43,7 @@ const code = ts.transpileModule(source, {
 const module = { exports: {} };
 new Function('require', 'module', 'exports', code)((name) => mocks[name] || require(name), module, module.exports);
 
-test('portal com montagem adiada recebe o mapa e preserva a instância ao expandir e recolher', async () => {
+for (const withHeader of [false, true]) test(`portal com montagem adiada preserva a instância ao expandir e recolher ${withHeader ? 'com cabeçalho' : 'com botão sobre o mapa'}`, async () => {
   let mounts = 0;
   function MapFixture() {
     const [zoom, setZoom] = React.useState(13);
@@ -54,7 +54,7 @@ test('portal com montagem adiada recebe o mapa e preserva a instância ao expand
   document.body.appendChild(node);
   const root = createRoot(node);
   try {
-    flushSync(() => root.render(React.createElement(module.exports.default, { title: 'Mapa de ruas' }, React.createElement(MapFixture))));
+    flushSync(() => root.render(React.createElement(module.exports.default, { title: 'Mapa de ruas', header: withHeader ? React.createElement('h2', null, 'Localização da árvore') : undefined }, React.createElement(MapFixture))));
     const mapNode = document.querySelector('#map-fixture');
     flushSync(() => mapNode.click());
     const expand = node.querySelector('button[aria-label]');

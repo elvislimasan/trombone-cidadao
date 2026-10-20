@@ -5,14 +5,14 @@ import L from 'leaflet';
 import MapDisplayControls, { BOTAO_DE_MAPA, CurrentLocationMarker, MAP_LAYER, MapBaseLayer, MapLayerToggle } from '@/components/map/MapDisplayControls';
 import MapResizeObserver from '@/components/map/MapResizeObserver';
 import { geocodeCity } from '@/lib/geocodeCity';
-import { TREE_STATUS } from '@/lib/arborization';
+import { TREE_MAP_STATES, treeMapMarkerKey } from '@/lib/arborization';
 import TreeDetailsDialog from './TreeDetailsDialog';
 import TreeMapLegend from './TreeMapLegend';
 import 'leaflet/dist/leaflet.css';
 
 const BRAZIL = [-14.2, -51.9];
 const EMPTY_TREES = [];
-const icons = Object.fromEntries(Object.entries(TREE_STATUS).map(([status, { color }]) => [status, L.divIcon({
+const icons = Object.fromEntries(Object.entries(TREE_MAP_STATES).map(([status, { color }]) => [status, L.divIcon({
   className: 'tree-map-pin', iconSize: [30, 36], iconAnchor: [15, 34], popupAnchor: [0, -30],
   html: `<svg width="30" height="36" viewBox="0 0 30 36" xmlns="http://www.w3.org/2000/svg"><path d="M15 34V18" stroke="${color}" stroke-width="4" stroke-linecap="round"/><path d="M15 2C9 2 7 6 7 9c-6 2-6 12 0 14 4 2 6 0 8 0s4 2 8 0c6-2 6-12 0-14 0-3-2-7-8-7Z" fill="${color}" stroke="white" stroke-width="2"/></svg>`,
 })]));
@@ -85,7 +85,7 @@ export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect,
       <MapResizeObserver />
       <MapController trees={validTrees} city={city} selected={selected} position={position} onPick={onPick} resetKey={resetKey} />
       <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} toolbar={toolbar} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />
-      {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={icons[tree.status] || icons.saudavel}
+      {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={icons[treeMapMarkerKey(tree)]}
         alt={tree.common_name} title={tree.common_name} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
       {position && <Marker position={[position.latitude, position.longitude]} icon={icons.saudavel} draggable eventHandlers={{ dragend: event => { const point = event.target.getLatLng(); onPick?.({ latitude: point.lat, longitude: point.lng }); } }} />}
       <TreeDetailsDialog tree={selected} canManage={canManage} onClose={() => onDeselect?.(selected?.id)}

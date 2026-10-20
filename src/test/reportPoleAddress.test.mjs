@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import { resolveReportPoleAddress } from '../lib/reportPoleAddress.js';
+import { treeReportSelection } from '../lib/treeInventory.js';
 
 const location = { lat: -8.6, lng: -38.58 };
 function client({ stored = null, mapped = null, storedError = false, mappedError = false } = {}) {
@@ -69,18 +70,20 @@ test('falha de todas as fontes permite endereço manual e coordenada inválida n
 // e as respostas de rede para reproduzir seleção/edição durante uma consulta.
 const source = fs.readFileSync(new URL('../components/ReportModal.jsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('ReportModal.jsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
-let selectSource, effectSource;
+let selectSource, effectSource, moveSource, treeSource;
 const visit = node => {
   if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handlePoleSelect') selectSource = node.initializer.getText(ast);
+  if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleLocationChange') moveSource = node.initializer.getText(ast);
+  if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleTreeSelect') treeSource = node.initializer.getText(ast);
   if (ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect' && node.arguments[0]?.getText(ast).includes('await resolveReportPoleAddress')) effectSource = node.arguments[0].getText(ast);
   ts.forEachChild(node, visit);
 }; visit(ast);
-assert.ok(selectSource); assert.ok(effectSource);
+assert.ok(selectSource); assert.ok(effectSource); assert.ok(moveSource); assert.ok(treeSource);
 const evaluate = (code, bindings) => new Function(...Object.keys(bindings), `return (${code});`)(...Object.values(bindings));
 
 function modal(overrides = {}) {
   const busy = [], failures = [], scheduled = [];
-  let state = { category: 'iluminacao', pole_id: 5, address: '', location, title: 'Lâmpada apagada' };
+  let state = { category: 'iluminacao', pole_id: 5, address: '', location, title: 'Lâmpada apagada', ...overrides.initialState };
   let nearby = [];
   const bindings = {
     formData: state,
@@ -90,14 +93,17 @@ function modal(overrides = {}) {
     setFormData: update => { state = update(state); bindings.formData = state; },
     setNearbyPoles: update => { nearby = update(nearby); }, setErrors() {}, resetCityCache() {},
     formatPoleLabel: value => String(value),
+    treeReportSelection,
     supabase: { rpc: async () => ({ data: '64' }), functions: { invoke() {} } },
     resolveReportPoleAddress: async () => ({ address: 'Rua encontrada', city_id: 64 }),
     reverseGeocodePin: () => assert.fail('Poste selecionado usa o resolvedor de poste'),
     setTimeout: callback => { scheduled.push(callback); return callback; }, clearTimeout() {},
     ...overrides,
   };
+  bindings.handleLocationChange = point => evaluate(moveSource, bindings)(point);
   return { bindings, busy, failures, scheduled, state: () => state,
-    select: pole => evaluate(selectSource, bindings)(pole), start: () => evaluate(effectSource, bindings)() };
+    select: pole => evaluate(selectSource, bindings)(pole), selectTree: tree => evaluate(treeSource, bindings)(tree),
+    move: bindings.handleLocationChange, start: () => evaluate(effectSource, bindings)() };
 }
 
 test('endereço recebido na seleção encerra busca imediatamente e preserva cidade do poste', () => {
@@ -147,4 +153,41 @@ test('endereço digitado durante a consulta prevalece sobre o resultado automát
   finish({ address: 'Rua automática', city_id: 64 }); await pending;
   assert.equal(view.state().address, 'Rua conferida manualmente');
   assert.equal(view.busy.at(-1), false);
+});
+
+test('mover pin após selecionar árvore descarta endereço antigo e busca a rua do novo ponto', async () => {
+  const next = { lat: -8.61, lng: -38.59 };
+  const view = modal({ initialState: { category: 'poda', pole_id: null }, reverseGeocodePin: async point => {
+    assert.deepEqual(point, next);
+    return { address: 'Rua do novo ponto', city_id: 64 };
+  } });
+  view.selectTree({ id: 't1', city_id: 64, common_name: 'Caraibeira', latitude: -8.6, longitude: -38.58, address: 'Rua da árvore' });
+  assert.equal(view.state().address, 'Rua da árvore');
+  assert.equal(view.bindings.addressTouchedRef.current, true);
+  view.move(next);
+  assert.equal(view.state().tree_id, null);
+  assert.equal(view.state().address, '');
+  assert.equal(view.bindings.addressTouchedRef.current, false);
+  view.start(); await view.scheduled[0]();
+  assert.equal(view.state().address, 'Rua do novo ponto');
+  assert.equal(view.state().city_id, 64);
+});
+
+test('mover pin renova a busca mesmo quando a rua do ponto anterior foi editada manualmente', async () => {
+  const view = modal({ initialState: { category: 'buracos', pole_id: null, address: 'Rua digitada no ponto anterior' },
+    reverseGeocodePin: async () => ({ address: 'Rua do pin movido' }) });
+  view.bindings.addressTouchedRef.current = true;
+  view.move({ lat: -8.61, lng: -38.59 });
+  view.start(); await view.scheduled[0]();
+  assert.equal(view.state().address, 'Rua do pin movido');
+});
+
+test('resposta antiga não preenche rua e cidade de um pin movido antes da limpeza do efeito', async () => {
+  let finish;
+  const view = modal({ initialState: { category: 'poda', pole_id: null }, reverseGeocodePin: () => new Promise(resolve => { finish = resolve; }) });
+  view.start(); const pending = view.scheduled[0]();
+  view.move({ lat: -8.61, lng: -38.59 });
+  finish({ address: 'Rua do ponto anterior', city_id: 99 }); await pending;
+  assert.equal(view.state().address, '');
+  assert.equal(view.state().city_id, undefined);
 });

@@ -38,10 +38,10 @@ const stubs = {
     if(location.search.includes('photo'))rows[0].photo_url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
     let care=[];const reports=[{id:'r1',city_id:64,tree_id:'t1',title:'Poda solicitada',tree_service:'poda',status:'pending',created_at:'2026-10-16T12:00:00Z'}];
     export const supabase={auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(){return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(){return {error:null}}}}},
-      rpc(name){const result={data:name==='city_tree_request_counts'?[{tree_id:'t1',total:1,poda:1,remocao:0}]:name==='nearby_report_trees'?[rows[0]]:[],error:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
-      from(table){let payload,operation,one=false;const filters=[];const q={select(){return q},order(){return q},range(){return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
+      rpc(name){const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
+      from(table){let payload,operation,one=false;const filters=[];const q={select(){return q},order(){return q},range(){return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
       if(operation&&window.failSave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
-      if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert')rows.unshift({...payload,id:'new'+rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species')species.unshift({...payload,id:'s-new'});}
+      if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert')rows.unshift({...payload,id:'new'+rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species')species.unshift({...payload,id:'s-new'});if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
       let source=table==='city_trees'?rows:table==='city_tree_species'?species:table==='bairros'?neighborhoods:table==='cities'?[{id:64,name:'Floresta'}]:table==='city_tree_care'?care:table==='reports'?reports:[];
       const data=source.filter(r=>filters.every(f=>f(r)));if(operation==='delete'&&table==='city_trees')rows=rows.filter(r=>!filters.every(f=>f(r)));
       return Promise.resolve({data:one?(operation==='insert'?source[0]:data[0]):data,error:null}).then(ok,fail);
@@ -50,11 +50,19 @@ const stubs = {
 if (!process.argv.includes('--reuse-assets')) {
 await build({
   stdin: { contents: `
-    import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route} from 'react-router-dom';
-    import TreePage from '@/pages/TreePage';import Footer from '@/components/Footer';import ReportTreePicker,{useNearbyReportTrees} from '@/components/report/ReportTreePicker';
+    import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route,Link} from 'react-router-dom';
+    import TreePage from '@/pages/TreePage';import Footer from '@/components/Footer';import ReportTreePicker from '@/components/report/ReportTreePicker';
+    import LocationPickerMap from '@/components/LocationPickerMap';import {useReportMapTrees} from '@/hooks/useReportMapTrees';import {treeReportSelection} from '@/lib/treeInventory';import {supabase} from '@/lib/customSupabaseClient';
     import {CityViewProvider} from '@/contexts/CityContext';import L from 'leaflet';import ArborizationMapPage from '@/pages/ArborizationMapPage';
     function DetailHarness(){return <div className="min-h-screen flex flex-col"><main className="flex-grow flex flex-col min-h-0"><div className="flex-1 min-h-0 flex flex-col"><TreePage/></div></main><Footer/></div>}
-    function ReportHarness(){const [value,setValue]=React.useState({category:'poda',location:{lat:-8.597,lng:-38.574},city_id:64,address:'Praça São José'});const nearby=useNearbyReportTrees(value.category,value.location,value.city_id);window.reportValue=value;return <div className='page-shell-fluid'><ReportTreePicker value={value} onChange={changes=>setValue(v=>({...v,...changes}))} nearby={nearby} onSelect={tree=>setValue(v=>({...v,tree_id:tree.id,tree_label:tree.common_name}))} resolveCity={async()=>64} authenticated /></div>}
+    function ReportHarness(){
+      const [value,setValue]=React.useState({category:'poda',location:{lat:-8.597,lng:-38.574},city_id:64,address:'Praça São José'});
+      const [bounds,setBounds]=React.useState(null);const [submitted,setSubmitted]=React.useState(false);
+      const onViewport=React.useCallback(b=>setBounds({south:b.getSouth(),north:b.getNorth(),west:b.getWest(),east:b.getEast()}),[]);
+      const nearby=useReportMapTrees(value.category,bounds,value.city_id);window.reportValue=value;
+      const submit=async()=>{await supabase.from('reports').insert({tree_id:value.tree_id,tree_service:'poda',city_id:value.city_id,category_id:'poda',status:'pending',title:'Serviço na árvore selecionada',location:'POINT('+value.location.lng+' '+value.location.lat+')'});setSubmitted(true);setValue(v=>({...v,tree_id:null,tree_label:''}));window.dispatchEvent(new CustomEvent('reports-updated'))};
+      return <div className='page-shell-fluid'><div className='relative isolate overflow-hidden' style={{height:500}}><LocationPickerMap initialPosition={value.location} initialZoom={15} focusPosition={value.tree_id?value.location:undefined} showMarker={!value.tree_id} onLocationChange={location=>setValue(v=>({...v,location,tree_id:null,tree_label:''}))} onViewportChange={onViewport} overlayMarkers={nearby.trees.map(tree=>({id:tree.id,title:tree.common_name,kind:'tree',location:{lat:Number(tree.latitude),lng:Number(tree.longitude)},data:tree}))} selectedOverlayMarkerId={value.tree_id} snapToOverlayOnSelect onOverlayMarkerSelect={marker=>setValue(v=>({...v,...treeReportSelection(marker.data)}))}/></div><ReportTreePicker value={value} onChange={changes=>setValue(v=>({...v,...changes}))} nearby={nearby}/><button disabled={!value.tree_id} onClick={submit}>Enviar bronca de teste</button>{submitted&&<Link to='/'>Voltar ao inventário</Link>}</div>
+    }
     const maps=[];L.Map.addInitHook(function(){maps.push(this);window.testMap=this;this.on('unload',()=>{maps.splice(maps.indexOf(this),1);window.testMap=maps.at(-1)})});
     if(location.search.includes('dark'))document.documentElement.classList.add('dark');
     createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={[location.search.includes('detail')?'/arborizacao/arvore/t1':location.search.includes('report')?'/report':'/']}><CityViewProvider><Routes><Route path="/" element={<ArborizationMapPage/>}/><Route path="/arborizacao/arvore/:id" element={<DetailHarness/>}/><Route path="/report" element={<ReportHarness/>}/></Routes></CityViewProvider></MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
@@ -97,6 +105,7 @@ try {
   const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
   const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
   await send('Runtime.enable', {}, sessionId); await send('Page.enable', {}, sessionId);
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] }, sessionId);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition(ok){ok({coords:{latitude:-8.599,longitude:-38.571}});}}});` }, sessionId);
   const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId); if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
   const waitFor = async expression => { for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(${expression})`)) return; await pause(100); } throw Error(`Timeout: ${expression}\n${await evaluate('document.body.innerText')}\n${JSON.stringify(errors)}`); };
@@ -114,6 +123,7 @@ try {
   const fieldValue = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;return [...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input').value})()`);
   const choose = (label,value) => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input');Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`);
   const results=[];
+  const detailBottomsAligned = '(()=>{const summary=document.querySelector(".tree-profile-overview").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();return Math.abs(summary.bottom-history.bottom)<2})()';
   const panelsAligned = '(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return Math.abs(map.top-filters.top)<2&&Math.abs(map.bottom-filters.bottom)<2&&(innerWidth<1520||(Math.abs(sidebar.top-filters.top)<2&&Math.abs(sidebar.bottom-filters.bottom)<2))})()';
   for(const [width,height] of [[390,844],[800,900],[1280,800],[1366,768],[1440,900],[1920,1080]]){
     await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
@@ -130,7 +140,7 @@ try {
       assert.ok(await evaluate('getComputedStyle(document.querySelector(".arborization-filter-advanced")).display==="none"'));
       await click('Mais filtros');
     }else{
-      assert.ok(await evaluate('(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return map.left>filters.right&&Math.abs(map.top-filters.top)<2&&(innerWidth<1520?(sidebar.top>=map.bottom&&Math.abs(sidebar.left-map.left)<2&&map.width>innerWidth*.65):(sidebar.left>map.right&&Math.abs(map.top-sidebar.top)<2))})()'), 'Notebook com mapa amplo e bairros abaixo; desktop amplo com três colunas');
+      assert.ok(await evaluate('(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return map.left>filters.right&&Math.abs(map.top-filters.top)<2&&(innerWidth<1520?(sidebar.top>=map.bottom&&Math.abs(sidebar.left-filters.left)<2&&Math.abs(sidebar.right-map.right)<2&&map.width>innerWidth*.65):(sidebar.left>map.right&&Math.abs(map.top-sidebar.top)<2))})()'), 'Notebook com resumo alinhado à largura das duas colunas; desktop amplo com sidebar à direita');
       assert.equal(await evaluate('new Set([...document.querySelectorAll(".arborization-stat")].map(el=>el.getBoundingClientRect().top)).size'),1,'Quatro indicadores na mesma linha');
       assert.ok(await evaluate(panelsAligned), 'Mapa e sidebar com a mesma altura dos filtros');
       const initialHeight = await evaluate('document.querySelector("#arborization-filters").getBoundingClientRect().height');
@@ -145,6 +155,15 @@ try {
     assert.ok(await evaluate(`(()=>{const color=document.createElement('span');color.style.color='hsl('+getComputedStyle(document.documentElement).getPropertyValue('--primary')+')';document.body.append(color);const expected=getComputedStyle(color).color;const buttons=[...document.querySelectorAll('.arborization-create,.arborization-apply,.arborization-neighborhood-more,.arborization-view-toggle [data-state=on]')];const matches=buttons.every(button=>getComputedStyle(button).backgroundColor===expected);color.remove();return matches})()`),'Botões usam a cor primária do sistema');
     await evaluate('document.querySelector(".arborization-neighborhood-more").focus()');
     await click('Ver mais');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');
+    assert.ok(await evaluate(`(()=>{
+      const el=document.querySelector('[data-testid=tree-neighborhood-drawer]');
+      const animation=el.getAnimations().find(item=>item.animationName==='arborization-drawer-in');
+      if(!animation)return false;
+      animation.pause();const duration=animation.effect.getComputedTiming().duration;
+      const positions=[0,duration/2,duration].map(time=>{animation.currentTime=time;const r=el.getBoundingClientRect();const s=getComputedStyle(el);const matrix=new DOMMatrixReadOnly(s.transform);return {left:r.left,top:r.top,scaleX:matrix.a,scaleY:matrix.d,opacity:s.opacity}});
+      animation.finish();
+      return positions[0].left>=document.documentElement.clientWidth-2&&positions[0].left>positions[1].left&&positions[1].left>positions[2].left&&positions.every(p=>Math.abs(p.top)<2&&p.scaleX===1&&p.scaleY===1&&p.opacity==='1');
+    })()`),'Modal desliza da direita para a esquerda, sem zoom nem deslocamento vertical');
     assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] li").length'),3,'Modal lista inclusive os bairros sem cadastro');
     await capture('neighborhood-drawer-'+width);
     assert.ok(await evaluate('(()=>{const el=document.querySelector("[data-testid=tree-neighborhood-drawer]");const r=el.getBoundingClientRect();return Math.abs(r.right-document.documentElement.clientWidth)<2&&r.left>=0&&Math.abs(r.top)<2&&Math.abs(r.height-innerHeight)<2&&el.scrollWidth<=el.clientWidth})()'),'Modal lateral alinhado à direita e sem overflow');
@@ -158,6 +177,10 @@ try {
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
     await waitFor('!document.querySelector("[data-testid=tree-neighborhood-drawer]")');
+    if(width>=980&&width<1520){
+      await evaluate('document.querySelector(".arborization-neighborhood-sidebar").scrollIntoView({block:"center",behavior:"instant"})');
+      await capture('neighborhood-summary-'+width);await evaluate('window.scrollTo({top:0,behavior:"instant"})');
+    }
     await input('Buscar árvore','árvore ausente');await evaluate('document.querySelector(".arborization-apply").click()');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===0');
     assert.ok(await evaluate('document.querySelector(".arborization-neighborhood-sidebar").innerText.includes("Ainda não há árvores vivas com bairro identificado")'),'Resumo acompanha filtros sem resultados');
@@ -224,8 +247,10 @@ try {
     await navigate('?detail');await waitFor('document.querySelector("[data-testid=tree-page]")');
     await waitFor('document.body.innerText.includes("Solicitação de Poda")');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
-    assert.ok(await evaluate('(()=>{const page=document.querySelector("[data-testid=tree-page]").getBoundingClientRect();const card=document.querySelector(".tree-profile-overview").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-profile-map]").getBoundingClientRect();return map.top>=card.top&&map.bottom<=card.bottom&&card.bottom<=page.bottom})()'),'Mapa contido no card e no fluxo da página');
+    assert.ok(await evaluate('(()=>{const page=document.querySelector("[data-testid=tree-page]").getBoundingClientRect();const card=document.querySelector(".tree-profile-location").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-profile-map]").getBoundingClientRect();return map.top>=card.top&&map.bottom<=card.bottom&&history.bottom<=page.bottom&&history.top>card.bottom&&!document.querySelector(".tree-profile-care-form")})()'),'Mapa acima da linha do tempo, contido no fluxo, com serviço disponível apenas no modal');
     if(width>=980){
+      assert.ok(await evaluate(detailBottomsAligned),'Resumo e linha do tempo terminam na mesma altura');
+      assert.ok(await evaluate('(()=>{const summary=document.querySelector(".tree-profile-overview").getBoundingClientRect();const location=document.querySelector(".tree-profile-location").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();const buttons=[...document.querySelectorAll(".tree-profile-header-actions > button")].map(el=>el.getBoundingClientRect());return summary.width>location.width&&Math.abs(summary.top-location.top)<2&&location.left>summary.right&&location.left===history.left&&buttons.length===2&&Math.abs(buttons[0].top-buttons[1].top)<2})()'),'Resumo à esquerda, mapa e histórico à direita e botões de serviço e edição lado a lado');
       assert.ok(await evaluate('document.querySelector("[data-site-footer]").getBoundingClientRect().top>=document.querySelector("[data-testid=tree-page]").getBoundingClientRect().bottom'),'Footer abaixo do conteúdo completo');
       await evaluate('document.querySelector("[data-site-footer]").scrollIntoView({block:"start"})');
       await waitFor('(()=>{const footer=document.querySelector("[data-site-footer]");const rect=footer.getBoundingClientRect();const y=Math.min(innerHeight-20,Math.max(1,rect.top)+20);return rect.top<innerHeight&&rect.bottom>0&&footer.contains(document.elementFromPoint(100,y))})()');
@@ -235,26 +260,38 @@ try {
     assert.ok(await evaluate(zoomInsideMap));
     await click('Sair da tela cheia');await waitFor('!document.querySelector("[role=dialog]")');
     assert.ok(await evaluate('document.body.innerText.includes("15/10/2026")&&document.body.innerText.includes("106 anos")'));
+    await click('Registrar serviço');await waitFor('document.querySelector(".tree-profile-care-dialog")');
+    assert.ok(await evaluate('(()=>{const rect=document.querySelector(".tree-profile-care-dialog").getBoundingClientRect();return rect.left>=0&&rect.right<=innerWidth&&rect.top>=0&&rect.bottom<=innerHeight&&document.querySelector(".tree-profile-care-dialog select").value===""})()'),'Modal de serviço cabe na tela e exige a escolha do serviço');
+    await capture('care-modal-'+width);
     await choose('Serviço','poda');await input('Data de realização','2026-10-10');
     await click('Registrar no histórico');await waitFor('document.body.innerText.includes("Poda: serviço realizado")');
+    await waitFor('!document.querySelector("[role=dialog]")');
+    if(width>=980)assert.ok(await evaluate(detailBottomsAligned),'Bases continuam alinhadas após adicionar um serviço ao histórico');
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
     await capture('detail-'+width);
-    await navigate('?report');await waitFor('document.querySelector("button[aria-pressed=false]")');
-    await evaluate('document.querySelector("button[aria-pressed=false]").click()');
+    await navigate('?report');await waitFor('document.querySelectorAll(".tree-picker-marker").length===2');
+    assert.ok(await evaluate('!document.body.innerText.includes("Árvore e serviço solicitado")&&!document.body.innerText.includes("Cadastrar árvore e vincular à bronca")&&!document.body.innerText.includes("Tipo de serviço")'));
+    const treeClick = await evaluate(`(()=>{const r=document.querySelector('.tree-picker-marker[title="Ipê-amarelo"]').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+    await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...treeClick},sessionId);
+    await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...treeClick},sessionId);
     await waitFor('window.reportValue.tree_id==="t1"');await waitFor('document.body.innerText.includes("Já existem solicitações abertas")');
-    await click('Desvincular');await click('Cadastrar árvore e vincular à bronca');
-    await waitFor('document.querySelector("[role=dialog] select option[value=s1]")');
-    assert.ok(await evaluate('!document.querySelector("[role=dialog]").innerText.includes("Responsável pelo plantio")'));
-    await choose('Nome popular','s1');await choose('Bairro','b1');await click('Usar esta árvore na bronca');
-    await waitFor('window.reportValue.tree_registration?.species_id==="s1"');
-    assert.equal(await evaluate('window.writes.length'),0,'Cadastro é rascunho até enviar a bronca');
+    await click('Desvincular');await evaluate('void window.testMap.setView([-8.5985,-38.572],15,{animate:false})');await waitFor('document.querySelectorAll(".tree-picker-marker").length===2');
+    await evaluate('document.querySelector(".tree-picker-marker[title=Nim]").click()');await waitFor('window.reportValue.tree_id==="t2"');
+    assert.ok(await evaluate('window.reportValue.location.lat===-8.6&&window.reportValue.location.lng===-38.57&&window.reportValue.city_id===64&&window.reportValue.address==="Rua das Flores"'));
+    assert.equal(await evaluate('document.querySelector(".tree-picker-marker[title=Nim] path[fill]").getAttribute("fill")'),'#eab308','Árvore selecionada fica amarela');
+    assert.equal(await evaluate('window.writes.length'),0,'Selecionar no mapa não envia a bronca');
+    await click('Enviar bronca de teste');await waitFor(`document.querySelector('a[href="/"]')`);
+    await waitFor('!window.reportValue.tree_id&&document.querySelector(".tree-picker-marker[title=Nim] path[fill]")?.getAttribute("fill")==="#eab308"');
+    assert.ok(await evaluate('window.writes.some(row=>row.table==="reports"&&row.payload.tree_id==="t2"&&row.payload.location==="POINT(-38.57 -8.6)")'),'Bronca usa o cadastro e as coordenadas da árvore');
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
     await capture('report-'+width);
+    await evaluate(`document.querySelector('a[href="/"]').click()`);await waitFor('document.querySelector("[data-testid=arborization-page]")');
+    await waitFor('document.querySelector(".tree-map-pin[title=Nim] path[fill]")?.getAttribute("fill")==="#eab308"');
     results.push({width,margins,linkedSpecies:true,registeredNeighborhood:true,history:true,reportLink:true});
   }
   await navigate('?dark');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');await capture('map-dark-1920');
   await navigate('?detail&public');await waitFor('document.querySelector("[data-testid=tree-page]")');
-  assert.ok(await evaluate('!document.body.innerText.includes("Registrar serviço realizado")&&!document.body.innerText.includes("Editar árvore")'));
+  assert.ok(await evaluate('!document.body.innerText.includes("Registrar serviço")&&!document.body.innerText.includes("Editar árvore")'));
   await navigate('?detail&photo');await waitFor('document.querySelector(".tree-profile-photo img")');
   await click('Ver imagem completa');await waitFor('document.querySelector(".tree-profile-photo-dialog img")');
   assert.ok(await evaluate('document.querySelector(".tree-profile-photo-dialog img").getAttribute("alt").includes("Foto completa")'));

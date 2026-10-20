@@ -32,6 +32,26 @@ export function nearbyTrees(trees, location, radius = 80) {
   }).sort((a, b) => a.distance_m - b.distance_m);
 }
 
+export async function loadReportMapTrees(client, bounds, cityId) {
+  if (!bounds || ![bounds.south, bounds.north, bounds.west, bounds.east].every(Number.isFinite)
+    || bounds.south > bounds.north || bounds.west > bounds.east) return [];
+  return allTreeRows(client, 'city_trees', query => {
+    let scoped = query.neq('status', 'removida')
+      .gte('latitude', bounds.south).lte('latitude', bounds.north)
+      .gte('longitude', bounds.west).lte('longitude', bounds.east);
+    if (cityId) scoped = scoped.eq('city_id', cityId);
+    return scoped;
+  });
+}
+
+export function treeReportSelection(tree) {
+  const lat = Number(tree?.latitude), lng = Number(tree?.longitude);
+  if (!tree?.id || !tree.city_id || tree.status === 'removida' || tree.latitude == null || tree.longitude == null
+    || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { tree_id: tree.id, tree_label: tree.common_name, tree_registration: null, tree_photo_file: null,
+    location: { lat, lng }, city_id: tree.city_id, address: tree.address || '' };
+}
+
 export function treeNeighborhoodCounts(trees, neighborhoods = []) {
   const counts = new Map(neighborhoods.map(item => [treeNameKey(item.name), { name: item.name, count: 0 }]));
   for (const tree of trees) {

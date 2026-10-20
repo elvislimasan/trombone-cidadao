@@ -68,7 +68,9 @@ import { notifyNative } from '@/lib/nativeNotification';
 import PoleNumberSearch from '@/components/report/PoleNumberSearch';
 import { createReportPole, mergeNearbyReportPoles } from '@/lib/reportPole';
 import { resolveReportPoleAddress } from '@/lib/reportPoleAddress';
-import ReportTreePicker, { useNearbyReportTrees } from '@/components/report/ReportTreePicker';
+import ReportTreePicker from '@/components/report/ReportTreePicker';
+import { useReportMapTrees } from '@/hooks/useReportMapTrees';
+import { treeReportSelection } from '@/lib/treeInventory';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
@@ -135,7 +137,16 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     is_public: false,
   });
   const [errors, setErrors] = useState({});
-  const treeNearby = useNearbyReportTrees(formData.category, formData.location, formData.city_id);
+  const [treeViewport, setTreeViewport] = useState(null);
+  const treeNearby = useReportMapTrees(formData.category, treeViewport, formData.city_id);
+  const handleTreeViewportChange = useCallback(bounds => {
+    const next = { south: bounds.getSouth(), north: bounds.getNorth(), west: bounds.getWest(), east: bounds.getEast() };
+    setTreeViewport(current => current && Object.keys(next).every(key => current[key] === next[key]) ? current : next);
+  }, []);
+  const treeOverlayMarkers = useMemo(() => treeNearby.trees.map(tree => ({
+    id: tree.id, title: tree.common_name, kind: 'tree',
+    location: { lat: Number(tree.latitude), lng: Number(tree.longitude) }, data: tree,
+  })), [treeNearby.trees]);
   useEffect(() => {
     if (formData.category !== 'poda' && (formData.tree_id || formData.tree_registration)) {
       setFormData(current => ({ ...current, tree_id: null, tree_label: '', tree_registration: null, tree_photo_file: null, tree_service: 'poda' }));
@@ -628,12 +639,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
             cityId = cityIdRaw == null ? null : Number(cityIdRaw);
           } catch { /* O endereço ainda pode ser usado sem a cidade resolvida. */ }
         }
-        if (cancelled) return;
+        if (cancelled || (reverseGeocodeTargetRef.current && (
+          Number(reverseGeocodeTargetRef.current.lat) !== lat || Number(reverseGeocodeTargetRef.current.lng) !== lng
+        ))) return;
         setAddressLookupFailed(!address);
         if (address) {
           lastReverseGeocodeKeyRef.current = key;
           reverseGeocodeTargetRef.current = null;
-          setFormData((prev) => addressTouchedRef.current ? prev : {
+          setFormData((prev) => addressTouchedRef.current
+            || Number(prev.location?.lat) !== lat || Number(prev.location?.lng) !== lng ? prev : {
             ...prev, address,
             ...(Number.isFinite(cityId) && cityId > 0 ? { city_id: cityId } : {}),
           });
@@ -3081,21 +3095,21 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
   const handleLocationChange = (newLocation) => {
     userPickedLocationRef.current = true;
-    if (formData.category === "iluminacao" && formData.pole_id) {
-      addressTouchedRef.current = false;
-    }
+    // A edição manual vale para o ponto atual. Mover o pin inicia outra busca,
+    // inclusive depois de selecionar uma árvore com endereço cadastrado.
+    addressTouchedRef.current = false;
     // Marcador mudou → invalida qualquer city_id resolvido anteriormente
     reverseGeocodeTargetRef.current = newLocation;
     lastReverseGeocodeKeyRef.current = null;
     resetCityCache();
-    setIsAddressLookupLoading(!addressTouchedRef.current);
+    setIsAddressLookupLoading(true);
     setAddressLookupFailed(false);
     setFormData((prev) => ({
       ...prev,
       location: newLocation,
       city_id: undefined,
       ...(prev.category === 'poda' ? { tree_id: null, tree_label: '', tree_registration: null, tree_photo_file: null } : {}),
-      address: addressTouchedRef.current ? prev.address : "",
+      address: "",
       ...(prev.category === "iluminacao" && prev.pole_id ? {
         pole_id: null,
         pole_number: "",
@@ -3139,12 +3153,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   };
 
   const handleTreeSelect = tree => {
-    const point = { lat: Number(tree.latitude), lng: Number(tree.longitude) };
-    handleLocationChange(point);
-    addressTouchedRef.current = !!tree.address;
-    setIsAddressLookupLoading(!tree.address);
-    setFormData(current => ({ ...current, tree_id: tree.id, tree_label: tree.common_name, tree_registration: null, tree_photo_file: null,
-      location: point, city_id: tree.city_id, address: tree.address || '' }));
+    const selection = treeReportSelection(tree);
+    if (!selection) return false;
+    handleLocationChange(selection.location);
+    addressTouchedRef.current = !!selection.address;
+    setIsAddressLookupLoading(!selection.address);
+    setFormData(current => ({ ...current, ...selection }));
   };
   const changeTreeData = changes => {
     if (changes.location) {
@@ -3934,13 +3948,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                               }));
                           }}
                           initialPosition={formData.location}
+                          initialZoom={formData.category === 'poda' ? 16 : undefined}
+                          showMarker={formData.category !== 'poda' || !formData.tree_id}
                           focusPosition={formData.pole_id || formData.tree_id ? formData.location : undefined}
                           showLocateButton={true}
                           snapToOverlayOnSelect={true}
-                          overlayMarkers={formData.category === 'poda' ? treeNearby.trees.map(tree => ({
-                            id: tree.id, title: tree.common_name, kind: 'tree', distanceLabel: `${tree.distance_m}m`,
-                            location: { lat: Number(tree.latitude), lng: Number(tree.longitude) }, data: tree,
-                          })) : nearbyPoles
+                          onViewportChange={formData.category === 'poda' ? handleTreeViewportChange : undefined}
+                          overlayMarkers={formData.category === 'poda' ? treeOverlayMarkers : nearbyPoles
                             .filter(
                               (p) =>
                                 Number.isFinite(p?.latitude) &&
@@ -4021,7 +4035,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                       </p>
                     )}
 
-                    {formData.category === 'poda' && <ReportTreePicker value={formData} onChange={changeTreeData} nearby={treeNearby} onSelect={handleTreeSelect} resolveCity={resolveCityIdFromLocation} authenticated={!!user} />}
+                    {formData.category === 'poda' && <ReportTreePicker value={formData} onChange={changeTreeData} nearby={treeNearby} />}
 
                     {formData.category === "iluminacao" && (
                       <div className="mt-4 space-y-2">
@@ -4846,13 +4860,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                             }));
                         }}
                         initialPosition={formData.location}
+                        initialZoom={formData.category === 'poda' ? 16 : undefined}
+                        showMarker={formData.category !== 'poda' || !formData.tree_id}
                         focusPosition={formData.pole_id || formData.tree_id ? formData.location : undefined}
                         showLocateButton={true}
                         snapToOverlayOnSelect={true}
-                        overlayMarkers={formData.category === 'poda' ? treeNearby.trees.map(tree => ({
-                            id: tree.id, title: tree.common_name, kind: 'tree', distanceLabel: `${tree.distance_m}m`,
-                            location: { lat: Number(tree.latitude), lng: Number(tree.longitude) }, data: tree,
-                          })) : nearbyPoles
+                        onViewportChange={formData.category === 'poda' ? handleTreeViewportChange : undefined}
+                        overlayMarkers={formData.category === 'poda' ? treeOverlayMarkers : nearbyPoles
                           .filter(
                             (p) =>
                               Number.isFinite(p?.latitude) &&
@@ -4928,7 +4942,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   </p>
                 )}
 
-                {formData.category === 'poda' && <ReportTreePicker value={formData} onChange={changeTreeData} nearby={treeNearby} onSelect={handleTreeSelect} resolveCity={resolveCityIdFromLocation} authenticated={!!user} />}
+                {formData.category === 'poda' && <ReportTreePicker value={formData} onChange={changeTreeData} nearby={treeNearby} />}
 
                 {formData.category === "iluminacao" && (
                   <div className="mt-4 space-y-2">

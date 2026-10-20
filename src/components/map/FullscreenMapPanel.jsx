@@ -4,7 +4,7 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
-export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', actions }) {
+export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', header, actions }) {
   const [expanded, setExpanded] = useState(false);
   const inlineRef = useRef(null);
   const [expandedHost, setExpandedHost] = useState(null);
@@ -23,15 +23,17 @@ export default function FullscreenMapPanel({ children, title = 'Mapa', className
     const frame = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     return () => cancelAnimationFrame(frame);
   }, [expanded, expandedHost, mapMount]);
+  const expandButton = <Button type="button" size="sm" variant={header ? 'ghost' : 'outline'}
+    className={header ? `shrink-0 gap-2 ${buttonClassName}` : `absolute z-[850] gap-2 bg-background shadow-md ${buttonClassName}`}
+    aria-label={`Expandir ${title.toLowerCase()} para tela cheia`} onClick={() => setExpanded(true)}>
+    <Maximize2 className="h-4 w-4" /> {buttonLabel}
+  </Button>;
   return (
-    <div className={`relative h-full w-full ${className}`}>
-      <div ref={inlineRef} className="h-full w-full" />
+    <div className={`relative h-full w-full ${header ? 'flex flex-col' : ''} ${className}`}>
+      {header && <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 pb-3">{header}{expandButton}</div>}
+      <div ref={inlineRef} className={header ? 'relative min-h-0 w-full flex-1 overflow-hidden rounded-lg' : 'h-full w-full'} />
       {mapMount ? createPortal(children, mapMount) : children}
-      <Button type="button" size="sm" variant="outline"
-        className={`absolute z-[850] gap-2 bg-background shadow-md ${buttonClassName}`}
-        aria-label={`Expandir ${title.toLowerCase()} para tela cheia`} onClick={() => setExpanded(true)}>
-        <Maximize2 className="h-4 w-4" /> {buttonLabel}
-      </Button>
+      {!header && expandButton}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent hideClose aria-describedby={undefined}
           onInteractOutside={(event) => {

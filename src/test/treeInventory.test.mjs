@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_TREE, filterTrees, treePayload, treesCsv } from '../lib/arborization.js';
-import { nearbyTrees, treeNeighborhoodCounts, treeTimeline, treeRequestCounts, uploadTreePhoto } from '../lib/treeInventory.js';
+import { EMPTY_TREE, filterTrees, treePayload, treesCsv, treeMapMarkerKey } from '../lib/arborization.js';
+import { loadReportMapTrees, nearbyTrees, treeNeighborhoodCounts, treeTimeline, treeRequestCounts, treeReportSelection, uploadTreePhoto } from '../lib/treeInventory.js';
 
 test('relatórios combinam plantio municipal por ano, bairro, sítio histórico e idade estimada', () => {
   const trees = [
@@ -48,6 +48,46 @@ test('árvores próximas respeitam o raio, coordenadas válidas e o inventário 
     { id: 5, latitude: null, longitude: null, status: 'saudavel' }];
   assert.deepEqual(nearbyTrees(trees, { lat: -8, lng: -38 }).map(row => row.id), [1, 2]);
   assert.deepEqual(nearbyTrees(trees, null), []);
+});
+
+test('seleção pelo mapa ancora a bronca na árvore e descarta rascunho de novo cadastro', () => {
+  const tree = { id: 't1', city_id: 64, common_name: 'Caraibeira', address: 'Praça Central', latitude: '-8.597', longitude: '-38.574' };
+  assert.deepEqual(treeReportSelection(tree), { tree_id: 't1', tree_label: 'Caraibeira', tree_registration: null, tree_photo_file: null,
+    location: { lat: -8.597, lng: -38.574 }, city_id: 64, address: 'Praça Central' });
+  for (const invalid of [{ status: 'removida' }, { latitude: null }, { longitude: 181 }, { latitude: 'ausente' }, { city_id: null }]) {
+    assert.equal(treeReportSelection({ ...tree, ...invalid }), null);
+  }
+});
+
+test('marcador amarelo representa seleção ou bronca vinculada sem alterar o cadastro da árvore', () => {
+  const tree = { status: 'saudavel', service_requests: 0 };
+  assert.equal(treeMapMarkerKey(tree), 'saudavel');
+  assert.equal(treeMapMarkerKey(tree, true), 'linked');
+  assert.equal(treeMapMarkerKey({ ...tree, service_requests: 1 }), 'linked');
+  assert.equal(treeMapMarkerKey({ ...tree, status: 'risco' }), 'risco');
+  assert.equal(treeMapMarkerKey({ status: 'removida', service_requests: 1 }), 'removida');
+  assert.deepEqual(tree, { status: 'saudavel', service_requests: 0 });
+});
+
+test('árvores para bronca são consultadas por área visível, com cidade e paginação em todas as páginas', async () => {
+  const calls = [];
+  const client = { from(table) {
+    const call = { table, filters: [] }; calls.push(call);
+    const query = { select: () => query, order: () => query,
+      neq: (key, value) => { call.filters.push(['neq', key, value]); return query; },
+      eq: (key, value) => { call.filters.push(['eq', key, value]); return query; },
+      gte: (key, value) => { call.filters.push(['gte', key, value]); return query; },
+      lte: (key, value) => { call.filters.push(['lte', key, value]); return query; },
+      range: (start, end) => { call.range = [start, end]; return query; },
+      then: resolve => Promise.resolve({ data: Array.from({ length: call.range[0] === 0 ? 1000 : 2 }, (_, id) => ({ id })), error: null }).then(resolve) };
+    return query;
+  } };
+  assert.equal((await loadReportMapTrees(client, { south: -8.61, north: -8.58, west: -38.59, east: -38.55 }, 64)).length, 1002);
+  assert.ok(calls.every(call => call.table === 'city_trees' && JSON.stringify(call.filters) === JSON.stringify([
+    ['neq', 'status', 'removida'], ['gte', 'latitude', -8.61], ['lte', 'latitude', -8.58], ['gte', 'longitude', -38.59], ['lte', 'longitude', -38.55], ['eq', 'city_id', 64],
+  ])));
+  assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999]]);
+  assert.deepEqual(await loadReportMapTrees({}, null, 64), []);
 });
 
 test('linha do tempo separa solicitação, serviço municipal e conclusão ainda não confirmada', () => {
