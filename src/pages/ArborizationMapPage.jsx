@@ -16,7 +16,7 @@ import { CityViewProvider, useCityView } from '@/contexts/CityContext';
 import { useCanManagePavement as useCanManageUrbanPlanning } from '@/hooks/useCanManagePavement';
 import { supabase } from '@/lib/customSupabaseClient';
 import { salvarDocumento } from '@/lib/nativeDownload';
-import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, filterTrees, loadCityTrees, treesCsv, treeStats } from '@/lib/arborization';
+import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, filterTrees, loadCityTrees, treesCsv, treeStats, treeLabel } from '@/lib/arborization';
 import { loadTreeCatalogs, treeNeighborhoodCounts, treeRequestCounts, uploadTreePhoto } from '@/lib/treeInventory';
 
 const EMPTY_FILTERS = { search: '', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
@@ -128,7 +128,7 @@ function ArborizationContent({ management }) {
     const { data, error: saveError } = await query.select().single();
     if (saveError) { if (uploaded) await supabase.storage.from('tree-photos').remove([uploaded.path]); throw new Error('Não foi possível salvar. Verifique sua conexão e a permissão na cidade.'); }
     setTrees(current => id ? current.map(tree => tree.id === id ? data : tree) : [data, ...current]);
-    setSelected(data); setView('map'); setNotice(id ? 'Árvore atualizada.' : 'Árvore cadastrada.');
+    setSelected(data); setView('map'); setNotice(id ? 'Árvore atualizada.' : `Árvore cadastrada.${data.public_code ? ` Código: ${data.public_code}.` : ''}`);
   }, [canManage, cityId]);
 
   const showTreeOnMap = tree => { setSelected(tree); setView('map'); };
@@ -168,7 +168,7 @@ function ArborizationContent({ management }) {
   const filterForm = (
         <form onSubmit={applyFilters}>
         <div className="arborization-filter-heading"><h2><Filter className="h-4 w-4" aria-hidden="true" /><span className="arborization-filter-title-full hidden lg:inline">Explore o inventário</span><span className="arborization-filter-title-short lg:hidden">Filtros</span></h2><Button type="button" variant="ghost" size="sm" aria-label="Limpar filtros" onClick={resetFilters}><span className="hidden lg:inline">Limpar filtros</span><span className="lg:hidden">Limpar</span></Button></div>
-        <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search aria-hidden="true" /><Input placeholder="Busque por árvore, espécie, rua ou bairro…" value={draftFilters.search} onChange={event => setFilter('search', event.target.value)} /></label>
+        <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search aria-hidden="true" /><Input placeholder="Busque por código, espécie, rua ou bairro…" value={draftFilters.search} onChange={event => setFilter('search', event.target.value)} /></label>
         <div className="arborization-filter-fields" id="arborization-filter-fields">
           {[
             ['status', 'Situação', Trees, Object.entries(TREE_STATUS).map(([key, value]) => [key, value.label])],
@@ -245,7 +245,7 @@ function ArborizationContent({ management }) {
                   {tree.photo_url && <img src={tree.photo_url} alt={`Árvore: ${tree.common_name}`} loading="lazy" className="mb-3 h-36 w-full rounded-lg object-cover" />}
                   <div className="flex items-start justify-between gap-2">
                     <button type="button" className="min-w-0 text-left" onClick={() => showTreeOnMap(tree)}>
-                      <h3 className="break-words font-semibold">{tree.common_name}</h3>
+                      <h3 className="break-words font-semibold">{treeLabel(tree)}</h3>
                       {tree.scientific_name && <p className="mt-0.5 break-words text-xs italic text-muted-foreground">{tree.scientific_name}</p>}
                     </button>
                     <StatusBadge status={tree.status} />
@@ -272,7 +272,7 @@ function ArborizationContent({ management }) {
     <Dialog open={Boolean(deleting)} onOpenChange={open => { if (!open && !busy) setDeleting(null); }}>
       <DialogContent role="alertdialog">
         <DialogHeader>
-          <DialogTitle>Excluir cadastro de {deleting?.common_name}?</DialogTitle>
+          <DialogTitle>Excluir cadastro de {treeLabel(deleting)}?</DialogTitle>
           <DialogDescription>Esta ação exclui o registro do inventário. Para manter o histórico de uma árvore retirada, edite sua situação para “Removida”.</DialogDescription>
         </DialogHeader>
         <DialogFooter>

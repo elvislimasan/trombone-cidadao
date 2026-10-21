@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_TREE, filterTrees, loadCityTrees, treePayload, treesCsv, treeStats } from '../lib/arborization.js';
+import { EMPTY_TREE, filterTrees, loadCityTrees, treePayload, treesCsv, treeStats, treeLabel } from '../lib/arborization.js';
 
 const form = { ...EMPTY_TREE, common_name: '  Ipê-amarelo  ', latitude: '-8,6', longitude: '-38.57' };
 const trees = [
@@ -61,4 +61,19 @@ test('carrega mais de mil árvores com filtro de cidade em todas as páginas', a
 test('erro de consulta não é convertido em inventário vazio', async () => {
   const query = { select: () => query, order: () => query, range: () => query, then: resolve => Promise.resolve({ error: new Error('offline') }).then(resolve) };
   await assert.rejects(loadCityTrees({ from: () => query }, null), /offline/);
+});
+
+test('código público identifica a árvore, participa dos filtros e acompanha a cidade no CSV', () => {
+  const coded = trees.map((tree, index) => ({ ...tree, public_code: `AR${index + 1}` }));
+  assert.equal(treeLabel(coded[0]), 'AR1 · Ipê-amarelo');
+  assert.equal(treeLabel(trees[0]), 'Ipê-amarelo');
+  assert.equal(treeLabel(null), '');
+  assert.deepEqual(filterTrees(coded, { search: ' ar2 ', neighborhood: 'Centro' }).map(row => row.id), ['2']);
+  assert.equal(filterTrees(coded, { search: 'AR2', status: 'saudavel' }).length, 0);
+  const csv = treesCsv(coded, [{ id: 64, name: 'Floresta' }]);
+  assert.ok(csv.includes('"Cidade";"Código da árvore";"Nome popular"'));
+  assert.ok(csv.includes('"Floresta";"AR1";"Ipê-amarelo"'));
+  const payload = treePayload({ ...form, public_code: 'AR999', registration_number: 999 }, 64);
+  assert.equal(Object.hasOwn(payload, 'public_code'), false);
+  assert.equal(Object.hasOwn(payload, 'registration_number'), false);
 });

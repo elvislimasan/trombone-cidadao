@@ -1,0 +1,5793 @@
+{
+  "version": 1,
+  "project": "Ilumina PE — Floresta",
+  "cityId": 64,
+  "sourceId": "47981b7b259688320f062c21a05d0372988b0d5abcdbdda6b6e4930083d9a153",
+  "sourceFile": "ilumina-pe-floresta-2026.rows.json",
+  "reviewedAt": "2026-10-21T12:17:55.356Z",
+  "policy": "Uma solicitação interna por poste; problema Outro; troca de vapor de sódio para LED conforme o PDF. Pontos inexistentes não devem gerar cadastro. IDs de banco e protocolos não são transportados entre ambientes.",
+  "summary": {
+    "sourceRows": 420,
+    "requests": 395,
+    "coveredRows": 405,
+    "excludedRows": 4,
+    "pendingRows": 11
+  },
+  "inventoryOperations": [
+    {
+      "action": "created",
+      "target": {
+        "identifier": "Z219134",
+        "plate": null,
+        "latitude": -8.593246,
+        "longitude": -38.574775,
+        "address": "Ademar Torres de Araujo - Santa Rosa - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "Z257372",
+        "plate": null,
+        "latitude": -8.606535,
+        "longitude": -38.58375,
+        "address": "Tv. Primeira Manoel Ferraz - DNER - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "Z261040",
+        "plate": null,
+        "latitude": -8.600693,
+        "longitude": -38.580766,
+        "address": "Clovis de Souza Ferraz - CENTRO - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "S230868",
+        "plate": null,
+        "latitude": -8.600855,
+        "longitude": -38.580498,
+        "address": "Clovis de Souza Ferraz - CENTRO - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "X150503",
+        "plate": null,
+        "latitude": -8.604511,
+        "longitude": -38.591553,
+        "address": "Estrada Sem Nome - DNER - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "S230495",
+        "plate": null,
+        "latitude": -8.60465,
+        "longitude": -38.591075,
+        "address": "Estrada Sem Nome - DNER - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-075",
+        "plate": null,
+        "latitude": -8.596163,
+        "longitude": -38.57572,
+        "address": "Jose Querino de Sá - Santa Rosa - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-099",
+        "plate": null,
+        "latitude": -8.59378,
+        "longitude": -38.578773,
+        "address": "Lourival Diniz de Carvalho - Santa Rosa - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "X150502",
+        "plate": null,
+        "latitude": -8.6046,
+        "longitude": -38.591328,
+        "address": "Estrada Sem Nome - DNER - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-261",
+        "plate": null,
+        "latitude": -8.600889,
+        "longitude": -38.574819,
+        "address": "Major Jose Rodrigues de Morais - CENTRO - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-275",
+        "plate": null,
+        "latitude": -8.602236,
+        "longitude": -38.569998,
+        "address": "Cn. Faco. B. do Nascimento - CENTRO - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-286",
+        "plate": null,
+        "latitude": -8.60452,
+        "longitude": -38.572275,
+        "address": "Travessa Coronel Jose G. Torres - CENTRO - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-403",
+        "plate": null,
+        "latitude": -8.600335,
+        "longitude": -38.575151,
+        "address": "Joaquim de Alencar Jardim - CENTRO - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "source_plate": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-078",
+        "plate": null,
+        "latitude": -8.59626036201836,
+        "longitude": -38.5761093527579,
+        "address": "Rua José Quirino de Sá - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "feeder": null,
+        "quality": null,
+        "lamp_count": 1,
+        "luminaires": [],
+        "point_type": null,
+        "source_code": null,
+        "switch_code": null,
+        "network_type": null,
+        "observations": null,
+        "source_plate": null,
+        "characteristic": null,
+        "company_number": null,
+        "source_address": null,
+        "transformer_code": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "ILUMINA-PE-124",
+        "plate": null,
+        "latitude": -8.592961,
+        "longitude": -38.578193,
+        "address": "Avenida Capitão Antonio David - Santa Rosa - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "feeder": null,
+        "quality": null,
+        "lamp_count": 2,
+        "luminaires": [],
+        "point_type": null,
+        "source_code": null,
+        "switch_code": null,
+        "network_type": null,
+        "observations": null,
+        "source_plate": null,
+        "characteristic": null,
+        "company_number": null,
+        "source_address": null,
+        "transformer_code": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "created",
+      "target": {
+        "identifier": "Z224906",
+        "plate": null,
+        "latitude": -8.604796,
+        "longitude": -38.585733,
+        "address": "Avenida Manoel Ferraz - São Francisco de Assis - DNER - Floresta - Pernambuco",
+        "lamp_type": "Vapor de sódio",
+        "lamp_power_w": 70,
+        "lighting_status": "aceso"
+      },
+      "details": {
+        "feeder": null,
+        "quality": null,
+        "lamp_count": null,
+        "luminaires": [],
+        "point_type": null,
+        "source_code": null,
+        "switch_code": null,
+        "network_type": null,
+        "observations": null,
+        "source_plate": null,
+        "characteristic": null,
+        "company_number": null,
+        "source_address": null,
+        "transformer_code": null
+      },
+      "basis": "Poste cadastrado durante a revisão e autorizado para reprodução na importação"
+    },
+    {
+      "action": "updated",
+      "before": {
+        "identifier": "44 - S230912",
+        "plate": null,
+        "latitude": -8.594422,
+        "longitude": -38.576716,
+        "address": "Avenida Capitão Antonio David - Santa Rosa - Floresta - Pernambuco",
+        "lighting_status": "aceso"
+      },
+      "target": {
+        "identifier": "S230912",
+        "plate": "A17922",
+        "latitude": -8.59439859273865,
+        "longitude": -38.5767102274795
+      },
+      "patch": {
+        "identifier": "S230912",
+        "plate": "A17922",
+        "latitude": -8.59439859273865,
+        "longitude": -38.5767102274795
+      },
+      "basis": "Correção manual conferida no cadastro municipal e no arquivo de revisão"
+    },
+    {
+      "action": "updated",
+      "before": {
+        "identifier": "5 - X060038",
+        "plate": null,
+        "latitude": -8.596161,
+        "longitude": -38.576035,
+        "address": "Rua José Quirino de Sá - Floresta - Pernambuco",
+        "lighting_status": "aceso"
+      },
+      "target": {
+        "identifier": "X059038",
+        "plate": "C55032",
+        "latitude": -8.596161,
+        "longitude": -38.576035
+      },
+      "patch": {
+        "identifier": "X059038",
+        "plate": "C55032"
+      },
+      "basis": "Correção manual conferida no cadastro municipal e no arquivo de revisão"
+    },
+    {
+      "action": "removed",
+      "before": {
+        "identifier": "48 - FLY",
+        "plate": null,
+        "latitude": -8.605061,
+        "longitude": -38.588806,
+        "address": "Rua Prof. Fátima Lins - Bela Vista - Floresta - Pernambuco",
+        "lighting_status": "aceso"
+      },
+      "target": {
+        "identifier": "48 - FLY",
+        "plate": null,
+        "latitude": -8.605061,
+        "longitude": -38.588806
+      },
+      "patch": {
+        "lighting_status": "removido"
+      },
+      "basis": "Correção manual conferida no cadastro municipal e no arquivo de revisão"
+    }
+  ],
+  "assignments": [
+    {
+      "sourceRows": [
+        1
+      ],
+      "target": {
+        "identifier": "11 - S231107",
+        "plate": null,
+        "latitude": -8.594088,
+        "longitude": -38.573139
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        2
+      ],
+      "target": {
+        "identifier": "12 - S231108",
+        "plate": null,
+        "latitude": -8.59432,
+        "longitude": -38.573346
+      },
+      "warnings": [
+        {
+          "row": 2,
+          "warning": "code_coordinate_conflict",
+          "distance": 26.281100203649167
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        3
+      ],
+      "target": {
+        "identifier": "13 - S231109",
+        "plate": null,
+        "latitude": -8.594616,
+        "longitude": -38.573578
+      },
+      "warnings": [
+        {
+          "row": 3,
+          "warning": "code_coordinate_conflict",
+          "distance": 35.13145740894807
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        4
+      ],
+      "target": {
+        "identifier": "15 - S231111",
+        "plate": null,
+        "latitude": -8.595116,
+        "longitude": -38.574006
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        5
+      ],
+      "target": {
+        "identifier": "14 - S231110",
+        "plate": null,
+        "latitude": -8.594881,
+        "longitude": -38.573828
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        6
+      ],
+      "target": {
+        "identifier": "16 - S231047",
+        "plate": null,
+        "latitude": -8.595426,
+        "longitude": -38.574273
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        7
+      ],
+      "target": {
+        "identifier": "22 - S231049",
+        "plate": null,
+        "latitude": -8.595899,
+        "longitude": -38.57468
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        8
+      ],
+      "target": {
+        "identifier": "9 - S230848",
+        "plate": null,
+        "latitude": -8.594824,
+        "longitude": -38.576082
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        9,
+        10
+      ],
+      "target": {
+        "identifier": "10 - S230849",
+        "plate": null,
+        "latitude": -8.594579,
+        "longitude": -38.575886
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        11
+      ],
+      "target": {
+        "identifier": "12 - S230901",
+        "plate": null,
+        "latitude": -8.59399,
+        "longitude": -38.575414
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        12
+      ],
+      "target": {
+        "identifier": "13 - S230902",
+        "plate": null,
+        "latitude": -8.59371,
+        "longitude": -38.575169
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        14
+      ],
+      "target": {
+        "identifier": "Z219134",
+        "plate": null,
+        "latitude": -8.593246,
+        "longitude": -38.574775
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        15
+      ],
+      "target": {
+        "identifier": "18 - S231043",
+        "plate": null,
+        "latitude": -8.595712,
+        "longitude": -38.573849
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        16
+      ],
+      "target": {
+        "identifier": "19 - S231042",
+        "plate": null,
+        "latitude": -8.5955,
+        "longitude": -38.573635
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        17
+      ],
+      "target": {
+        "identifier": "16 - S231041",
+        "plate": null,
+        "latitude": -8.59524,
+        "longitude": -38.573367
+      },
+      "warnings": [
+        {
+          "row": 17,
+          "warning": "code_coordinate_conflict",
+          "distance": 24.232237865675547
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        18
+      ],
+      "target": {
+        "identifier": "15 - S231116",
+        "plate": null,
+        "latitude": -8.594944,
+        "longitude": -38.573096
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        19
+      ],
+      "target": {
+        "identifier": "1 - S231114",
+        "plate": null,
+        "latitude": -8.594524,
+        "longitude": -38.572669
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        20
+      ],
+      "target": {
+        "identifier": "17 - S231044",
+        "plate": null,
+        "latitude": -8.595965,
+        "longitude": -38.574097
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        21
+      ],
+      "target": {
+        "identifier": "16 - S231045",
+        "plate": null,
+        "latitude": -8.596196,
+        "longitude": -38.574344
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        22
+      ],
+      "target": {
+        "identifier": "7 - S230904",
+        "plate": null,
+        "latitude": -8.593277,
+        "longitude": -38.575574
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        23
+      ],
+      "target": {
+        "identifier": "6 - S230906",
+        "plate": null,
+        "latitude": -8.593559,
+        "longitude": -38.575783
+      },
+      "warnings": [
+        {
+          "row": 23,
+          "warning": "code_coordinate_conflict",
+          "distance": 27.238860387137304
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        24
+      ],
+      "target": {
+        "identifier": "5 - S230907",
+        "plate": null,
+        "latitude": -8.593783,
+        "longitude": -38.575961
+      },
+      "warnings": [
+        {
+          "row": 24,
+          "warning": "code_coordinate_conflict",
+          "distance": 36.9247163041707
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        25
+      ],
+      "target": {
+        "identifier": "4 - S230909",
+        "plate": null,
+        "latitude": -8.594092,
+        "longitude": -38.576214
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        26
+      ],
+      "target": {
+        "identifier": "3 - S230910",
+        "plate": null,
+        "latitude": -8.594369,
+        "longitude": -38.576437
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        27
+      ],
+      "target": {
+        "identifier": "30 - S230930",
+        "plate": null,
+        "latitude": -8.593677,
+        "longitude": -38.576521
+      },
+      "warnings": [
+        {
+          "row": 27,
+          "warning": "code_coordinate_conflict",
+          "distance": 24.509310439797623
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        28
+      ],
+      "target": {
+        "identifier": "29 - S230929",
+        "plate": null,
+        "latitude": -8.59385,
+        "longitude": -38.576539
+      },
+      "warnings": [
+        {
+          "row": 28,
+          "warning": "code_coordinate_conflict",
+          "distance": 31.00053175272244
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        29,
+        30
+      ],
+      "target": {
+        "identifier": "31 - S230931",
+        "plate": null,
+        "latitude": -8.593401,
+        "longitude": -38.576291
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        31
+      ],
+      "target": {
+        "identifier": "33 - X133331",
+        "plate": null,
+        "latitude": -8.592959,
+        "longitude": -38.575921
+      },
+      "warnings": [
+        {
+          "row": 31,
+          "warning": "code_coordinate_conflict",
+          "distance": 30.311700095566806
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        32
+      ],
+      "target": {
+        "identifier": "28 - S230928",
+        "plate": null,
+        "latitude": -8.594084,
+        "longitude": -38.576755
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        33
+      ],
+      "target": {
+        "identifier": "16 - X009154",
+        "plate": null,
+        "latitude": -8.593311,
+        "longitude": -38.577553
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        34
+      ],
+      "target": {
+        "identifier": "17 - U109155",
+        "plate": null,
+        "latitude": -8.593052,
+        "longitude": -38.577294
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        35
+      ],
+      "target": {
+        "identifier": "6 - X024076",
+        "plate": null,
+        "latitude": -8.592874,
+        "longitude": -38.57793
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        36
+      ],
+      "target": {
+        "identifier": "4 - X040562",
+        "plate": null,
+        "latitude": -8.593427,
+        "longitude": -38.574149
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        37
+      ],
+      "target": {
+        "identifier": "3 - X082382",
+        "plate": null,
+        "latitude": -8.593606,
+        "longitude": -38.574297
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        38
+      ],
+      "target": {
+        "identifier": "2 - X040561",
+        "plate": null,
+        "latitude": -8.593738,
+        "longitude": -38.574414
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        40
+      ],
+      "target": {
+        "identifier": "5 - S231073",
+        "plate": null,
+        "latitude": -8.594362,
+        "longitude": -38.574923
+      },
+      "warnings": [
+        {
+          "row": 40,
+          "warning": "code_coordinate_conflict",
+          "distance": 46.75258446773347
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        41
+      ],
+      "target": {
+        "identifier": "6 - S231074",
+        "plate": null,
+        "latitude": -8.594638,
+        "longitude": -38.575182
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        42
+      ],
+      "target": {
+        "identifier": "7 - S231075",
+        "plate": null,
+        "latitude": -8.594842,
+        "longitude": -38.575352
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        44
+      ],
+      "target": {
+        "identifier": "5 - X008221",
+        "plate": null,
+        "latitude": -8.593207,
+        "longitude": -38.576844
+      },
+      "warnings": [
+        {
+          "row": 44,
+          "warning": "code_coordinate_conflict",
+          "distance": 26.50626153717955
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        45
+      ],
+      "target": {
+        "identifier": "4 - S230932",
+        "plate": null,
+        "latitude": -8.593474,
+        "longitude": -38.577088
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        46
+      ],
+      "target": {
+        "identifier": "13 - S108316",
+        "plate": null,
+        "latitude": -8.595623,
+        "longitude": -38.575198
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        47
+      ],
+      "target": {
+        "identifier": "14 - S231065",
+        "plate": null,
+        "latitude": -8.595341,
+        "longitude": -38.574933
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        48
+      ],
+      "target": {
+        "identifier": "9 - S231064",
+        "plate": null,
+        "latitude": -8.595075,
+        "longitude": -38.574721
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        49
+      ],
+      "target": {
+        "identifier": "8 - S231063",
+        "plate": null,
+        "latitude": -8.594843,
+        "longitude": -38.574507
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        50
+      ],
+      "target": {
+        "identifier": "7 - S231062",
+        "plate": null,
+        "latitude": -8.594561,
+        "longitude": -38.574271
+      },
+      "warnings": [
+        {
+          "row": 50,
+          "warning": "code_coordinate_conflict",
+          "distance": 31.502201805769065
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        51
+      ],
+      "target": {
+        "identifier": "6 - S231100",
+        "plate": null,
+        "latitude": -8.594297,
+        "longitude": -38.574036
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        52
+      ],
+      "target": {
+        "identifier": "5 - S231101",
+        "plate": null,
+        "latitude": -8.59406,
+        "longitude": -38.573839
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        53
+      ],
+      "target": {
+        "identifier": "4 - S231102",
+        "plate": null,
+        "latitude": -8.593737,
+        "longitude": -38.573575
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        54
+      ],
+      "target": {
+        "identifier": "10 - X027269",
+        "plate": null,
+        "latitude": -8.596389,
+        "longitude": -38.575425
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        55
+      ],
+      "target": {
+        "identifier": "9 - X027270",
+        "plate": null,
+        "latitude": -8.59668,
+        "longitude": -38.575623
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        56
+      ],
+      "target": {
+        "identifier": "8 - X027271",
+        "plate": null,
+        "latitude": -8.596987,
+        "longitude": -38.575838
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        57
+      ],
+      "target": {
+        "identifier": "7 - X027272",
+        "plate": null,
+        "latitude": -8.597086,
+        "longitude": -38.575902
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        58
+      ],
+      "target": {
+        "identifier": "2 - S230843",
+        "plate": null,
+        "latitude": -8.594676,
+        "longitude": -38.576661
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        59
+      ],
+      "target": {
+        "identifier": "12 - S230842",
+        "plate": null,
+        "latitude": -8.594929,
+        "longitude": -38.576868
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        60
+      ],
+      "target": {
+        "identifier": "10 - S230840",
+        "plate": null,
+        "latitude": -8.595475,
+        "longitude": -38.577324
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        61
+      ],
+      "target": {
+        "identifier": "11 - S230841",
+        "plate": null,
+        "latitude": -8.595215,
+        "longitude": -38.577114
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        62
+      ],
+      "target": {
+        "identifier": "9 - S230839",
+        "plate": null,
+        "latitude": -8.59572,
+        "longitude": -38.577517
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        63
+      ],
+      "target": {
+        "identifier": "6 - S230923",
+        "plate": null,
+        "latitude": -8.594145,
+        "longitude": -38.577757
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        64
+      ],
+      "target": {
+        "identifier": "2 - S230924",
+        "plate": null,
+        "latitude": -8.593832,
+        "longitude": -38.577462
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        65
+      ],
+      "target": {
+        "identifier": "7 - S230922",
+        "plate": null,
+        "latitude": -8.594393,
+        "longitude": -38.578003
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        66
+      ],
+      "target": {
+        "identifier": "8 - S230921",
+        "plate": null,
+        "latitude": -8.594631,
+        "longitude": -38.578244
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        67
+      ],
+      "target": {
+        "identifier": "9 - S230920",
+        "plate": null,
+        "latitude": -8.594896,
+        "longitude": -38.578498
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        68
+      ],
+      "target": {
+        "identifier": "11 - X055113",
+        "plate": null,
+        "latitude": -8.595415,
+        "longitude": -38.579008
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        69
+      ],
+      "target": {
+        "identifier": "26 - X064325",
+        "plate": null,
+        "latitude": -8.595232,
+        "longitude": -38.57966
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        70
+      ],
+      "target": {
+        "identifier": "25 - X064324",
+        "plate": null,
+        "latitude": -8.595094,
+        "longitude": -38.579416
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        71
+      ],
+      "target": {
+        "identifier": "24 - S230940",
+        "plate": null,
+        "latitude": -8.59487,
+        "longitude": -38.579178
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        72
+      ],
+      "target": {
+        "identifier": "23 - S230939",
+        "plate": null,
+        "latitude": -8.594589,
+        "longitude": -38.578892
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        73
+      ],
+      "target": {
+        "identifier": "22 - S230938",
+        "plate": null,
+        "latitude": -8.594308,
+        "longitude": -38.578598
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        74
+      ],
+      "target": {
+        "identifier": "21 - S230937",
+        "plate": null,
+        "latitude": -8.594048,
+        "longitude": -38.578316
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        75
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-075",
+        "plate": null,
+        "latitude": -8.596163,
+        "longitude": -38.57572
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        78
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-078",
+        "plate": null,
+        "latitude": -8.59626036201836,
+        "longitude": -38.5761093527579
+      },
+      "warnings": [],
+      "basis": "Correção informada pelo usuário e conferida no cadastro atual"
+    },
+    {
+      "sourceRows": [
+        80
+      ],
+      "target": {
+        "identifier": "3 - X027274",
+        "plate": null,
+        "latitude": -8.596726,
+        "longitude": -38.576442
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        81
+      ],
+      "target": {
+        "identifier": "2 - S231214",
+        "plate": null,
+        "latitude": -8.597008,
+        "longitude": -38.576641
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        82
+      ],
+      "target": {
+        "identifier": "1 - S231215",
+        "plate": null,
+        "latitude": -8.597284,
+        "longitude": -38.576841
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        83
+      ],
+      "target": {
+        "identifier": "11 - S231216",
+        "plate": null,
+        "latitude": -8.597631,
+        "longitude": -38.577069
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        84
+      ],
+      "target": {
+        "identifier": "12 - S231217",
+        "plate": null,
+        "latitude": -8.597991,
+        "longitude": -38.577321
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        85
+      ],
+      "target": {
+        "identifier": "13 - X076778",
+        "plate": null,
+        "latitude": -8.598141,
+        "longitude": -38.577415
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        86
+      ],
+      "target": {
+        "identifier": "14 - S231218",
+        "plate": null,
+        "latitude": -8.598305,
+        "longitude": -38.577532
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        87
+      ],
+      "target": {
+        "identifier": "32 - S215003",
+        "plate": null,
+        "latitude": -8.598649,
+        "longitude": -38.577767
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        88
+      ],
+      "target": {
+        "identifier": "21 - S215656",
+        "plate": null,
+        "latitude": -8.598811,
+        "longitude": -38.577893
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        89
+      ],
+      "target": {
+        "identifier": "22 - S215655",
+        "plate": null,
+        "latitude": -8.598902,
+        "longitude": -38.577965
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        90
+      ],
+      "target": {
+        "identifier": "33 - S215652",
+        "plate": null,
+        "latitude": -8.599203,
+        "longitude": -38.578174
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        91
+      ],
+      "target": {
+        "identifier": "4 - S231208",
+        "plate": null,
+        "latitude": -8.596432,
+        "longitude": -38.576225
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        92
+      ],
+      "target": {
+        "identifier": "X059038",
+        "plate": "C55032",
+        "latitude": -8.596161,
+        "longitude": -38.576035
+      },
+      "warnings": [],
+      "basis": "Correção informada pelo usuário e conferida no cadastro atual"
+    },
+    {
+      "sourceRows": [
+        93
+      ],
+      "target": {
+        "identifier": "7 - S230946",
+        "plate": null,
+        "latitude": -8.593351,
+        "longitude": -38.578444
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        94
+      ],
+      "target": {
+        "identifier": "8 - S230945",
+        "plate": null,
+        "latitude": -8.593598,
+        "longitude": -38.578713
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        95
+      ],
+      "target": {
+        "identifier": "8 - X059847",
+        "plate": null,
+        "latitude": -8.594804,
+        "longitude": -38.580007
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        96
+      ],
+      "target": {
+        "identifier": "12 - S230941",
+        "plate": null,
+        "latitude": -8.594606,
+        "longitude": -38.579807
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        97
+      ],
+      "target": {
+        "identifier": "11 - S230942",
+        "plate": null,
+        "latitude": -8.594313,
+        "longitude": -38.579498
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        98,
+        102
+      ],
+      "target": {
+        "identifier": "9 - S230944",
+        "plate": null,
+        "latitude": -8.593866,
+        "longitude": -38.578988
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        99
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-099",
+        "plate": null,
+        "latitude": -8.59378,
+        "longitude": -38.578773
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        100
+      ],
+      "target": {
+        "identifier": "7 - X059846",
+        "plate": null,
+        "latitude": -8.595045,
+        "longitude": -38.58026
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        101
+      ],
+      "target": {
+        "identifier": "10 - S230943",
+        "plate": null,
+        "latitude": -8.594097,
+        "longitude": -38.579252
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        103,
+        106
+      ],
+      "target": {
+        "identifier": "14 - S230953",
+        "plate": null,
+        "latitude": -8.593349,
+        "longitude": -38.579249
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        104
+      ],
+      "target": {
+        "identifier": "15 - S230954",
+        "plate": null,
+        "latitude": -8.593599,
+        "longitude": -38.579518
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        105
+      ],
+      "target": {
+        "identifier": "17 - S230956",
+        "plate": null,
+        "latitude": -8.594096,
+        "longitude": -38.580094
+      },
+      "warnings": [
+        {
+          "row": 105,
+          "warning": "code_coordinate_conflict",
+          "distance": 43.1197489722683
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        107,
+        108
+      ],
+      "target": {
+        "identifier": "18 - S230957",
+        "plate": null,
+        "latitude": -8.594323,
+        "longitude": -38.580342
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        109
+      ],
+      "target": {
+        "identifier": "19 - S230958",
+        "plate": null,
+        "latitude": -8.594596,
+        "longitude": -38.580622
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        110
+      ],
+      "target": {
+        "identifier": "11 -  X083933",
+        "plate": null,
+        "latitude": -8.594921,
+        "longitude": -38.580911
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        111
+      ],
+      "target": {
+        "identifier": "41 - X055111",
+        "plate": null,
+        "latitude": -8.594266,
+        "longitude": -38.576927
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        112
+      ],
+      "target": {
+        "identifier": "42 - X055111",
+        "plate": null,
+        "latitude": -8.594517,
+        "longitude": -38.576661
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        113
+      ],
+      "target": {
+        "identifier": "39 - X055111",
+        "plate": null,
+        "latitude": -8.593967,
+        "longitude": -38.577221
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        114
+      ],
+      "target": {
+        "identifier": "40 - X055111",
+        "plate": null,
+        "latitude": -8.593667,
+        "longitude": -38.577504
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        115
+      ],
+      "target": {
+        "identifier": "5 - S231077",
+        "plate": null,
+        "latitude": -8.59547,
+        "longitude": -38.57572
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        116
+      ],
+      "target": {
+        "identifier": "4 - S231077",
+        "plate": null,
+        "latitude": -8.59521,
+        "longitude": -38.575987
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        117
+      ],
+      "target": {
+        "identifier": "43 - X055111",
+        "plate": null,
+        "latitude": -8.59485,
+        "longitude": -38.57634
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        119
+      ],
+      "target": {
+        "identifier": "21 - S231058",
+        "plate": null,
+        "latitude": -8.596134,
+        "longitude": -38.574917
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        120
+      ],
+      "target": {
+        "identifier": "10 - S231056",
+        "plate": null,
+        "latitude": -8.596554,
+        "longitude": -38.574645
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        121
+      ],
+      "target": {
+        "identifier": "7 - S231077",
+        "plate": null,
+        "latitude": -8.595966,
+        "longitude": -38.575236
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        122
+      ],
+      "target": {
+        "identifier": "6 - S231077",
+        "plate": null,
+        "latitude": -8.595717,
+        "longitude": -38.575481
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        123
+      ],
+      "target": {
+        "identifier": "11 - S231056",
+        "plate": null,
+        "latitude": -8.596814,
+        "longitude": -38.574394
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        124
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-124",
+        "plate": null,
+        "latitude": -8.592961,
+        "longitude": -38.578193
+      },
+      "warnings": [],
+      "basis": "Correção informada pelo usuário e conferida no cadastro atual"
+    },
+    {
+      "sourceRows": [
+        125
+      ],
+      "target": {
+        "identifier": "5 - S230947",
+        "plate": null,
+        "latitude": -8.593108,
+        "longitude": -38.578144
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        126
+      ],
+      "target": {
+        "identifier": "4 - S230949",
+        "plate": null,
+        "latitude": -8.592883,
+        "longitude": -38.578357
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        127
+      ],
+      "target": {
+        "identifier": "1 - S230980",
+        "plate": null,
+        "latitude": -8.592608,
+        "longitude": -38.580086
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        128
+      ],
+      "target": {
+        "identifier": "7 - S230981",
+        "plate": null,
+        "latitude": -8.592778,
+        "longitude": -38.580284
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        129
+      ],
+      "target": {
+        "identifier": "8 - S230982",
+        "plate": null,
+        "latitude": -8.593005,
+        "longitude": -38.58054
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        130
+      ],
+      "target": {
+        "identifier": "9 - S230983",
+        "plate": null,
+        "latitude": -8.593249,
+        "longitude": -38.580833
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        131
+      ],
+      "target": {
+        "identifier": "11 - S230985",
+        "plate": null,
+        "latitude": -8.593759,
+        "longitude": -38.5814
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        132
+      ],
+      "target": {
+        "identifier": "10 - S230984",
+        "plate": null,
+        "latitude": -8.593506,
+        "longitude": -38.581106
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        133
+      ],
+      "target": {
+        "identifier": "13 - X024075",
+        "plate": null,
+        "latitude": -8.594171,
+        "longitude": -38.581884
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        134
+      ],
+      "target": {
+        "identifier": "14 - X056958",
+        "plate": null,
+        "latitude": -8.594358,
+        "longitude": -38.582091
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        135
+      ],
+      "target": {
+        "identifier": "12 - X024074",
+        "plate": null,
+        "latitude": -8.593956,
+        "longitude": -38.581621
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        136
+      ],
+      "target": {
+        "identifier": "28 - S229328",
+        "plate": null,
+        "latitude": -8.6044,
+        "longitude": -38.586249
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        137
+      ],
+      "target": {
+        "identifier": "29 - S229329",
+        "plate": null,
+        "latitude": -8.604072,
+        "longitude": -38.586174
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        138
+      ],
+      "target": {
+        "identifier": "2 - S229348",
+        "plate": null,
+        "latitude": -8.604613,
+        "longitude": -38.586884
+      },
+      "warnings": [
+        {
+          "row": 138,
+          "warning": "code_coordinate_conflict",
+          "distance": 65.02683228933985
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        139
+      ],
+      "target": {
+        "identifier": "42 - X083574",
+        "plate": null,
+        "latitude": -8.606001,
+        "longitude": -38.586868
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        140
+      ],
+      "target": {
+        "identifier": "33 - X076748",
+        "plate": null,
+        "latitude": -8.605394,
+        "longitude": -38.586579
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        141
+      ],
+      "target": {
+        "identifier": "31 - S229344",
+        "plate": null,
+        "latitude": -8.605113,
+        "longitude": -38.586458
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        142
+      ],
+      "target": {
+        "identifier": "34 - X076749",
+        "plate": null,
+        "latitude": -8.605642,
+        "longitude": -38.586693
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        143
+      ],
+      "target": {
+        "identifier": "14 - S229678",
+        "plate": null,
+        "latitude": -8.606384,
+        "longitude": -38.584323
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        144
+      ],
+      "target": {
+        "identifier": "Z257372",
+        "plate": null,
+        "latitude": -8.606535,
+        "longitude": -38.58375
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        145
+      ],
+      "target": {
+        "identifier": "3 - S229325",
+        "plate": null,
+        "latitude": -8.604323,
+        "longitude": -38.586795
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        146
+      ],
+      "target": {
+        "identifier": "4 - S229326",
+        "plate": null,
+        "latitude": -8.603973,
+        "longitude": -38.58672
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        147
+      ],
+      "target": {
+        "identifier": "22 - X085221",
+        "plate": null,
+        "latitude": -8.603575,
+        "longitude": -38.586581
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        148
+      ],
+      "target": {
+        "identifier": "41 - X062077",
+        "plate": null,
+        "latitude": -8.606549,
+        "longitude": -38.58477
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        149
+      ],
+      "target": {
+        "identifier": "44 - X083576",
+        "plate": null,
+        "latitude": -8.606239,
+        "longitude": -38.586292
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        150
+      ],
+      "target": {
+        "identifier": "43 - X083575",
+        "plate": null,
+        "latitude": -8.606093,
+        "longitude": -38.586631
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        152
+      ],
+      "target": {
+        "identifier": "7 - S229345",
+        "plate": null,
+        "latitude": -8.605264,
+        "longitude": -38.586881
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        153
+      ],
+      "target": {
+        "identifier": "5 - S229347",
+        "plate": null,
+        "latitude": -8.604681,
+        "longitude": -38.586684
+      },
+      "warnings": [
+        {
+          "row": 153,
+          "warning": "code_coordinate_conflict",
+          "distance": 20.845320617896633
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        154
+      ],
+      "target": {
+        "identifier": "35 - X106782",
+        "plate": null,
+        "latitude": -8.60586,
+        "longitude": -38.586514
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        155
+      ],
+      "target": {
+        "identifier": "38 - X071334",
+        "plate": null,
+        "latitude": -8.606162,
+        "longitude": -38.585722
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        156
+      ],
+      "target": {
+        "identifier": "37 - X071335",
+        "plate": null,
+        "latitude": -8.606051,
+        "longitude": -38.586124
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        157
+      ],
+      "target": {
+        "identifier": "40 - X062078",
+        "plate": null,
+        "latitude": -8.606404,
+        "longitude": -38.585075
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        158
+      ],
+      "target": {
+        "identifier": "39 - X062079",
+        "plate": null,
+        "latitude": -8.606303,
+        "longitude": -38.585369
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        159
+      ],
+      "target": {
+        "identifier": "29 - S229595",
+        "plate": null,
+        "latitude": -8.605342,
+        "longitude": -38.583141
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        160
+      ],
+      "target": {
+        "identifier": "8 - S229673",
+        "plate": null,
+        "latitude": -8.605073,
+        "longitude": -38.584439
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        161
+      ],
+      "target": {
+        "identifier": "9 - S229672",
+        "plate": null,
+        "latitude": -8.605118,
+        "longitude": -38.584148
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        162
+      ],
+      "target": {
+        "identifier": "30 - S229596",
+        "plate": null,
+        "latitude": -8.605266,
+        "longitude": -38.583492
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        163
+      ],
+      "target": {
+        "identifier": "31 - S229597",
+        "plate": null,
+        "latitude": -8.605186,
+        "longitude": -38.583803
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        164,
+        165
+      ],
+      "target": {
+        "identifier": "27 - S229593",
+        "plate": null,
+        "latitude": -8.60546,
+        "longitude": -38.582508
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        166
+      ],
+      "target": {
+        "identifier": "1 - S229590",
+        "plate": null,
+        "latitude": -8.605562,
+        "longitude": -38.581804
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        167
+      ],
+      "target": {
+        "identifier": "4 - S229588",
+        "plate": null,
+        "latitude": -8.60567,
+        "longitude": -38.581059
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        168
+      ],
+      "target": {
+        "identifier": "Z224906",
+        "plate": null,
+        "latitude": -8.604796,
+        "longitude": -38.585733
+      },
+      "warnings": [],
+      "basis": "Correção informada pelo usuário e conferida no cadastro atual"
+    },
+    {
+      "sourceRows": [
+        169
+      ],
+      "target": {
+        "identifier": "25 - S229331",
+        "plate": null,
+        "latitude": -8.604861,
+        "longitude": -38.585606
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        170
+      ],
+      "target": {
+        "identifier": "16 - S229591",
+        "plate": null,
+        "latitude": -8.605532,
+        "longitude": -38.582159
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        171
+      ],
+      "target": {
+        "identifier": "7 - X088561",
+        "plate": null,
+        "latitude": -8.605008,
+        "longitude": -38.58465
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        172,
+        175
+      ],
+      "target": {
+        "identifier": "18 - X088560",
+        "plate": null,
+        "latitude": -8.604784,
+        "longitude": -38.585538
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        173
+      ],
+      "target": {
+        "identifier": "5 - X004387",
+        "plate": null,
+        "latitude": -8.604835,
+        "longitude": -38.585199
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        174
+      ],
+      "target": {
+        "identifier": "26 - S229330",
+        "plate": null,
+        "latitude": -8.604727,
+        "longitude": -38.586029
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        176
+      ],
+      "target": {
+        "identifier": "13 - S229677",
+        "plate": null,
+        "latitude": -8.606323,
+        "longitude": -38.584675
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        177
+      ],
+      "target": {
+        "identifier": "6 - X004388",
+        "plate": null,
+        "latitude": -8.604895,
+        "longitude": -38.58486
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        178
+      ],
+      "target": {
+        "identifier": "16 - S229680",
+        "plate": null,
+        "latitude": -8.605809,
+        "longitude": -38.585175
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        179
+      ],
+      "target": {
+        "identifier": "2 - S229681",
+        "plate": null,
+        "latitude": -8.605605,
+        "longitude": -38.585544
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        180
+      ],
+      "target": {
+        "identifier": "1 - S227100",
+        "plate": null,
+        "latitude": -8.605451,
+        "longitude": -38.585856
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        181
+      ],
+      "target": {
+        "identifier": "32 - S229343",
+        "plate": null,
+        "latitude": -8.605253,
+        "longitude": -38.586177
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        182
+      ],
+      "target": {
+        "identifier": "47 - S229679",
+        "plate": null,
+        "latitude": -8.606169,
+        "longitude": -38.58471
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        183
+      ],
+      "target": {
+        "identifier": "48 - S229679",
+        "plate": null,
+        "latitude": -8.606078,
+        "longitude": -38.584874
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        184
+      ],
+      "target": {
+        "identifier": "49 - S229679",
+        "plate": null,
+        "latitude": -8.605956,
+        "longitude": -38.585055
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        185
+      ],
+      "target": {
+        "identifier": "10 - S229674",
+        "plate": null,
+        "latitude": -8.605406,
+        "longitude": -38.584482
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        186
+      ],
+      "target": {
+        "identifier": "11 - S229675",
+        "plate": null,
+        "latitude": -8.605763,
+        "longitude": -38.584526
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        187
+      ],
+      "target": {
+        "identifier": "12 - S229676",
+        "plate": null,
+        "latitude": -8.606108,
+        "longitude": -38.584625
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        188
+      ],
+      "target": {
+        "identifier": "3 - S229698",
+        "plate": null,
+        "latitude": -8.605321,
+        "longitude": -38.585334
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        189
+      ],
+      "target": {
+        "identifier": "4 - S229699",
+        "plate": null,
+        "latitude": -8.604981,
+        "longitude": -38.585236
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        190
+      ],
+      "target": {
+        "identifier": "18 - S231239",
+        "plate": null,
+        "latitude": -8.59945,
+        "longitude": -38.580558
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        191
+      ],
+      "target": {
+        "identifier": "17 - S231241",
+        "plate": null,
+        "latitude": -8.599845,
+        "longitude": -38.580795
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        192
+      ],
+      "target": {
+        "identifier": "16 - S231240",
+        "plate": null,
+        "latitude": -8.599632,
+        "longitude": -38.580667
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        193
+      ],
+      "target": {
+        "identifier": "2 - S230888",
+        "plate": null,
+        "latitude": -8.600337,
+        "longitude": -38.581105
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        194
+      ],
+      "target": {
+        "identifier": "1 - S230899",
+        "plate": null,
+        "latitude": -8.600618,
+        "longitude": -38.581225
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        195
+      ],
+      "target": {
+        "identifier": "9 - S230893",
+        "plate": null,
+        "latitude": -8.599846,
+        "longitude": -38.582352
+      },
+      "warnings": [
+        {
+          "row": 195,
+          "warning": "code_coordinate_conflict",
+          "distance": 156.72856871951487
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        196
+      ],
+      "target": {
+        "identifier": "15 - S815475",
+        "plate": null,
+        "latitude": -8.601179,
+        "longitude": -38.581486
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        197
+      ],
+      "target": {
+        "identifier": "7 - S230891",
+        "plate": null,
+        "latitude": -8.600107,
+        "longitude": -38.581799
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        198
+      ],
+      "target": {
+        "identifier": "6 - S230890",
+        "plate": null,
+        "latitude": -8.600321,
+        "longitude": -38.58143
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        199
+      ],
+      "target": {
+        "identifier": "Z261040",
+        "plate": null,
+        "latitude": -8.600693,
+        "longitude": -38.580766
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        200
+      ],
+      "target": {
+        "identifier": "5 - S230889",
+        "plate": null,
+        "latitude": -8.600497,
+        "longitude": -38.581104
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        201
+      ],
+      "target": {
+        "identifier": "3 - S229319",
+        "plate": null,
+        "latitude": -8.601154,
+        "longitude": -38.579841
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        202
+      ],
+      "target": {
+        "identifier": "4 - S229316",
+        "plate": null,
+        "latitude": -8.601021,
+        "longitude": -38.580169
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        203
+      ],
+      "target": {
+        "identifier": "8 - S230861",
+        "plate": null,
+        "latitude": -8.601511,
+        "longitude": -38.578831
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        204
+      ],
+      "target": {
+        "identifier": "6 - S229320",
+        "plate": null,
+        "latitude": -8.601289,
+        "longitude": -38.579565
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        205
+      ],
+      "target": {
+        "identifier": "S230868",
+        "plate": null,
+        "latitude": -8.600855,
+        "longitude": -38.580498
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        206
+      ],
+      "target": {
+        "identifier": "7 - S230860",
+        "plate": null,
+        "latitude": -8.601474,
+        "longitude": -38.579136
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        207
+      ],
+      "target": {
+        "identifier": "X150503",
+        "plate": null,
+        "latitude": -8.604511,
+        "longitude": -38.591553
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        208
+      ],
+      "target": {
+        "identifier": "S230495",
+        "plate": null,
+        "latitude": -8.60465,
+        "longitude": -38.591075
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        209
+      ],
+      "target": {
+        "identifier": "X150502",
+        "plate": null,
+        "latitude": -8.6046,
+        "longitude": -38.591328
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        210
+      ],
+      "target": {
+        "identifier": "13 - X100350",
+        "plate": null,
+        "latitude": -8.604854,
+        "longitude": -38.589815
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        211
+      ],
+      "target": {
+        "identifier": "4 - X100356",
+        "plate": null,
+        "latitude": -8.604736,
+        "longitude": -38.59042
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        212
+      ],
+      "target": {
+        "identifier": "14 - X100351",
+        "plate": null,
+        "latitude": -8.604764,
+        "longitude": -38.590199
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        213
+      ],
+      "target": {
+        "identifier": "2 - X100345",
+        "plate": null,
+        "latitude": -8.60493,
+        "longitude": -38.589357
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        214
+      ],
+      "target": {
+        "identifier": "3 - X100357",
+        "plate": null,
+        "latitude": -8.604661,
+        "longitude": -38.590694
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        215
+      ],
+      "target": {
+        "identifier": "11 - X100343",
+        "plate": null,
+        "latitude": -8.603369,
+        "longitude": -38.588324
+      },
+      "warnings": [
+        {
+          "row": 215,
+          "warning": "code_coordinate_conflict",
+          "distance": 225.32545989603176
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        216
+      ],
+      "target": {
+        "identifier": "12 - X100344",
+        "plate": null,
+        "latitude": -8.604999,
+        "longitude": -38.589092
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        217
+      ],
+      "target": {
+        "identifier": "47 - X116329",
+        "plate": null,
+        "latitude": -8.605131,
+        "longitude": -38.588595
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        218
+      ],
+      "target": {
+        "identifier": "33 - X085226",
+        "plate": null,
+        "latitude": -8.605153,
+        "longitude": -38.588373
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        219
+      ],
+      "target": {
+        "identifier": "32 - X085225",
+        "plate": null,
+        "latitude": -8.605202,
+        "longitude": -38.588154
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        220
+      ],
+      "target": {
+        "identifier": "6 - X085232",
+        "plate": null,
+        "latitude": -8.605063,
+        "longitude": -38.588838
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        221
+      ],
+      "target": {
+        "identifier": "30 - X085215",
+        "plate": null,
+        "latitude": -8.605266,
+        "longitude": -38.587863
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        222
+      ],
+      "target": {
+        "identifier": "41 - X100338",
+        "plate": null,
+        "latitude": -8.60532,
+        "longitude": -38.587597
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        223
+      ],
+      "target": {
+        "identifier": "16 - X100337",
+        "plate": null,
+        "latitude": -8.605367,
+        "longitude": -38.587416
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        224
+      ],
+      "target": {
+        "identifier": "19 - S231468",
+        "plate": null,
+        "latitude": -8.60185,
+        "longitude": -38.572229
+      },
+      "warnings": [
+        {
+          "row": 224,
+          "warning": "code_coordinate_conflict",
+          "distance": 205.78887740485285
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        225
+      ],
+      "target": {
+        "identifier": "15 - S231443",
+        "plate": null,
+        "latitude": -8.602789,
+        "longitude": -38.573181
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        226
+      ],
+      "target": {
+        "identifier": "17 - S231445",
+        "plate": null,
+        "latitude": -8.602315,
+        "longitude": -38.572683
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        227
+      ],
+      "target": {
+        "identifier": "16 - S231444",
+        "plate": null,
+        "latitude": -8.602537,
+        "longitude": -38.572923
+      },
+      "warnings": [
+        {
+          "row": 227,
+          "warning": "code_coordinate_conflict",
+          "distance": 34.6691278169892
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        229
+      ],
+      "target": {
+        "identifier": "21 - S231466",
+        "plate": null,
+        "latitude": -8.601381,
+        "longitude": -38.571736
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        230
+      ],
+      "target": {
+        "identifier": "14 - X066931",
+        "plate": null,
+        "latitude": -8.600276,
+        "longitude": -38.57216
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        231,
+        232
+      ],
+      "target": {
+        "identifier": "12 - X066930",
+        "plate": null,
+        "latitude": -8.600627,
+        "longitude": -38.572502
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        233
+      ],
+      "target": {
+        "identifier": "16 - X083941",
+        "plate": null,
+        "latitude": -8.600319,
+        "longitude": -38.572695
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        234
+      ],
+      "target": {
+        "identifier": "17 - X083942",
+        "plate": null,
+        "latitude": -8.600113,
+        "longitude": -38.572433
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        235
+      ],
+      "target": {
+        "identifier": "8 - X123134",
+        "plate": null,
+        "latitude": -8.599008,
+        "longitude": -38.573582
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        236
+      ],
+      "target": {
+        "identifier": "7 - X076350",
+        "plate": null,
+        "latitude": -8.599269,
+        "longitude": -38.573745
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        237
+      ],
+      "target": {
+        "identifier": "3 - S231002",
+        "plate": null,
+        "latitude": -8.597461,
+        "longitude": -38.572273
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        238
+      ],
+      "target": {
+        "identifier": "17 - S231001",
+        "plate": null,
+        "latitude": -8.597618,
+        "longitude": -38.572101
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        239
+      ],
+      "target": {
+        "identifier": "1 - S231179",
+        "plate": null,
+        "latitude": -8.598003,
+        "longitude": -38.571703
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        240
+      ],
+      "target": {
+        "identifier": "2 - X073257",
+        "plate": null,
+        "latitude": -8.598116,
+        "longitude": -38.571589
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        241
+      ],
+      "target": {
+        "identifier": "3 - S231178",
+        "plate": null,
+        "latitude": -8.598234,
+        "longitude": -38.571462
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        242
+      ],
+      "target": {
+        "identifier": "29 - S231186",
+        "plate": null,
+        "latitude": -8.597041,
+        "longitude": -38.569534
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        243
+      ],
+      "target": {
+        "identifier": "28 - S231185",
+        "plate": null,
+        "latitude": -8.597209,
+        "longitude": -38.569883
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        244
+      ],
+      "target": {
+        "identifier": "6 - S231174",
+        "plate": null,
+        "latitude": -8.59797,
+        "longitude": -38.570704
+      },
+      "warnings": [
+        {
+          "row": 244,
+          "warning": "code_coordinate_conflict",
+          "distance": 89.34447285785949
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        245
+      ],
+      "target": {
+        "identifier": "26 - S231183",
+        "plate": null,
+        "latitude": -8.597534,
+        "longitude": -38.570276
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        246
+      ],
+      "target": {
+        "identifier": "27 - S231184",
+        "plate": null,
+        "latitude": -8.597372,
+        "longitude": -38.570133
+      },
+      "warnings": [
+        {
+          "row": 246,
+          "warning": "code_coordinate_conflict",
+          "distance": 59.655827956204426
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        247
+      ],
+      "target": {
+        "identifier": "25 - S231173",
+        "plate": null,
+        "latitude": -8.597748,
+        "longitude": -38.570503
+      },
+      "warnings": [
+        {
+          "row": 247,
+          "warning": "code_coordinate_conflict",
+          "distance": 42.3275066431989
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        248
+      ],
+      "target": {
+        "identifier": "5 - S231176",
+        "plate": null,
+        "latitude": -8.598251,
+        "longitude": -38.570982
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        249
+      ],
+      "target": {
+        "identifier": "4 - S231177",
+        "plate": null,
+        "latitude": -8.598491,
+        "longitude": -38.571218
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        250
+      ],
+      "target": {
+        "identifier": "3 - S227099",
+        "plate": null,
+        "latitude": -8.598897,
+        "longitude": -38.571622
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        251
+      ],
+      "target": {
+        "identifier": "4 - S227098",
+        "plate": null,
+        "latitude": -8.598669,
+        "longitude": -38.571371
+      },
+      "warnings": [
+        {
+          "row": 251,
+          "warning": "code_coordinate_conflict",
+          "distance": 46.52141218507542
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        252
+      ],
+      "target": {
+        "identifier": "30 - S231193",
+        "plate": null,
+        "latitude": -8.597742,
+        "longitude": -38.569665
+      },
+      "warnings": [
+        {
+          "row": 252,
+          "warning": "code_coordinate_conflict",
+          "distance": 48.59298535420977
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        253
+      ],
+      "target": {
+        "identifier": "31 - S231192",
+        "plate": null,
+        "latitude": -8.597519,
+        "longitude": -38.569947
+      },
+      "warnings": [
+        {
+          "row": 253,
+          "warning": "code_coordinate_conflict",
+          "distance": 37.66520177242963
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        254
+      ],
+      "target": {
+        "identifier": "1 - S231194",
+        "plate": null,
+        "latitude": -8.597956,
+        "longitude": -38.569426
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        255
+      ],
+      "target": {
+        "identifier": "32 - S231187",
+        "plate": null,
+        "latitude": -8.597231,
+        "longitude": -38.570167
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        256
+      ],
+      "target": {
+        "identifier": "2 - S231195",
+        "plate": null,
+        "latitude": -8.598203,
+        "longitude": -38.56917
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        257
+      ],
+      "target": {
+        "identifier": "10 - S227058",
+        "plate": null,
+        "latitude": -8.598559,
+        "longitude": -38.568759
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        258
+      ],
+      "target": {
+        "identifier": "9 - S227059",
+        "plate": null,
+        "latitude": -8.59838,
+        "longitude": -38.56895
+      },
+      "warnings": [
+        {
+          "row": 258,
+          "warning": "code_coordinate_conflict",
+          "distance": 134.55963329969347
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        259
+      ],
+      "target": {
+        "identifier": "3 - S231538",
+        "plate": null,
+        "latitude": -8.599199,
+        "longitude": -38.568037
+      },
+      "warnings": [
+        {
+          "row": 259,
+          "warning": "code_coordinate_conflict",
+          "distance": 81.20583693633263
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        260
+      ],
+      "target": {
+        "identifier": "22 - S231532",
+        "plate": null,
+        "latitude": -8.600059,
+        "longitude": -38.56778
+      },
+      "warnings": [
+        {
+          "row": 260,
+          "warning": "code_coordinate_conflict",
+          "distance": 69.40827866682001
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        261
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-261",
+        "plate": null,
+        "latitude": -8.600889,
+        "longitude": -38.574819
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        262
+      ],
+      "target": {
+        "identifier": "22 - S231259",
+        "plate": null,
+        "latitude": -8.601207,
+        "longitude": -38.575098
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        263
+      ],
+      "target": {
+        "identifier": "20 - S231258",
+        "plate": null,
+        "latitude": -8.601512,
+        "longitude": -38.575415
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        264
+      ],
+      "target": {
+        "identifier": "39 - S231272",
+        "plate": null,
+        "latitude": -8.602278,
+        "longitude": -38.573852
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        265
+      ],
+      "target": {
+        "identifier": "46 - X142904",
+        "plate": null,
+        "latitude": -8.602076,
+        "longitude": -38.57403
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        266
+      ],
+      "target": {
+        "identifier": "4 - X142903",
+        "plate": null,
+        "latitude": -8.60186,
+        "longitude": -38.574255
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        267
+      ],
+      "target": {
+        "identifier": "7 - S231491",
+        "plate": null,
+        "latitude": -8.604377,
+        "longitude": -38.573735
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        268
+      ],
+      "target": {
+        "identifier": "6 - S231490",
+        "plate": null,
+        "latitude": -8.60431,
+        "longitude": -38.573352
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        269
+      ],
+      "target": {
+        "identifier": "11 - S231495",
+        "plate": null,
+        "latitude": -8.603515,
+        "longitude": -38.571538
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        270
+      ],
+      "target": {
+        "identifier": "1 - X093799",
+        "plate": null,
+        "latitude": -8.603657,
+        "longitude": -38.57193
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        271
+      ],
+      "target": {
+        "identifier": "12 - S229723",
+        "plate": null,
+        "latitude": -8.602538,
+        "longitude": -38.570265
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        272
+      ],
+      "target": {
+        "identifier": "11 - S229724",
+        "plate": null,
+        "latitude": -8.60274,
+        "longitude": -38.570538
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        273
+      ],
+      "target": {
+        "identifier": "12 - S231496",
+        "plate": null,
+        "latitude": -8.603316,
+        "longitude": -38.571327
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        274
+      ],
+      "target": {
+        "identifier": "13 - S229725",
+        "plate": null,
+        "latitude": -8.602947,
+        "longitude": -38.57079
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        275
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-275",
+        "plate": null,
+        "latitude": -8.602236,
+        "longitude": -38.569998
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        276
+      ],
+      "target": {
+        "identifier": "1 - S231493",
+        "plate": null,
+        "latitude": -8.604014,
+        "longitude": -38.572187
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        277
+      ],
+      "target": {
+        "identifier": "10 - S231494",
+        "plate": null,
+        "latitude": -8.603767,
+        "longitude": -38.571842
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        278
+      ],
+      "target": {
+        "identifier": "2 - X093800",
+        "plate": null,
+        "latitude": -8.603703,
+        "longitude": -38.572138
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        279
+      ],
+      "target": {
+        "identifier": "5 - S227118",
+        "plate": null,
+        "latitude": -8.604258,
+        "longitude": -38.573034
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        280
+      ],
+      "target": {
+        "identifier": "4 - S227117",
+        "plate": null,
+        "latitude": -8.604223,
+        "longitude": -38.572734
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        281,
+        285
+      ],
+      "target": {
+        "identifier": "2 - S229740",
+        "plate": null,
+        "latitude": -8.60417,
+        "longitude": -38.572435
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        282
+      ],
+      "target": {
+        "identifier": "8 - S231492",
+        "plate": null,
+        "latitude": -8.604415,
+        "longitude": -38.574056
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        283
+      ],
+      "target": {
+        "identifier": "9 - S227116",
+        "plate": null,
+        "latitude": -8.604353,
+        "longitude": -38.572349
+      },
+      "warnings": [
+        {
+          "row": 283,
+          "warning": "code_coordinate_conflict",
+          "distance": 21.716521658959156
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        284
+      ],
+      "target": {
+        "identifier": "3 - S229738",
+        "plate": null,
+        "latitude": -8.603678,
+        "longitude": -38.572717
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        286
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-286",
+        "plate": null,
+        "latitude": -8.60452,
+        "longitude": -38.572275
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        287
+      ],
+      "target": {
+        "identifier": "10 - S231156",
+        "plate": null,
+        "latitude": -8.595927,
+        "longitude": -38.568785
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        288
+      ],
+      "target": {
+        "identifier": "7 - S231153",
+        "plate": null,
+        "latitude": -8.596191,
+        "longitude": -38.569579
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        289
+      ],
+      "target": {
+        "identifier": "9 - S231155",
+        "plate": null,
+        "latitude": -8.596017,
+        "longitude": -38.569053
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        290
+      ],
+      "target": {
+        "identifier": "8 - S231154",
+        "plate": null,
+        "latitude": -8.59609,
+        "longitude": -38.569271
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        292
+      ],
+      "target": {
+        "identifier": "5 - S231159",
+        "plate": null,
+        "latitude": -8.596395,
+        "longitude": -38.570265
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        293
+      ],
+      "target": {
+        "identifier": "10 - S231127",
+        "plate": null,
+        "latitude": -8.594874,
+        "longitude": -38.570751
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        294
+      ],
+      "target": {
+        "identifier": "4 - X157990",
+        "plate": null,
+        "latitude": -8.594385,
+        "longitude": -38.571897
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        295
+      ],
+      "target": {
+        "identifier": "11 - S231128",
+        "plate": null,
+        "latitude": -8.594936,
+        "longitude": -38.570403
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        296
+      ],
+      "target": {
+        "identifier": "9 - S231126",
+        "plate": null,
+        "latitude": -8.594622,
+        "longitude": -38.570997
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        297
+      ],
+      "target": {
+        "identifier": "6 - S231123",
+        "plate": null,
+        "latitude": -8.594277,
+        "longitude": -38.57179
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        298
+      ],
+      "target": {
+        "identifier": "8 - S231125",
+        "plate": null,
+        "latitude": -8.594293,
+        "longitude": -38.571305
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        299
+      ],
+      "target": {
+        "identifier": "7 - S231124",
+        "plate": null,
+        "latitude": -8.594068,
+        "longitude": -38.571568
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        300
+      ],
+      "target": {
+        "identifier": "8 - S231026",
+        "plate": null,
+        "latitude": -8.597379,
+        "longitude": -38.57336
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        301
+      ],
+      "target": {
+        "identifier": "10 - S231024",
+        "plate": null,
+        "latitude": -8.596994,
+        "longitude": -38.572997
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        302
+      ],
+      "target": {
+        "identifier": "12 - S231022",
+        "plate": null,
+        "latitude": -8.596583,
+        "longitude": -38.572598
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        303
+      ],
+      "target": {
+        "identifier": "11 - S231023",
+        "plate": null,
+        "latitude": -8.596793,
+        "longitude": -38.5728
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        304
+      ],
+      "target": {
+        "identifier": "9 - S231025",
+        "plate": null,
+        "latitude": -8.597196,
+        "longitude": -38.573204
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        305
+      ],
+      "target": {
+        "identifier": "2 - S231015",
+        "plate": null,
+        "latitude": -8.597266,
+        "longitude": -38.572466
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        306
+      ],
+      "target": {
+        "identifier": "4 - S231014",
+        "plate": null,
+        "latitude": -8.597494,
+        "longitude": -38.572684
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        307
+      ],
+      "target": {
+        "identifier": "5 - S231013",
+        "plate": null,
+        "latitude": -8.597665,
+        "longitude": -38.572873
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        308
+      ],
+      "target": {
+        "identifier": "26 - S231017",
+        "plate": null,
+        "latitude": -8.596927,
+        "longitude": -38.572126
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        309
+      ],
+      "target": {
+        "identifier": "1 - S231016",
+        "plate": null,
+        "latitude": -8.597117,
+        "longitude": -38.572317
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        310
+      ],
+      "target": {
+        "identifier": "7 - S231004",
+        "plate": null,
+        "latitude": -8.59831,
+        "longitude": -38.573607
+      },
+      "warnings": [
+        {
+          "row": 310,
+          "warning": "code_coordinate_conflict",
+          "distance": 278.0244494402668
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        311
+      ],
+      "target": {
+        "identifier": "33 - S231146",
+        "plate": null,
+        "latitude": -8.596438,
+        "longitude": -38.571612
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        312
+      ],
+      "target": {
+        "identifier": "32 - S231145",
+        "plate": null,
+        "latitude": -8.596225,
+        "longitude": -38.571389
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        313
+      ],
+      "target": {
+        "identifier": "24 - S231095",
+        "plate": null,
+        "latitude": -8.5968,
+        "longitude": -38.571948
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        314
+      ],
+      "target": {
+        "identifier": "31 - S231144",
+        "plate": null,
+        "latitude": -8.596023,
+        "longitude": -38.57118
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        315
+      ],
+      "target": {
+        "identifier": "30 - S231140",
+        "plate": null,
+        "latitude": -8.595875,
+        "longitude": -38.571938
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        316
+      ],
+      "target": {
+        "identifier": "29 - S231139",
+        "plate": null,
+        "latitude": -8.595636,
+        "longitude": -38.571696
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        317
+      ],
+      "target": {
+        "identifier": "14 - S231141",
+        "plate": null,
+        "latitude": -8.59612,
+        "longitude": -38.572156
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        318
+      ],
+      "target": {
+        "identifier": "13 - S231020",
+        "plate": null,
+        "latitude": -8.596361,
+        "longitude": -38.572384
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        319
+      ],
+      "target": {
+        "identifier": "26 - S231161",
+        "plate": null,
+        "latitude": -8.596016,
+        "longitude": -38.57081
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        320
+      ],
+      "target": {
+        "identifier": "28 - S231138",
+        "plate": null,
+        "latitude": -8.595386,
+        "longitude": -38.571453
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        321
+      ],
+      "target": {
+        "identifier": "3 - S231117",
+        "plate": null,
+        "latitude": -8.5946,
+        "longitude": -38.572242
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        322
+      ],
+      "target": {
+        "identifier": "12 - S231136",
+        "plate": null,
+        "latitude": -8.594863,
+        "longitude": -38.571989
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        323
+      ],
+      "target": {
+        "identifier": "2 - S231143",
+        "plate": null,
+        "latitude": -8.595844,
+        "longitude": -38.570976
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        324
+      ],
+      "target": {
+        "identifier": "1 - S231105",
+        "plate": null,
+        "latitude": -8.593813,
+        "longitude": -38.57309
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        325
+      ],
+      "target": {
+        "identifier": "17 - S231112",
+        "plate": null,
+        "latitude": -8.59411,
+        "longitude": -38.572759
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        326
+      ],
+      "target": {
+        "identifier": "3 - S231103",
+        "plate": null,
+        "latitude": -8.59353,
+        "longitude": -38.573374
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        327
+      ],
+      "target": {
+        "identifier": "13 - S231137",
+        "plate": null,
+        "latitude": -8.595129,
+        "longitude": -38.57171
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        328
+      ],
+      "target": {
+        "identifier": "27 - S231160",
+        "plate": null,
+        "latitude": -8.596191,
+        "longitude": -38.570644
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        329
+      ],
+      "target": {
+        "identifier": "2 - S231113",
+        "plate": null,
+        "latitude": -8.594346,
+        "longitude": -38.572497
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        330
+      ],
+      "target": {
+        "identifier": "1 - S231142",
+        "plate": null,
+        "latitude": -8.595616,
+        "longitude": -38.571223
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        331
+      ],
+      "target": {
+        "identifier": "2 - S231104",
+        "plate": null,
+        "latitude": -8.593639,
+        "longitude": -38.573246
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        332
+      ],
+      "target": {
+        "identifier": "33 - S231545",
+        "plate": null,
+        "latitude": -8.600481,
+        "longitude": -38.568745
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        333
+      ],
+      "target": {
+        "identifier": "15 - S231550",
+        "plate": null,
+        "latitude": -8.600611,
+        "longitude": -38.569007
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        334
+      ],
+      "target": {
+        "identifier": "14 - S231552",
+        "plate": null,
+        "latitude": -8.600766,
+        "longitude": -38.569163
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        335
+      ],
+      "target": {
+        "identifier": "11 - S231558",
+        "plate": null,
+        "latitude": -8.601431,
+        "longitude": -38.569818
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        336
+      ],
+      "target": {
+        "identifier": "13 - S231554",
+        "plate": null,
+        "latitude": -8.600991,
+        "longitude": -38.569397
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        337
+      ],
+      "target": {
+        "identifier": "1 - S231556",
+        "plate": null,
+        "latitude": -8.601376,
+        "longitude": -38.569593
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        338
+      ],
+      "target": {
+        "identifier": "19 - S231553",
+        "plate": null,
+        "latitude": -8.601016,
+        "longitude": -38.569179
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        339
+      ],
+      "target": {
+        "identifier": "20 - S231555",
+        "plate": null,
+        "latitude": -8.601195,
+        "longitude": -38.569386
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        340
+      ],
+      "target": {
+        "identifier": "18 - S231551",
+        "plate": null,
+        "latitude": -8.600834,
+        "longitude": -38.568994
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        341
+      ],
+      "target": {
+        "identifier": "12 - S231557",
+        "plate": null,
+        "latitude": -8.60127,
+        "longitude": -38.569677
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        342
+      ],
+      "target": {
+        "identifier": "6 - S231564",
+        "plate": null,
+        "latitude": -8.602035,
+        "longitude": -38.57033
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        343
+      ],
+      "target": {
+        "identifier": "7 - S231566",
+        "plate": null,
+        "latitude": -8.602281,
+        "longitude": -38.570595
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        344
+      ],
+      "target": {
+        "identifier": "9 - S231565",
+        "plate": null,
+        "latitude": -8.602115,
+        "longitude": -38.570523
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        346
+      ],
+      "target": {
+        "identifier": "5 - S231563",
+        "plate": null,
+        "latitude": -8.601784,
+        "longitude": -38.570046
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        347
+      ],
+      "target": {
+        "identifier": "8 - X100423",
+        "plate": null,
+        "latitude": -8.60181,
+        "longitude": -38.570215
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        348
+      ],
+      "target": {
+        "identifier": "13 - S229700",
+        "plate": null,
+        "latitude": -8.604681,
+        "longitude": -38.572464
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        349
+      ],
+      "target": {
+        "identifier": "12 - S229701",
+        "plate": null,
+        "latitude": -8.604703,
+        "longitude": -38.572737
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        351
+      ],
+      "target": {
+        "identifier": "5 - S229703",
+        "plate": null,
+        "latitude": -8.604777,
+        "longitude": -38.573475
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        352
+      ],
+      "target": {
+        "identifier": "6 - S229704",
+        "plate": null,
+        "latitude": -8.604813,
+        "longitude": -38.573827
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        353
+      ],
+      "target": {
+        "identifier": "7 - S229705",
+        "plate": null,
+        "latitude": -8.604861,
+        "longitude": -38.574221
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        354
+      ],
+      "target": {
+        "identifier": "1 - S229711",
+        "plate": null,
+        "latitude": -8.605125,
+        "longitude": -38.572794
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        355
+      ],
+      "target": {
+        "identifier": "17 - S229713",
+        "plate": null,
+        "latitude": -8.604951,
+        "longitude": -38.572037
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        356
+      ],
+      "target": {
+        "identifier": "16 - S229712",
+        "plate": null,
+        "latitude": -8.605047,
+        "longitude": -38.572395
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        357
+      ],
+      "target": {
+        "identifier": "2 - S229710",
+        "plate": null,
+        "latitude": -8.605138,
+        "longitude": -38.57312
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        358
+      ],
+      "target": {
+        "identifier": "9 - S231506",
+        "plate": null,
+        "latitude": -8.60185,
+        "longitude": -38.568244
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        359
+      ],
+      "target": {
+        "identifier": "10 - S231507",
+        "plate": null,
+        "latitude": -8.60153,
+        "longitude": -38.568037
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        360
+      ],
+      "target": {
+        "identifier": "11 - S231508",
+        "plate": null,
+        "latitude": -8.601302,
+        "longitude": -38.567926
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        361
+      ],
+      "target": {
+        "identifier": "12 - S231509",
+        "plate": null,
+        "latitude": -8.601048,
+        "longitude": -38.567782
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        362
+      ],
+      "target": {
+        "identifier": "13 - S231510",
+        "plate": null,
+        "latitude": -8.600822,
+        "longitude": -38.567654
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        363
+      ],
+      "target": {
+        "identifier": "15 - S231515",
+        "plate": null,
+        "latitude": -8.600331,
+        "longitude": -38.567386
+      },
+      "warnings": [
+        {
+          "row": 363,
+          "warning": "code_coordinate_conflict",
+          "distance": 25.528082865898075
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        364
+      ],
+      "target": {
+        "identifier": "14 - S231514",
+        "plate": null,
+        "latitude": -8.60055,
+        "longitude": -38.567503
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        367
+      ],
+      "target": {
+        "identifier": "17 - S231501",
+        "plate": null,
+        "latitude": -8.601062,
+        "longitude": -38.568121
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        368
+      ],
+      "target": {
+        "identifier": "8 - S231502",
+        "plate": null,
+        "latitude": -8.601365,
+        "longitude": -38.568344
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        369
+      ],
+      "target": {
+        "identifier": "6 - S231503",
+        "plate": null,
+        "latitude": -8.601585,
+        "longitude": -38.568595
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        370
+      ],
+      "target": {
+        "identifier": "11 - S227057",
+        "plate": null,
+        "latitude": -8.598734,
+        "longitude": -38.568576
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        371
+      ],
+      "target": {
+        "identifier": "16 - S227055",
+        "plate": null,
+        "latitude": -8.598208,
+        "longitude": -38.568077
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        372
+      ],
+      "target": {
+        "identifier": "12 - S227053",
+        "plate": null,
+        "latitude": -8.598998,
+        "longitude": -38.568819
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        373
+      ],
+      "target": {
+        "identifier": "15 - S227056",
+        "plate": null,
+        "latitude": -8.598513,
+        "longitude": -38.568353
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        374
+      ],
+      "target": {
+        "identifier": "17 - S227054",
+        "plate": null,
+        "latitude": -8.597945,
+        "longitude": -38.567827
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        375
+      ],
+      "target": {
+        "identifier": "18 - S231408",
+        "plate": null,
+        "latitude": -8.598147,
+        "longitude": -38.567493
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        376
+      ],
+      "target": {
+        "identifier": "16 - S231574",
+        "plate": null,
+        "latitude": -8.598535,
+        "longitude": -38.567843
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        377
+      ],
+      "target": {
+        "identifier": "14 - S231409",
+        "plate": null,
+        "latitude": -8.59905,
+        "longitude": -38.568325
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        378
+      ],
+      "target": {
+        "identifier": "17 - S231575",
+        "plate": null,
+        "latitude": -8.598299,
+        "longitude": -38.567622
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        379
+      ],
+      "target": {
+        "identifier": "15 - S231573",
+        "plate": null,
+        "latitude": -8.598791,
+        "longitude": -38.568091
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        380
+      ],
+      "target": {
+        "identifier": "13 - S231572",
+        "plate": null,
+        "latitude": -8.599334,
+        "longitude": -38.568586
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        381
+      ],
+      "target": {
+        "identifier": "45 - S231576",
+        "plate": null,
+        "latitude": -8.597939,
+        "longitude": -38.567388
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        382
+      ],
+      "target": {
+        "identifier": "20 - X161618",
+        "plate": null,
+        "latitude": -8.599511,
+        "longitude": -38.568768
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        383
+      ],
+      "target": {
+        "identifier": "19 - S231411",
+        "plate": null,
+        "latitude": -8.599722,
+        "longitude": -38.568963
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        384
+      ],
+      "target": {
+        "identifier": "16 - S231412",
+        "plate": null,
+        "latitude": -8.600084,
+        "longitude": -38.569319
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        385
+      ],
+      "target": {
+        "identifier": "18 - X161617",
+        "plate": null,
+        "latitude": -8.599914,
+        "longitude": -38.569151
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        386
+      ],
+      "target": {
+        "identifier": "3 - S231529",
+        "plate": null,
+        "latitude": -8.59967,
+        "longitude": -38.567222
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        387
+      ],
+      "target": {
+        "identifier": "4 - S231528",
+        "plate": null,
+        "latitude": -8.599338,
+        "longitude": -38.567046
+      },
+      "warnings": [],
+      "basis": "Único candidato aprovado sem solicitação em até 20 m, após considerar os vínculos existentes e os pontos inexistentes"
+    },
+    {
+      "sourceRows": [
+        388
+      ],
+      "target": {
+        "identifier": "5 - S231527",
+        "plate": null,
+        "latitude": -8.59914,
+        "longitude": -38.566953
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        389
+      ],
+      "target": {
+        "identifier": "21 - S231524",
+        "plate": null,
+        "latitude": -8.598798,
+        "longitude": -38.566533
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        390
+      ],
+      "target": {
+        "identifier": "18 - S231521",
+        "plate": null,
+        "latitude": -8.599598,
+        "longitude": -38.566984
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        391
+      ],
+      "target": {
+        "identifier": "19 - S231522",
+        "plate": null,
+        "latitude": -8.599304,
+        "longitude": -38.566821
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        392
+      ],
+      "target": {
+        "identifier": "6 - S231526",
+        "plate": null,
+        "latitude": -8.598907,
+        "longitude": -38.56682
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        393
+      ],
+      "target": {
+        "identifier": "20 - S231523",
+        "plate": null,
+        "latitude": -8.599041,
+        "longitude": -38.566673
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        394
+      ],
+      "target": {
+        "identifier": "9 - S231432",
+        "plate": null,
+        "latitude": -8.601879,
+        "longitude": -38.571688
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        395
+      ],
+      "target": {
+        "identifier": "24 - S231433",
+        "plate": null,
+        "latitude": -8.602079,
+        "longitude": -38.571907
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        396
+      ],
+      "target": {
+        "identifier": "23 - S231434",
+        "plate": null,
+        "latitude": -8.602303,
+        "longitude": -38.57216
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        397
+      ],
+      "target": {
+        "identifier": "22 - S231435",
+        "plate": null,
+        "latitude": -8.602522,
+        "longitude": -38.572393
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        398
+      ],
+      "target": {
+        "identifier": "3 - S231438",
+        "plate": null,
+        "latitude": -8.603247,
+        "longitude": -38.573226
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        399
+      ],
+      "target": {
+        "identifier": "1 - S231436",
+        "plate": null,
+        "latitude": -8.602797,
+        "longitude": -38.572694
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        400
+      ],
+      "target": {
+        "identifier": "2 - S231437",
+        "plate": null,
+        "latitude": -8.603046,
+        "longitude": -38.572987
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        401,
+        402
+      ],
+      "target": {
+        "identifier": "2 - S215776",
+        "plate": null,
+        "latitude": -8.599307,
+        "longitude": -38.575972
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        403
+      ],
+      "target": {
+        "identifier": "ILUMINA-PE-403",
+        "plate": null,
+        "latitude": -8.600335,
+        "longitude": -38.575151
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        404
+      ],
+      "target": {
+        "identifier": "20 - S215774",
+        "plate": null,
+        "latitude": -8.599771,
+        "longitude": -38.575469
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        405
+      ],
+      "target": {
+        "identifier": "23 - X009173",
+        "plate": null,
+        "latitude": -8.600356,
+        "longitude": -38.574909
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        406
+      ],
+      "target": {
+        "identifier": "21 - X103900",
+        "plate": null,
+        "latitude": -8.59999,
+        "longitude": -38.575293
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        407
+      ],
+      "target": {
+        "identifier": "22 - U009173",
+        "plate": null,
+        "latitude": -8.600075,
+        "longitude": -38.575177
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        408
+      ],
+      "target": {
+        "identifier": "3 - X142900",
+        "plate": null,
+        "latitude": -8.601614,
+        "longitude": -38.57368
+      },
+      "warnings": [
+        {
+          "row": 408,
+          "warning": "code_coordinate_conflict",
+          "distance": 33.728717631329594
+        }
+      ],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        410
+      ],
+      "target": {
+        "identifier": "26 - X009170",
+        "plate": null,
+        "latitude": -8.601081,
+        "longitude": -38.574156
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        411
+      ],
+      "target": {
+        "identifier": "32 - X142899",
+        "plate": null,
+        "latitude": -8.601919,
+        "longitude": -38.57342
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        412
+      ],
+      "target": {
+        "identifier": "5 - X087467",
+        "plate": null,
+        "latitude": -8.599629,
+        "longitude": -38.575142
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        413
+      ],
+      "target": {
+        "identifier": "4 - X103901",
+        "plate": null,
+        "latitude": -8.599787,
+        "longitude": -38.575021
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        414
+      ],
+      "target": {
+        "identifier": "7 - X157982",
+        "plate": null,
+        "latitude": -8.599085,
+        "longitude": -38.575682
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        415
+      ],
+      "target": {
+        "identifier": "6 - X064328",
+        "plate": null,
+        "latitude": -8.599405,
+        "longitude": -38.575372
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        416
+      ],
+      "target": {
+        "identifier": "27 - X105335",
+        "plate": null,
+        "latitude": -8.600811,
+        "longitude": -38.574017
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        417
+      ],
+      "target": {
+        "identifier": "3 - X087470",
+        "plate": null,
+        "latitude": -8.600381,
+        "longitude": -38.574405
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        418
+      ],
+      "target": {
+        "identifier": "1 - X103902",
+        "plate": null,
+        "latitude": -8.600018,
+        "longitude": -38.57479
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        419
+      ],
+      "target": {
+        "identifier": "2 - X087469",
+        "plate": null,
+        "latitude": -8.600192,
+        "longitude": -38.574613
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    },
+    {
+      "sourceRows": [
+        420
+      ],
+      "target": {
+        "identifier": "24 - X110270",
+        "plate": null,
+        "latitude": -8.601507,
+        "longitude": -38.573332
+      },
+      "warnings": [],
+      "basis": "Vínculo conferido na importação e revisão do projeto"
+    }
+  ],
+  "excluded": [
+    {
+      "item": 77,
+      "reason": "Ponto inexistente fisicamente, confirmado pelo usuário"
+    },
+    {
+      "item": 79,
+      "reason": "Ponto inexistente fisicamente, confirmado pelo usuário"
+    },
+    {
+      "item": 151,
+      "reason": "Ponto inexistente fisicamente, confirmado pelo usuário"
+    },
+    {
+      "item": 350,
+      "reason": "Ponto inexistente fisicamente, confirmado pelo usuário"
+    }
+  ],
+  "pending": [
+    {
+      "item": 76,
+      "reason": "nearby_new_pole"
+    },
+    {
+      "item": 118,
+      "reason": "ambiguous"
+    },
+    {
+      "item": 345,
+      "reason": "ambiguous"
+    },
+    {
+      "item": 365,
+      "reason": "ambiguous"
+    },
+    {
+      "item": 366,
+      "reason": "ambiguous"
+    },
+    {
+      "item": 13,
+      "reason": "different_source_points_same_pole"
+    },
+    {
+      "item": 39,
+      "reason": "different_source_points_same_pole"
+    },
+    {
+      "item": 43,
+      "reason": "different_source_points_same_pole"
+    },
+    {
+      "item": 228,
+      "reason": "different_source_points_same_pole"
+    },
+    {
+      "item": 291,
+      "reason": "different_source_points_same_pole"
+    },
+    {
+      "item": 409,
+      "reason": "different_source_points_same_pole"
+    }
+  ]
+}

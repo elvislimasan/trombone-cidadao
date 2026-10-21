@@ -33,15 +33,15 @@ const stubs = {
     window.writes=[];window.failSave=false;
     const species=[{id:'s1',city_id:64,common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa'},{id:'s2',city_id:64,common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica'}];
     const neighborhoods=[{id:'b1',city_id:64,name:'Centro'},{id:'b2',city_id:64,name:'Três Marias'},{id:'b3',city_id:64,name:'Bela Vista'}];
-    let rows=[{id:'t1',city_id:64,species_id:'s1',bairro_id:'b1',common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa',status:'saudavel',address:'Praça São José',neighborhood:'Centro',latitude:-8.597,longitude:-38.574,height_m:6,crown_diameter_m:4,maintenance_action:'nenhuma',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'prefeitura',planted_at:'2025-02-03',estimated_birth_year:1920,is_historic_site:true},
-      {id:'t2',city_id:64,species_id:'s2',bairro_id:'b3',common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica',status:'risco',address:'Rua das Flores',neighborhood:'Bela Vista',latitude:-8.6,longitude:-38.57,maintenance_action:'vistoria',maintenance_due_at:'2026-10-20',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'nao_informado'}];
+    let rows=[{id:'t1',city_id:64,public_code:'AR1',species_id:'s1',bairro_id:'b1',common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa',status:'saudavel',address:'Praça São José',neighborhood:'Centro',latitude:-8.597,longitude:-38.574,height_m:6,crown_diameter_m:4,maintenance_action:'nenhuma',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'prefeitura',planted_at:'2025-02-03',estimated_birth_year:1920,is_historic_site:true},
+      {id:'t2',city_id:64,public_code:'AR2',species_id:'s2',bairro_id:'b3',common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica',status:'risco',address:'Rua das Flores',neighborhood:'Bela Vista',latitude:-8.6,longitude:-38.57,maintenance_action:'vistoria',maintenance_due_at:'2026-10-20',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'nao_informado'}];
     if(location.search.includes('photo'))rows[0].photo_url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
     let care=[];const reports=[{id:'r1',city_id:64,tree_id:'t1',title:'Poda solicitada',tree_service:'poda',status:'pending',created_at:'2026-10-16T12:00:00Z'}];
     export const supabase={auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(){return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(){return {error:null}}}}},
       rpc(name){const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
       from(table){let payload,operation,one=false;const filters=[];const q={select(){return q},order(){return q},range(){return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
       if(operation&&window.failSave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
-      if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert')rows.unshift({...payload,id:'new'+rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species')species.unshift({...payload,id:'s-new'});if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
+      if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert')rows.unshift({...payload,public_code:'AR'+(rows.length+1),id:'new'+rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species')species.unshift({...payload,id:'s-new'});if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
       let source=table==='city_trees'?rows:table==='city_tree_species'?species:table==='bairros'?neighborhoods:table==='cities'?[{id:64,name:'Floresta'}]:table==='city_tree_care'?care:table==='reports'?reports:[];
       const data=source.filter(r=>filters.every(f=>f(r)));if(operation==='delete'&&table==='city_trees')rows=rows.filter(r=>!filters.every(f=>f(r)));
       return Promise.resolve({data:one?(operation==='insert'?source[0]:data[0]):data,error:null}).then(ok,fail);
@@ -52,7 +52,7 @@ await build({
   stdin: { contents: `
     import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route,Link} from 'react-router-dom';
     import TreePage from '@/pages/TreePage';import Footer from '@/components/Footer';import ReportTreePicker from '@/components/report/ReportTreePicker';
-    import LocationPickerMap from '@/components/LocationPickerMap';import {useReportMapTrees} from '@/hooks/useReportMapTrees';import {treeReportSelection} from '@/lib/treeInventory';import {supabase} from '@/lib/customSupabaseClient';
+    import LocationPickerMap from '@/components/LocationPickerMap';import {useReportMapTrees} from '@/hooks/useReportMapTrees';import {treeReportSelection} from '@/lib/treeInventory';import {treeLabel} from '@/lib/arborization';import {supabase} from '@/lib/customSupabaseClient';
     import {CityViewProvider} from '@/contexts/CityContext';import L from 'leaflet';import ArborizationMapPage from '@/pages/ArborizationMapPage';
     function DetailHarness(){return <div className="min-h-screen flex flex-col"><main className="flex-grow flex flex-col min-h-0"><div className="flex-1 min-h-0 flex flex-col"><TreePage/></div></main><Footer/></div>}
     function ReportHarness(){
@@ -61,7 +61,7 @@ await build({
       const onViewport=React.useCallback(b=>setBounds({south:b.getSouth(),north:b.getNorth(),west:b.getWest(),east:b.getEast()}),[]);
       const nearby=useReportMapTrees(value.category,bounds,value.city_id);window.reportValue=value;
       const submit=async()=>{await supabase.from('reports').insert({tree_id:value.tree_id,tree_service:'poda',city_id:value.city_id,category_id:'poda',status:'pending',title:'Serviço na árvore selecionada',location:'POINT('+value.location.lng+' '+value.location.lat+')'});setSubmitted(true);setValue(v=>({...v,tree_id:null,tree_label:''}));window.dispatchEvent(new CustomEvent('reports-updated'))};
-      return <div className='page-shell-fluid'><div className='relative isolate overflow-hidden' style={{height:500}}><LocationPickerMap initialPosition={value.location} initialZoom={15} focusPosition={value.tree_id?value.location:undefined} showMarker={!value.tree_id} onLocationChange={location=>setValue(v=>({...v,location,tree_id:null,tree_label:''}))} onViewportChange={onViewport} overlayMarkers={nearby.trees.map(tree=>({id:tree.id,title:tree.common_name,kind:'tree',location:{lat:Number(tree.latitude),lng:Number(tree.longitude)},data:tree}))} selectedOverlayMarkerId={value.tree_id} snapToOverlayOnSelect onOverlayMarkerSelect={marker=>setValue(v=>({...v,...treeReportSelection(marker.data)}))}/></div><ReportTreePicker value={value} onChange={changes=>setValue(v=>({...v,...changes}))} nearby={nearby}/><button disabled={!value.tree_id} onClick={submit}>Enviar bronca de teste</button>{submitted&&<Link to='/'>Voltar ao inventário</Link>}</div>
+      return <div className='page-shell-fluid'><div className='relative isolate overflow-hidden' style={{height:500}}><LocationPickerMap initialPosition={value.location} initialZoom={15} focusPosition={value.tree_id?value.location:undefined} showMarker={!value.tree_id} onLocationChange={location=>setValue(v=>({...v,location,tree_id:null,tree_label:''}))} onViewportChange={onViewport} overlayMarkers={nearby.trees.map(tree=>({id:tree.id,title:treeLabel(tree),kind:'tree',location:{lat:Number(tree.latitude),lng:Number(tree.longitude)},data:tree}))} selectedOverlayMarkerId={value.tree_id} snapToOverlayOnSelect onOverlayMarkerSelect={marker=>setValue(v=>({...v,...treeReportSelection(marker.data)}))}/></div><ReportTreePicker value={value} onChange={changes=>setValue(v=>({...v,...changes}))} nearby={nearby}/><button disabled={!value.tree_id} onClick={submit}>Enviar bronca de teste</button>{submitted&&<Link to='/'>Voltar ao inventário</Link>}</div>
     }
     const maps=[];L.Map.addInitHook(function(){maps.push(this);window.testMap=this;this.on('unload',()=>{maps.splice(maps.indexOf(this),1);window.testMap=maps.at(-1)})});
     if(location.search.includes('dark'))document.documentElement.classList.add('dark');
@@ -205,6 +205,14 @@ try {
     await openFilters();await evaluate('document.querySelector(".arborization-filter-heading button").click()');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');assert.ok(await evaluate('!document.querySelector(".arborization-filter-count")'));}
     await click('Lista');await waitFor('document.querySelectorAll("article").length===2');
+    assert.ok(await evaluate('document.querySelector("article h3").textContent.includes("AR1 · Ipê-amarelo")'),'Lista exibe código e espécie');
+    await openFilters();await input('Buscar árvore','ar2');await evaluate('document.querySelector(".arborization-apply").click()');
+    await waitFor('document.querySelectorAll("article").length===1&&document.querySelector("article h3").textContent.includes("AR2 · Nim")');
+    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
+    await openFilters();await evaluate('document.querySelector(".arborization-filter-heading button").click()');
+    if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');}
+    await waitFor('document.querySelectorAll("article").length===2');
+
     await click('Mapa');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     await openFilters(true);
     await evaluate('document.querySelector(".arborization-additional-filters").open=true');
@@ -235,6 +243,7 @@ try {
     assert.ok(await evaluate('![...document.querySelectorAll("[role=dialog] label")].some(el=>el.firstChild.textContent==="Nome científico"||el.firstChild.textContent==="Origem")'));
     const footerVisible = '(()=>{const r=document.querySelector("[data-testid=tree-form-footer]").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()';
     assert.ok(await evaluate(footerVisible),'Ações visíveis ao abrir o formulário');
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("Gerado automaticamente ao salvar o cadastro")'),'Cadastro informa a geração automática');
     await capture('form-initial-'+width);
     await choose('Nome popular','s1');
     await waitFor('document.querySelector("[data-testid=selected-species-info]").textContent.includes("Handroanthus albus")');
@@ -269,7 +278,13 @@ try {
     await click('Salvar árvore');await waitFor('document.body.innerText.includes("Árvore cadastrada.")');
     assert.ok(await evaluate('(()=>{const payload=window.writes.find(row=>row.table==="city_trees").payload;return payload.species_id==="s2"&&payload.scientific_name==="Azadirachta indica"&&payload.bairro_id==="b2"&&payload.neighborhood==="Três Marias"})()'));
     if(width===1440)assert.ok(await evaluate('Boolean(window.writes.find(row=>row.table==="city_trees").payload.photo_url)'));
+    assert.ok(await evaluate('document.body.innerText.includes("Código: AR3.")'),'Confirmação informa o código retornado pelo banco');
+    assert.ok(await evaluate('!Object.hasOwn(window.writes.find(row=>row.table==="city_trees").payload,"public_code")'),'Formulário não envia código ao banco');
     await navigate('?detail');await waitFor('document.querySelector("[data-testid=tree-page]")');
+    assert.equal(await evaluate('document.querySelector("h1").textContent'),'AR1 · Ipê-amarelo');
+    await click('Editar árvore');await waitFor('document.querySelector("[role=dialog]").textContent.includes("Código da árvore")');
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("AR1")'),'Edição mostra o código permanente');
+    await click('Cancelar');await waitFor('!document.querySelector("[role=dialog]")');
     await waitFor('document.body.innerText.includes("Solicitação de Poda")');
     await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
     assert.ok(await evaluate('(()=>{const page=document.querySelector("[data-testid=tree-page]").getBoundingClientRect();const card=document.querySelector(".tree-profile-location").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-profile-map]").getBoundingClientRect();return map.top>=card.top&&map.bottom<=card.bottom&&history.bottom<=page.bottom&&history.top>card.bottom&&!document.querySelector(".tree-profile-care-form")})()'),'Mapa acima da linha do tempo, contido no fluxo, com serviço disponível apenas no modal');
@@ -296,22 +311,22 @@ try {
     await capture('detail-'+width);
     await navigate('?report');await waitFor('document.querySelectorAll(".tree-picker-marker").length===2');
     assert.ok(await evaluate('!document.body.innerText.includes("Árvore e serviço solicitado")&&!document.body.innerText.includes("Cadastrar árvore e vincular à bronca")&&!document.body.innerText.includes("Tipo de serviço")'));
-    const treeClick = await evaluate(`(()=>{const r=document.querySelector('.tree-picker-marker[title="Ipê-amarelo"]').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+    const treeClick = await evaluate(`(()=>{const r=document.querySelector('.tree-picker-marker[title="AR1 · Ipê-amarelo"]').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
     await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...treeClick},sessionId);
     await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...treeClick},sessionId);
-    await waitFor('window.reportValue.tree_id==="t1"');await waitFor('document.body.innerText.includes("Já existem solicitações abertas")');
+    await waitFor('window.reportValue.tree_id==="t1"');assert.equal(await evaluate('window.reportValue.tree_label'),'AR1 · Ipê-amarelo');await waitFor('document.body.innerText.includes("Já existem solicitações abertas")');
     await click('Desvincular');await evaluate('void window.testMap.setView([-8.5985,-38.572],15,{animate:false})');await waitFor('document.querySelectorAll(".tree-picker-marker").length===2');
-    await evaluate('document.querySelector(".tree-picker-marker[title=Nim]").click()');await waitFor('window.reportValue.tree_id==="t2"');
+    await evaluate(`document.querySelector('.tree-picker-marker[title="AR2 · Nim"]').click()`);await waitFor('window.reportValue.tree_id==="t2"');
     assert.ok(await evaluate('window.reportValue.location.lat===-8.6&&window.reportValue.location.lng===-38.57&&window.reportValue.city_id===64&&window.reportValue.address==="Rua das Flores"'));
-    assert.equal(await evaluate('document.querySelector(".tree-picker-marker[title=Nim] path[fill]").getAttribute("fill")'),'#eab308','Árvore selecionada fica amarela');
+    assert.equal(await evaluate(`document.querySelector('.tree-picker-marker[title="AR2 · Nim"] path[fill]').getAttribute("fill")`),'#eab308','Árvore selecionada fica amarela');
     assert.equal(await evaluate('window.writes.length'),0,'Selecionar no mapa não envia a bronca');
     await click('Enviar bronca de teste');await waitFor(`document.querySelector('a[href="/"]')`);
-    await waitFor('!window.reportValue.tree_id&&document.querySelector(".tree-picker-marker[title=Nim] path[fill]")?.getAttribute("fill")==="#eab308"');
+    await waitFor(`!window.reportValue.tree_id&&document.querySelector('.tree-picker-marker[title="AR2 · Nim"] path[fill]')?.getAttribute("fill")==="#eab308"`);
     assert.ok(await evaluate('window.writes.some(row=>row.table==="reports"&&row.payload.tree_id==="t2"&&row.payload.location==="POINT(-38.57 -8.6)")'),'Bronca usa o cadastro e as coordenadas da árvore');
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
     await capture('report-'+width);
     await evaluate(`document.querySelector('a[href="/"]').click()`);await waitFor('document.querySelector("[data-testid=arborization-page]")');
-    await waitFor('document.querySelector(".tree-map-pin[title=Nim] path[fill]")?.getAttribute("fill")==="#eab308"');
+    await waitFor(`document.querySelector('.tree-map-pin[title="AR2 · Nim"] path[fill]')?.getAttribute("fill")==="#eab308"`);
     results.push({width,margins,linkedSpecies:true,registeredNeighborhood:true,history:true,reportLink:true});
   }
   await navigate('?dark');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');await capture('map-dark-1920');

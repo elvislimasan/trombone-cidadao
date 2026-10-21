@@ -18,6 +18,8 @@ export const TREE_ACTIONS = { nenhuma: 'Sem manejo pendente', vistoria: 'Vistori
 export const TREE_SERVICES = { poda: 'Poda', remocao: 'Remoção', vistoria: 'Vistoria', tratamento: 'Tratamento', plantio: 'Plantio' };
 export const TREE_PLANTED_BY = { nao_informado: 'Não informado', prefeitura: 'Prefeitura', comunidade: 'Comunidade / morador', outro: 'Outro' };
 
+export const treeLabel = tree => [tree?.public_code, tree?.common_name].filter(Boolean).join(' · ');
+
 export const EMPTY_TREE = {
   common_name: '', scientific_name: '', origin: 'nao_identificada', status: 'saudavel',
   address: '', neighborhood: '', latitude: '', longitude: '', height_m: '', crown_diameter_m: '',
@@ -72,7 +74,7 @@ export function filterTrees(trees, { search = '', status = 'all', origin = 'all'
     && (maxAge === '' || (validBirthYear(tree) && year - Number(tree.estimated_birth_year) <= Number(maxAge)))
     && (centenarian === 'all' || (tree.estimated_birth_year != null && Number(tree.estimated_birth_year) <= new Date().getFullYear() - 100 && tree.status !== 'removida'))
     && (action === 'all' || (action === 'pending' ? tree.maintenance_action !== 'nenhuma' : tree.maintenance_action === action))
-    && (!term || normalize([tree.common_name, tree.scientific_name, tree.address, tree.neighborhood].join(' ')).includes(term)));
+    && (!term || normalize([tree.public_code, tree.common_name, tree.scientific_name, tree.address, tree.neighborhood].join(' ')).includes(term)));
 }
 
 export function treeStats(trees) {
@@ -85,9 +87,9 @@ export function treeStats(trees) {
 export function treesCsv(trees, cities = []) {
   // Neutraliza fórmulas ao abrir o CSV em planilhas, inclusive após espaços.
   const cell = value => `"${String(value ?? '').replace(/^(\s*[=+@-])/, "'$1").replaceAll('"', '""')}"`;
-  const rows = [['Cidade', 'Nome popular', 'Nome científico', 'Origem', 'Situação', 'Endereço', 'Bairro', 'Latitude', 'Longitude', 'Altura (m)', 'Diâmetro da copa (m)', 'Plantio', 'Manejo', 'Prazo do manejo', 'Observações', 'Cadastro na plataforma', 'Plantado por', 'Ano de nascimento estimado', 'Sítio histórico', 'Solicitações de serviço'],
+  const rows = [['Cidade', 'Código da árvore', 'Nome popular', 'Nome científico', 'Origem', 'Situação', 'Endereço', 'Bairro', 'Latitude', 'Longitude', 'Altura (m)', 'Diâmetro da copa (m)', 'Plantio', 'Manejo', 'Prazo do manejo', 'Observações', 'Cadastro na plataforma', 'Plantado por', 'Ano de nascimento estimado', 'Sítio histórico', 'Solicitações de serviço'],
     ...trees.map(tree => [cities.find(city => String(city.id) === String(tree.city_id))?.name || tree.city_id,
-      tree.common_name, tree.scientific_name, TREE_ORIGINS[tree.origin], TREE_STATUS[tree.status]?.label,
+      tree.public_code, tree.common_name, tree.scientific_name, TREE_ORIGINS[tree.origin], TREE_STATUS[tree.status]?.label,
       tree.address, tree.neighborhood, tree.latitude, tree.longitude, tree.height_m, tree.crown_diameter_m,
       tree.planted_at, TREE_ACTIONS[tree.maintenance_action], tree.maintenance_due_at, tree.notes, tree.created_at,
       TREE_PLANTED_BY[tree.planted_by], tree.estimated_birth_year, tree.is_historic_site ? 'Sim' : 'Não', tree.service_requests ?? 0])];

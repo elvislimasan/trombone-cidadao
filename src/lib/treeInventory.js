@@ -1,5 +1,5 @@
 import { haversineDistanceKm } from './geoUtils.js';
-import { TREE_SERVICES } from './arborization.js';
+import { TREE_SERVICES, treeLabel } from './arborization.js';
 
 export const treeNameKey = value => String(value || '').normalize('NFD').replace(/\p{Mn}/gu, '').trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -48,7 +48,7 @@ export function treeReportSelection(tree) {
   const lat = Number(tree?.latitude), lng = Number(tree?.longitude);
   if (!tree?.id || !tree.city_id || tree.status === 'removida' || tree.latitude == null || tree.longitude == null
     || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return { tree_id: tree.id, tree_label: tree.common_name, tree_registration: null, tree_photo_file: null,
+  return { tree_id: tree.id, tree_label: treeLabel(tree), tree_registration: null, tree_photo_file: null,
     location: { lat, lng }, city_id: tree.city_id, address: tree.address || '' };
 }
 

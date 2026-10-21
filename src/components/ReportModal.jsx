@@ -71,6 +71,7 @@ import { resolveReportPoleAddress } from '@/lib/reportPoleAddress';
 import ReportTreePicker from '@/components/report/ReportTreePicker';
 import { useReportMapTrees } from '@/hooks/useReportMapTrees';
 import { treeReportSelection } from '@/lib/treeInventory';
+import { treeLabel } from '@/lib/arborization';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
@@ -144,7 +145,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     setTreeViewport(current => current && Object.keys(next).every(key => current[key] === next[key]) ? current : next);
   }, []);
   const treeOverlayMarkers = useMemo(() => treeNearby.trees.map(tree => ({
-    id: tree.id, title: tree.common_name, kind: 'tree',
+    id: tree.id, title: treeLabel(tree), kind: 'tree',
     location: { lat: Number(tree.latitude), lng: Number(tree.longitude) }, data: tree,
   })), [treeNearby.trees]);
   useEffect(() => {

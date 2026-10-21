@@ -5,7 +5,7 @@ import L from 'leaflet';
 import MapDisplayControls, { BOTAO_DE_MAPA, CurrentLocationMarker, MAP_LAYER, MapBaseLayer, MapLayerToggle } from '@/components/map/MapDisplayControls';
 import MapResizeObserver from '@/components/map/MapResizeObserver';
 import { geocodeCity } from '@/lib/geocodeCity';
-import { TREE_MAP_STATES, treeMapMarkerKey } from '@/lib/arborization';
+import { TREE_MAP_STATES, treeMapMarkerKey, treeLabel } from '@/lib/arborization';
 import TreeDetailsDialog from './TreeDetailsDialog';
 import TreeMapLegend from './TreeMapLegend';
 import 'leaflet/dist/leaflet.css';
@@ -86,7 +86,7 @@ export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect,
       <MapController trees={validTrees} city={city} selected={selected} position={position} onPick={onPick} resetKey={resetKey} />
       <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} toolbar={toolbar} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />
       {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={icons[treeMapMarkerKey(tree)]}
-        alt={tree.common_name} title={tree.common_name} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
+        alt={treeLabel(tree)} title={treeLabel(tree)} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
       {position && <Marker position={[position.latitude, position.longitude]} icon={icons.saudavel} draggable eventHandlers={{ dragend: event => { const point = event.target.getLatLng(); onPick?.({ latitude: point.lat, longitude: point.lng }); } }} />}
       <TreeDetailsDialog tree={selected} canManage={canManage} onClose={() => onDeselect?.(selected?.id)}
         onEdit={tree => { onDeselect?.(tree.id); onEdit?.(tree); }}

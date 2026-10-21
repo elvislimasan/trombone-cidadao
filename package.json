@@ -44,6 +44,7 @@
     "build:standalone:dev": "npm run clean:dist && npm run clean:android && npm run build:dev && npx cap sync && cd android && gradlew.bat clean && gradlew.bat assembleRelease",
     "build:standalone:dev:aab": "npm run clean:dist && npm run clean:android && npm run build:dev && npx cap sync && node tools/bump-android-version-code.js && cd android && gradlew.bat clean && gradlew.bat bundleRelease",
     "import:poles": "node scripts/import_poles_from_kmz.js",
+    "import:ilumina": "node scripts/import-lighting-service-requests.mjs --city-id 64 --input scripts/data/ilumina-pe-floresta-2026.rows.json --review scripts/data/ilumina-pe-floresta-2026.review.json",
     "poles:addresses": "node scripts/backfill-pole-addresses.mjs",
     "poles:kmz-details": "node scripts/backfill-pole-kmz-details.mjs",
     "reports:neighborhoods": "node scripts/backfill-report-neighborhoods.mjs",

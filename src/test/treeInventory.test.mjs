@@ -54,6 +54,7 @@ test('seleção pelo mapa ancora a bronca na árvore e descarta rascunho de novo
   const tree = { id: 't1', city_id: 64, common_name: 'Caraibeira', address: 'Praça Central', latitude: '-8.597', longitude: '-38.574' };
   assert.deepEqual(treeReportSelection(tree), { tree_id: 't1', tree_label: 'Caraibeira', tree_registration: null, tree_photo_file: null,
     location: { lat: -8.597, lng: -38.574 }, city_id: 64, address: 'Praça Central' });
+  assert.equal(treeReportSelection({ ...tree, public_code: 'AR123' }).tree_label, 'AR123 · Caraibeira');
   for (const invalid of [{ status: 'removida' }, { latitude: null }, { longitude: 181 }, { latitude: 'ausente' }, { city_id: null }]) {
     assert.equal(treeReportSelection({ ...tree, ...invalid }), null);
   }

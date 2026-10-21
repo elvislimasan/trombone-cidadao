@@ -157,6 +157,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, re
               <div className="contents min-w-0 md:order-2 md:block md:space-y-5">
                 <section className="order-1 min-w-0 space-y-4 rounded-xl border border-edge-subtle p-4" aria-label="Identificação da árvore">
                   <h3 className="flex items-center gap-2 text-sm font-semibold"><Leaf className="h-4 w-4 text-emerald-700" />Identificação</h3>
+                  <div className="rounded-lg bg-surface-subtle px-3 py-2.5 text-sm"><p className="text-xs text-muted-foreground">Código da árvore</p><p className="mt-1 break-words font-semibold">{tree?.public_code || 'Gerado automaticamente ao salvar o cadastro'}</p></div>
                   <Field label="Nome popular"><select ref={speciesSelect} disabled={catalogLoading || !!catalogError} className={selectClass} value={form.species_id || ''} onChange={event => selectSpecies(event.target.value)}>
                     <option value="">{catalogLoading ? 'Carregando espécies…' : 'Não identificada'}</option>
                     {catalogs.species.map(item => <option key={item.id} value={item.id}>{item.common_name}</option>)}
