@@ -1,4 +1,6 @@
+import { eligibleExecutors, executionForCategory } from './executorActivities.js';
 export const DEMAND_STATUSES = [
+  ['rascunho', 'Rascunho'],
   ['aberta', 'Aberta'], ['triagem', 'Em triagem'], ['programada', 'Programada'],
   ['em_andamento', 'Em execução'], ['aguardando_informacao', 'Aguardando informação'],
   ['aguardando_recurso', 'Aguardando recurso'], ['aguardando_confirmacao', 'Aguardando conferência interna'],
@@ -7,6 +9,7 @@ export const DEMAND_STATUSES = [
 export const DEMAND_PRIORITIES = [['baixa', 'Baixa'], ['normal', 'Normal'], ['alta', 'Alta'], ['urgente', 'Urgente']];
 export const OPEN_DEMAND_STATUSES = DEMAND_STATUSES.map(([value]) => value).filter((value) => !['concluida', 'recusada', 'cancelada'].includes(value));
 export const DEMAND_TONES = {
+  rascunho: 'bg-surface-subtle text-content-secondary',
   aberta: 'bg-status-pendingBg text-status-pendingFg', triagem: 'bg-status-pendingBg text-status-pendingFg',
   programada: 'bg-status-progressBg text-status-progressFg', em_andamento: 'bg-status-progressBg text-status-progressFg',
   aguardando_informacao: 'bg-status-pendingBg text-status-pendingFg', aguardando_recurso: 'bg-status-pendingBg text-status-pendingFg',
@@ -18,7 +21,7 @@ export const DEMAND_INITIAL_FORM = {
   category_id: '', issue_type: '', service_type: '', service_types: [], prioridade: 'normal', status: 'aberta', canal_id: '', atribuido_a: '',
   prazo_em: '', previsto_em: '', primeira_resposta_prazo_em: '', proxima_acao: '', proxima_acao_em: '',
   motivo_pendencia: '', resultado: '', registro_execucao: '', executada_em: '',
-  origem: 'interno', protocolo_externo: '', pole_id: '',
+  origem: 'interno', protocolo_externo: '', pole_id: '', execution_specialty: '', asset_tree_id: '', asset_street_id: '',
 };
 export function localDateTime(value) {
   if (!value) return '';
@@ -36,9 +39,10 @@ export function suggestDemandAssignment(context, categoryId, currentChannel = ''
   const matching = allowed.filter((channel) => context.categoryChannels?.some((mapping) => String(mapping.canal_id) === String(channel.id) && mapping.category_id === categoryId));
   const configured = allowed.find((channel) => String(channel.id) === String(rule?.canal_id));
   const channelId = currentChannel || configured?.id || (matching.length === 1 ? matching[0].id : allowed.length === 1 ? allowed[0].id : '');
-  const members = (context.members || []).filter((member) => String(member.canal_id) === String(channelId) && member.ativo && ['gestor', 'operador'].includes(member.papel));
+  const specialty = executionForCategory(channels, channelId, categoryId);
+  const members = specialty ? eligibleExecutors(context, channelId, categoryId) : (context.members || []).filter(member => String(member.canal_id) === String(channelId) && member.ativo && ['gestor', 'operador'].includes(member.papel));
   const users = [...new Set(members.map((member) => member.user_id))];
-  return { canal_id: String(channelId || ''), atribuido_a: users.length === 1 ? users[0] : '' };
+  return { canal_id: String(channelId || ''), atribuido_a: users.length === 1 ? users[0] : '', ...(specialty ? { execution_specialty: specialty } : {}) };
 }
 export function formFromReport(report, context, now = new Date()) {
   const [lng, lat] = report.location?.coordinates || [];
@@ -76,7 +80,7 @@ export function demandPayload(form) {
   return result;
 }
 export function demandConclusionBlocked(form, reports = []) {
-  return form.category_id === 'iluminacao' && reports.some((report) => report.status !== 'resolved');
+  return (form.category_id === 'iluminacao' || Boolean(form.execution_specialty)) && reports.some((report) => report.status !== 'resolved');
 }
 export function validateDemandFields(form, { previousStatus, reason = '', electricianMode = false, reports = [] } = {}) {
   const errors = {};

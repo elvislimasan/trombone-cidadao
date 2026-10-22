@@ -9,7 +9,8 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { optimizeImageFile } from '@/lib/optimizeImage';
 
-const panelPath = '/prefeitura/eletricista';
+import { EXECUTION_ACTIVITIES } from '@/lib/executorActivities';
+import { municipalContextPath } from '@/lib/municipalAccess';
 
 function ProfileImage({ user }) {
   if (user?.avatar_url && ['url', 'upload'].includes(user.avatar_type)) {
@@ -28,6 +29,9 @@ function ProfileImage({ user }) {
 
 export default function ElectricianProfilePage() {
   const context = useOutletContext();
+  const activity = context.executionActivity || EXECUTION_ACTIVITIES.eletricista;
+  const panelPath = activity.path;
+  const scoped = path => municipalContextPath(path, context.municipality?.city_id, context.activeChannelId);
   const { user, refreshUserProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -94,19 +98,19 @@ export default function ElectricianProfilePage() {
   };
 
   return <div className="page-shell-fluid min-w-0 py-5 pb-8 sm:py-8">
-    <Helmet><title>Meu perfil | Painel do eletricista</title><meta name="robots" content="noindex" /></Helmet>
+    <Helmet><title>Meu perfil | {activity.title}</title><meta name="robots" content="noindex" /></Helmet>
     <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)]">
       <aside className="min-w-0 overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised shadow-sm">
         <div className="bg-gradient-to-br from-brand-subtleBg via-surface-raised to-accentHighlight/30 p-4 sm:p-5">
           <div className="flex items-center gap-4 lg:flex-col lg:text-center">
             <span className="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-surface-raised bg-surface-subtle shadow-sm"><ProfileImage user={user} /></span>
-            <div className="min-w-0"><h1 className="break-words font-display text-xl font-black">{user?.name || 'Eletricista'}</h1><span className="block text-xs text-content-secondary">Equipe de iluminação pública</span></div>
+            <div className="min-w-0"><h1 className="break-words font-display text-xl font-black">{user?.name || 'Executor'}</h1><span className="block text-xs text-content-secondary">{activity.label}</span></div>
           </div>
           <span className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-brand-subtleBg px-2 py-1 text-xs font-bold text-brand"><ShieldCheck className="h-3.5 w-3.5" />Acesso ativo</span>
           <p className="mt-3 flex items-start gap-1.5 text-xs leading-5 text-content-secondary"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />{context.municipality?.nome || 'Prefeitura'}{cityLabel && ` · ${cityLabel}`}</p>
         </div>
         <div className="grid gap-2 border-t border-edge-subtle p-3">
-          <Link to={panelPath + '/patrulha'} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-brand/30 bg-brand-subtleBg px-3 text-sm font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><Radar className="h-5 w-5" />Sair em patrulha</span><ArrowRight className="h-4 w-4" /></Link>
+          {activity.id === 'eletricista' && <Link to={panelPath + '/patrulha'} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-brand/30 bg-brand-subtleBg px-3 text-sm font-semibold text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><Radar className="h-5 w-5" />Sair em patrulha</span><ArrowRight className="h-4 w-4" /></Link>}
           <Button type="button" variant="outline" className="justify-start" onClick={() => photoInput.current?.click()} disabled={uploadingPhoto}><Camera className="mr-2 h-4 w-4 text-brand" />{uploadingPhoto ? 'Enviando foto…' : user?.avatar_type === 'upload' ? 'Trocar foto' : 'Adicionar foto'}</Button>
           <input ref={photoInput} className="sr-only" type="file" accept="image/*" onChange={uploadPhoto} aria-label="Escolher foto do perfil" />
           <Button type="button" variant="outline" className="justify-start" onClick={() => { setError(''); setEditing(true); }}><Pencil className="mr-2 h-4 w-4 text-brand" />Editar dados</Button>
@@ -132,15 +136,15 @@ export default function ElectricianProfilePage() {
         <section className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-4 sm:p-5">
           <h2 className="font-display text-base font-extrabold">Acesso institucional</h2><p className="mt-1 text-xs text-content-secondary">Seu vínculo define as ordens que aparecem neste painel.</p>
           <dl className="mt-4 grid min-w-0 gap-x-5 sm:grid-cols-2">
-            {[['Prefeitura', context.municipality?.nome || 'Não informada'], ['Função', 'Eletricista'], ['Área', 'Iluminação pública'], ['Situação', 'Ativo']].map(([label, value]) => <div key={label} className="min-w-0 border-t border-edge-subtle py-3"><dt className="text-[11px] font-bold uppercase tracking-wide text-content-tertiary">{label}</dt><dd className="mt-1 break-words text-sm font-semibold">{value}</dd></div>)}
+            {[['Prefeitura', context.municipality?.nome || 'Não informada'], ['Função', 'Executor de campo'], ['Área', activity.label], ['Situação', 'Ativo']].map(([label, value]) => <div key={label} className="min-w-0 border-t border-edge-subtle py-3"><dt className="text-[11px] font-bold uppercase tracking-wide text-content-tertiary">{label}</dt><dd className="mt-1 break-words text-sm font-semibold">{value}</dd></div>)}
           </dl>
         </section>
 
         <section className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-4 sm:p-5 2xl:col-span-2">
           <h2 className="font-display text-base font-extrabold">Acesso rápido</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <Link to={panelPath + '/patrulhas'} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><Route className="h-5 w-5 text-brand" />Minhas patrulhas</span><ArrowRight className="h-4 w-4 text-brand" /></Link>
-            <Link to={panelPath} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Minhas ordens<ArrowRight className="h-4 w-4 text-brand" /></Link>
+            {activity.id === 'eletricista' && <Link to={panelPath + '/patrulhas'} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><Route className="h-5 w-5 text-brand" />Minhas patrulhas</span><ArrowRight className="h-4 w-4 text-brand" /></Link>}
+            <Link to={scoped(panelPath)} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Minhas ordens<ArrowRight className="h-4 w-4 text-brand" /></Link>
             <Link to="/alterar-senha" className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-edge-subtle px-3 text-sm font-semibold hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" />Alterar senha</span><ArrowRight className="h-4 w-4 text-brand" /></Link>
           </div>
         </section>

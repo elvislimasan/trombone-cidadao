@@ -84,12 +84,9 @@
 .arborization-filter-heading h2 { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
 .arborization-filter-heading > button { height: 24px; padding: 0; color: rgb(var(--brand)); font-size: 11px; font-weight: 500; }
 .arborization-search { display: block; position: relative; }
-.arborization-search > svg { position: absolute; top: 11px; left: 11px; width: 15px; height: 15px; color: rgb(var(--text-secondary)); pointer-events: none; }
-.arborization-search input { padding-left: 34px; font-size: 11px; }
+.arborization-search input { font-size: 11px; }
 .arborization-filter-fields { display: grid; gap: 12px; }
 .arborization-filter-row { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
-.arborization-field-icon { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; margin-top: 1px; border-radius: 50%; background: rgb(var(--surface-subtle)); color: rgb(var(--text-secondary)); }
-.arborization-field-icon svg { width: 15px; height: 15px; stroke-width: 1.7; }
 .arborization-filter-row label, .arborization-additional-filters label { display: grid; flex: 1; min-width: 0; gap: 5px; font-size: 11px; font-weight: 500; }
 .arborization-select, .arborization-filters input { width: 100%; min-width: 0; height: 36px; border: 1px solid rgb(var(--border-subtle)); border-radius: 8px; background: rgb(var(--surface-subtle) / .7); color: rgb(var(--text-primary)); }
 .arborization-select { padding-inline: 10px; font-size: 11px; font-weight: 400; }
@@ -97,7 +94,7 @@
 .arborization-age-range { display: flex; gap: 7px; align-items: center; margin-top: 5px; font-size: 10px; color: rgb(var(--text-secondary)); }
 .arborization-filter-row legend { font-size: 11px; font-weight: 500; }
 .arborization-age-range input { flex: 1; width: 0; padding-inline: 9px; font-size: 11px; }
-.arborization-additional-filters { margin-left: 42px; font-size: 11px; color: rgb(var(--text-secondary)); }
+.arborization-additional-filters { font-size: 11px; color: rgb(var(--text-secondary)); }
 .arborization-additional-filters summary { cursor: pointer; }
 .arborization-additional-filters label { margin-top: 10px; }
 .arborization-apply { width: 100%; min-height: 40px; gap: 8px; font-size: 12px; font-weight: 500; }
@@ -175,9 +172,7 @@
 /* Em notebooks, duas colunas deixam a maior parte da largura para o mapa. */
 @media (min-width: 980px) and (max-width: 1519px) {
   .arborization-workspace { grid-template-columns: 240px minmax(0, 1fr); gap: 16px; }
-  .arborization-field-icon { display: none; }
   .arborization-filter-row { gap: 0; }
-  .arborization-additional-filters { margin-left: 0; }
   .arborization-filter-title-full { display: none; }
   .arborization-filter-title-short { display: inline; }
   .arborization-neighborhood-sidebar { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: 24px; padding: 16px 18px; }
@@ -219,7 +214,6 @@
   .arborization-filter-row label, .arborization-filter-row legend { gap: 4px; line-height: 1.2; }
   .arborization-filters .arborization-select, .arborization-age-range input { height: 32px; }
   .arborization-search input { height: 34px; }
-  .arborization-search > svg { top: 10px; }
   .arborization-apply { min-height: 36px; height: 36px; }
   .arborization-more-filters { display: none; }
 }
@@ -255,6 +249,38 @@
   .arborization-map-panel { height: 65dvh; min-height: 430px; }
   .arborization-fullscreen { width: 38px; padding: 0; overflow: hidden; font-size: 0 !important; gap: 0; }
   .arborization-fullscreen svg { flex-shrink: 0; }
+}
+
+/* No painel operacional, título e cidade já pertencem à moldura. Mantém
+   indicadores e ações compactos para o mapa começar na primeira tela. */
+.territorial-street-content { padding-top: 0; }
+.arborization-page.arborization-embedded {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding-block: 0 16px;
+  background: none;
+}
+.arborization-embedded .arborization-stats { gap: 8px; }
+.arborization-embedded .arborization-stat { align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; }
+.arborization-embedded .arborization-stat-icon { width: 28px; height: 28px; border-radius: 8px; }
+.arborization-embedded .arborization-stat-icon svg { width: 17px; height: 17px; }
+.arborization-embedded .arborization-stat-value { font-size: 20px; }
+.arborization-embedded .arborization-stat-label { margin-top: 3px; font-size: 11px; }
+.arborization-embedded .arborization-stat-description { display: none; }
+.arborization-embedded .arborization-actions { grid-area: auto; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.arborization-embedded .arborization-actions > button { height: 36px; padding-inline: 10px; }
+@media (min-width: 980px) {
+  .territorial-street-content { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+  .territorial-street-content > * { grid-column: 1 / -1; }
+  .territorial-street-content > .territorial-street-actions { grid-column: 1 / -1; justify-self: end; }
+  .territorial-street-map { min-height: max(480px, calc(100dvh - 212px)); }
+  .arborization-page.arborization-embedded { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .arborization-embedded > .arborization-stats { grid-area: 1 / 1; }
+  .arborization-embedded > .arborization-actions { grid-area: 1 / 2; align-self: center; }
+  .arborization-embedded > .arborization-workspace,
+  .arborization-embedded > .arborization-notices { grid-column: 1 / -1; }
+  .arborization-embedded .arborization-map-panel { min-height: max(480px, calc(100dvh - 230px)); }
 }
 
 /* As duas colunas e o mapa permanecem no fluxo, antes do footer. */
@@ -1962,4 +1988,151 @@ input[type="password"]::-ms-clear {
 .municipal-lighting-icon:focus-visible .municipal-lighting-cluster {
   outline: 3px solid #0f172a;
   outline-offset: 2px;
+}
+
+/* Painel territorial: largura fluida; em notebooks a tabela rola apenas
+   dentro de seu cartão, sem limitar o contêiner externo da página. */
+.territorial-header-inner { display:flex; align-items:center; justify-content:space-between; min-width:0; gap:12px; min-height:56px; padding:8px 20px; }
+.territorial-header-city { display:flex; align-items:center; gap:6px; min-width:0; border:1px solid rgb(255 255 255 / .25); border-radius:8px; padding:0 8px; }
+.territorial-header-city select { height:30px; max-width:172px; min-width:0; background:transparent; color:inherit; font-size:11px; outline-offset:3px; }
+.territorial-header-city option { background:rgb(var(--surface-raised)); color:rgb(var(--text-primary)); }
+.territorial-dashboard-grid { display:grid; min-width:0; }
+.territorial-dashboard-sidebar { display:none; min-width:0; background:rgb(var(--surface-raised)); border-right:1px solid rgb(var(--border-subtle)); padding:18px 12px; }
+.territorial-dashboard-main { min-width:0; padding:16px; }
+.territorial-street-statistics { padding-top:0; }
+.pavement-dashboard { display:grid; gap:12px; min-width:0; }
+.pavement-dashboard-heading { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pavement-dashboard-heading h1 { font-size:22px; font-weight:800; line-height:1.2; letter-spacing:-.025em; }
+.pavement-dashboard-heading p { margin-top:5px; font-size:12px; color:rgb(var(--text-secondary)); }
+.pavement-dashboard-filters { display:grid; gap:10px; padding:14px; border:1px solid rgb(var(--border-subtle)); border-radius:12px; background:rgb(var(--surface-raised)); }
+.pavement-dashboard-primary-filters { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; align-items:end; }
+.pavement-more-filters { display:flex; align-items:center; justify-content:center; gap:7px; height:32px; border:1px solid rgb(var(--border-subtle)); border-radius:8px; padding:0 12px; font-size:11px; font-weight:600; background:rgb(var(--surface-subtle)); }
+.pavement-filter-chip { display:flex; align-items:center; gap:5px; max-width:100%; border:1px solid rgb(var(--border-subtle)); border-radius:6px; background:rgb(var(--surface-subtle)); padding:3px 7px; font-size:10px; text-align:left; }
+.pavement-dashboard-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.pavement-dashboard-card { display:flex; align-items:flex-start; gap:12px; min-width:0; padding:16px; border:1px solid rgb(var(--border-subtle)); border-radius:12px; background:rgb(var(--surface-raised)); }
+.pavement-dashboard-icon { display:flex; flex:none; width:46px; height:46px; align-items:center; justify-content:center; border-radius:10px; }
+.pavement-dashboard-icon svg { width:24px; height:24px; }
+.pavement-tone-rose { color:#e52b30; background:#fff0f1; }
+.pavement-tone-blue { color:#2563eb; background:#edf5ff; }
+.pavement-tone-green { color:#16a34a; background:#eafbf2; }
+.pavement-tone-orange { color:#f97316; background:#fff3e6; }
+.pavement-tone-purple { color:#9333ea; background:#f5ecff; }
+.pavement-tone-fill-green { background:#1cba62; }
+.pavement-tone-fill-orange { background:#ff681a; }
+.pavement-dashboard-value { overflow-wrap:anywhere; font-size:25px; font-weight:800; line-height:1.1; letter-spacing:-.025em; }
+.pavement-dashboard-card h2 { margin-top:3px; font-size:12px; font-weight:600; }
+.pavement-dashboard-card-note { margin-top:10px; font-size:10px; color:rgb(var(--text-tertiary)); }
+.pavement-dashboard-card-progress { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:10px; color:rgb(var(--text-secondary)); }
+.pavement-dashboard-card-progress > div { height:4px; min-width:42px; flex:1; background:rgb(var(--surface-subtle)); border-radius:8px; overflow:hidden; }
+.pavement-dashboard-card-progress > div > span { display:block; height:100%; border-radius:8px; }
+.pavement-dashboard-summary { display:grid; min-width:0; gap:12px; }
+.pavement-dashboard-distribution,.pavement-dashboard-quality,.pavement-dashboard-table,.pavement-dashboard-ranking-empty { border:1px solid rgb(var(--border-subtle)); border-radius:12px; background:rgb(var(--surface-raised)); min-width:0; }
+.pavement-dashboard-distribution,.pavement-dashboard-quality { padding:16px; }
+.pavement-dashboard h2 { font-weight:700; }
+.pavement-dashboard-distribution h2,.pavement-dashboard-quality h2,.pavement-dashboard-table-toolbar h2 { font-size:14px; }
+.pavement-dashboard-distribution > p,.pavement-dashboard-quality > p { font-size:10px; color:rgb(var(--text-secondary)); margin-top:3px; }
+.pavement-dashboard-stacked-bar { display:flex; height:18px; margin:15px 0 14px; overflow:hidden; border-radius:20px; background:rgb(var(--surface-subtle)); }
+.pavement-dashboard-stacked-bar > span { min-width:0; }
+.pavement-dashboard-distribution-legend { display:grid; grid-template-columns:1fr; gap:10px; }
+.pavement-dashboard-distribution-legend li { display:flex; gap:8px; min-width:0; }
+.pavement-dashboard-distribution-legend li > span { flex:none; width:10px; height:10px; margin-top:2px; border-radius:50%; }
+.pavement-dashboard-distribution-legend h3 { font-size:11px; font-weight:600; }
+.pavement-dashboard-distribution-legend p { font-size:10px; margin-top:3px; color:rgb(var(--text-secondary)); }
+.pavement-dashboard-distribution-legend strong { color:rgb(var(--text-primary)); }
+.pavement-dashboard-quality ul { display:grid; gap:2px; margin-top:9px; }
+.pavement-dashboard-quality li > button,.pavement-dashboard-quality li > div { display:flex; align-items:center; gap:8px; width:100%; min-height:31px; padding:3px 5px; border:1px solid rgb(var(--border-subtle)); border-radius:7px; text-align:left; font-size:11px; }
+.pavement-dashboard-quality li > button:hover { background:rgb(var(--surface-subtle)); }
+.pavement-dashboard-quality li strong { margin-left:auto; }
+.pavement-quality-icon { display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:5px; flex:none; }
+.pavement-quality-icon svg { width:14px; height:14px; }
+.pavement-dashboard-table { overflow:hidden; }
+.pavement-dashboard-table-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px 16px; }
+.pavement-dashboard-table-toolbar h2 { margin-right:auto; }
+.pavement-export-button { display:flex; align-items:center; justify-content:center; gap:7px; height:30px; padding:0 13px; border:1px solid rgb(var(--border-subtle)); border-radius:7px; font-size:11px; font-weight:600; background:rgb(var(--surface-subtle)); white-space:nowrap; }
+.pavement-export-button:disabled { opacity:.5; cursor:not-allowed; }
+.pavement-export-primary { color:rgb(var(--text-on-brand)); background:rgb(var(--brand)); border-color:rgb(var(--brand)); }
+.pavement-dashboard-table table { width:100%; min-width:860px; font-size:11px; text-align:left; }
+.pavement-dashboard-table thead { background:rgb(var(--surface-subtle)); font-size:10px; }
+.pavement-dashboard-table th,.pavement-dashboard-table td { padding:7px 14px; border-top:1px solid rgb(var(--border-subtle)); }
+.pavement-dashboard-table tbody th { font-weight:500; max-width:230px; }
+.pavement-dashboard-table tbody tr:hover { background:rgb(var(--surface-subtle)); }
+.pavement-dashboard-table th button { display:flex; align-items:center; gap:6px; }
+.pavement-dashboard-table th svg { width:11px; height:11px; }
+.pavement-dashboard-table td:last-child { width:22%; min-width:145px; }
+.pavement-dashboard-pagination { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:16px; border-top:1px solid rgb(var(--border-subtle)); padding:9px 14px; font-size:10px; color:rgb(var(--text-secondary)); }
+.pavement-dashboard-pagination label { display:flex; align-items:center; gap:10px; }
+.pavement-dashboard-pagination select { height:28px; border:1px solid rgb(var(--border-subtle)); border-radius:6px; padding:0 8px; background:rgb(var(--surface-raised)); }
+.pavement-dashboard-pagination button { border-radius:5px; padding:4px; }
+.pavement-dashboard-pagination button:disabled { opacity:.35; }
+.pavement-dashboard-pagination svg { width:14px; height:14px; }
+.pavement-dashboard-ranking-empty { display:flex; align-items:center; gap:12px; padding:14px 16px; }
+.pavement-dashboard-ranking { border-radius:12px; box-shadow:none; }
+.pavement-dashboard-ranking > div:first-child { padding:10px 16px; border-bottom:0; }
+.pavement-dashboard-ranking-grid { display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 12px; }
+.pavement-dashboard-ranking-grid > a,.pavement-dashboard-ranking-grid > div { border:1px solid rgb(var(--border-subtle)); border-radius:8px; padding:8px; }
+.pavement-dashboard-ranking-grid img,.pavement-dashboard-ranking-grid > a > span:nth-child(2) { width:30px; height:30px; }
+.pavement-dashboard-footnote { font-size:10px; color:rgb(var(--text-tertiary)); }
+@media (min-width:640px) {
+  .pavement-dashboard-distribution-legend { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .pavement-dashboard-ranking-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (min-width:900px) {
+  .pavement-dashboard-primary-filters { grid-template-columns:minmax(0,1fr) auto; }
+  .pavement-dashboard-summary { grid-template-columns:minmax(0,1fr) 290px; }
+}
+@media (min-width:1024px) {
+  .territorial-dashboard-grid { grid-template-columns:200px minmax(0,1fr); min-height:calc(100dvh - 56px); }
+  .territorial-dashboard-sidebar { display:block; }
+  .territorial-dashboard-sidebar nav > p { font-size:10px; margin-bottom:10px; padding-left:10px; }
+  .territorial-dashboard-sidebar a { font-size:12px; padding:10px; }
+  .territorial-dashboard-sidebar nav[aria-label="Ruas e pavimentações"] { margin-left:0; border:0; padding-left:0; }
+  .territorial-dashboard-main { padding:16px 20px; }
+  .pavement-dashboard-cards { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .pavement-dashboard-card { gap:10px; padding:14px 12px; }
+  .pavement-dashboard-icon { width:38px; height:42px; }
+  .pavement-dashboard-value { font-size:23px; }
+}
+@media (min-width:1440px) {
+  .territorial-dashboard-main { padding:18px 24px; }
+  .pavement-dashboard-card { padding:17px; }
+  .pavement-dashboard-icon { width:46px; height:46px; }
+  .pavement-dashboard-summary { grid-template-columns:minmax(0,1fr) minmax(300px,27%); }
+}
+@media (max-width:639px) {
+  .territorial-header-inner { padding:8px 12px; gap:6px; flex-wrap:wrap; }
+  .territorial-header-inner > div:first-child { flex:1 1 100%; }
+  .territorial-header-inner > div:last-child { width:100%; justify-content:flex-end; }
+  .territorial-header-city { margin-right:auto; }
+  .territorial-dashboard-main { padding:12px; }
+  .pavement-dashboard-heading h1 { font-size:21px; }
+  .pavement-dashboard-heading > button { width:100%; }
+  .pavement-dashboard-card { padding:12px; gap:8px; flex-direction:column; }
+  .pavement-dashboard-value { font-size:23px; }
+  .pavement-dashboard-table-toolbar > div:nth-child(2) { flex-basis:100%; order:2; }
+  .pavement-dashboard-table-toolbar > div:last-child { width:100%; }
+  .pavement-dashboard-table-toolbar > div:last-child > button { flex:1; }
+}
+
+/* Densidade para notebooks: preserva a leitura e libera altura para a tabela. */
+@media (min-width:1024px) and (max-height:850px) {
+  .territorial-header-inner { min-height:48px; padding-block:4px; }
+  .territorial-dashboard-grid { min-height:calc(100dvh - 48px); }
+  .territorial-dashboard-main { padding:12px 16px; }
+  .pavement-dashboard { gap:10px; }
+  .pavement-dashboard-heading h1 { font-size:21px; }
+  .pavement-dashboard-heading p { font-size:11px; margin-top:3px; }
+  .pavement-dashboard-filters { gap:7px; padding:10px 12px; }
+  .pavement-dashboard-filters input { height:32px; }
+  .pavement-dashboard-filters label select,.pavement-more-filters { height:30px; }
+  .pavement-dashboard-card { padding:12px; }
+  .pavement-dashboard-icon { width:36px; height:38px; }
+  .pavement-dashboard-icon svg { width:22px; height:22px; }
+  .pavement-dashboard-card-note,.pavement-dashboard-card-progress { margin-top:6px; }
+  .pavement-dashboard-distribution,.pavement-dashboard-quality { padding:12px; }
+  .pavement-dashboard-stacked-bar { height:15px; margin:12px 0; }
+  .pavement-dashboard-quality ul { margin-top:6px; }
+  .pavement-dashboard-quality li > button,.pavement-dashboard-quality li > div { min-height:26px; padding-block:2px; }
+  .pavement-quality-icon { width:20px; height:20px; }
+  .pavement-dashboard-table-toolbar { padding:10px 12px; }
+  .pavement-dashboard-table th,.pavement-dashboard-table td { padding-block:5px; }
 }

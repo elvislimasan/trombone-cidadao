@@ -17,7 +17,8 @@ import { notifyPermissionsChanged } from '@/lib/permissionUpdates';
 const ROLES = [
   { key: 'ambassador', label: 'Embaixador' },
   { key: 'admin', label: 'Admin' },
-  { key: 'urban_planner', label: 'Planejamento urbano' },
+  { key: 'urban_planner', label: 'Gestão de ruas', module: 'urban_planning' },
+  { key: 'tree_manager', label: 'Gestão de arborização', module: 'arborization' },
 ];
 
 const ManagePermissionsPage = () => {
@@ -28,6 +29,31 @@ const ManagePermissionsPage = () => {
   const [userSearch, setUserSearch] = useState('');
   const [candidates, setCandidates] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [treeMembership, setTreeMembership] = useState({ userId: null, cities: [], loading: false, error: false });
+  const activeTreeCities = treeMembership.userId === selectedUser?.id ? treeMembership.cities : [];
+  const activeStreetCities = treeMembership.userId === selectedUser?.id ? treeMembership.streetCities || [] : [];
+  const municipalGrants = {
+    urban_planning: (selectedUser?.urban_planner_cities || []).some(row => row.municipal_enabled && activeStreetCities.includes(row.city_id)),
+    arborization: (selectedUser?.tree_manager_cities || []).some(row => row.municipal_enabled && activeTreeCities.includes(row.city_id)),
+  };
+
+  useEffect(() => {
+    if (!selectedUser?.id) return;
+    let cancelled = false;
+    const userId = selectedUser.id;
+    setTreeMembership({ userId, cities: [], loading: true, error: false });
+    supabase.rpc('tree_management_channels', { p_user_id: userId }).then(({ data, error }) => {
+      if (cancelled) return;
+      const cities = error ? [] : (selectedUser.tree_manager_cities || [])
+        .filter(row => (data || []).some(channel => channel.canal_id === row.canal_id && String(channel.city_id) === String(row.city_id)))
+        .map(row => row.city_id);
+      const streetCities = error ? [] : (selectedUser.urban_planner_cities || [])
+        .filter(row => !row.municipal_enabled || (data || []).some(channel => channel.canal_id === row.municipal_canal_id && String(channel.city_id) === String(row.city_id)))
+        .map(row => row.city_id);
+      setTreeMembership({ userId, cities, streetCities, loading: false, error: Boolean(error) });
+    }).catch(() => { if (!cancelled) setTreeMembership({ userId, cities: [], loading: false, error: true }); });
+    return () => { cancelled = true; };
+  }, [selectedUser]);
 
   const fetchRules = useCallback(async () => {
     setLoading(true);
@@ -62,7 +88,7 @@ const ManagePermissionsPage = () => {
 
     supabase
       .from('profiles')
-      .select('id, name, phone, city, user_type, is_admin, is_ambassador, is_master, urban_planner_cities(city_id)')
+      .select('id, name, phone, city, user_type, is_admin, is_ambassador, is_master, urban_planner_cities(city_id,municipal_enabled,municipal_canal_id), tree_manager_cities:tree_manager_cities!tree_manager_cities_user_id_fkey(city_id,canal_id,municipal_enabled)')
       .or(`name.ilike.%${termoSeguro}%,phone.ilike.%${termoSeguro}%`)
       .order('name')
       .limit(8)
@@ -85,7 +111,7 @@ const ManagePermissionsPage = () => {
     setSaving(true);
     const existing = roleRule(role, module);
     let error;
-    const defaultAllowed = role !== 'urban_planner';
+    const defaultAllowed = !['urban_planner', 'tree_manager'].includes(role);
     if (allowed === defaultAllowed) {
       // Voltar ao padrão do cargo remove a exceção.
       if (existing) ({ error } = await supabase.from('permission_rules').delete().eq('id', existing.id).select('id').single());
@@ -143,13 +169,13 @@ const ManagePermissionsPage = () => {
   // Valor que o usuário herda do cargo (sem considerar exceção individual).
   const inheritedForUser = (user, module) => {
     return canWriteModule(user, rules.filter(rule => rule.scope === 'role'), module,
-      (user.urban_planner_cities || []).map(row => row.city_id));
+      activeStreetCities, activeTreeCities, municipalGrants);
   };
 
   const selectedUserRoleLabel = useMemo(() => {
     if (!selectedUser) return '';
     return [selectedUser.is_master ? 'Master' : selectedUser.is_admin ? 'Admin' : selectedUser.is_ambassador ? 'Embaixador' : null,
-      selectedUser.urban_planner_cities?.length ? 'Planejamento urbano' : null].filter(Boolean).join(' · ') || 'Cidadão';
+      selectedUser.urban_planner_cities?.length ? 'Ruas' : null, selectedUser.tree_manager_cities?.length ? 'Arborização' : null].filter(Boolean).join(' · ') || 'Cidadão';
   }, [selectedUser]);
 
   return (
@@ -209,9 +235,9 @@ const ManagePermissionsPage = () => {
                   <div key={role.key}>
                     <p className="text-sm font-bold mb-3">{role.label}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {MODULE_KEYS.filter(mod => role.key === 'urban_planner' ? mod === 'urban_planning' : mod !== 'urban_planning').map((mod) => {
+                      {MODULE_KEYS.filter(mod => role.module ? mod === role.module : !['urban_planning', 'arborization'].includes(mod)).map((mod) => {
                         const rule = roleRule(role.key, mod);
-                        const allowed = rule ? rule.allowed : role.key !== 'urban_planner';
+                        const allowed = rule ? rule.allowed : !role.module;
                         return (
                           <div
                             key={mod}
@@ -287,11 +313,12 @@ const ManagePermissionsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {MODULE_KEYS.filter(mod => mod === 'urban_planning' || selectedUser.is_admin || selectedUser.is_ambassador || selectedUser.is_master).map((mod) => {
+                      {MODULE_KEYS.filter(mod => ['urban_planning', 'arborization'].includes(mod) || selectedUser.is_admin || selectedUser.is_ambassador || selectedUser.is_master).map((mod) => {
                         const exception = userRule(selectedUser.id, mod);
                         const inherited = inheritedForUser(selectedUser, mod);
-                        const hasPlanningRole = Boolean(selectedUser.urban_planner_cities?.length);
-                        const effective = canWriteModule(selectedUser, rules, mod, (selectedUser.urban_planner_cities || []).map(row => row.city_id));
+                        const hasPlanningRole = Boolean((mod === 'arborization' ? selectedUser.tree_manager_cities : selectedUser.urban_planner_cities)?.length);
+                        const scoped = ['urban_planning', 'arborization'].includes(mod);
+                        const effective = canWriteModule(selectedUser, rules, mod, activeStreetCities, activeTreeCities, municipalGrants);
                         return (
                           <div key={mod} className="rounded-xl border p-3 bg-background">
                             <div className="flex items-center justify-between gap-3">
@@ -299,15 +326,15 @@ const ManagePermissionsPage = () => {
                               <Switch
                                 id={`user-${mod}`}
                                 checked={effective}
-                                disabled={saving || selectedUser.is_master || (mod === 'urban_planning' && (!hasPlanningRole || selectedUser.user_type !== 'public_official'))}
+                                disabled={saving || selectedUser.is_master || (scoped && (treeMembership.loading || treeMembership.error)) || (scoped && (!hasPlanningRole || selectedUser.user_type !== 'public_official'))}
                                 onCheckedChange={(v) => setUserAllowed(selectedUser.id, mod, v)}
                               />
                             </div>
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <span className="text-[11px] text-muted-foreground">
-                                {selectedUser.is_master ? 'Master: acesso garantido' : mod === 'urban_planning' && selectedUser.user_type !== 'public_official' ? 'Selecione Órgão Público em Gerenciar usuários' : mod === 'urban_planning' && !hasPlanningRole ? 'Atribua o cargo e as cidades em Gerenciar usuários' : exception
+                                {selectedUser.is_master ? 'Master: acesso garantido' : scoped && treeMembership.error ? 'Erro ao consultar vínculo institucional; selecione o usuário novamente' : scoped && treeMembership.loading ? 'Verificando vínculo institucional…' : scoped && selectedUser.user_type !== 'public_official' ? 'Selecione Órgão Público em Gerenciar usuários' : scoped && !hasPlanningRole ? 'Atribua o cargo e as cidades em Gerenciar usuários' : mod === 'arborization' && activeTreeCities.length === 0 ? 'Regularize o vínculo ativo com prefeitura e secretaria' : exception
                                   ? `Exceção individual (cargo: ${inherited ? 'liberado' : 'bloqueado'})`
-                                  : 'Seguindo o cargo'}
+                                  : municipalGrants[mod] ? 'Concedido pela prefeitura' : 'Seguindo o cargo'}
                               </span>
                               {exception && (
                                 <Button

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger, F
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreeMap from '@/components/arborization/TreeMap';
-import { useCanManagePavement } from '@/hooks/useCanManagePavement';
+import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { supabase } from '@/lib/customSupabaseClient';
 import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, TREE_SERVICES, treeLabel } from '@/lib/arborization';
 import { loadTreeHistory, treeTimeline, uploadTreePhoto } from '@/lib/treeInventory';
@@ -25,7 +25,7 @@ function TreeContent({ id }) {
   const [careOpen, setCareOpen] = useState(false), [careError, setCareError] = useState('');
   const [care, setCare] = useState({ service_type: '', performed_on: '', notes: '' });
   const [saving, setSaving] = useState(false), [notice, setNotice] = useState('');
-  const { canManage } = useCanManagePavement(tree?.city_id);
+  const { canManage } = useCanManageArborization(tree?.city_id);
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError('');

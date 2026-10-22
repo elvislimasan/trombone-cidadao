@@ -1,7 +1,10 @@
 # Estratégia — painel de ruas e arborização por responsabilidade
 
 **Data:** 21/10/2026  
-**Estado:** proposta para revisão, antes da implementação dos painéis e da separação de permissões.  
+**Estado:** implementado localmente; implantação das migrações e configuração das contas reais pendentes. As seções 11 a 14 registram a entrega e os ajustes solicitados.
+
+> **Evolução em validação local em 21/10/2026:** o [plano de painel municipal por responsabilidades](./PLANO_PAINEL_MUNICIPAL_POR_RESPONSABILIDADES.md) registra a unificação e a separação de cargos implementadas localmente, as verificações e as pendências de implantação. Ele substitui a proposta de painéis separados e de leitura obrigatória do atendimento para responsáveis exclusivos pelo inventário. Este documento preserva o histórico da entrega anterior.
+
 **Referência visual:** painel de gestão de iluminação pública existente no projeto.
 
 ## 1. Resultado esperado
@@ -12,7 +15,7 @@ Funcionários que também sejam **admin ou master continuam na visão geral**. R
 
 O cadastro cidadão e a consulta pública dos mapas continuam disponíveis. O objetivo desta entrega é organizar a experiência de trabalho e separar as responsabilidades municipais.
 
-## 2. O que foi confirmado no código
+## 2. Situação encontrada antes da implementação
 
 | Área | Situação atual | Consequência para a proposta |
 | --- | --- | --- |
@@ -53,8 +56,8 @@ Se a pessoa acumular iluminação, eletricista ou outras funções operacionais,
 
 - Cabeçalho institucional com identificação da prefeitura, cidade ativa, nome do funcionário, secretaria vinculada quando houver, tema e saída.
 - Mesmo padrão visual de iluminação pública: ações claras, mapa amplo, filtros, resultados, detalhes e indicadores.
-- Título **“Gestão de ruas e arborização”** para quem tem as duas responsabilidades; **“Ruas”** ou **“Arborização”** para quem tem apenas uma.
-- Duas abas de módulo somente quando ambas estiverem autorizadas. Dentro de cada uma, **Mapa/Lista** alterna a apresentação dos mesmos dados.
+- Título **“Gestão de ruas e arborização”** para quem tem as duas responsabilidades; **“Ruas e pavimentações”** ou **“Arborização”** para quem tem apenas uma.
+- Duas abas de módulo somente quando ambas estiverem autorizadas. Em **Ruas e pavimentações**, o submenu separa **Mapa** de **Estatísticas**; mapa/lista alterna apenas a apresentação dos cadastros no primeiro submenu.
 - Filtros e posição de trabalho independentes por aba e cidade. A URL preserva a área ativa, inclusive ao atualizar a página ou abrir um link direto.
 - Desktop com navegação lateral; mobile com menu recolhível e ações acessíveis. Não herdar a restrição de desktop de telas específicas do eletricista.
 
@@ -66,19 +69,21 @@ Gestão de ruas e arborização
 
 [ Ruas ]  [ Arborização ]
 
-Indicadores da área selecionada              [Cadastrar] [Exportar]
-
-Filtros / busca       Mapa ou lista que ocupa a largura disponível
-                      Detalhes e ações ao selecionar um cadastro
+Ruas e pavimentações
+  Mapa                Filtros, mapa/lista, cadastro e edição
+  Estatísticas        Indicadores, gráficos, bairros e relatórios CSV/PDF
+Arborização           Inventário e cuidados das árvores
 ```
 
 Para o funcionário de Meio Ambiente, a mesma estrutura abrirá diretamente em **Arborização**, sem a aba Ruas. A secretaria exibida virá do cadastro institucional, sem nome fixo no código.
 
-### Aba Ruas
+### Área Ruas e pavimentações
+
+- Submenus **Mapa** e **Estatísticas** com URLs próprias e preservação dos filtros.
 
 - Mapa e lista do cadastro municipal de ruas.
 - Busca por nome, nome informal, bairro e CEP, aproveitando as funções existentes.
-- Indicadores úteis para o cadastro: ruas cadastradas, sem nome, sem CEP e sem traçado. As definições devem ser explícitas; não apresentar cobertura física da cidade como se fosse cobertura de cadastro.
+- Em Estatísticas: indicadores de ruas cadastradas, sem nome, sem CEP e sem traçado. As definições devem ser explícitas; não apresentar cobertura física da cidade como se fosse cobertura de cadastro.
 - Cadastro/edição de ruas, geometria, bairros e referências do mapa conforme as permissões atuais.
 - Histórico e anexos das ruas reaproveitados, sem duplicar registros em outra tabela.
 - Exportação disponível na primeira versão conforme o que o módulo já suportar; formatos novos entram em etapa própria.
@@ -105,14 +110,14 @@ Para o funcionário de Meio Ambiente, a mesma estrutura abrirá diretamente em *
 2. Criar o módulo **`arborization`**, rotulado **“Gestão de arborização”**, com acesso negado por padrão para contas sem concessão explícita.
 3. Preservar `urban_planner_cities` como fonte de cidades autorizadas para ruas e acrescentar uma concessão própria de arborização, proposta como **`tree_manager_cities`**.
 4. A nova concessão relaciona usuário, cidade e secretaria responsável por identificador (`canal_id`), com registro de quem concedeu e quando. Usuário/cidade não podem ter concessões duplicadas.
-5. Para novos responsáveis de arborização, exigir conta de tipo **Órgão Público**, prefeitura ativa e vínculo ativo do funcionário com a prefeitura e com a secretaria daquela cidade, além da concessão de módulo. Nome da secretaria, categoria e associação institucional sozinhos não concedem escrita.
-6. Uma RPC administrativa valida e grava o conjunto de concessões de forma transacional. A UI mostra claramente cidades, secretaria e módulos efetivamente autorizados. Revogar o vínculo institucional impede novas operações de arborização, inclusive chamadas diretas.
+5. O aceite do convite institucional define automaticamente o tipo **Órgão Público** e a cidade padrão quando o perfil ainda não tem cidade. Para novos responsáveis de arborização, exigir conta de tipo **Órgão Público**, prefeitura ativa e vínculo ativo do funcionário com a prefeitura e com a secretaria daquela cidade, além da concessão de módulo. Nome da secretaria, categoria e associação institucional sozinhos não concedem escrita.
+6. O administrador municipal escolhe responsabilidades no convite e pode ajustá-las em **Equipe**, sem intervenção do master. A liberação municipal vale somente para a cidade da prefeitura ativa e não muda regras globais. Bloqueios individuais explícitos da plataforma continuam prevalecendo. Uma RPC administrativa valida e grava o conjunto de concessões de forma transacional. A UI mostra claramente cidades, secretaria e módulos efetivamente autorizados. Revogar o vínculo institucional impede novas operações de arborização, inclusive chamadas diretas.
 
 Na configuração de um funcionário, a proposta de apresentação é:
 
 ```text
 Funcionário: [pessoa selecionada]
-Cidade:     [Floresta]
+Cidade:     Floresta (automática pela prefeitura ativa)
 Secretaria: [Produção Rural e Meio Ambiente]
 
 Responsabilidades nesta cidade:
@@ -130,7 +135,7 @@ Cada seleção será validada no servidor segundo seu módulo. Marcar ruas não 
 - Preservar o cadastro cidadão de árvore no envio de solicitação e suas validações de proximidade, cidade e autenticação. Essa exceção não concede edição geral do inventário.
 - Revisar os buckets de fotos e anexos: o envio cidadão de foto de árvore tem contrato próprio e não pode ser bloqueado por uma troca genérica de helper de gestão. Anexos privados municipais conservam suas regras próprias.
 - Bairros existentes podem ser lidos para selecionar o endereço da árvore. Criar/editar bairro e alterar seu contorno continua uma responsabilidade de ruas; o novo gestor de árvores não ganha esses poderes automaticamente.
-- Regras individuais de bloqueio prevalecem sobre liberações de cargo para não masters, conforme o contrato existente. Ausência de regra para o novo módulo significa **sem escrita**, inclusive no `can_write` SQL e em `canWriteModule` JavaScript.
+- Regras individuais de bloqueio prevalecem sobre liberações de cargo para não masters, conforme o contrato existente. Ausência de concessão válida, municipal ou da plataforma, significa **sem escrita**, inclusive no `can_write` SQL e em `canWriteModule` JavaScript.
 - Admin permanece com visão geral, mas não recebe edição irrestrita por causa desse novo painel. Master mantém a exceção global atual. Qualquer ampliação de escrita para admin será uma decisão separada.
 - Esconder uma aba não é controle de acesso: cadastro, edição, exclusão, RPC e storage precisam rejeitar operações de quem não tem a concessão correspondente.
 
@@ -209,4 +214,116 @@ A identificação automática das árvores é a entrega anterior e independente:
 
 Os 19 testes de unidade, os testes locais de numeração e concorrência, o build de produção e a validação de interface em 390, 800, 1280, 1366, 1440 e 1920 px passaram. Isso não significa que a migração tenha sido aplicada ao Supabase remoto.
 
-O painel proposto reaproveitará esses códigos. **Este documento não implementa nem publica o novo painel, não separa ainda as permissões e não altera cargos ou secretarias reais.**
+O painel implementado reaproveita esses códigos. A estratégia acima documenta as decisões que orientaram a entrega; não houve alteração de cargos ou secretarias reais nem publicação no ambiente remoto.
+
+## 11. Implementação e implantação
+
+### Entrega local
+
+- Painel em `/prefeitura/gestao-territorial`, com rotas `/ruas` e `/arborizacao` e cidade na URL (`?cidade=64`, por exemplo).
+- Seleção limitada às cidades autorizadas; uma área ou duas abas conforme as concessões da cidade ativa. Filtros e seleção são mantidos entre abas e descartados na troca de cidade/conta.
+- Cabeçalho institucional, secretaria real da concessão, navegação lateral no desktop e menu recolhível no celular, com tema e saída.
+- Conteúdo de ruas reutilizado de `PavementMapPage`, que já possui mapa/lista, edição, relatórios, referências e contornos. A reutilização desse conteúdo evita duplicar o mapa ou reproduzir seu contrato na página administrativa. Indicadores específicos de cadastro mostram total filtrado, sem nome, sem CEP e sem traçado.
+- Conteúdo de arborização reutilizado de `ArborizationMapPage`, com código AR, mapa/lista, cadastro, espécies, fotos e cuidados. Detalhes públicos mantêm suas rotas por UUID.
+- Permissões carregadas por um provider compartilhado, com atualização ao voltar à janela, trocar de conta ou receber aviso de alteração. Cada operação continua validada no servidor.
+- Admin/master mantêm sua experiência geral. Administradores municipais mantêm a visão geral municipal. Links de atendimento e do painel do eletricista permitem alternar áreas quando há cargos acumulados.
+- “Gerenciar usuários” configura separadamente cidades de ruas e cidades/secretarias de arborização; “Permissões” permite liberação de cargo e exceção individual para cada módulo.
+- A gravação das concessões de ruas e arborização usa uma RPC transacional. O salvamento dos demais campos do perfil mantém o fluxo anterior e informa explicitamente se somente o perfil foi salvo e as responsabilidades falharam.
+
+### Ordem para implantar
+
+1. Aplicar `369_territorial_responsibilities.sql` após as migrações até 368. A migração cria a concessão de árvores e a validação institucional, sem atribuir cargos reais nem copiar gestores de ruas.
+2. Aplicar `370_arborization_independent_access.sql` e `371_municipal_team_territorial_onboarding.sql` antes de disponibilizar este cliente. A 370 separa as policies; a 371 habilita o convite completo pela Equipe e a liberação municipal por cidade.
+3. O administrador municipal seleciona sua prefeitura, confirma a secretaria ativa e prepara os responsáveis em **Equipe**. Novos funcionários recebem tipo e cidade ao aceitar o convite; funcionários existentes recebem a configuração ao salvar suas responsabilidades.
+4. Conferir as contas reais em homologação antes da publicação. O vínculo institucional ativo é obrigatório; um bloqueio individual explícito precisa ser tratado pela plataforma quando existir. O fluxo comum de convite não depende do master.
+
+**Transição:** a 370 retira gestão de árvores de quem só possui ruas. Coordenar sua aplicação com a 371 e a configuração dos responsáveis; não presumir que as novas concessões serão copiadas das antigas. As concessões legadas da plataforma continuam disponíveis em Gerenciar usuários/Permissões. Master mantém sua exceção global.
+
+### Verificação realizada
+
+- Testes de navegação e permissões: módulos independentes, cidade, precedência de admin/master, rotas antigas, links públicos e acesso aos demais trabalhos.
+- Testes de componentes: seleção e remoção de cidade/secretaria, erro recuperável sem apagar concessões e compartilhamento de consultas entre consumidores.
+- PostgreSQL local descartável: concessão administrativa, transação sem alterações parciais, RLS independente, cidade/secretaria, revogação institucional e individual, tipo de usuário, master e cadastro cidadão preservado.
+- Chrome headless com componentes reais e dados simulados em 390, 1440 e 1920 px: uma área, duas abas, troca de cidade, ausência/revogação de acesso e ausência de overflow horizontal.
+- ESLint dos arquivos de aplicação alterados e build de produção.
+- A execução da suíte geral encontrou duas falhas em testes não alterados: `councilorAdmin.test.mjs` e `directoryCategories.test.mjs`, que procuram sequências `\n` literais em migrações antigas com finais de linha CRLF neste checkout. Os arquivos correspondentes não foram modificados nesta entrega.
+
+Comandos de reprodução:
+
+```powershell
+node --import ./tools/test-alias.mjs --test src/test/territorialAccess.test.mjs src/test/modulePermissions.test.mjs src/test/municipalityAccess.test.mjs src/test/permissionsRefresh.test.mjs src/test/treeResponsibilitiesFields.test.mjs
+./tools/validate-arborization-db.ps1 -TestFile supabase/tests/territorial_access.sql
+./tools/validate-arborization-db.ps1 -TestFile supabase/tests/municipal_team_territorial.sql
+node tools/validate-tree-inventory-ui.mjs --territorial
+node tools/validate-tree-inventory-ui.mjs --team
+npm test
+node node_modules/vite/bin/vite.js build
+```
+
+A validação visual usa dados locais, não perfis reais. A homologação em dispositivo Android/iOS e a aplicação das migrações no Supabase remoto ainda não foram realizadas.
+
+## 12. Cadastro de um responsável de arborização e primeiro acesso
+
+1. O administrador municipal seleciona sua prefeitura no painel. **A cidade já vem dessa prefeitura** e não é digitada no convite. Se administrar mais de uma cidade, vale a prefeitura ativa.
+2. Em **Equipe → Convidar funcionário**, seleciona a **Secretaria de Produção Rural e Meio Ambiente**, informa o e-mail e marca **Gerenciar arborização**. Para quem só vai cuidar do inventário, o acesso ao atendimento começa como **Somente leitura**; as responsabilidades são escolhidas separadamente.
+3. Gera e encaminha o link. O funcionário cria a conta ou entra com o e-mail convidado. Ao aceitar, recebe o tipo **Órgão Público**, os vínculos institucionais e a gestão de arborização naquela cidade, em uma transação. Uma cidade já cadastrada no perfil pessoal é preservada; a cidade de trabalho vem sempre da prefeitura do convite.
+4. O primeiro acesso abre Arborização. Quem recebeu ruas e árvores tem duas abas; ruas inclui **Mapa** e **Estatísticas**. O administrador municipal pode adicionar/remover responsabilidades ou suspender o acesso pelo detalhe do funcionário em **Equipe**.
+5. Não é necessário passar por Gerenciar usuários nem pedir uma liberação ao master no fluxo comum. Admin/master e administrador municipal continuam com sua visão geral; o cabeçalho oferece **Visão geral** para os perfis correspondentes.
+
+Essas regras valem após a migração **371**, além de 369/370 e do cliente compatível. Não há promoção global de cidadãos: somente contas com convite institucional válido aceito, ou funcionários já vinculados cuja configuração é salva pela Equipe.
+
+O nível do convite institucional controla o atendimento municipal, separadamente da concessão de árvores. **Somente leitura** permite consultar o atendimento; **Atendente / técnico** e **Gestor** também concedem operações de atendimento. Para quem vai trabalhar somente no inventário, não atribuir esses papéis de operação apenas para habilitar as árvores: a concessão de arborização tem controle próprio.
+
+**Limite atual:** entrada automática no painel de arborização não equivale a isolamento completo dessa conta. A moldura ainda exibe **Atendimento municipal** para quem tem vínculo com a prefeitura, e as rotas/dados dessa área seguem as permissões institucionais existentes. Mesmo o papel Somente leitura conserva consultas permitidas. Restringir literalmente a conta a um único painel exigiria uma regra específica de acesso institucional, aplicada aos guards de rotas e às permissões de dados; apenas ocultar o link não produziria essa garantia.
+
+### Ajuste do layout após revisão
+
+O topo do painel foi compactado: título, abas e cidade compartilham uma faixa; o conteúdo incorporado de ruas não repete título e descrição; indicadores e ações ocupam uma segunda faixa curta. Na arborização, foram removidos o espaçamento reservado ao cabeçalho público e a decoração de fundo. As mudanças são limitadas ao painel; os mapas públicos conservam seu layout.
+
+Na validação em 1440 e 1920 px, o mapa de ruas começa a aproximadamente **174 px** do topo da janela e o de arborização a **192 px**. O mapa também aproveita a altura liberada. Em 390 px, os controles se reorganizam sem rolagem horizontal.
+
+
+## 13. Responsabilidades municipais sem etapa do master
+
+A migração `371_municipal_team_territorial_onboarding.sql` registra a liberação municipal na concessão da própria cidade (`municipal_enabled`). Para ruas, guarda também a secretaria responsável por esse vínculo. Não cria uma permissão individual global nem habilita cargos em todas as cidades.
+
+- Uma liberação em Floresta não ativa atribuições antigas bloqueadas em outro município.
+- Regras individuais explícitas da plataforma prevalecem; o padrão global bloqueado do cargo não impede uma liberação municipal legítima.
+- Suspender o funcionário, a secretaria, a prefeitura ou o vínculo municipal remove o acesso efetivo. Ao reativar, as responsabilidades mantidas voltam a valer.
+- Editar um funcionário salva papel de atendimento, situação, tipo Órgão Público e responsabilidades em uma transação. Remover um módulo nessa tela afeta apenas a cidade ativa.
+- Reabrir um convite já aceito não restaura permissões removidas posteriormente.
+- Erro ao carregar concessões impede editar com dados incompletos. Trocar a prefeitura fecha os formulários e descarta o link/rascunho da prefeitura anterior.
+
+Validação em PostgreSQL local descartável: convite com e-mail correto, cidade padrão, tipos de conta, concessão sem master, isolamento entre municípios, edição, suspensão, bloqueio individual e repetição do aceite. Interface conferida em 390, 1440 e 1920 px, incluindo criação de convite, edição, falha de salvamento e troca de prefeitura.
+
+## 14. Ruas e pavimentações: Mapa e Estatísticas
+
+| Submenu | Conteúdo |
+| --- | --- |
+| **Mapa** | Mapa amplo, busca/filtros, alternância mapa/lista, cadastro/edição, traçado dos bairros, impressão do mapa e legenda de cores sem indicadores agregados. |
+| **Estatísticas** | Total de ruas, extensão medida, pavimentadas/sem pavimentação, distribuição por situação, pendências e documentação, comparação por bairro, ranking existente de autores e relatórios CSV/PDF. |
+
+Rotas: `/prefeitura/gestao-territorial/ruas/mapa?cidade=64` e `/prefeitura/gestao-territorial/ruas/estatisticas?cidade=64`. O endereço antigo `/ruas` encaminha para Mapa. Atualizar a página ou abrir diretamente Estatísticas mantém a área e a cidade na URL. No celular há atalhos Mapa/Estatísticas visíveis, além do menu recolhível.
+
+Os dois submenus compartilham a mesma carga de ruas e os mesmos filtros. Trocar de submenu não repete a consulta de ruas. Os gráficos, tabelas e exportações seguem o recorte atual. Ruas sem traçado permanecem contadas, mas não são apresentadas como extensão conhecida; o agrupamento Sem bairro preserva cadastros incompletos. Não há cópia de inventário ou alteração no cadastro para produzir os indicadores.
+
+Validação em Chrome com dados simulados: 390, 1440 e 1920 px sem overflow horizontal; mapa sem coluna de relatórios/cartões; Estatísticas sem montar mapa; alternância preservando filtros; CSV e PDF gerados, incluindo CSV filtrado por CEP. O build de produção e os testes de permissões passaram. Migrações e aplicação ainda não foram publicadas no ambiente remoto.
+
+
+## 15. Layout aplicado à referência e adaptação para notebooks
+
+A tela de Estatísticas foi redesenhada conforme a referência enviada: cabeçalho institucional compacto com cidade, navegação lateral, título com ação de exportar, filtros, quatro cartões com ícones, barra de distribuição, qualidade do cadastro e tabela de bairros na largura disponível. O atalho Visão geral permanece no cabeçalho para os administradores correspondentes.
+
+- Busca principal e quatro filtros frequentes ficam visíveis. Lei, projeto, autor e nome oficial ficam em **Mais filtros**; filtros ativos aparecem como chips removíveis. Os atalhos Sem nome oficial e Sem CEP aplicam o filtro correspondente.
+- A tabela permite pesquisar bairros, ordenar nome/quantidade/extensão e paginar em 10, 25 ou 50 linhas. Mostra a participação de ruas pavimentadas por bairro. CSV/PDF da tabela incluem todos os bairros da busca atual, além da página visível, com totais calculados sobre o mesmo recorte. A exportação em PDF usa orientação paisagem.
+- **Exportar relatório** abre a seleção dos relatórios existentes e referências municipais. O ranking mostra três autores inicialmente no modo compacto, com expansão; na ausência de autoria vinculada, informa a ausência de dados.
+- Os cartões não inventam variações de período: a base atual não oferece uma série histórica para calcular os percentuais de crescimento mostrados na imagem de referência. Contagens, proporções e extensões usam os registros reais.
+- Em desktops, margens internas de 16 a 24 px, sem limite de largura da página. A navegação lateral usa 200 px. Em notebooks com até 850 px de altura, filtros, cartões, resumo e linhas da tabela ficam mais compactos. O conteúdo mantém rolagem vertical normal.
+- Em tablets/celulares, os cartões passam a duas colunas, o menu é recolhível e a tabela tem rolagem horizontal dentro do próprio cartão. Busca, exportações e paginação continuam acessíveis. O cabeçalho reorganiza cidade e ações sem ultrapassar a tela.
+
+Validação com componentes reais e dados simulados em **390×844, 768×1024, 1024×768, 1280×800, 1366×768, 1440×900 e 1920×1080**, além do tema escuro. Conferidos: ausência de overflow da página, cartões responsivos, busca/ordenação/paginação de bairros, exportações filtradas, filtros de qualidade, modal de exportação, navegação entre áreas e atalho Visão geral.
+
+```powershell
+node tools/validate-tree-inventory-ui.mjs --dashboard
+node tools/validate-tree-inventory-ui.mjs --territorial
+```

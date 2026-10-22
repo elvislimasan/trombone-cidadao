@@ -17,10 +17,10 @@ await fs.writeFile(photoPath, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAA
 const stubs = {
   '@/contexts/CityContext': `import React,{useState,createContext,useContext} from 'react';
     const cities=[{id:64,name:'Floresta',state:{uf:'PE'}},{id:65,name:'Recife',state:{uf:'PE'}}];const Context=createContext();
-    export function CityViewProvider({children}){const [cityId,setCityId]=useState(64);const city=cities.find(c=>c.id===cityId);return <Context.Provider value={{cityId,city,cityName:city?.name,cities,setCityId,loadingCities:false}}>{children}</Context.Provider>}
-    export const useCityView=()=>useContext(Context);export const useCity=()=>({cities,loadingCities:false});`,
+    export function CityViewProvider({children,value:controlled}){const [cityId,setCityId]=useState(64);const city=cities.find(c=>c.id===cityId);return <Context.Provider value={controlled||{cityId,city,cityName:city?.name,cities,setCityId,loadingCities:false}}>{children}</Context.Provider>}
+    export const useCityView=()=>useContext(Context);export const useCity=()=>({cities,loadingCities:false,activeCityId:64});`,
   '@/hooks/useCanManagePavement': `import {useCityView} from '@/contexts/CityContext';export function useCanManagePavement(){const {cityId}=useCityView();return {canManage:!location.search.includes('public')&&cityId===64,loading:false}}`,
-  '@/design-system/theme/ThemeProvider': `export const useTheme=()=>({resolved:location.search.includes('dark')?'dark':'light'});`,
+  '@/design-system/theme/ThemeProvider': `export const useTheme=()=>({resolved:location.search.includes('dark')?'dark':'light',setPreference(){}});`,
   '@/lib/geocodeCity': `export const geocodeCity=async()=>({lat:-8.598,lng:-38.57});`,
   '@/lib/reverseGeocodePin': `export async function reverseGeocodePin(point){
     window.addressRequests=window.addressRequests||[];window.addressRequests.push(point);
@@ -28,9 +28,9 @@ const stubs = {
     await new Promise(resolve=>setTimeout(resolve,delay));
     return fail?null:{address:point.lat < -8.6005?'Rua Nova':'Rua Joaquim Marques de Sá',suburb:point.lat < -8.6005?'Três Marias':'Centro'};
   }`,
-  '@/lib/nativeDownload': `export const salvarDocumento=async()=>{};`,
+  '@/lib/nativeDownload': `export const salvarDocumento=async()=>{};export const pdfParaBase64=async()=>'';`,
   '@/lib/customSupabaseClient': `
-    window.writes=[];window.failSave=false;
+    window.writes=[];window.failSave=false;window.tableReads=[];window.generatedFiles=[];const originalCreateUrl=URL.createObjectURL;URL.createObjectURL=blob=>{window.generatedFiles.push(blob);return originalCreateUrl.call(URL,blob)};
     const species=[{id:'s1',city_id:64,common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa'},{id:'s2',city_id:64,common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica'}];
     const neighborhoods=[{id:'b1',city_id:64,name:'Centro'},{id:'b2',city_id:64,name:'Três Marias'},{id:'b3',city_id:64,name:'Bela Vista'}];
     let rows=[{id:'t1',city_id:64,public_code:'AR1',species_id:'s1',bairro_id:'b1',common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa',status:'saudavel',address:'Praça São José',neighborhood:'Centro',latitude:-8.597,longitude:-38.574,height_m:6,crown_diameter_m:4,maintenance_action:'nenhuma',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'prefeitura',planted_at:'2025-02-03',estimated_birth_year:1920,is_historic_site:true},
@@ -38,22 +38,57 @@ const stubs = {
     if(location.search.includes('photo'))rows[0].photo_url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
     let care=[];const reports=[{id:'r1',city_id:64,tree_id:'t1',title:'Poda solicitada',tree_service:'poda',status:'pending',created_at:'2026-10-16T12:00:00Z'}];
     export const supabase={auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(){return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(){return {error:null}}}}},
-      rpc(name){const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
-      from(table){let payload,operation,one=false;const filters=[];const q={select(){return q},order(){return q},range(){return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
+      rpc(name){const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:location.search.includes('fail-counts')?{code:'42501',message:'permission denied'}:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
+      from(table){window.tableReads.push(table);let payload,operation,one=false,rangeStart=0,rangeEnd=Infinity;const filters=[];const q={select(){return q},order(){return q},range(start,end){rangeStart=start;rangeEnd=end;return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
+      if((table==='bairros'&&location.search.includes('fail-neighborhoods'))||(table==='city_tree_species'&&location.search.includes('fail-species')))return Promise.resolve({error:{message:'catalog unavailable'}}).then(ok,fail);
       if(operation&&window.failSave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
       if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert')rows.unshift({...payload,public_code:'AR'+(rows.length+1),id:'new'+rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species')species.unshift({...payload,id:'s-new'});if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
-      let source=table==='city_trees'?rows:table==='city_tree_species'?species:table==='bairros'?neighborhoods:table==='cities'?[{id:64,name:'Floresta'}]:table==='city_tree_care'?care:table==='reports'?reports:[];
-      const data=source.filter(r=>filters.every(f=>f(r)));if(operation==='delete'&&table==='city_trees')rows=rows.filter(r=>!filters.every(f=>f(r)));
+      let source=table==='pavement_streets'?[{id:'street1',city_id:64,name:'Rua das Flores',status:'paved',pavement_type:'asphalt',cep:'56400000',location:{type:'Point',coordinates:[-38.573,-8.598]},path:{type:'MultiLineString',coordinates:[[[-38.574,-8.597],[-38.573,-8.598]]]},bairro_id:'b1',bairro:{name:'Centro'},updated_at:'2026-10-20T12:00:00Z'},{id:'street2',city_id:64,name:'',is_unnamed:true,status:'unpaved',pavement_type:'granite',bairro_id:'b2',bairro:{name:'Três Marias'}},{id:'street3',city_id:64,name:'Rua Parcial',status:'partially_paved',pavement_type:'asphalt',cep:'56400001',bairro_id:'b2',bairro:{name:'Três Marias'}}]:table==='city_trees'?rows:table==='city_tree_species'?species:table==='bairros'?neighborhoods:table==='cities'?[{id:64,name:'Floresta'}]:table==='city_tree_care'?care:table==='reports'?reports:[];
+      if(table==='pavement_streets'&&location.search.includes('dashboard'))source.push(...Array.from({length:13},(_,i)=>({id:'extra'+i,city_id:64,name:'Rua extra '+i,status:i%3===0?'paved':'unpaved',bairro_id:'extra-b'+i,bairro:{name:'Bairro '+String(i+1).padStart(2,'0')},cep:'56400002'})));
+      const data=source.filter(r=>filters.every(f=>f(r))).slice(rangeStart,rangeEnd+1);if(operation==='delete'&&table==='city_trees')rows=rows.filter(r=>!filters.every(f=>f(r)));
       return Promise.resolve({data:one?(operation==='insert'?source[0]:data[0]):data,error:null}).then(ok,fail);
     }};return q;}};`,
 };
+stubs['@/hooks/useCanManageArborization']=stubs['@/hooks/useCanManagePavement'].replaceAll('useCanManagePavement','useCanManageArborization');
+
+stubs['@/contexts/SupabaseAuthContext']=`export const useAuth=()=>({user:{id:'u1',name:'Funcionário de teste',is_admin:location.search.includes('scope=admin'),is_master:location.search.includes('scope=master')},signOut:async()=>{}});`;
+stubs['@/contexts/MapModeContext']=`export const useMapModeToggle=()=>({mode:'map',toggleMode(){}});`;
+stubs['@/hooks/usePermissions']=`import React from 'react';export function usePermissions(){
+ const [revoked,setRevoked]=React.useState(false);React.useEffect(()=>{const fn=()=>setRevoked(true);window.addEventListener('test-revoke',fn);return()=>window.removeEventListener('test-revoke',fn)},[]);
+ const scope=location.search.includes('public')?'none':new URLSearchParams(location.search).get('scope')||'both';const master=scope==='master';
+ const planningCityIds=revoked||['trees','none'].includes(scope)?[]:[64];const treeIds=revoked||['streets','none'].includes(scope)?[]:scope==='split'?[65]:[64,65];
+ return {loading:false,error:location.search.includes('permission-error'),refreshPermissions(){},isMaster:master,planningCityIds,treeAssignments:treeIds.map(city_id=>({city_id,canal_id:'ch1',secretaria:'Produção Rural e Meio Ambiente'})),municipalities:[{city_id:64,nome:'Prefeitura de Floresta',papel:scope==='municipal-admin'?'administrador':'colaborador'},{city_id:65,nome:'Prefeitura do Recife',papel:'colaborador'}],canWrite:module=>master||(module==='arborization'?treeIds.length>0:planningCityIds.length>0)};
+}`;
+delete stubs['@/hooks/useCanManagePavement'];delete stubs['@/hooks/useCanManageArborization'];
+if(process.argv.includes('--team')) {
+ stubs['@/lib/customSupabaseClient']=`
+  window.rpcCalls=[];window.teamErrors=[];window.failTeamSave=false;window.failTeamAccess=false;
+  const channels=[{id:'ch64',city_id:64,nome:'Produção Rural e Meio Ambiente',ativo:true,canal_triagem:false},{id:'ch65',city_id:65,nome:'Meio Ambiente Recife',ativo:true,canal_triagem:false}];
+  const members=[{id:'m64',canal_id:'ch64',user_id:'employee',papel:'leitura',ativo:true,created_at:'2026-10-01',perfil:{id:'employee',name:'Ana Meio Ambiente',phone:'81999999999'}},{id:'m65',canal_id:'ch65',user_id:'other',papel:'leitura',ativo:true,created_at:'2026-10-01',perfil:{id:'other',name:'Pessoa de Recife'}}];
+  const modules={employee:['arborization'],other:[]};const invites=[];
+  const query=result=>{const filters=[];let start=0,end=Infinity;const q={select(){return q},order(){return q},range(a,b){start=a;end=b;return q},eq(k,v){filters.push(r=>r[k]===v);return q},in(k,values){filters.push(r=>values.includes(r[k]));return q},then(ok,fail){const rows=result.data?.filter(r=>filters.every(f=>f(r))).slice(start,end+1);return Promise.resolve({...result,data:rows}).then(ok,fail)}};return q};
+  export const supabase={from(table){return query({data:table==='orgao_canais'?channels:table==='orgao_membros'?members:table==='prefeitura_convites'?invites:[],error:null})},rpc(name,args){
+    window.rpcCalls.push({name,args});
+    if(name==='listar_emails_equipe_prefeitura')return query({data:[{membro_id:'m64',email:'ana@floresta.gov.br'}],error:null});
+    if(name==='listar_gestao_equipe_municipal')return Promise.resolve(window.failTeamAccess?{error:{message:'offline'}}:{data:[{user_id:'employee',asset_modules:modules.employee},{user_id:'other',asset_modules:modules.other}],error:null});
+    if(name==='convidar_funcionario_municipal'){invites.push({id:'i1',prefeitura_id:args.p_prefeitura,canal_id:args.p_canal,email_convidado:args.p_email,papel_orgao:args.p_papel,token:'token1',status:'pendente',expires_at:'2026-11-01',asset_modules:args.p_modules});return Promise.resolve({data:{token:'token1'},error:null})}
+    if(name==='set_municipal_staff_access'){if(window.failTeamSave)return Promise.resolve({error:{message:'Falha simulada'}});const member=members.find(row=>row.id===args.p_member_id);member.papel=args.p_role;member.ativo=args.p_active;modules[member.user_id]=args.p_modules;return Promise.resolve({data:null,error:null})}
+    return query({data:[],error:null});}};`;
+ stubs['@/lib/appError']=`export const showAppError=message=>window.teamErrors.push(message);export const showAppNotice=()=>{};`;
+}
+
 if (!process.argv.includes('--reuse-assets')) {
 await build({
   stdin: { contents: `
-    import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route,Link} from 'react-router-dom';
-    import TreePage from '@/pages/TreePage';import Footer from '@/components/Footer';import ReportTreePicker from '@/components/report/ReportTreePicker';
+    import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route,Link,Outlet} from 'react-router-dom';
+    import MunicipalityTeamPage from '@/pages/MunicipalityTeamPage';import TerritorialPanelPage from '@/pages/TerritorialPanelPage';import TreePage from '@/pages/TreePage';import Footer from '@/components/Footer';import ReportTreePicker from '@/components/report/ReportTreePicker';
     import LocationPickerMap from '@/components/LocationPickerMap';import {useReportMapTrees} from '@/hooks/useReportMapTrees';import {treeReportSelection} from '@/lib/treeInventory';import {treeLabel} from '@/lib/arborization';import {supabase} from '@/lib/customSupabaseClient';
     import {CityViewProvider} from '@/contexts/CityContext';import L from 'leaflet';import ArborizationMapPage from '@/pages/ArborizationMapPage';
+    function TeamHarness(){
+      const [city,setCity]=React.useState(64);window.changeTeamCity=setCity;
+      const context=React.useMemo(()=>({isAdministrator:true,municipality:{id:'pref'+city,city_id:city,nome:'Prefeitura de '+(city===64?'Floresta':'Recife'),cidade:{name:city===64?'Floresta':'Recife',states:{uf:'PE'}}},channels:[{id:'ch'+city}]}),[city]);
+      return <Outlet context={context}/>;
+    }
     function DetailHarness(){return <div className="min-h-screen flex flex-col"><main className="flex-grow flex flex-col min-h-0"><div className="flex-1 min-h-0 flex flex-col"><TreePage/></div></main><Footer/></div>}
     function ReportHarness(){
       const [value,setValue]=React.useState({category:'poda',location:{lat:-8.597,lng:-38.574},city_id:64,address:'Praça São José'});
@@ -65,9 +100,9 @@ await build({
     }
     const maps=[];L.Map.addInitHook(function(){maps.push(this);window.testMap=this;this.on('unload',()=>{maps.splice(maps.indexOf(this),1);window.testMap=maps.at(-1)})});
     if(location.search.includes('dark'))document.documentElement.classList.add('dark');
-    createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={[location.search.includes('detail')?'/arborizacao/arvore/t1':location.search.includes('report')?'/report':'/']}><CityViewProvider><Routes><Route path="/" element={<ArborizationMapPage/>}/><Route path="/arborizacao/arvore/:id" element={<DetailHarness/>}/><Route path="/report" element={<ReportHarness/>}/></Routes></CityViewProvider></MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
+    createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={[location.search.includes('team')?'/team':location.search.includes('territorial')?'/prefeitura/gestao-territorial/'+(new URLSearchParams(location.search).get('area')||'')+location.search:location.search.includes('detail')?'/arborizacao/arvore/t1':location.search.includes('report')?'/report':'/']}><CityViewProvider><Routes><Route element={<TeamHarness/>}><Route path="/team" element={<MunicipalityTeamPage/>}/></Route><Route path="/admin" element={<div data-testid="platform-overview">Visão geral administrativa</div>}/><Route path="/prefeitura/visao-geral" element={<div data-testid="municipal-overview">Visão geral municipal</div>}/><Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<TerritorialPanelPage/>}/><Route path="/" element={<ArborizationMapPage/>}/><Route path="/arborizacao/arvore/:id" element={<DetailHarness/>}/><Route path="/report" element={<ReportHarness/>}/></Routes></CityViewProvider></MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, jsx: 'automatic', loader: { '.png': 'dataurl' }, outfile: path.join(out, 'preview.js'),
-  define: { 'process.env.NODE_ENV': '"production"' }, alias: { '@': path.join(root, 'src') },
+  define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}'  }, alias: { '@': path.join(root, 'src') },
   plugins: [{ name: 'fixtures', setup(builder) {
     builder.onResolve({ filter: /.*/ }, args => stubs[args.path] ? { path: args.path, namespace: 'fixture' } : undefined);
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: stubs[args.path], loader: 'jsx', resolveDir: root }));
@@ -76,7 +111,7 @@ await build({
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
-const css = await postcss([tailwind({ ...config, content: ['src/pages/ArborizationMapPage.jsx', 'src/pages/TreePage.jsx', 'src/components/Footer.jsx', 'src/components/report/ReportTreePicker.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
+const css = await postcss([tailwind({ ...config, content: ['src/pages/MunicipalityTeamPage.jsx','src/components/municipality/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/PavementMapPage.jsx','src/components/pavement/*.jsx','src/components/PavementMapView.jsx','src/pages/ArborizationMapPage.jsx', 'src/pages/TreePage.jsx', 'src/components/Footer.jsx', 'src/components/report/ReportTreePicker.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + '\n' + await fs.readFile('node_modules/leaflet/dist/leaflet.css', 'utf8'));
 }
 const server = http.createServer(async (req, res) => {
@@ -132,6 +167,159 @@ try {
   };
   const detailBottomsAligned = '(()=>{const summary=document.querySelector(".tree-profile-overview").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();return Math.abs(summary.bottom-history.bottom)<2})()';
   const panelsAligned = '(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return Math.abs(map.top-filters.top)<2&&Math.abs(map.bottom-filters.bottom)<2&&(innerWidth<1520||(Math.abs(sidebar.top-filters.top)<2&&Math.abs(sidebar.bottom-filters.bottom)<2))})()';
+  if(process.argv.includes('--summary')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      for(const query of ['?fail-species','?fail-neighborhoods','?fail-counts']){
+        await navigate(query);await waitFor('document.querySelectorAll(".arborization-stat-value")[0]?.textContent==="2"');
+        if(query==='?fail-counts'){
+          await waitFor('document.body.innerText.includes("Os indicadores de solicitações não puderam ser carregados.")');
+          assert.equal(await evaluate('document.querySelectorAll(".arborization-stat-value")[1].textContent'),'—');
+          assert.equal(await evaluate('document.body.innerText.includes("O cadastro de bairros não pôde ser carregado.")'),false);
+        }else{
+          await waitFor('document.querySelectorAll(".arborization-stat-value")[1]?.textContent==="1"');
+          assert.equal(await evaluate('document.querySelectorAll(".arborization-stat-value")[2].textContent'),'1');
+          if(query==='?fail-neighborhoods')await waitFor('document.body.innerText.includes("O cadastro de bairros não pôde ser carregado.")');
+          else assert.equal(await evaluate('Boolean(document.querySelector("[role=alert]"))'),false);
+        }
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      }
+      results.push({width,independentCounts:true,noInventedZero:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--team')){
+    const setId=async(id,value)=>evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`);
+    const check=async label=>evaluate(`(()=>{const el=[...document.querySelectorAll('[role=dialog] label')].find(el=>el.textContent===${JSON.stringify(label)});el.querySelector('input').click()})()`);
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?team');await waitFor('document.querySelector("table tbody")?.textContent.includes("Ana Meio Ambiente")');
+      assert.ok(await evaluate('!document.body.innerText.includes("Pessoa de Recife")'),'Lista limitada à prefeitura ativa');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector(".page-shell-fluid").getBoundingClientRect(),p=getComputedStyle(document.querySelector(".page-shell-fluid"));return r.left+parseFloat(p.paddingLeft)<=64&&innerWidth-r.right+parseFloat(p.paddingRight)<=64})()'));
+      await capture('team-list-'+width);await click('Convidar funcionário');await waitFor('document.querySelector("[role=dialog]")');
+      assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("Floresta · PE")'));
+      assert.ok(await evaluate('[...document.querySelectorAll("[role=dialog] select option")].every(option=>option.value!=="65")'),'Cidade não pode ser digitada ou trocada no formulário');
+      assert.equal(await evaluate('document.getElementById("team-role").value'),'leitura');
+      await setId('invite-channel','ch64');await setId('team-email','novas.arvores@floresta.gov.br');await check('Gerenciar arborização');
+      await capture('team-invite-'+width);await click('Gerar convite');await waitFor('document.body.innerText.includes("Convite pronto")');
+      assert.deepEqual(await evaluate('window.rpcCalls.find(call=>call.name==="convidar_funcionario_municipal").args'),{p_prefeitura:'pref64',p_modules:['arborization'],p_canal:'ch64',p_email:'novas.arvores@floresta.gov.br',p_papel:'leitura'});
+      await evaluate(`document.querySelector('[aria-label="Fechar painel"]').click()`);await waitFor('!document.querySelector("[role=dialog]")');
+      await evaluate(`document.querySelector('button[aria-label="Abrir Ana Meio Ambiente"]').click()`);await waitFor('document.querySelector("[role=dialog]")');
+      assert.ok(await evaluate('[...document.querySelectorAll("[role=dialog] label")].find(el=>el.textContent==="Gerenciar arborização").querySelector("input").checked'));
+      await check('Gerenciar ruas');await evaluate('window.failTeamSave=true');await click('Salvar alterações');await waitFor('window.teamErrors.length>0');
+      assert.ok(await evaluate('Boolean(document.querySelector("[role=dialog]"))'),'Falha preserva escolhas e formulário');
+      await evaluate('window.failTeamSave=false');await click('Salvar alterações');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.deepEqual(await evaluate('window.rpcCalls.filter(call=>call.name==="set_municipal_staff_access").at(-1).args'),{p_member_id:'m64',p_role:'leitura',p_active:true,p_modules:['arborization','urban_planning']});
+      await click('Convidar funcionário');await setId('team-email','rascunho@floresta.gov.br');
+      await evaluate('window.changeTeamCity(65)');await waitFor('!document.querySelector("[role=dialog]")&&document.body.innerText.includes("Pessoa de Recife")');
+      assert.ok(await evaluate('!document.body.innerText.includes("Ana Meio Ambiente")'));
+      await click('Convidar funcionário');await waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Recife · PE")');
+      assert.equal(await evaluate('document.getElementById("team-email").value'),'');assert.equal(await evaluate('document.getElementById("invite-channel").value'),'');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      results.push({width,cityDefault:true,publicOfficialNotice:true,inviteModules:true,editModules:true,failedSavePreserved:true,citySwitch:true,noOverflow:true});
+    }
+    await navigate('?team');await waitFor('document.querySelector("table")');await evaluate('window.failTeamAccess=true;window.changeTeamCity(65)');await waitFor('document.querySelector("[role=alert]")');
+    assert.ok(await evaluate('!document.querySelector("table")'),'Erro de permissões impede editar com concessões incompletas');
+    await evaluate('window.failTeamAccess=false');await click('Tentar novamente');await waitFor('document.querySelector("table")');
+  }else if(process.argv.includes('--dashboard')){
+    // Native setters preserve React's controlled-input behavior.
+    const searchField = async(label,value)=>evaluate(`(()=>{const el=[...document.querySelectorAll('input')].find(el=>el.getAttribute('aria-label')===${JSON.stringify(label)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    for(const [width,height] of [[390,844],[768,1024],[1024,768],[1280,800],[1366,768],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?territorial&dashboard&scope=both&area=ruas/estatisticas');await waitFor('document.querySelector(".pavement-dashboard-table tbody tr")');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Página sem overflow horizontal');
+      assert.equal(await evaluate('document.querySelector(".pavement-dashboard-table tbody").children.length'),10,'Paginação de bairros');
+      assert.equal(await evaluate('new Set([...document.querySelectorAll(".pavement-dashboard-card")].map(el=>el.offsetTop)).size'),width>=1024?1:2,'Cartões se adaptam à tela');
+      if(width>=1200)assert.ok(await evaluate('(()=>{const el=document.querySelector(".territorial-dashboard-main"),r=el.getBoundingClientRect(),s=getComputedStyle(el);return parseFloat(s.paddingLeft)<=64&&innerWidth-r.right+parseFloat(s.paddingRight)<=64})()'));
+      assert.ok(await evaluate('!document.querySelector("[role=dialog]")&&!document.querySelector("#panel-ruas .leaflet-container")'));
+      await capture('pavement-dashboard-'+width);
+      await evaluate(`document.querySelector('[aria-label="Próxima página de bairros"]').click()`);await waitFor('document.querySelector(".pavement-dashboard-table tbody").children.length===5');
+      await searchField('Buscar bairro nas estatísticas','Centro');await waitFor('document.querySelector(".pavement-dashboard-table tbody").children.length===1&&document.querySelector(".pavement-dashboard-table tbody").textContent.includes("Centro")');
+      await click('Baixar CSV');await waitFor('window.generatedFiles.length>0');
+      assert.ok(await evaluate('window.generatedFiles.at(-1).text().then(text=>text.includes("Centro")&&!text.includes("Três Marias")&&text.includes("Total de ruas;1"))'),'CSV contém bairros buscados e total correspondente');
+      await waitFor('[...document.querySelectorAll("button")].some(el=>el.textContent.trim()==="Baixar PDF"&&!el.disabled)');await click('Baixar PDF');await waitFor('window.generatedFiles.some(blob=>blob.type==="application/pdf")');
+      await searchField('Buscar bairro nas estatísticas','');await waitFor('document.querySelector(".pavement-dashboard-table tbody").children.length===10');
+      await evaluate(`document.querySelector('.pavement-dashboard-table thead button').click()`);await waitFor('document.querySelector(".pavement-dashboard-table tbody tr").textContent.includes("Três Marias")');
+      await click('Mais filtros');await waitFor('document.querySelector("#pavement-advanced-filters")');
+      await evaluate(`document.querySelector('[aria-label="Filtrar ruas sem nome oficial"]').click()`);await waitFor('document.querySelector(".pavement-dashboard-filters").textContent.includes("Nome oficial")');
+      await click('Limpar filtros');await waitFor('document.querySelector(".pavement-dashboard-filters").textContent.includes("Todas as ruas")');
+      await click('Exportar relatório');await waitFor('document.querySelector("[role=dialog] #tipo-relatorio-estatisticas-label")');
+      assert.ok(await evaluate('(()=>{const r=document.querySelector("[role=dialog]").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})()'),'Exportação cabe na tela');
+      await evaluate(`document.querySelector('[role=dialog] button.absolute').click()`);await waitFor('!document.querySelector("[role=dialog]")');
+      results.push({width,height,responsiveCards:true,pagination:true,neighborhoodSearch:true,filteredExports:true,qualityFilters:true,noOverflow:true});
+    }
+    await navigate('?territorial&dashboard&dark&scope=both&area=ruas/estatisticas');await waitFor('document.querySelector(".pavement-dashboard-table")');await capture('pavement-dashboard-dark-1920');
+  }else if(process.argv.includes('--territorial')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?territorial&scope=trees&area=arborizacao');await waitFor('document.querySelector("[data-testid=territorial-panel]")');
+      await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      assert.ok(await evaluate(`!document.querySelector('[aria-label="Módulos de gestão"]')`),'Somente árvores não mostra abas');
+      assert.equal(await evaluate('document.querySelector("h1").textContent'),'Arborização');
+      assert.ok(await evaluate('document.body.innerText.includes("Produção Rural e Meio Ambiente")'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Sem overflow horizontal');
+      const treeMapTop = await evaluate('document.querySelector("#panel-arborizacao .leaflet-container").getBoundingClientRect().top');
+      assert.ok(treeMapTop <= (width >= 1200 ? 240 : 500), `Mapa de árvores perto do topo: ${width}px / ${treeMapTop}px`);
+      await capture('territorial-trees-'+width);
+      await navigate('?territorial&scope=both&area=arborizacao');await waitFor(`document.querySelector('[aria-label="Módulos de gestão"]')`);
+      assert.equal(await evaluate(`document.querySelectorAll('[aria-label="Módulos de gestão"] a').length`),2);
+      await evaluate(`document.querySelector('[aria-label="Módulos de gestão"] a').click()`);await waitFor('document.querySelector("#panel-ruas")&&!document.querySelector("#panel-ruas").hidden');
+      await waitFor('document.querySelector("#panel-ruas .leaflet-interactive")');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Ruas sem overflow horizontal');
+      const streetMapTop = await evaluate('document.querySelector("#panel-ruas .leaflet-container").getBoundingClientRect().top');
+      if(width >= 1200) assert.ok(streetMapTop <= 240, `Mapa de ruas perto do topo: ${width}px / ${streetMapTop}px`);
+      assert.ok(await evaluate('!document.querySelector("#panel-ruas").textContent.includes("Resumo do relatório")&&!document.querySelector("#panel-ruas").textContent.includes("Ruas no cadastro")'),'Mapa sem cartões e relatórios estatísticos');
+      await capture('territorial-streets-'+width);
+      const streetReads = await evaluate('window.tableReads.filter(table=>table==="pavement_streets").length');
+      const subnav = width<1024 ? '[aria-label="Visualização de ruas"]' : 'aside [aria-label="Ruas e pavimentações"]';
+      await evaluate(`document.querySelector(${JSON.stringify(subnav+' a[href*="/estatisticas"]')}).click()`);await waitFor('document.querySelector("[data-testid=pavement-statistics] table tbody tr")');
+      assert.ok(await evaluate('!document.querySelector("#panel-ruas .leaflet-container")'),'Estatísticas não monta mapa');
+      assert.ok(await evaluate('document.querySelector("[data-testid=pavement-statistics]").textContent.includes("Qualidade do cadastro")&&document.querySelector("[data-testid=pavement-statistics]").textContent.includes("Pavimentação por bairro")'));
+      assert.equal(await evaluate('window.tableReads.filter(table=>table==="pavement_streets").length'),streetReads,'Trocar submenu reutiliza a consulta de ruas');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Estatísticas sem overflow horizontal');
+      await capture('territorial-statistics-'+width);
+      await click('Exportar relatório');await waitFor('document.querySelector("[role=dialog] #tipo-relatorio-estatisticas-label")');
+      await click('Baixar CSV');await waitFor('window.generatedFiles.length>0');
+      assert.ok(await evaluate('window.generatedFiles.at(-1).text().then(text=>text.includes("Rua das Flores")&&text.includes("Rua Parcial"))'),'Exportação contém as ruas do recorte');
+      await waitFor('[...document.querySelectorAll("button")].some(button=>button.textContent.trim()==="Baixar PDF"&&!button.disabled)');
+      await click('Baixar PDF');await waitFor('window.generatedFiles.some(blob=>blob.type==="application/pdf")');
+      await evaluate(`document.querySelector('[role=dialog] button.absolute').click()`);await waitFor('!document.querySelector("[role=dialog]")');
+      await evaluate(`(()=>{const el=[...document.querySelectorAll('[aria-label="Filtros das estatísticas"] label')].find(el=>el.textContent.startsWith('CEP')).querySelector('select');el.value='sem';el.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+      await click('Exportar relatório');await waitFor('document.querySelector("[role=dialog]")');
+      await waitFor('document.querySelector("#tipo-relatorio-estatisticas-label").closest("section").textContent.includes("1 rua selecionada")');
+      await waitFor('[...document.querySelectorAll("button")].some(button=>button.textContent.trim()==="Baixar CSV"&&!button.disabled)');
+      await click('Baixar CSV');await waitFor('window.generatedFiles.length>=3');
+      assert.ok(await evaluate('window.generatedFiles.at(-1).text().then(text=>!text.includes("Rua das Flores")&&!text.includes("Rua Parcial"))'),'CSV respeita o filtro de CEP');
+      await evaluate(`document.querySelector('[role=dialog] button.absolute').click()`);await waitFor('!document.querySelector("[role=dialog]")');
+      await evaluate(`document.querySelector(${JSON.stringify(subnav+' a[href*="/mapa"]')}).click()`);await waitFor('document.querySelector("#panel-ruas .leaflet-container")');
+      await evaluate(`document.querySelector(${JSON.stringify(subnav+' a[href*="/estatisticas"]')}).click()`);await waitFor('document.querySelector("[data-testid=pavement-statistics]")');
+      assert.equal(await evaluate(`(()=>{const el=[...document.querySelectorAll('[aria-label="Filtros das estatísticas"] label')].find(el=>el.textContent.startsWith('CEP')).querySelector('select');return el.value})()`),'sem','Filtros preservados entre os submenus');
+      await click('Limpar filtros');await waitFor('document.querySelector(".pavement-dashboard-filters").textContent.includes("Todas as ruas")');
+
+      if(width<1024)await evaluate(`document.querySelector('button[aria-label="Abrir menu"]').click()`);
+      await evaluate(`document.querySelector('nav[aria-label="Áreas de trabalho"] a[href*="/arborizacao"]').click()`);await waitFor('!document.querySelector("#panel-arborizacao").hidden');
+      await evaluate(`(()=>{const el=document.querySelector('[aria-label="Cidade do painel"]');el.value="65";el.dispatchEvent(new Event("change",{bubbles:true}))})()`);
+      await waitFor(`!document.querySelector('[aria-label="Módulos de gestão"]')&&document.querySelector("h1").textContent==="Arborização"`);
+      assert.ok(await evaluate('!document.querySelector("#panel-ruas")'),'Cidade sem ruas não monta o conteúdo de ruas');
+      assert.ok(await evaluate(`!document.querySelector('header a[aria-label="Visão geral"]')`),'Funcionário comum não recebe atalho administrativo');
+      for(const [scope,target,testId] of [['admin','/admin','platform-overview'],['master','/admin','platform-overview'],['municipal-admin','/prefeitura/visao-geral','municipal-overview']]){
+        await navigate('?territorial&scope='+scope+'&area=arborizacao');await waitFor('document.querySelector("[data-testid=territorial-panel]")');
+        const selector='header a[aria-label="Visão geral"]';
+        assert.equal(await evaluate(`document.querySelector(${JSON.stringify(selector)}).getAttribute('href')`),target);
+        assert.ok(await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&document.documentElement.scrollWidth<=innerWidth})()`),'Atalho cabe no cabeçalho');
+        if(scope==='admin')await capture('territorial-header-admin-'+width);
+        await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);await waitFor(`document.querySelector('[data-testid="${testId}"]')`);
+      }
+      results.push({width,treeMapTop,streetMapTop,singleModule:true,twoTabs:true,cityScope:true,noOverflow:true,overviewHeader:true,mapAndStatistics:true,filteredCsvAndPdf:true,sharedFilters:true});
+    }
+    await navigate('?territorial&scope=streets&area=ruas/estatisticas');await waitFor('document.querySelector("[data-testid=pavement-statistics]")');
+    assert.ok(await evaluate('!document.querySelector("#panel-ruas .leaflet-container")'),'URL direta abre somente estatísticas');
+    await navigate('?territorial&scope=trees&area=ruas/estatisticas');await waitFor('document.querySelector("#panel-arborizacao")');
+    assert.ok(await evaluate('!document.querySelector("#panel-ruas")'),'Conta só de árvores não abre estatísticas de ruas por URL');
+    await navigate('?territorial&scope=none');await waitFor('document.body.innerText.includes("Não há cidade com acesso")');
+    await navigate('?territorial&scope=both&permission-error');await waitFor('document.querySelector("[role=alert]")');
+    await navigate('?territorial&scope=both&area=arborizacao');await waitFor('document.querySelector("[data-testid=territorial-panel]")');
+    await evaluate('window.dispatchEvent(new Event("test-revoke"))');await waitFor('!document.querySelector("[data-testid=territorial-panel]")');
+  }else{
   for(const [width,height] of [[390,844],[800,900],[1280,800],[1366,768],[1440,900],[1920,1080]]){
     await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
     await navigate();await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
@@ -337,6 +525,7 @@ try {
   assert.ok(await evaluate('document.querySelector(".tree-profile-photo-dialog img").getAttribute("alt").includes("Foto completa")'));
   await evaluate('document.querySelector(".tree-profile-photo-dialog button.absolute").click()');await waitFor('!document.querySelector("[role=dialog]")');
   await navigate('?detail&dark');await waitFor('document.body.innerText.includes("Solicitação de Poda")');await capture('detail-dark-1920');
+  }
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({results,publicReadOnly:true,runtimeErrors:errors.length},null,2));
 } finally {ws?.close();chrome.kill();server.close();}

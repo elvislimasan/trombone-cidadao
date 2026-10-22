@@ -17,6 +17,7 @@ const Notifications = ({ scope = 'all' }) => {
   const acceptsNotification = useCallback((notification) => (
     (user?.is_admin || notification?.type !== 'moderation_required')
     && (scope !== 'electrician' || isElectricianServiceNotification(notification))
+    && (scope !== 'executor' || (notification?.type === 'agency_case' && notification?.link?.startsWith('/prefeitura/executor/')))
   ), [scope, user?.is_admin]);
   const [loading, setLoading] = useState(true);
   const {
@@ -64,6 +65,8 @@ const Notifications = ({ scope = 'all' }) => {
   if (scope === 'electrician') {
     query = query.eq('type', 'agency_case').or(ELECTRICIAN_NOTIFICATION_LINK_FILTER);
   }
+
+  if (scope === 'executor') query = query.eq('type', 'agency_case').like('link', '/prefeitura/executor/%');
 
   const { data, error } = await query
     .order('created_at', { ascending: false })

@@ -15,7 +15,7 @@ const require = createRequire(import.meta.url);
 const React = require('react');
 const { createRoot } = require('react-dom/client');
 const { flushSync } = require('react-dom');
-let user, allowed, calls, delayed, queue, userType, isMaster, ruleError;
+let user, allowed, calls, delayed, queue, userType, isMaster, ruleError, treeActive, effectiveStreetCities;
 const supabase = { from(table) {
   let userId;
   const query = {
@@ -25,12 +25,16 @@ const supabase = { from(table) {
     then(ok, fail) {
       calls += 1;
       const result = { data: table === 'permission_rules'
-        ? [{ scope: 'role', role_name: 'urban_planner', module: 'urban_planning', allowed }]
+        ? [{ scope: 'role', role_name: 'urban_planner', module: 'urban_planning', allowed }, { scope: 'role', role_name: 'tree_manager', module: 'arborization', allowed: true }]
         : table === 'profiles' ? { user_type: userType, is_master: isMaster } : userId === 'planner' ? [{ city_id: 64 }] : [], error: table === 'permission_rules' ? ruleError : null };
       return (delayed ? new Promise(resolve => queue.push(() => resolve(result))) : Promise.resolve(result)).then(ok, fail);
     },
   };
   return query;
+}, rpc() {
+  calls += 1;
+  const result = { data: { ...(effectiveStreetCities ? { street_city_ids: effectiveStreetCities } : {}), tree_assignments: treeActive ? [{ city_id: 64, canal_id: 'channel', secretaria: 'Meio Ambiente' }] : [], municipalities: [] }, error: null };
+  return delayed ? new Promise(resolve => queue.push(() => resolve(result))) : Promise.resolve(result);
 } };
 const mocks = {
   '@/lib/customSupabaseClient': { supabase },
@@ -49,8 +53,8 @@ async function waitFor(predicate) {
   for (let attempt = 0; attempt < 100; attempt += 1) { if (predicate()) return; await pause(); }
   assert.ok(predicate(), 'A permissão não atualizou');
 }
-function fixture() {
-  user = { id: 'planner' }; userType = 'public_official'; isMaster = false; ruleError = null; allowed = false; calls = 0; delayed = false; queue = [];
+function fixture(shared = false) {
+  user = { id: 'planner' }; userType = 'public_official'; isMaster = false; ruleError = null; allowed = false; calls = 0; delayed = false; queue = []; treeActive = false; effectiveStreetCities = undefined;
   let access;
   const node = document.createElement('div'); document.body.appendChild(node);
   const root = createRoot(node);
@@ -58,7 +62,9 @@ function fixture() {
     access = module.exports.usePermissions();
     return React.createElement('input', { defaultValue: 'Traçado em edição' });
   }
-  const render = () => flushSync(() => root.render(React.createElement(Screen)));
+  const render = () => flushSync(() => root.render(shared
+    ? React.createElement(module.exports.PermissionsProvider, null, React.createElement(Screen), React.createElement(Screen))
+    : React.createElement(Screen)));
   render();
   return { root, node, render, get access() { return access; }, close() { flushSync(() => root.unmount()); node.remove(); } };
 }
@@ -100,11 +106,11 @@ test('trocar de conta descarta concessões e respostas pendentes da conta anteri
   try {
     await waitFor(() => !screen.access.loading);
     allowed = true; delayed = true; screen.access.refreshPermissions();
-    await waitFor(() => queue.length === 3);
+    await waitFor(() => queue.length === 4);
     const oldRequests = queue.splice(0);
     user = { id: 'other' }; screen.render();
     assert.equal(screen.access.canWrite('urban_planning'), false);
-    await waitFor(() => queue.length === 3);
+    await waitFor(() => queue.length === 4);
     oldRequests.forEach(resolve => resolve());
     await pause();
     assert.equal(screen.access.canWrite('urban_planning'), false);
@@ -144,5 +150,38 @@ test('master sem cargo acessa o mapa com regras bloqueadas e perde a exceção a
     window.dispatchEvent(new Event('focus'));
     await waitFor(() => !screen.access.isMaster);
     assert.equal(screen.access.canWrite('urban_planning'), false);
+  } finally { screen.close(); }
+});
+
+test('provider compartilha consultas e revalida a revogação do vínculo de arborização', async () => {
+  const screen = fixture(true);
+  try {
+    await waitFor(() => !screen.access.loading);
+    assert.equal(calls, 4, 'Dois consumidores devem compartilhar a mesma carga');
+    treeActive = true; notifyPermissionsChanged('planner');
+    await waitFor(() => screen.access.canWrite('arborization'));
+    assert.equal(calls, 8);
+    assert.equal(screen.access.treeAssignments[0].secretaria, 'Meio Ambiente');
+    treeActive = false; window.dispatchEvent(new Event('focus'));
+    await waitFor(() => !screen.access.canWrite('arborization'));
+    assert.deepEqual(screen.access.treeAssignments, []);
+  } finally { screen.close(); }
+});
+
+
+test('concessão municipal usa apenas cidades efetivas do servidor com o cargo global bloqueado', async () => {
+  const screen = fixture();
+  try {
+    await waitFor(() => !screen.access.loading);
+    allowed = false; effectiveStreetCities = [65]; treeActive = true;
+    notifyPermissionsChanged('planner');
+    await waitFor(() => screen.access.canWrite('urban_planning'));
+    assert.deepEqual(screen.access.planningCityIds, [65]);
+    assert.equal(screen.access.canWrite('arborization'), true);
+    effectiveStreetCities = []; treeActive = false;
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => !screen.access.canWrite('urban_planning'));
+    assert.deepEqual(screen.access.planningCityIds, []);
+    assert.equal(screen.access.canWrite('arborization'), false);
   } finally { screen.close(); }
 });

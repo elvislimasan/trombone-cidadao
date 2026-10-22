@@ -1,3 +1,4 @@
+import TreeResponsibilitiesFields from '@/components/admin/TreeResponsibilitiesFields';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
@@ -21,6 +22,8 @@ const UserEditModal = ({ user, onSave, onClose }) => {
   const [name, setName] = useState('');
   const [userType, setUserType] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [treeAssignments, setTreeAssignments] = useState([]);
+  const [treeLinksStatus, setTreeLinksStatus] = useState({ loading: true, error: false });
   const [planningRole, setPlanningRole] = useState(false);
   const [planningCityIds, setPlanningCityIds] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -34,11 +37,12 @@ const UserEditModal = ({ user, onSave, onClose }) => {
       const ids = (user.urban_planner_cities || []).map(row => String(row.city_id));
       setPlanningCityIds(ids);
       setPlanningRole(ids.length > 0);
+      setTreeAssignments((user.tree_manager_cities || []).map(({ city_id, canal_id }) => ({ city_id, canal_id })));
     }
   }, [user]);
 
   const handleSave = async () => {
-    if (planningRole && userType !== 'public_official') {
+    if ((planningRole || treeAssignments.length > 0) && userType !== 'public_official') {
       showAppError({ title: 'Selecione Órgão Público', description: 'O cargo Planejamento urbano exige o tipo de usuário Órgão Público.' });
       return;
     }
@@ -49,7 +53,7 @@ const UserEditModal = ({ user, onSave, onClose }) => {
     setSaving(true);
     try {
       await onSave({ ...user, name, user_type: userType, is_admin: isAdmin,
-        planningCityIds: planningRole ? planningCityIds : [] });
+        planningCityIds: planningRole ? planningCityIds : [], treeAssignments });
     } finally { setSaving(false); }
   };
 
@@ -87,7 +91,7 @@ const UserEditModal = ({ user, onSave, onClose }) => {
             <label htmlFor="isAdmin" className="text-sm font-medium">É Administrador?</label>
           </div>
           <fieldset className="space-y-3 rounded-xl border border-edge-subtle p-4">
-            <legend className="px-1 text-sm font-semibold">Planejamento urbano</legend>
+            <legend className="px-1 text-sm font-semibold">Gestão de ruas</legend>
             <label className="flex items-center gap-2 text-sm font-medium" htmlFor="urban-planner-role">
               <input id="urban-planner-role" type="checkbox" className="h-4 w-4 rounded"
                 disabled={userType !== 'public_official' && !planningRole}
@@ -111,10 +115,11 @@ const UserEditModal = ({ user, onSave, onClose }) => {
             </>}
             <p className="text-xs text-content-secondary">A edição exige o tipo <strong>Órgão Público</strong>, o cargo na cidade e a liberação de <strong>Mapa de ruas</strong> no painel de permissões, inclusive para admin. Contas <strong>master</strong> têm acesso a todas as cidades, sem essas exigências.</p>
           </fieldset>
+          <TreeResponsibilitiesFields userId={user.id} userType={userType} cities={cities} assignments={treeAssignments} onChange={setTreeAssignments} onStatus={setTreeLinksStatus} />
         </div>
         <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-3 sm:px-6">
           <Button variant="outline" className="h-11 rounded-xl sm:min-w-28" disabled={saving} onClick={onClose}>Cancelar</Button>
-          <Button className="h-11 rounded-xl sm:min-w-28" disabled={saving} onClick={handleSave}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          <Button className="h-11 rounded-xl sm:min-w-28" disabled={saving || treeLinksStatus.loading || treeLinksStatus.error} onClick={handleSave}>{saving ? 'Salvando...' : 'Salvar'}</Button>
         </DialogFooter>
       </FormDialogContent>
     </Dialog>
@@ -144,7 +149,7 @@ const ManageUsersPage = () => {
     // patrulha e de pontuação que esta lista nunca mostra.
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, name, avatar_url, user_type, is_admin, phone, urban_planner_cities(city_id)')
+      .select('id, name, avatar_url, user_type, is_admin, phone, urban_planner_cities(city_id), tree_manager_cities:tree_manager_cities!tree_manager_cities_user_id_fkey(city_id,canal_id)')
       .order('name');
 
     if (profilesError) {
@@ -249,11 +254,11 @@ const ManageUsersPage = () => {
       showAppError({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
       return;
     }
-    const { error: roleError } = await supabase.rpc('set_urban_planner_cities', {
-      p_user_id: userToSave.id, p_city_ids: userToSave.planningCityIds,
+    const { error: roleError } = await supabase.rpc('set_territorial_responsibilities', {
+      p_user_id: userToSave.id, p_street_city_ids: userToSave.planningCityIds, p_tree_assignments: userToSave.treeAssignments,
     });
     if (roleError) {
-      showAppError({ title: 'Não foi possível salvar o cargo', description: roleError.message, variant: 'destructive' });
+      showAppError({ title: 'Perfil salvo; não foi possível salvar as responsabilidades', description: roleError.message, variant: 'destructive' });
       return;
     }
     notifyPermissionsChanged(userToSave.id);
@@ -358,7 +363,8 @@ const ManageUsersPage = () => {
                           {user.name}
                           {user.is_admin && <Shield className="w-4 h-4 text-tc-yellow" title="Administrador" />}
                         </p>
-                        {user.urban_planner_cities?.length > 0 && <p className="text-xs font-semibold text-brand">Planejamento urbano · {user.urban_planner_cities.length} cidade(s)</p>}
+                        {user.urban_planner_cities?.length > 0 && <p className="text-xs font-semibold text-brand">Ruas · {user.urban_planner_cities.length} cidade(s)</p>}
+                        {user.tree_manager_cities?.length > 0 && <p className="text-xs font-semibold text-brand">Arborização · {user.tree_manager_cities.length} cidade(s)</p>}
                         <p className={`text-sm flex items-center gap-1 ${userTypeDisplay[user.user_type]?.color}`}>
                           <UserTypeIcon className="w-3 h-3" />
                           {userTypeDisplay[user.user_type]?.text}

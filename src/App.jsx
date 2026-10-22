@@ -1,3 +1,6 @@
+import ExecutorPanelPage from '@/pages/ExecutorPanelPage';
+import ExecutorOrderPage from '@/pages/ExecutorOrderPage';
+import ExecutorStatsPage from '@/pages/ExecutorStatsPage';
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
@@ -106,7 +109,9 @@ import { shouldCompleteProfile } from '@/lib/profileOnboarding';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
-import { usePermissions } from '@/hooks/usePermissions';
+import { usePermissions, PermissionsProvider } from '@/hooks/usePermissions';
+import TerritorialPanelPage from '@/pages/TerritorialPanelPage';
+import { TERRITORIAL_BASE, territorialEntryRedirect } from '@/lib/territorialAccess';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
 import ManageMunicipalitiesPage from '@/pages/admin/ManageMunicipalitiesPage';
@@ -348,14 +353,20 @@ const MasterRoute = ({ children }) => {
 // o acesso de escrita mesmo de quem tem o papel.
 const ModuleRoute = ({ module, adminOnly = false, children }) => {
   const { canWrite, loading } = usePermissions();
+  const { user } = useAuth();
+  const location = useLocation();
   const Guard = adminOnly ? AdminRoute : AmbassadorOrAdminRoute;
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
   if (!canWrite(module)) return <Navigate to="/" replace />;
-  if (module === 'urban_planning') return children;
+  if (['urban_planning', 'arborization'].includes(module)) {
+    if (!user?.is_admin && !user?.is_master) return <Navigate replace to={`${TERRITORIAL_BASE}/${module === 'arborization' ? 'arborizacao' : 'ruas'}${location.search}`} />;
+    return children;
+  }
   return <Guard>{children}</Guard>;
 };
 
 function AppShell() {
+  const access = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
@@ -722,6 +733,10 @@ function AppShell() {
     };
   }, [navigate]); // Remover location.pathname para evitar loops
 
+  if (!authLoading && user && !user.is_admin && !user.is_master && access.loading
+    && ['/', '/feed', '/prefeitura/visao-geral'].includes(location.pathname)) return <div role="status" className="page-shell-fluid py-12">Abrindo painel…</div>;
+  const territorialRedirect = !authLoading && !access.loading && !access.error && territorialEntryRedirect(user, access, location.pathname);
+  if (territorialRedirect) return <Navigate to={territorialRedirect + location.search} replace />;
   if (!authLoading && shouldRedirectMunicipalityUser(user, location.pathname)) {
     return <Navigate to="/prefeitura/visao-geral" replace />;
   }
@@ -779,6 +794,12 @@ function AppShell() {
               <Route path="/prefeitura/convite/:token" element={<MunicipalityInvitePage />} />
               <Route path="/prefeitura/convite/:token/cadastro" element={<MunicipalityRegisterPage />} />
               <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
+                <Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<TerritorialPanelPage />} />
+                <Route path="/prefeitura/executor" element={<ExecutorPanelPage />} />
+                <Route path="/prefeitura/executor/:activity" element={<ExecutorPanelPage />} />
+                <Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrderPage />} />
+                <Route path="/prefeitura/executor/:activity/estatisticas" element={<ExecutorStatsPage />} />
+                <Route path="/prefeitura/executor/:activity/perfil" element={<ElectricianProfilePage />} />
                 <Route path="/prefeitura/eletricista" element={<ElectricianPanelPage />} />
                 <Route path="/prefeitura/eletricista/hoje" element={<Navigate to="/prefeitura/eletricista" replace />} />
                 <Route path="/prefeitura/eletricista/estatisticas" element={<ElectricianStatsPage />} />
@@ -896,8 +917,8 @@ function AppShell() {
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/mapa-arborizacao" element={<ArborizationMapPage />} />
               <Route path="/arborizacao/arvore/:id" element={<TreePage />} />
-              <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="urban_planning"><ArborizationMapPage management /></ModuleRoute>} />
-              <Route path="/admin/arborizacao" element={<ModuleRoute module="urban_planning"><ArborizationMapPage management /></ModuleRoute>} />
+              <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
+              <Route path="/admin/arborizacao" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/guia-da-cidade" element={<ServicesPage />} />
@@ -1006,7 +1027,7 @@ function AppShell() {
 export default function App() {
   return (
     <NativeUIModeProvider>
-      <AppShell />
+      <PermissionsProvider><AppShell /></PermissionsProvider>
     </NativeUIModeProvider>
   );
 }

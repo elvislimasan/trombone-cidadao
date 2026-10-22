@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowRight, CheckCircle2, ClipboardList, Clock3, Loader2, Plus, Users } from 'lucide-react';
+import { AlertCircle, ArrowRight, BarChart3, CheckCircle2, ChevronRight, ClipboardList, Clock3, FileText, List, Loader2, Plus, RotateCcw, Users, Zap } from 'lucide-react';
+import Icon, { categoryIconName } from '@/design-system/icons';
 import { Button } from '@/components/ui/button';
 import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import MunicipalReportCreateDialog from '@/components/municipality/MunicipalReportCreateDialog';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 import { applyMunicipalCategoryFilter } from '@/lib/municipalCategories';
 import { supabase } from '@/lib/customSupabaseClient';
+import { REPORT_PHASES } from '@/lib/municipalReports';
+import { attendanceOverviewScope, loadAttendanceOverview, overviewReportPath } from '@/lib/municipalOverview';
+import { municipalContextPath } from '@/lib/municipalAccess';
 
 const number = (value) => Number(value || 0);
 const format = (value) => number(value).toLocaleString('pt-BR');
@@ -75,20 +79,20 @@ function Distribution({ summary }) {
   </section>;
 }
 
-function WeeklyChart({ days, error, loading, onRetry }) {
+function WeeklyChart({ days, error, loading, onRetry, title = 'Novas ordens por dia', seriesLabel = 'novas ordens', emptyMessage = 'Nenhuma ordem criada neste período.' }) {
   const max = Math.max(1, ...days.map((day) => day.value));
   const weeklyTotal = days.reduce((sum, day) => sum + day.value, 0);
   return <section className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6" aria-labelledby="weekly-title">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Movimento recente</p><h2 id="weekly-title" className="mt-1 text-lg font-bold">Novas ordens por dia</h2><p className="mt-1 text-xs text-content-secondary">Últimos 7 dias, incluindo hoje</p></div>{!error && <div className="text-right"><strong className="font-display text-2xl font-black tabular-nums">{format(weeklyTotal)}</strong><p className="text-xs text-content-secondary">na semana</p></div>}</div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Movimento recente</p><h2 id="weekly-title" className="mt-1 text-lg font-bold">{title}</h2><p className="mt-1 text-xs text-content-secondary">Últimos 7 dias, incluindo hoje</p></div>{!error && <div className="text-right"><strong className="font-display text-2xl font-black tabular-nums">{format(weeklyTotal)}</strong><p className="text-xs text-content-secondary">na semana</p></div>}</div>
     {loading ? <div className="flex h-56 items-center justify-center" role="status" aria-label="Carregando movimento da semana"><Loader2 className="h-5 w-5 animate-spin text-content-secondary" /></div> : error ? <div className="mt-8 text-sm text-content-secondary"><p>Não foi possível carregar o movimento da semana.</p><Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>Tentar novamente</Button></div> : <>
-      <div className="mt-8 flex h-48 items-end gap-2 border-b border-edge-default pb-2 sm:gap-3" role="img" aria-label={`Gráfico de novas ordens nos últimos sete dias: ${days.map((day) => `${day.date}: ${day.value}`).join(', ')}`}>
+      <div className="mt-8 flex h-48 items-end gap-2 border-b border-edge-default pb-2 sm:gap-3" role="img" aria-label={`Gráfico de ${seriesLabel} nos últimos sete dias: ${days.map((day) => `${day.date}: ${day.value}`).join(', ')}`}>
         {days.map((day) => <div key={day.date} className="group flex h-full min-w-0 flex-1 flex-col justify-end gap-1 text-center">
           <span className="text-[11px] font-bold tabular-nums text-content-primary">{day.value}</span>
           <span className="flex min-h-0 flex-1 items-end"><span className="block w-full rounded-t-md bg-brand/75 transition-colors group-hover:bg-brand" style={{ height: `${Math.max(day.value ? 8 : 3, day.value / max * 100)}%` }} /></span>
         </div>)}
       </div>
       <div className="mt-2 flex gap-2 sm:gap-3" aria-hidden="true">{days.map((day) => <div key={day.date} className="min-w-0 flex-1 text-center"><p className="truncate text-[11px] font-semibold capitalize text-content-secondary">{day.label}</p><p className="hidden text-[10px] tabular-nums text-content-tertiary sm:block">{day.date}</p></div>)}</div>
-      {!weeklyTotal && <p className="mt-5 text-center text-xs text-content-secondary">Nenhuma ordem criada neste período.</p>}
+      {!weeklyTotal && <p className="mt-5 text-center text-xs text-content-secondary">{emptyMessage}</p>}
     </>}
   </section>;
 }
@@ -111,7 +115,7 @@ function Attention({ summary }) {
   </section>;
 }
 
-export default function MunicipalOverviewPage() {
+function AdministrativeOverview() {
   const navigate = useNavigate();
   const context = useMunicipalityWorkspace();
   const municipalityId = context.municipality?.id;
@@ -170,4 +174,88 @@ export default function MunicipalOverviewPage() {
     </>}
     <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} enabledCategoryIds={context.enabledCategoryIds} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
   </div>;
+}
+
+
+function VisibilityLinks({ context, phase, counts, category }) {
+  if (!category && attendanceOverviewScope(context).length > 1) return <p className="text-xs text-content-secondary">Públicas {format(counts.public)} · Internas {format(counts.internal)}</p>;
+  return <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs sm:gap-x-6">
+    {[['public', 'Públicas'], ['internal', 'Internas']].map(([visibility, label]) => <Link key={visibility} to={overviewReportPath(context, { phase, visibility, category })} className="inline-flex min-h-6 items-center gap-1 font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">{label} <span className="tabular-nums">{format(counts[visibility])}</span><ArrowRight className="h-3 w-3" /></Link>)}
+  </div>;
+}
+
+const overviewPhases = [
+  { icon: FileText, tone: 'bg-brand-subtleBg text-brand' },
+  { icon: Clock3, tone: 'bg-status-pendingBg text-status-pendingFg' },
+  { icon: CheckCircle2, tone: 'bg-success-bg text-success-fg' },
+];
+const overviewPanel = 'min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6';
+
+function PhaseIcon({ index, large = false }) {
+  const { icon: PhaseSymbol, tone } = overviewPhases[index];
+  return <span className={`flex shrink-0 items-center justify-center rounded-full ${tone} ${large ? 'h-14 w-14 sm:h-16 sm:w-16' : 'h-10 w-10'}`}><PhaseSymbol className={large ? 'h-7 w-7' : 'h-5 w-5'} aria-hidden="true" /></span>;
+}
+
+function DepartmentWeeklyChart({ days }) {
+  const total = days.reduce((sum, day) => sum + day.value, 0);
+  const step = Math.max(1, Math.ceil(Math.max(1, ...days.map(day => day.value)) / 2));
+  const ceiling = step * 2;
+  return <section className={overviewPanel} aria-labelledby="department-week-title" data-testid="overview-week">
+    <div className="flex items-start justify-between gap-3">
+      <div><h2 id="department-week-title" className="flex items-center gap-3 text-lg font-bold"><BarChart3 className="h-5 w-5 shrink-0 text-brand" />Movimento recente</h2><h3 className="mt-2 text-sm font-semibold">Novas solicitações por dia</h3><p className="mt-1 text-xs text-content-secondary">Últimos 7 dias, incluindo hoje</p></div>
+      <div className="shrink-0 text-right"><strong className="font-display text-2xl font-black tabular-nums">{format(total)}</strong><p className="text-xs text-content-secondary">na semana</p></div>
+    </div>
+    <div className="mt-8" role="img" aria-label={`Gráfico de novas solicitações nos últimos sete dias: ${days.map(day => `${day.date}: ${day.value}`).join(', ')}`}>
+      <div className="relative ml-6 h-40 border-b border-l border-edge-default sm:h-44">
+        {[ceiling, step, 0].map((value, index) => <div key={value} className="pointer-events-none absolute inset-x-0 border-t border-dashed border-edge-subtle" style={{ bottom: `${100 - index * 50}%` }}><span className="absolute -left-6 -translate-y-1/2 text-[11px] tabular-nums text-content-secondary">{format(value)}</span></div>)}
+        <div className="absolute inset-0 flex items-end gap-2 px-2 sm:gap-4">{days.map(day => <div key={day.date} className="relative min-w-0 flex-1 rounded-t bg-brand/75" style={{ height: `max(3px, ${day.value / ceiling * 100}%)` }}><span className="absolute -top-6 inset-x-0 text-center text-[11px] font-bold tabular-nums">{format(day.value)}</span></div>)}</div>
+      </div>
+      <div className="ml-6 mt-3 flex gap-2 px-2 sm:gap-4" aria-hidden="true">{days.map(day => <div key={day.date} className="min-w-0 flex-1 text-center text-[10px] leading-5 text-content-secondary sm:text-[11px]"><p className="capitalize">{day.label}</p><p className="tabular-nums">{day.date}</p></div>)}</div>
+    </div>
+    {!total && <p className="mt-3 text-center text-xs text-content-secondary">Nenhuma solicitação registrada neste período.</p>}
+  </section>;
+}
+
+function DepartmentOverview({ context }) {
+  const categoryIds = attendanceOverviewScope(context);
+  const scopeKey = JSON.stringify({ user: context.userId, municipality: context.municipality?.id, city: context.municipality?.city_id, channel: context.activeChannelId, categories: categoryIds });
+  const [response, setResponse] = useState(null);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!context.municipality || !context.canReadAttendance) return undefined;
+    const controller = new AbortController();
+    const scope = JSON.parse(scopeKey);
+    setResponse(null);
+    loadAttendanceOverview(supabase, { municipalityId: scope.municipality, cityId: scope.city, categoryIds: scope.categories, signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setResponse({ scopeKey, data }); })
+      .catch(error => { if (!controller.signal.aborted) setResponse({ scopeKey, error: error.message || 'Não foi possível carregar as solicitações.' }); });
+    return () => controller.abort();
+  }, [scopeKey, context.municipality, context.canReadAttendance, revision]);
+  const current = response?.scopeKey === scopeKey ? response : null;
+  const data = current?.data;
+  const names = (context.channels || []).filter(channel => context.readableChannelIds?.includes(String(channel.id)) && (!context.activeChannelId || String(channel.id) === String(context.activeChannelId))).map(channel => channel.nome);
+  const categoryNames = (context.categories || []).filter(category => categoryIds.includes(category.id)).map(category => category.name);
+  const description = [names.join(', '), categoryNames.join(', ')].filter(Boolean).join(' • ') || 'Nenhuma categoria habilitada para atendimento';
+  const retry = () => setRevision(value => value + 1);
+  const newOrderPath = municipalContextPath('/prefeitura/demandas/nova', context.municipality?.city_id, context.activeChannelId);
+  return <div className="page-shell-fluid min-w-0 space-y-6 pb-10 pt-6 sm:pt-8" data-testid="department-overview">
+    <Helmet><title>Visão geral | Secretaria</title><meta name="robots" content="noindex" /></Helmet>
+    <header className="flex min-w-0 flex-wrap items-end justify-between gap-4 pb-1"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Atendimento da secretaria</p><h1 className="mt-1 font-display text-3xl font-black tracking-tight">Visão geral</h1><p className="mt-2 text-sm leading-6 text-content-secondary">{description}</p></div><Button variant="outline" className="shrink-0 bg-surface-raised" onClick={retry} disabled={!current} aria-label="Atualizar visão geral"><RotateCcw className={'mr-2 h-4 w-4 ' + (!current ? 'animate-spin' : '')} />Atualizar</Button></header>
+    {!categoryIds.length ? <p className="rounded-xl border border-edge-subtle bg-surface-raised p-5 text-sm">A secretaria ainda não tem categorias de atendimento habilitadas. O administrador municipal pode conferir essa configuração.</p> : !current ? <div role="status" className="flex min-h-64 items-center justify-center gap-2 text-sm text-content-secondary"><Loader2 className="h-5 w-5 animate-spin" />Carregando solicitações da secretaria…</div> : current.error ? <div role="alert" className="space-y-3 rounded-xl border border-danger/30 bg-danger-subtleBg p-4 text-sm text-danger"><p>Não foi possível carregar os indicadores. {current.error}</p><Button variant="outline" size="sm" onClick={retry}>Tentar novamente</Button></div> : <>
+      <section aria-label="Indicadores das solicitações" className="grid min-w-0 gap-3 md:grid-cols-3">{REPORT_PHASES.map(([phase, label], index) => <article key={phase} className={overviewPanel + ' flex items-start gap-4 sm:gap-6'}><PhaseIcon index={index} large /><div className="min-w-0 flex-1"><h2 className="text-sm font-bold">{label}</h2><div className="mt-1 flex items-center justify-between gap-2"><p className="font-display text-4xl font-black tabular-nums">{format(data.phases[phase].total)}</p><ChevronRight className="h-5 w-5 text-content-secondary" aria-hidden="true" /></div><div className="mt-2"><VisibilityLinks context={context} phase={phase} counts={data.phases[phase]} /></div></div></article>)}</section>
+      <div className="grid min-w-0 items-stretch gap-4 xl:grid-cols-2" data-testid="overview-detail-grid">
+        <section aria-label="Solicitações por categoria" className={overviewPanel}><h2 className="flex items-center gap-3 text-lg font-bold"><BarChart3 className="h-5 w-5 shrink-0 text-brand" />Por categoria</h2><p className="ml-8 mt-1 text-xs leading-5 text-content-secondary">{format(data.total)} solicitações no escopo selecionado, incluindo as vinculadas a ordens de serviço.</p><div className="mt-5 space-y-4">{data.categories.map(category => <article key={category.id} className="min-w-0 overflow-hidden rounded-xl border border-edge-subtle"><div className="flex flex-wrap items-center gap-3 bg-surface-subtle px-4 py-3"><Icon name={categoryIconName(category.id)} size={24} className="shrink-0" /><h3 className="min-w-0 flex-1 text-sm font-bold">{context.categories.find(item => item.id === category.id)?.name || category.id}</h3><span className="text-xs text-content-secondary">{format(category.total)} solicitações</span></div><div className="divide-y divide-edge-subtle border-t border-edge-subtle">{REPORT_PHASES.map(([phase, label], index) => <div key={phase} className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto]"><PhaseIcon index={index} /><p className="text-xs text-content-secondary sm:text-sm">{label}</p><strong className="text-sm tabular-nums">{format(category.phases[phase].total)}</strong><div className="col-span-2 col-start-2 sm:col-span-1 sm:col-start-auto sm:ml-4"><VisibilityLinks context={context} phase={phase} counts={category.phases[phase]} category={category.id} /></div></div>)}</div></article>)}</div></section>
+        <DepartmentWeeklyChart days={data.days} />
+      </div>
+      <section className={overviewPanel} aria-labelledby="overview-shortcuts"><h2 id="overview-shortcuts" className="flex items-center gap-3 text-lg font-bold"><Zap className="h-5 w-5 text-brand" />Acesso rápido</h2><p className="ml-8 mt-1 text-xs text-content-secondary">Ações mais utilizadas no dia a dia.</p><div className={'mt-3 grid gap-3 ' + (context.canReceive ? 'md:grid-cols-2' : '')}>{[
+        { to: overviewReportPath(context), label: 'Ver solicitações', description: 'Acompanhe e filtre as solicitações da secretaria.', icon: List },
+        ...(context.canReceive ? [{ to: newOrderPath, label: 'Nova ordem de serviço', description: context.canDispatch ? 'Crie uma nova ordem de serviço para a secretaria.' : 'Prepare um rascunho de ordem para aprovação do gestor.', icon: Plus }] : []),
+      ].map(({ to, label, description: caption, icon: ShortcutIcon }) => <Link key={label} to={to} className="group flex min-w-0 items-center gap-4 rounded-xl border border-brand/15 bg-brand-subtleBg/40 px-4 py-3 transition-colors hover:bg-brand-subtleBg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"><ShortcutIcon className="h-6 w-6" /></span><div className="min-w-0 flex-1"><h3 className="text-sm font-bold text-brand">{label}</h3><p className="mt-1 text-xs leading-5 text-content-secondary">{caption}</p></div><ChevronRight className="h-4 w-4 shrink-0 text-brand" /></Link>)}</div></section>
+    </>}
+  </div>;
+}
+
+export default function MunicipalOverviewPage() {
+  const context = useMunicipalityWorkspace();
+  return context.isAdministrator ? <AdministrativeOverview /> : <DepartmentOverview context={context} />;
 }

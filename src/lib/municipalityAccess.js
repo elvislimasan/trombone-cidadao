@@ -1,3 +1,5 @@
+import { isTerritorialPublicDetail } from './territorialAccess.js';
+
 export const hasMunicipalityPanelAccess = (user) => Boolean(
   user
   && !user.is_admin
@@ -15,6 +17,8 @@ export const shouldRedirectMunicipalityUser = (user, pathname) => {
   // respostas oficiais, inclusive em outra aba com a mesma sessão.
   const allowed = pathname.startsWith('/prefeitura/')
     || /^\/bronca\/[^/]+\/?$/.test(pathname)
+    || isTerritorialPublicDetail(pathname)
+    || ['/arborizacao/gerenciar', '/admin/arborizacao', '/pavimentacao/gerenciar', '/admin/pavimentacao'].includes(pathname)
     || pathname === '/alterar-senha'
     || pathname === '/termos-de-uso';
 

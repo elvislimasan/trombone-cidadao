@@ -6,7 +6,7 @@ import { canEditDemand, DEMAND_INITIAL_FORM, demandPayload, demandReportLocation
 const context = {
   isAdministrator: true, channels: [{ id: 'lighting' }, { id: 'roads' }],
   categoryChannels: [{ category_id: 'iluminacao', canal_id: 'lighting' }],
-  members: [{ canal_id: 'lighting', user_id: 'technician', ativo: true, papel: 'operador' }], serviceRules: [],
+  members: [{ canal_id: 'lighting', user_id: 'technician', ativo: true, papel: 'leitura', especialidades_execucao: ['eletricista'] }], serviceRules: [],
 };
 
 test('localização da demanda conserva os endereços e pontos de todas as broncas vinculadas', () => {
@@ -42,7 +42,7 @@ test('preenchimento copia dados de localização e só sugere atribuição inequ
   assert.equal(form.canal_id, 'lighting'); assert.equal(form.atribuido_a, 'technician');
   assert.equal(form.latitude, -8); assert.equal(form.longitude, -38); assert.equal(form.pole_id, 42);
   assert.equal(form.prazo_em, ''); assert.equal(form.primeira_resposta_prazo_em, '');
-  const ambiguous = { ...context, members: [...context.members, { canal_id: 'lighting', user_id: 'second', ativo: true, papel: 'gestor' }] };
+  const ambiguous = { ...context, members: [...context.members, { canal_id: 'lighting', user_id: 'second', ativo: true, papel: 'gestor', especialidades_execucao: ['eletricista'] }] };
   assert.equal(suggestDemandAssignment(ambiguous, 'iluminacao').atribuido_a, '');
   assert.equal(suggestDemandAssignment(context, '').canal_id, '');
 });

@@ -33,7 +33,7 @@ const adminLinks = [
   { to: '/admin/moderacao/obras-midias', icon: 'ShieldCheck', title: 'Moderar Mídias de Obras', description: 'Aprove ou rejeite fotos e vídeos enviados.', module: 'moderation' },
   { to: '/admin/obras/opcoes', icon: 'ListChecks', title: 'Opções de Obras', description: 'Gerencie categorias e áreas das obras.', module: 'works' },
   { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar mapa de ruas', description: 'Edite ruas, traçados e contornos de bairros.', module: 'urban_planning' },
-  { to: '/admin/arborizacao', icon: 'Trees', title: 'Gerenciar arborização', description: 'Cadastre árvores, espécies, condições e manejos por cidade.', module: 'urban_planning' },
+  { to: '/admin/arborizacao', icon: 'Trees', title: 'Gerenciar arborização', description: 'Cadastre árvores, espécies, condições e manejos por cidade.', module: 'arborization' },
   { to: '/admin/vereadores', icon: 'Landmark', title: 'Vereadores e vínculos', description: 'Cadastre vereadores e analise solicitações de vínculo de contas.', module: 'pavement' },
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Guia da Cidade', description: 'Adicione e edite locais do Guia da Cidade.', module: 'services' },

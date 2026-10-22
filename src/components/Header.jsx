@@ -1,3 +1,5 @@
+import { usePermissions } from '@/hooks/usePermissions';
+import { hasTerritorialAccess, TERRITORIAL_BASE } from '@/lib/territorialAccess';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +23,7 @@ const PRIORIDADE_DESKTOP = new Map([['/', 0], ['/feed', 0], ['/explorar', 1], ['
 
 const Header = () => {
   const { user, signOut } = useAuth();
+  const territorialAccess = usePermissions();
   const { resolved: resolvedTheme, setPreference: setThemePreference } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [siteName, setSiteName] = useState('Trombone Cidadão');
@@ -352,6 +355,7 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/obras-favoritas" className="flex items-center"><LucideIcons.HardHat className="mr-2 h-4 w-4" /><span>Obras Favoritas</span></Link>
                   </DropdownMenuItem>
+                  {hasTerritorialAccess(territorialAccess) && <DropdownMenuItem asChild><Link to={TERRITORIAL_BASE} className="flex items-center"><LucideIcons.Trees className="mr-2 h-4 w-4" /><span>Ruas e arborização</span></Link></DropdownMenuItem>}
                   {hasMunicipalityAccess && (
                     <DropdownMenuItem asChild>
                       <Link to="/prefeitura/visao-geral" className="flex items-center"><LucideIcons.Building2 className="mr-2 h-4 w-4" /><span>Painel da Prefeitura</span></Link>

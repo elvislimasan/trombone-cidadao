@@ -13,11 +13,11 @@ const Avatar = ({ profile, name }) => profile?.photo_url ? (
   </span>
 );
 
-export default function CouncilorRankingCard({ streets, cityId, cityName }) {
+export default function CouncilorRankingCard({ streets, cityId, cityName, compact = false }) {
   const ranking = useMemo(() => rankingDeAutores(streets), [streets]);
   const [profiles, setProfiles] = useState(new Map());
   const [expanded, setExpanded] = useState(false);
-  const visibleRanking = expanded ? ranking : ranking.slice(0, 5);
+  const visibleRanking = expanded ? ranking : ranking.slice(0, compact ? 3 : 5);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,10 +33,10 @@ export default function CouncilorRankingCard({ streets, cityId, cityName }) {
     return () => { cancelled = true; };
   }, [cityId, ranking]);
 
-  if (ranking.length === 0) return null;
+  if (ranking.length === 0) return compact ? <section className="pavement-dashboard-ranking-empty"><Award className="h-5 w-5 text-status-pendingFg" /><div><h2 className="text-xs font-bold">Quem mais nomeou ruas</h2><p className="mt-1 text-xs text-content-secondary">Nenhum autor de projeto vinculado às ruas deste recorte.</p></div></section> : null;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm" aria-labelledby="councilor-ranking-title">
+    <section className={`overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm ${compact ? 'pavement-dashboard-ranking' : ''}`} aria-labelledby="councilor-ranking-title">
       <div className="flex items-center gap-3 border-b border-edge-subtle px-4 py-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-status-pendingBg text-status-pendingFg">
           <Award className="h-[18px] w-[18px]" />
@@ -45,9 +45,9 @@ export default function CouncilorRankingCard({ streets, cityId, cityName }) {
           <h2 id="councilor-ranking-title" className="text-sm font-extrabold text-content-primary">Quem mais nomeou ruas</h2>
           <p className="text-xs text-content-secondary">Projetos de lei cadastrados{cityName ? ` em ${cityName}` : ''}</p>
         </div>
-        {ranking.length > 5 && <button type="button" className="ml-auto shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-brand transition-colors hover:bg-brand-subtleBg" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Mostrar menos' : 'Ver todos'}</button>}
+        {ranking.length > (compact ? 3 : 5) && <button type="button" className="ml-auto shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold text-brand transition-colors hover:bg-brand-subtleBg" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Mostrar menos' : 'Ver todos'}</button>}
       </div>
-      <div className="grid divide-y divide-edge-subtle sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
+      <div className={compact ? "pavement-dashboard-ranking-grid" : "grid divide-y divide-edge-subtle sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5"}>
         {visibleRanking.map((item, index) => {
           const profile = profiles.get(item.key);
           const path = rotaDoVereador(cityId || cidadeDoAutor(streets, item.name), profile?.slug || item.name);

@@ -9,7 +9,7 @@ const CORES = {
   unpaved: 'bg-brand',
 };
 
-export default function PavementMapLegend({ resumo, atualizadoEm, onRecarregar, embedded = false }) {
+export default function PavementMapLegend({ resumo, atualizadoEm, onRecarregar, embedded = false, colorsOnly = false }) {
   const emKm = resumo.temTracado;
   const [compacta, setCompacta] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia
@@ -30,6 +30,11 @@ export default function PavementMapLegend({ resumo, atualizadoEm, onRecarregar, 
     media.addListener(aoMudar);
     return () => media.removeListener(aoMudar);
   }, []);
+
+  if (colorsOnly) return <section aria-label="Legenda do mapa" className="absolute bottom-3 left-3 right-3 z-[700] flex flex-wrap items-center justify-between gap-2 rounded-xl border border-edge-subtle bg-surface-overlay/95 px-3 py-2 text-[10px] shadow-sm">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1">{SITUACOES.map(({ id, rotulo }) => <li key={id} className="flex items-center gap-1.5"><span className={`h-0.5 w-4 rounded-full ${CORES[id]}`} />{rotulo}</li>)}</ul>
+    <button type="button" aria-label="Recarregar as ruas" className="rounded p-1 hover:bg-surface-subtle" onClick={onRecarregar}><RefreshCw className="h-3.5 w-3.5" /></button>
+  </section>;
 
   if (embedded) {
     return (

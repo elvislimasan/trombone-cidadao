@@ -217,7 +217,7 @@ export const useCity = () => {
 
 const CityViewContext = createContext(undefined);
 
-export const CityViewProvider = ({ children }) => {
+export const CityViewProvider = ({ children, value: controlledValue }) => {
   const { activeCityId, activeCityName, cities, loadingCities } = useCity();
   // undefined = "seguindo o header". Sentinela proprio porque `null` ja e um
   // valor valido do filtro ("Todas as cidades").
@@ -257,7 +257,7 @@ export const CityViewProvider = ({ children }) => {
     [cityId, cityName, city, isExploring, resetToMyCity, cities, loadingCities]
   );
 
-  return <CityViewContext.Provider value={value}>{children}</CityViewContext.Provider>;
+  return <CityViewContext.Provider value={controlledValue || value}>{children}</CityViewContext.Provider>;
 };
 
 /**

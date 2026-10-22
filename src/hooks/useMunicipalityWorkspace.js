@@ -1,73 +1,99 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enabledMunicipalCategories, filterMunicipalCategories } from '@/lib/municipalCategories';
+import { PERMISSIONS_CHANGED_EVENT, PERMISSIONS_STORAGE_KEY } from '@/lib/permissionUpdates';
+import { municipalCapabilities, assertMunicipalWorkspaceIdentity } from '@/lib/municipalAccess';
 
-const empty = { loading: true, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], editableChannelIds: [], electricianChannelIds: [], isElectrician: false, isAdministrator: false, canEdit: false, canEditLighting: false, error: '' };
+const empty = { loading: true, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
+const WorkspaceContext = createContext(empty);
 export const WORKSPACE_EVENT = 'municipality-workspace-changed';
-const workspaceKey = (userId) => 'municipality-workspace:' + userId;
+const workspaceKey = userId => 'municipality-workspace:' + userId;
 export function selectMunicipalityWorkspace(userId, id) {
-  try { window.localStorage.setItem(workspaceKey(userId), id); } catch { /* Selection still applies to this tab. */ }
+  try { window.localStorage.setItem(workspaceKey(userId), id); } catch { /* Optional preference. */ }
   window.dispatchEvent(new CustomEvent(WORKSPACE_EVENT, { detail: { id } }));
 }
-export default function useMunicipalityWorkspace() {
+export function MunicipalityWorkspaceProvider({ children }) {
   const { user } = useAuth();
+  const { search } = useLocation();
+  const explicitCity = new URLSearchParams(search).get('cidade');
+  const requestedChannel = new URLSearchParams(search).get('secretaria');
   const [state, setState] = useState(empty);
   const [revision, setRevision] = useState(0);
   const [chosenId, setChosenId] = useState('');
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  const refresh = useCallback(() => setRevision(value => value + 1), []);
   useEffect(() => {
-    const update = (event) => { if (event.detail?.id) setChosenId(event.detail.id); refresh(); };
+    const update = event => { if (event.detail?.id) setChosenId(event.detail.id); refresh(); };
     window.addEventListener(WORKSPACE_EVENT, update);
-    return () => window.removeEventListener(WORKSPACE_EVENT, update);
+    window.addEventListener(PERMISSIONS_CHANGED_EVENT, refresh);
+    const storage = event => { if (event.key === PERMISSIONS_STORAGE_KEY) refresh(); };
+    window.addEventListener('storage', storage);
+    window.addEventListener('focus', refresh);
+    return () => { window.removeEventListener(WORKSPACE_EVENT, update); window.removeEventListener(PERMISSIONS_CHANGED_EVENT, refresh); window.removeEventListener('focus', refresh); window.removeEventListener('storage', storage); };
   }, [refresh]);
   useEffect(() => {
     if (!user?.id) { setState({ ...empty, loading: false }); return undefined; }
     let active = true;
-    setState((current) => ({ ...current, loading: true, error: '' }));
+    setState({ ...empty, userId: user.id });
     (async () => {
       try {
-        const { data: memberships, error } = await supabase.from('prefeitura_membros')
-          .select('papel, prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(id,city_id,nome,status,categorias_habilitadas,cidade:cities(name,states(uf)))')
-          .eq('user_id', user.id).eq('ativo', true);
+        const { data, error } = await supabase.rpc('municipal_execution_workspace');
         if (error) throw error;
-        const available = (memberships || []).filter((item) => item.prefeitura?.status === 'ativa');
+        assertMunicipalWorkspaceIdentity(data, user.id);
+        if (data.execution_contract !== 1) throw new Error('Atualize o banco com as migrações 377 e 378 dos executores.');
+        const available = data.memberships || [];
         let preference = chosenId;
-        try { preference ||= window.localStorage.getItem(workspaceKey(user.id)); } catch { /* Storage is optional. */ }
-        const membership = available.find((item) => item.prefeitura.id === preference) || available[0];
-        if (!membership) { if (active) setState({ ...empty, loading: false, userId: user.id }); return; }
-        const cityId = membership.prefeitura.city_id;
-        const [channels, categories, members, mappings, rules] = await Promise.all([
-          supabase.from('orgao_canais').select('id,nome,city_id,ativo,canal_triagem').eq('city_id', cityId).eq('canal_triagem', false).order('nome'),
-          supabase.from('categories').select('id,name').order('name'),
-          supabase.from('orgao_membros').select('canal_id,user_id,papel,ativo,perfil:profiles!orgao_membros_user_id_fkey(name)').eq('ativo', true),
-          supabase.from('orgao_categorias').select('canal_id,category_id').eq('city_id', cityId),
-          supabase.from('prefeitura_servico_regras').select('*').eq('prefeitura_id', membership.prefeitura.id),
-        ]);
-        const failure = [channels, categories, members, mappings, rules].find((result) => result.error)?.error;
-        if (failure) throw failure;
-        const channelIds = new Set((channels.data || []).map((channel) => String(channel.id)));
-        const cityMembers = (members.data || []).filter((member) => channelIds.has(String(member.canal_id)));
-        const roles = cityMembers.filter((member) => member.user_id === user.id);
-        const lightingIds = new Set((mappings.data || []).filter((item) => item.category_id === 'iluminacao').map((item) => String(item.canal_id)));
+        try { preference ||= window.localStorage.getItem(workspaceKey(user.id)); } catch { /* Optional preference. */ }
+        const membership = explicitCity ? available.find(row => String(row.prefeitura.city_id) === String(explicitCity))
+          : available.find(row => row.prefeitura.id === preference) || available[0];
+        if (!membership) {
+          if (active) setState({ ...empty, loading: false, userId: user.id, error: explicitCity ? 'Sem vínculo municipal nesta cidade.' : '' });
+          return;
+        }
+        const municipality = membership.prefeitura;
+        const accesses = (data.accesses || []).filter(row => String(row.city_id) === String(municipality.city_id));
         const isAdministrator = membership.papel === 'administrador';
-        const editableChannelIds = isAdministrator ? [...channelIds] : roles.filter((role) => ['gestor', 'operador'].includes(role.papel)).map((role) => String(role.canal_id));
-        const electricianChannelIds = roles.filter((role) => role.papel === 'eletricista').map((role) => String(role.canal_id));
+        const channels = (data.channels || []).filter(row => String(row.city_id) === String(municipality.city_id));
+        let selectedChannel = requestedChannel;
+        const channelKey = 'municipality-channel:' + user.id + ':' + municipality.id;
+        if (selectedChannel === null) {
+          try { selectedChannel = window.localStorage.getItem(channelKey) || ''; } catch { selectedChannel = ''; }
+          if (!channels.some(row => String(row.id) === selectedChannel)) selectedChannel = '';
+        }
+        try { window.localStorage.setItem(channelKey, selectedChannel); window.localStorage.setItem(workspaceKey(user.id), municipality.id); } catch { /* Optional preferences. */ }
+        if (selectedChannel && !channels.some(row => String(row.id) === selectedChannel)) throw new Error('Secretaria indisponível para esta conta.');
+        const caps = municipalCapabilities(accesses, isAdministrator, selectedChannel);
+        const [categories, members, mappings, rules] = await Promise.all([
+          supabase.from('categories').select('id,name').order('name'),
+          channels.length ? supabase.from('orgao_membros').select('canal_id,user_id,papel,ativo,perfil:profiles!orgao_membros_user_id_fkey(name)').eq('ativo', true).in('canal_id', channels.map(row => row.id)) : Promise.resolve({ data: [] }),
+          Promise.resolve({ data: (data.category_channels || []).filter(row => String(row.city_id) === String(municipality.city_id)) }),
+          caps.canReadAttendance ? supabase.from('prefeitura_servico_regras').select('*').eq('prefeitura_id', municipality.id) : Promise.resolve({ data: [] }),
+        ]);
+        const failure = [categories, members, mappings, rules].find(result => result.error)?.error;
+        if (failure) throw failure;
+        const scopeChannels = selectedChannel ? channels.filter(row => String(row.id) === selectedChannel) : channels;
+        const categoryIds = enabledMunicipalCategories(municipality).filter(id => (isAdministrator && !selectedChannel) || (mappings.data || []).some(mapping => mapping.category_id === id && scopeChannels.some(channel => channel.id === mapping.canal_id)));
         if (active) setState({
-          loading: false, userId: user.id, municipality: membership.prefeitura, memberships: available,
-          channels: channels.data || [], categories: filterMunicipalCategories(categories.data, membership.prefeitura),
-          enabledCategoryIds: enabledMunicipalCategories(membership.prefeitura), categoryChannels: mappings.data || [], members: cityMembers,
-          serviceRules: rules.data || [], isAdministrator, editableChannelIds, electricianChannelIds,
-          isElectrician: !isAdministrator && editableChannelIds.length === 0 && electricianChannelIds.length > 0,
-          canEdit: isAdministrator || editableChannelIds.length > 0,
-          canEditLighting: enabledMunicipalCategories(membership.prefeitura).includes('iluminacao')
-            && (isAdministrator || roles.some((role) => lightingIds.has(String(role.canal_id)) && role.papel === 'gestor')), error: '',
+          loading: false, userId: user.id, municipality, memberships: available, accesses,
+          channels: selectedChannel ? channels.filter(row => String(row.id) === selectedChannel) : channels,
+          allChannels: channels, activeChannelId: selectedChannel,
+          categories: filterMunicipalCategories(categories.data, municipality).filter(category => categoryIds.includes(category.id)), enabledCategoryIds: categoryIds,
+          categoryChannels: mappings.data || [], members: (members.data || []).map(member => ({ ...member, especialidades_execucao: (data.execution_team || []).find(row => row.user_id === member.user_id && row.canal_id === member.canal_id)?.especialidades_execucao || [] })), serviceRules: rules.data || [],
+          inventoryModules: [...(data.inventories || []), ...(data.inventory_views || [])].filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)).map(row => row.module),
+          executionActivities: (data.execution_activities || []).filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)),
+          ...caps, isAdministrator, isElectrician: caps.canExecuteLighting, canEdit: caps.canReceive,
+          canViewLighting: categoryIds.includes('iluminacao') && (caps.canReadAttendance || caps.canEditLighting || caps.canExecuteLighting),
+          canEditLighting: categoryIds.includes('iluminacao') && caps.canEditLighting, error: '',
         });
       } catch (error) {
-        if (active) setState({ ...empty, loading: false, userId: user.id, error: ['42P01', 'PGRST205'].includes(error.code) ? 'O banco precisa da atualização do fluxo de atendimento municipal (migração 275).' : error.message });
+        if (active) setState({ ...empty, loading: false, userId: user.id, error: ['42883', 'PGRST202'].includes(error.code) ? 'Atualize o banco com as migrações do painel por responsabilidades.' : error.message });
       }
     })();
     return () => { active = false; };
-  }, [user?.id, revision, chosenId]);
-  return { ...state, userName: user?.name || user?.user_metadata?.name || '', refresh };
+  }, [user?.id, revision, chosenId, explicitCity, requestedChannel]);
+  const valid = state.userId === user?.id && (!explicitCity || !state.municipality || String(state.municipality.city_id) === String(explicitCity)) && (requestedChannel === null || !state.municipality || state.activeChannelId === requestedChannel) && (explicitCity || !chosenId || !state.municipality || state.municipality.id === chosenId);
+  const value = { ...(valid ? state : empty), userName: user?.name || '', refresh };
+  return React.createElement(WorkspaceContext.Provider, { value }, children);
 }
+export default function useMunicipalityWorkspace() { return useContext(WorkspaceContext); }

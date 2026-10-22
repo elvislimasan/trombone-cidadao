@@ -5,7 +5,7 @@ export const ELECTRICIAN_SERVICES_PAGE_SIZE = 20;
 const EMPTY_COUNTS = { fazer: 0, execucao: 0, conferencia: 0, historico: 0 };
 const EMPTY_ITEMS = [];
 
-export function useElectricianServicesPage({ municipalityId, userId, tab, stage, query, sortMode, deferred, showDeferred, enabled = true }) {
+export function useExecutorServicesPage({ municipalityId, userId, tab, stage, query, sortMode, deferred, showDeferred, enabled = true, activity, channelId, all = false, includeAvailable = false }) {
   const normalized = query.trim();
   const [term, setTerm] = useState(normalized);
   const [selection, setSelection] = useState({ scope: '', page: 1 });
@@ -17,7 +17,8 @@ export function useElectricianServicesPage({ municipalityId, userId, tab, stage,
     return () => clearTimeout(timer);
   }, [normalized]);
 
-  const scope = JSON.stringify({ userId, args: {
+  const scope = JSON.stringify({ userId, rpc: activity ? 'listar_painel_executor' : 'listar_painel_eletricista', all, includeAvailable, args: {
+    ...(activity ? { p_especialidade: activity, p_canal: channelId || null } : {}),
     p_prefeitura: municipalityId, p_aba: tab, p_etapa: tab === 'minhas' ? stage : 'fazer',
     p_busca: term, p_ordem: sortMode,
     p_adiadas: tab === 'disponiveis' && !showDeferred ? deferred : [],
@@ -29,17 +30,41 @@ export function useElectricianServicesPage({ municipalityId, userId, tab, stage,
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
 
   useEffect(() => {
-    const { args } = JSON.parse(scope);
+    const { args, rpc, all: loadAll, includeAvailable: combinedMap } = JSON.parse(scope);
     if (!enabled || !args.p_prefeitura) return undefined;
     const controller = new AbortController();
     setPending(true);
     (async () => {
       try {
-        const { data, error } = await supabase.rpc('listar_painel_eletricista', {
-          ...args, p_pagina: requestedPage, p_tamanho: ELECTRICIAN_SERVICES_PAGE_SIZE,
-        }).abortSignal(controller.signal);
+        const load = async (requestArgs) => {
+          const { data, error } = await supabase.rpc(rpc, {
+            ...requestArgs, p_pagina: loadAll ? 1 : requestedPage, p_tamanho: loadAll ? 100 : ELECTRICIAN_SERVICES_PAGE_SIZE,
+          }).abortSignal(controller.signal);
+          if (error) throw error;
+          if (controller.signal.aborted) return null;
+          if (loadAll) {
+            const items = [...(data.items || [])];
+            for (let nextPage = 2; items.length < data.total; nextPage++) {
+              const next = await supabase.rpc(rpc, { ...requestArgs, p_pagina: nextPage, p_tamanho: 100 }).abortSignal(controller.signal);
+              if (next.error) throw next.error;
+              if (controller.signal.aborted) return null;
+              if (!next.data?.items?.length) throw new Error('A lista de serviços mudou durante a consulta. Atualize o mapa.');
+              items.push(...next.data.items);
+            }
+            return { ...data, items };
+          }
+          return data;
+        };
+        let data;
+        if (combinedMap) {
+          const pages = await Promise.all(['minhas', 'disponiveis'].map(p_aba => load({ ...args, p_aba, p_etapa: 'todas', p_adiadas: [] })));
+          if (controller.signal.aborted) return;
+          const unique = new Map(pages.flatMap(result => result.items || [])
+            .filter(item => !['concluida', 'cancelada', 'recusada'].includes(item.status))
+            .map(item => [`${item.tipo}:${item.id}`, item]));
+          data = { ...pages[0], items: [...unique.values()], total: unique.size, page: 1 };
+        } else data = await load(args);
         if (controller.signal.aborted) return;
-        if (error) throw error;
         setResponse({ scope, requestedPage, data, error: '' });
       } catch (error) {
         if (!controller.signal.aborted) setResponse({ scope, requestedPage, data: null,
@@ -63,3 +88,5 @@ export function useElectricianServicesPage({ municipalityId, userId, tab, stage,
     setPage: (next) => setSelection({ scope, page: Math.max(1, next) }),
   };
 }
+
+export const useElectricianServicesPage = useExecutorServicesPage;

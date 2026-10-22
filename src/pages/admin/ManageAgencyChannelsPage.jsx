@@ -1,3 +1,5 @@
+import { departmentExecutionScope, executionActivity } from '@/lib/executorActivities';
+import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
@@ -13,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { CATEGORIAS_BRONCA } from '@/lib/reportCategories';
 import {
@@ -52,6 +53,9 @@ const vazio = {
   copias: '',
   reply_to: '',
   categorias: [],
+  municipal_modules: [],
+  execution_specialties: [],
+  access_version: 0,
   city_id: '',
 };
 
@@ -60,8 +64,8 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
 
   useEffect(() => {
     if (!aberto) return;
-    setForm(canal ? { ...vazio, ...canal } : vazio);
-  }, [aberto, canal]);
+    setForm(canal ? { ...vazio, ...canal } : { ...vazio, city_id: cidades.length === 1 ? cidades[0].value : '' });
+  }, [aberto, canal, cidades]);
 
   const ocupadas = useMemo(
     () => categoriasOcupadas(canaisDaCidade.filter((c) => String(c.city_id) === String(form.city_id)), form.id),
@@ -69,6 +73,8 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
   );
 
   const copias = listaDeEmails(form.copias);
+  const canalTemCategorias = (canal?.categorias || []).length > 0;
+  const canalTemInventario = form.municipal_modules.some(module => ['urban_planning', 'arborization'].includes(module));
   const erros = problemasDoCanal({
     nome: form.nome,
     email: form.email,
@@ -84,11 +90,12 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
       categorias: f.categorias.includes(id)
         ? f.categorias.filter((c) => c !== id)
         : [...f.categorias, id],
+      ...(id === 'iluminacao' && f.categorias.includes(id) ? { municipal_modules: f.municipal_modules.filter(module => module !== 'lighting'), execution_specialties: [] } : {}),
     }));
   };
 
   return (
-    <MunicipalDrawer open={aberto} onClose={onFechar} busy={salvando} title={canal ? canal.nome : 'Nova secretaria'} description="Dados institucionais, categorias e recebimento de relatórios."
+    <MunicipalDrawer open={aberto} onClose={onFechar} busy={salvando} title={canal ? canal.nome : 'Nova secretaria'} description="Defina quais solicitações, mapas e serviços pertencem à secretaria. Depois, atribua apenas os cargos aos funcionários."
       footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={salvando} onClick={onFechar}>Cancelar</Button><Button disabled={erros.length > 0 || semCidade || salvando} onClick={() => onSalvar({ ...form, copias })}>{salvando ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
         <div className="space-y-4 py-2">
           {/* Combobox e não `select`: são 5.570 cidades, e um `select` nativo
@@ -171,6 +178,10 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
             </p>
           </div>
 
+          <fieldset className="space-y-3 rounded-xl border border-edge-subtle p-4"><legend className="text-sm font-semibold">Mapas e cadastros da secretaria</legend><p className="text-xs text-content-secondary">O responsável pelo inventário trabalha nas áreas selecionadas aqui. Gestores também recebem acesso a essas áreas quando a secretaria tem categorias de atendimento.</p>
+            {[["urban_planning","Ruas e pavimentações"],["arborization","Arborização"],["lighting","Postes e iluminação"]].map(([id,label]) => <label key={id} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={form.municipal_modules.includes(id)} disabled={salvando || (id === 'lighting' && !form.categorias.includes('iluminacao'))} onChange={event => setForm(current => ({ ...current, municipal_modules: event.target.checked ? [...current.municipal_modules,id] : current.municipal_modules.filter(value => value !== id) }))} />{label}</label>)}
+          </fieldset>
+          <section className="rounded-xl border border-edge-subtle p-4"><h3 className="text-sm font-semibold">Execução de campo</h3><p className="mt-2 text-xs text-content-secondary">Funcionários com o cargo de executor atendem as categorias desta secretaria. O painel e o mapa acompanham as áreas configuradas.</p><ul className="mt-3 space-y-1 text-sm">{Object.entries(departmentExecutionScope(form.categorias, form.municipal_modules)).map(([id, categories]) => <li key={id}><strong>{executionActivity(id).label}:</strong> {categories.map(category => CATEGORIAS_BRONCA.find(item => item.id === category)?.name || category).join(', ')}</li>)}</ul>{!form.categorias.length && <p className="mt-2 text-xs text-content-secondary">Sem categorias, esta secretaria não recebe solicitações nem cargos de atendimento ou execução. O responsável pelo inventário poderá cuidar dos mapas selecionados acima.</p>}</section>
           <div>
             <Label>Categorias sob responsabilidade deste órgão</Label>
             <div className="grid grid-cols-2 gap-2 mt-2">
@@ -199,7 +210,7 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               Cada categoria tem um único responsável por cidade. As que já pertencem a outro
-              órgão aparecem desabilitadas.
+              órgão aparecem desabilitadas. As categorias são opcionais para secretarias dedicadas aos mapas e inventários.
             </p>
           </div>
 
@@ -209,18 +220,17 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
             </ul>
           )}
 
-          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-            <p className="text-xs text-amber-800">
-              O recebimento começa <strong>desligado</strong>. Confira o endereço antes de ativá-lo.
-            </p>
-          </div>
+          {form.categorias.length ? <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+            <p className="text-xs text-amber-800">O recebimento começa <strong>desligado</strong>. Confira o endereço antes de ativá-lo.</p>
+          </div> : <div className="rounded-lg border border-edge-subtle bg-surface-subtle px-3 py-2">
+            <p className="text-xs text-content-secondary">{canalTemInventario ? 'Sem categorias, a secretaria ficará disponível para atribuir o responsável pelo inventário e não receberá solicitações.' : 'Sem categorias, selecione Ruas e pavimentações ou Arborização para disponibilizar o inventário aos funcionários.'}</p>
+          </div>}
         </div>
 
-        {canal && <section className="mt-5 space-y-3 border-t border-edge-subtle pt-4"><h3 className="font-bold">Recebimento de relatórios</h3><p className="text-sm text-content-secondary">{canal.ativo ? 'Ativado' : 'Desligado'}</p>
-          {canal.desativado_motivo && <p className="rounded-xl bg-brand-subtleBg p-3 text-xs text-content-secondary">{canal.desativado_motivo}</p>}
-          {podeAtivar && <Button variant="outline" disabled={salvando} onClick={() => onAlternar(canal)}>{canal.ativo ? <PowerOff className="mr-2 h-4 w-4" /> : <Power className="mr-2 h-4 w-4" />}{canal.ativo ? 'Desligar recebimento' : 'Ativar recebimento'}</Button>}
-          <p className="text-xs text-content-secondary">Esta ação é aplicada imediatamente, usando o endereço já salvo.</p>
-          <h3 className="pt-3 font-bold">Histórico de envios</h3><HistoricoDeEnvios canalId={canal.id} />
+        {canal && <section className="mt-5 space-y-3 border-t border-edge-subtle pt-4"><h3 className="font-bold">{canalTemCategorias ? 'Recebimento de relatórios' : 'Acesso ao inventário'}</h3><p className="text-sm text-content-secondary">{canalTemCategorias ? canal.ativo ? 'Ativado' : 'Desligado' : 'Disponível · sem categorias de atendimento'}</p>
+          {canalTemCategorias && canal.desativado_motivo && <p className="rounded-xl bg-brand-subtleBg p-3 text-xs text-content-secondary">{canal.desativado_motivo}</p>}
+          {canalTemCategorias && podeAtivar && <Button variant="outline" disabled={salvando} onClick={() => onAlternar(canal)}>{canal.ativo ? <PowerOff className="mr-2 h-4 w-4" /> : <Power className="mr-2 h-4 w-4" />}{canal.ativo ? 'Desligar recebimento' : 'Ativar recebimento'}</Button>}
+          {canalTemCategorias && <><p className="text-xs text-content-secondary">Esta ação é aplicada imediatamente, usando o endereço já salvo.</p><h3 className="pt-3 font-bold">Histórico de envios</h3><HistoricoDeEnvios canalId={canal.id} /></>}
         </section>}
     </MunicipalDrawer>
   );
@@ -288,7 +298,7 @@ const HistoricoDeEnvios = ({ canalId }) => {
 };
 
 const ManageAgencyChannelsPage = () => {
-  const { user } = useAuth();
+  const workspace = useMunicipalityWorkspace();
 
   const [cidadesDoEscopo, setCidadesDoEscopo] = useState([]);
   const [cidadesAdministradas, setCidadesAdministradas] = useState([]);
@@ -303,6 +313,7 @@ const ManageAgencyChannelsPage = () => {
   const [editando, setEditando] = useState(undefined); // undefined = fechado
 
   const carregar = useCallback(async () => {
+    if (!workspace.municipality?.city_id) { setCarregando(false); return; }
     setCarregando(true);
     // Sem filtro de cidade: a policy de select da 222 já devolve só o que este
     // usuário pode gerir. Repetir a regra aqui criaria uma segunda redação dela.
@@ -310,6 +321,7 @@ const ManageAgencyChannelsPage = () => {
       .from('orgao_canais')
       .select('*, categorias:orgao_categorias(category_id), cidade:cities(name, states(uf))')
       .eq('canal_triagem', false)
+      .eq('city_id', workspace.municipality.city_id)
       .order('created_at', { ascending: false }).order('id'));
 
     if (error) {
@@ -328,34 +340,20 @@ const ManageAgencyChannelsPage = () => {
       );
     }
     setCarregando(false);
-  }, []);
+  }, [workspace.municipality?.city_id]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
   // Esta tela pertence ao administrador municipal. Admin/master da plataforma
   // analisa cadastros em /admin/prefeituras e não entra na operação da cidade.
   useEffect(() => {
-    if (!user?.id) return;
-    setEscopoCarregado(false);
-    supabase
-      .from('prefeitura_membros')
-      .select('prefeitura:prefeituras!prefeitura_membros_prefeitura_id_fkey(city_id, nome, cidade:cities(name, states(uf)))')
-      .eq('user_id', user.id)
-      .eq('papel', 'administrador')
-      .eq('ativo', true)
-      .then(({ data }) => {
-        const managed = (data || [])
-          .map((row) => ({
-            id: row.prefeitura?.city_id,
-            name: row.prefeitura?.cidade?.name,
-            uf: row.prefeitura?.cidade?.states?.uf,
-          }))
-          .filter((city) => city.id && city.name);
-        setCidadesDoEscopo(managed);
-        setCidadesAdministradas(managed.map((city) => String(city.id)));
-        setEscopoCarregado(true);
-      });
-  }, [user?.id]);
+    const municipality = workspace.municipality;
+    const managed = municipality && workspace.isAdministrator ? [{ id: municipality.city_id, name: municipality.cidade?.name || municipality.nome, uf: municipality.cidade?.states?.uf }] : [];
+    setCidadesDoEscopo(managed);
+    setCidadesAdministradas(managed.map(city => String(city.id)));
+    setEscopoCarregado(!workspace.loading);
+    setEditando(undefined);
+  }, [workspace.municipality, workspace.isAdministrator, workspace.loading]);
 
   // `value` como String porque `cities.id` é bigint e chega do PostgREST como
   // string — comparar com número daria sempre falso na seleção.
@@ -380,42 +378,20 @@ const ManageAgencyChannelsPage = () => {
         reply_to: form.reply_to.trim().toLowerCase(),
       };
 
-      let canalId = form.id;
-      if (canalId) {
-        const { error } = await supabase.from('orgao_canais').update(campos).eq('id', canalId);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from('orgao_canais')
-          .insert({ ...campos, criado_por: user.id, ativo: false })
-          .select('id')
-          .single();
-        if (error) throw error;
-        canalId = data.id;
-      }
-
-      // O mapeamento é reescrito inteiro: apagar e inserir é mais simples que
-      // calcular diferença, e a tabela é de 7 linhas no pior caso.
-      const { error: delError } = await supabase
-        .from('orgao_categorias')
-        .delete()
-        .eq('canal_id', canalId);
-      if (delError) throw delError;
-
-      if (form.categorias.length > 0) {
-        const { error: insError } = await supabase
-          .from('orgao_categorias')
-          .insert(form.categorias.map((category_id) => ({
-            canal_id: canalId,
-            city_id: Number(form.city_id),
-            category_id,
-          })));
-        if (insError) throw insError;
-      }
-
+      const { error } = await supabase.rpc('salvar_secretaria_execucao', {
+        p_id: form.id, p_city: Number(form.city_id), p_dados: campos,
+        p_categorias: form.categorias, p_modules: form.municipal_modules,
+        p_version: form.id ? form.access_version : null,
+      });
+      if (error) throw error;
+      window.dispatchEvent(new CustomEvent('municipality-workspace-changed'));
       showAppNotice({
         title: form.id ? 'Secretaria atualizada' : 'Secretaria cadastrada',
-        description: form.id ? undefined : 'Ele começa desligado para você conferir o endereço antes de ativar.',
+        description: form.id ? undefined : form.categorias.length
+          ? 'Ela começa desligada para você conferir o endereço antes de ativar.'
+          : form.municipal_modules.some(module => ['urban_planning', 'arborization'].includes(module))
+            ? 'Ela já está disponível para atribuir o responsável pelo inventário.'
+            : 'Selecione um mapa para liberar o inventário aos funcionários.',
       });
       setEditando(undefined);
       carregar();

@@ -29,6 +29,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [updateStatus, setUpdateStatus] = useState('recebida');
+  const [administrativeReason, setAdministrativeReason] = useState('orientacao');
   const [updateMessage, setUpdateMessage] = useState('');
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState('');
@@ -69,7 +70,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
       ]);
       if (!active) return;
       setReport(reportResult.data);
-      setUpdateStatus(reportResult.data?.status === 'in-progress' ? 'em_andamento' : reportResult.data?.status === 'pending_resolution' ? 'resolvida' : 'recebida');
+      setUpdateStatus('recebida');
       setLinked(linkedResult.data?.[0] || null);
       setSteps(stepsResult.data || []);
       setUpdates((updatesResult.data || []).filter((update) => !['rejected', 'pending_moderation'].includes(update.status)));
@@ -131,7 +132,7 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     if (!canUpdateMunicipalReport(report, context, linked) || updating) return;
     setUpdating(true); setUpdateError('');
     try {
-      const { error: failure } = await supabase.rpc('atualizar_bronca_prefeitura', {
+      const { error: failure } = await supabase.rpc(updateStatus === 'encerrada' ? 'encerrar_atendimento_administrativo' : 'atualizar_bronca_prefeitura', updateStatus === 'encerrada' ? { p_prefeitura: context.municipality.id, p_report: reportId, p_motivo: administrativeReason, p_resposta: updateMessage.trim() } : {
         p_prefeitura: context.municipality.id, p_report: reportId,
         p_situacao: updateStatus, p_mensagem: updateMessage.trim(), p_canal: context.editableChannelIds?.[0] || null,
       });
@@ -221,7 +222,8 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
           {canUpdate && <form onSubmit={publishUpdate} className="space-y-3 rounded-xl border border-edge-subtle bg-surface-raised p-4">
             <h3 className="text-sm font-semibold">Atualização da prefeitura</h3>
             <p className="text-xs text-content-secondary">{isInternal ? 'Atualize a situação sem criar uma ordem de serviço. O registro fica visível apenas para a equipe municipal.' : 'Informe o andamento ao cidadão sem criar uma ordem de serviço.'}</p>
-            <label className="block text-xs font-semibold">Situação<select value={updateStatus} onChange={(event) => setUpdateStatus(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-edge-default bg-surface-raised px-3 text-sm" disabled={updating}><option value="recebida">Recebida</option><option value="em_andamento">Em andamento</option><option value="resolvida">{isInternal ? 'Resolvida' : 'Resolução informada'}</option></select></label>
+            <label className="block text-xs font-semibold">Situação<select value={updateStatus} onChange={(event) => setUpdateStatus(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-edge-default bg-surface-raised px-3 text-sm" disabled={updating}><option value="recebida">Registrar recebimento / responder</option><option value="encerrada">Encerrar sem serviço físico</option></select></label>
+            {updateStatus === 'encerrada' && <label className="block text-xs font-semibold">Motivo administrativo<select value={administrativeReason} onChange={event => setAdministrativeReason(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-edge-default bg-surface-raised px-3 text-sm"><option value="orientacao">Orientação prestada</option><option value="duplicidade">Solicitação duplicada</option><option value="fora_competencia">Fora da competência municipal</option></select><span className="mt-1 block font-normal">Para execução de manutenção, crie uma ordem de serviço.</span></label>}
             <label className="block text-xs font-semibold">{isInternal ? 'Registro interno (opcional)' : 'Mensagem pública'}<textarea value={updateMessage} onChange={(event) => setUpdateMessage(event.target.value)} required={!isInternal} minLength={isInternal ? undefined : 5} maxLength={4000} disabled={updating} className="mt-1 min-h-24 w-full rounded-lg border border-edge-default bg-surface-raised p-3 text-sm" placeholder="Descreva a providência ou o resultado…" /></label>
             {updateError && <p role="alert" className="text-xs text-danger">{updateError}</p>}
             <Button type="submit" size="sm" disabled={updating || (!isInternal && updateMessage.trim().length < 5)}>{updating ? 'Salvando…' : isInternal ? 'Salvar atualização' : 'Publicar atualização'}</Button>

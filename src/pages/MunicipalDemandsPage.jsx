@@ -28,6 +28,7 @@ function FilterChip({ label, onRemove }) {
 }
 
 const demandTabStyles = {
+  rascunho: { icon: ClipboardCopy, color: 'text-slate-400 dark:text-slate-500', background: 'bg-slate-50/60 dark:bg-slate-900/30', badge: 'bg-slate-400 text-white' },
   aberta: { icon: ClipboardList, color: 'text-red-600 dark:text-red-400', background: 'bg-red-50/70 dark:bg-red-950/30', badge: 'bg-red-600 text-white' },
   triagem: { icon: ClipboardCheck, color: 'text-blue-600 dark:text-blue-400', background: 'bg-blue-50/70 dark:bg-blue-950/30', badge: 'bg-blue-600 text-white' },
   programada: { icon: CalendarDays, color: 'text-violet-600 dark:text-violet-400', background: 'bg-violet-50/70 dark:bg-violet-950/30', badge: 'bg-violet-600 text-white' },

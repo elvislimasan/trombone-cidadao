@@ -1,6 +1,6 @@
 import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react';
 import { CircleMarker, MapContainer, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
-import { Info, HelpCircle, Edit } from 'lucide-react';
+import { Info, HelpCircle, Edit, Trash2 } from 'lucide-react';
 import L from 'leaflet';
 import { FLORESTA_COORDS, INITIAL_ZOOM } from '@/config/mapConfig';
 import { useMapScrollLock } from '@/hooks/useMapScrollLock';
@@ -177,7 +177,7 @@ const FitToStreets = ({ streets, activeCity }) => {
   return null;
 };
 
-const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }, ref) => {
+const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet, onDeleteStreet }, ref) => {
   const mapRef = useRef();
   const markerRefs = useRef({});
   const [mapLayer, setMapLayer] = useState(MAP_LAYER.STANDARD);
@@ -288,6 +288,11 @@ const PavementMapView = forwardRef(({ streets, canManage = false, onEditStreet }
                   {canManage && onEditStreet && (
                     <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => onEditStreet(street)}>
                       <Edit className="mr-2 h-4 w-4" /> Editar rua
+                    </Button>
+                  )}
+                  {canManage && onDeleteStreet && (
+                    <Button size="sm" variant="outline" className="mt-2 w-full border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => onDeleteStreet(street)}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Remover rua
                     </Button>
                   )}
                 </div>

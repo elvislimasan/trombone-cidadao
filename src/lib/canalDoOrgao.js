@@ -105,7 +105,7 @@ export const listaDeEmails = (texto) =>
  * Devolve lista, não booleano: um formulário que diz só "inválido" obriga a
  * pessoa a descobrir qual campo, e o cadastro de secretaria tem seis.
  */
-export const problemasDoCanal = ({ nome, email, replyTo, copias = [], categorias = [] } = {}) => {
+export const problemasDoCanal = ({ nome, email, replyTo, copias = [] } = {}) => {
   const erros = [];
   if (String(nome ?? '').trim().length <= 2) {
     erros.push('O nome do órgão precisa ter ao menos 3 letras.');
@@ -119,9 +119,6 @@ export const problemasDoCanal = ({ nome, email, replyTo, copias = [], categorias
   const copiaRuim = copias.find((c) => !emailPlausivel(c));
   if (copiaRuim) {
     erros.push(`"${copiaRuim}" não parece um endereço válido.`);
-  }
-  if (categorias.length === 0) {
-    erros.push('Escolha ao menos uma categoria sob responsabilidade deste órgão.');
   }
   return erros;
 };

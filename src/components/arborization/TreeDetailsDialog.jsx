@@ -13,7 +13,7 @@ const STATUS_STYLE = {
 };
 const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : 'Não informado';
 
-export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, onDelete }) {
+export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, onDelete, children }) {
   if (!tree) return null;
   const status = TREE_STATUS[tree.status];
   const neighborhoodInAddress = Boolean(tree.neighborhood && String(tree.address || '').split(/\s+[-–—]\s+|[,;]/)
@@ -57,6 +57,7 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
 
         <div className="mt-4 flex min-w-0 items-start gap-2 rounded-xl border border-edge-subtle bg-surface-subtle p-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-content-secondary" /><div className="min-w-0"><p className="text-[11px] leading-4 text-content-secondary">Coordenadas:</p><p className="mt-0.5 break-words text-sm font-medium leading-5">{coordinates}</p></div></div>
         {tree.notes && <details className="mt-4 rounded-xl border border-edge-subtle bg-surface-subtle p-4"><summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Observações da árvore</summary><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-5 text-content-secondary">{tree.notes}</p></details>}
+        {children}
         <Button asChild className="mt-4 w-full"><Link to={`/arborizacao/arvore/${tree.id}`}>Página da árvore e linha do tempo<ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
 
         {canManage && <div className="mt-5 grid grid-cols-2 gap-2 border-t border-edge-subtle pt-4">

@@ -1,3 +1,4 @@
+import { executionForCategory } from './executorActivities.js';
 import { canEditDemand, DEMAND_INITIAL_FORM, demandPayload, suggestDemandAssignment } from './municipalDemand.js';
 import { collectExportRows } from './municipalExport.js';
 import { municipalReportsQuery, OPEN_REPORT_STATUSES } from './municipalReports.js';
@@ -57,12 +58,14 @@ export async function createMunicipalServiceOrder(client, { context, id, selecti
   if (!context.canEdit || (channelId ? !canEditDemand(context, channelId) : !context.isAdministrator)) throw new Error('Escolha uma secretaria em que você pode registrar o serviço.');
   if (!selection.length || selection.some((item) => !item.report || item.link || !OPEN_REPORT_STATUSES.includes(item.report.status))) throw new Error('Remova as ocorrências indisponíveis ou já vinculadas antes de criar a ordem.');
   if (title.trim().length < 3 || title.trim().length > 180) throw new Error('Informe um título com 3 a 180 caracteres.');
-  const form = { ...serviceOrderDraft(selection.map((item) => item.report), context), titulo: title, canal_id: channelId, atribuido_a: responsibleId || '', prioridade: priority, issue_type: issueType || '', status: 'aberta', descricao: observation.trim() };
+  const form = { ...serviceOrderDraft(selection.map((item) => item.report), context), titulo: title, canal_id: channelId, atribuido_a: responsibleId || '', prioridade: priority, issue_type: issueType || '', status: context.isAdministrator || context.dispatchChannelIds?.includes(String(channelId)) ? 'aberta' : 'rascunho', descricao: observation.trim() };
+  form.execution_specialty = executionForCategory(context.channels, channelId, form.category_id);
+  if (!form.category_id) throw new Error('Agrupe solicitações da mesma categoria para definir a atividade do executor.');
   let result;
   try {
     result = await client.rpc('salvar_demanda_municipal', {
       p_prefeitura: context.municipality.id, p_id: id, p_versao: null,
-      p_dados: demandPayload(form), p_reports: selection.map((item) => item.id),
+      p_dados: demandPayload(form.status === 'rascunho' ? { ...form, atribuido_a: '', prioridade: 'normal' } : form), p_reports: selection.map((item) => item.id),
       p_anexos: [], p_resposta_publica: null, p_nota_interna: null, p_motivo: null,
     });
   } catch (error) { result = { error }; }

@@ -5,11 +5,14 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 
 const root = process.cwd();
-const connection = { host: '127.0.0.1', port: 55439, user: 'codex_validation', database: 'postgres' };
+const responsibilityMode = process.argv.includes('--responsibilities');
+const connection = { host: '127.0.0.1', port: responsibilityMode ? Number(process.env.PGPORT) : 55439, user: 'codex_validation', database: 'postgres' };
 const owner = new pg.Client(connection);
 await owner.connect();
 const directory = (await owner.query('show data_directory')).rows[0].data_directory;
-assert.equal(path.resolve(directory).toLowerCase(), path.resolve(root, '.tmp/municipal-demand-pg').toLowerCase(), 'Use apenas o cluster descartável deste projeto.');
+const expectedDirectory = responsibilityMode ? process.env.PG_TEST_DATA_DIR : path.resolve(root, '.tmp/municipal-demand-pg');
+assert.ok(path.resolve(expectedDirectory).toLowerCase().startsWith(path.resolve(root, '.tmp').toLowerCase() + path.sep), 'O cluster precisa estar em .tmp deste projeto.');
+assert.equal(path.resolve(directory).toLowerCase(), path.resolve(expectedDirectory).toLowerCase(), 'Use apenas o cluster descartável deste projeto.');
 const database = 'municipal_flows_test_' + Date.now();
 await owner.query('create database ' + database);
 const db = new pg.Client({ ...connection, database });
@@ -395,6 +398,10 @@ try {
     await assert.rejects(db.query("select aceitar_oferta_eletricista($1,'ordem',$2)",[ids.pref,municipalOffer]),/Sem permissão/);
     await assert.rejects(panelPage('minhas',''),/Sem acesso/);
   });
+  if (responsibilityMode) {
+    const { validateResponsibilities } = await import('./municipal-responsibility-flow-cases.mjs');
+    await validateResponsibilities({ db, ids, asUser, saved, check });
+  }
   console.log(passed+' verificações dos fluxos de atendimento aprovadas.');
 } finally {
   await db.query('rollback').catch(()=>{});

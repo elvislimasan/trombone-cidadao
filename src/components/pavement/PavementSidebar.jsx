@@ -23,7 +23,7 @@ import { SITUACOES } from '@/lib/pavementLength';
 // filtros abrem em drawer, e o botão carrega a contagem de quantos estão
 // ligados — a única informação que precisa atravessar o painel fechado.
 
-const SELETORES = [
+export const PAVEMENT_FILTERS = [
   { id: 'bairro', rotulo: 'Bairro', vazio: 'Todos os bairros' },
   { id: 'situacao', rotulo: 'Situação', vazio: 'Todas', opcoes: SITUACOES.map((s) => [s.id, s.rotulo]) },
   { id: 'tipo', rotulo: 'Tipo de pavimento', vazio: 'Todos', opcoes: [['asphalt', 'Asfáltica'], ['granite', 'Paralelepípedo'], ['interlocking', 'Intertravado']] },
@@ -40,6 +40,7 @@ const SELETORES = [
   // uma consulta, em vez de uma conferência manual.
   { id: 'nome', rotulo: 'Nome oficial', vazio: 'Todas', opcoes: [['com', 'Com nome oficial'], ['sem', 'Sem nome oficial']] },
 ];
+const SELETORES = PAVEMENT_FILTERS;
 
 export function descreverFiltrosDePavimentacao(filtros, { bairros = [], autores = [], busca = '' } = {}) {
   const resumo = busca.trim() ? [`Busca: ${busca.trim()}`] : [];
@@ -65,9 +66,9 @@ const Titulo = ({ children, acao = null }) => (
 // coluna. São os mesmos sete seletores: duplicá-los para mudar só o arranjo
 // seria garantir que o oitavo filtro nasça em um dos dois lugares e falte no
 // outro. As colunas vêm de fora justamente por isso — o arranjo é de quem usa.
-export const FiltrosDePavimentacao = ({ filtros, onFiltroChange, bairros, autores = [], colunas = 'sm:grid-cols-2 min-[1100px]:grid-cols-1' }) => (
+export const FiltrosDePavimentacao = ({ filtros, onFiltroChange, bairros, autores = [], colunas = 'sm:grid-cols-2 min-[1100px]:grid-cols-1', fields = null }) => (
   <div className={`grid gap-2 ${colunas}`}>
-    {SELETORES.map(({ id, rotulo, vazio, opcoes }) => (
+    {SELETORES.filter(field => !fields || fields.includes(field.id)).map(({ id, rotulo, vazio, opcoes }) => (
       <label key={id} className="grid gap-0.5">
         <span className="text-[10px] font-medium text-content-tertiary">{rotulo}</span>
         {id === 'autor' ? (

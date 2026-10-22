@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Edit, HelpCircle, LocateFixed } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, HelpCircle, LocateFixed, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { SITUACOES, extensaoDaRua, formatarKm } from '@/lib/pavementLength';
@@ -48,6 +48,7 @@ export default function PavementStreetList({
   streets,
   canManage = false,
   onEditStreet,
+  onDeleteStreet,
   onIrParaOMapa,
   emPagina = false,
 }) {
@@ -174,6 +175,19 @@ export default function PavementStreetList({
                     onClick={() => onEditStreet(rua)}
                   >
                     <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+                {canManage && onDeleteStreet && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Remover ${rua.name}`}
+                    title="Remover rua"
+                    onClick={() => onDeleteStreet(rua)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
               </div>

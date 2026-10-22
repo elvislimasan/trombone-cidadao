@@ -10,7 +10,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
 
 const selectClass = 'mt-1 h-10 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm';
-const newRule = () => ({ key: crypto.randomUUID(), category_id: '', canal_id: '', atendimento_horas: '', primeira_resposta_horas: '', prioridade: 'normal' });
+const newRule = () => ({ key: crypto.randomUUID(), category_id: '', canal_id: '', atendimento_horas: '', primeira_resposta_horas: '', prioridade: 'normal', conferir_execucao: false });
 export default function MunicipalServiceSettingsPage() {
   const context = useMunicipalityWorkspace();
   const [rules, setRules] = useState([]);
@@ -25,7 +25,7 @@ export default function MunicipalServiceSettingsPage() {
     try {
       const { error } = await supabase.rpc('salvar_configuracao_atendimento', {
         p_prefeitura: context.municipality.id,
-        p_regras: [...context.serviceRules.filter((rule) => !context.enabledCategoryIds?.includes(rule.category_id)), ...rules].map((rule) => ({ category_id: rule.category_id, canal_id: rule.canal_id || null, prioridade: rule.prioridade,
+        p_regras: [...context.serviceRules.filter((rule) => !context.enabledCategoryIds?.includes(rule.category_id)), ...rules].map((rule) => ({ category_id: rule.category_id, conferir_execucao: Boolean(rule.conferir_execucao), canal_id: rule.canal_id || null, prioridade: rule.prioridade,
           atendimento_horas: rule.atendimento_horas === '' ? null : Number(rule.atendimento_horas),
           primeira_resposta_horas: rule.primeira_resposta_horas === '' ? null : Number(rule.primeira_resposta_horas) })),
       });
@@ -50,6 +50,7 @@ export default function MunicipalServiceSettingsPage() {
         <label className="text-sm font-semibold">Primeira resposta (horas)<Input className="mt-1" type="number" min="1" max="8760" step="1" value={rule.primeira_resposta_horas} disabled={saving} onChange={(event) => update(rule.key,{primeira_resposta_horas:event.target.value})} placeholder="Sem prazo padrão" /></label>
         <label className="text-sm font-semibold">Atendimento (horas)<Input className="mt-1" type="number" min="1" max="8760" step="1" value={rule.atendimento_horas} disabled={saving} onChange={(event) => update(rule.key,{atendimento_horas:event.target.value})} placeholder="Sem prazo padrão" /></label>
         <label className="text-sm font-semibold">Prioridade sugerida<select className={selectClass} value={rule.prioridade} disabled={saving} onChange={(event) => update(rule.key,{prioridade:event.target.value})}>{DEMAND_PRIORITIES.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="flex items-start gap-3 text-sm sm:col-span-2"><input type="checkbox" className="mt-1" checked={Boolean(rule.conferir_execucao)} disabled={saving} onChange={event => update(rule.key, { conferir_execucao: event.target.checked })} /><span>Exigir conferência do encerramento da ordem por outro gestor<span className="mt-1 block text-xs font-normal text-content-secondary">As solicitações mantêm a resolução individual. A ordem aguarda o parecer antes de ser encerrada.</span></span></label>
       </div>
     </section>)}</div>
     <Button type="button" variant="outline" disabled={saving || rules.length >= context.categories.length} onClick={() => setRules((current) => [...current,newRule()])}><Plus className="mr-2 h-4 w-4" />Adicionar regra por categoria</Button>

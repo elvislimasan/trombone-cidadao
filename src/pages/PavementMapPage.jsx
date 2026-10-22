@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { BarChart3, Download, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, Upload, X, Pentagon } from 'lucide-react';
+import { BarChart3, Download, HelpCircle, List, Loader2, Map as MapaIcone, PlusCircle, Route, SlidersHorizontal, Upload, X, Pentagon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PavementMapView from '@/components/PavementMapView';
@@ -16,6 +16,8 @@ import { getBaseAppUrl } from '@/lib/shareUtils';
 import { autoresDeProjetos, correspondeAoFiltroDeAutor, temLeiMunicipal, temProjetoDeLei } from '@/lib/pavementStreetHistory';
 import { resumoDeExtensao } from '@/lib/pavementLength';
 import PavementStats from '@/components/pavement/PavementStats';
+import PavementStatistics from '@/components/pavement/PavementStatistics';
+import PavementStatisticsFilters from '@/components/pavement/PavementStatisticsFilters';
 import PavementSidebar, { descreverFiltrosDePavimentacao, FiltrosDePavimentacao } from '@/components/pavement/PavementSidebar';
 import PavementMapLegend from '@/components/pavement/PavementMapLegend';
 import PavementReportsPanel from '@/components/pavement/PavementReportsPanel';
@@ -30,7 +32,8 @@ import CitySelector from '@/components/CitySelector';
 import { showAppError } from '@/lib/appError';
 import PavementEditModal from '@/components/pavement/PavementEditModal';
 import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
-import { savePavementStreet } from '@/lib/savePavementStreet';
+import { savePavementStreet, storagePathsFromStreet } from '@/lib/savePavementStreet';
+import { removePavementMedia } from '@/lib/pavementStreetMedia';
 import { correspondeABuscaDeRua } from '@/lib/pavementStreetSearch';
 import { useCanManagePavement } from '@/hooks/useCanManagePavement';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -44,9 +47,11 @@ import {
   MAP_PAGE_VIEWPORT_CLASS,
 } from '@/components/map/mapLayout';
 
-const PavementMapPage = () => {
+export const PavementContent = ({ embedded = false, section = 'mapa' }) => {
+  const statistics = embedded && section === 'estatisticas';
   const [streetData, setStreetData] = useState([]);
   const [streetsLoading, setStreetsLoading] = useState(true);
+  const [streetsError, setStreetsError] = useState('');
   const streetsRequest = useRef(0);
   const [lastUpdate, setLastUpdate] = useState(null);
   // TODOS OS FILTROS NUM OBJETO SÓ.
@@ -158,6 +163,8 @@ const PavementMapPage = () => {
     useCanManagePavement(activeCityId);
 
   const [editingStreet, setEditingStreet] = useState(null);
+  const [deletingStreet, setDeletingStreet] = useState(null);
+  const [deletingStreetBusy, setDeletingStreetBusy] = useState(false);
   const [bairros, setBairros] = useState([]);
   const [boundaryState, setBoundaryState] = useState({ cityId: null, data: [] });
   const [editingBoundaries, setEditingBoundaries] = useState(false);
@@ -208,16 +215,17 @@ const PavementMapPage = () => {
   useEffect(() => {
     if (!canEditStreets) { setBairros([]); return; }
     let cancelled = false;
-    supabase.from('bairros').select('*').order('name').then(({ data }) => {
+    supabase.from('bairros').select('*').eq('city_id', activeCityId).order('name').then(({ data }) => {
       if (!cancelled) setBairros(data || []);
     });
     return () => { cancelled = true; };
-  }, [canEditStreets]);
+  }, [canEditStreets, activeCityId]);
 
   const fetchStreets = useCallback(async () => {
     const requestId = ++streetsRequest.current;
     if (!activeCityId) { setStreetData([]); setLastUpdate(null); setStreetsLoading(false); return; }
     setStreetsLoading(true);
+    setStreetsError('');
     try {
       const data = await carregarRuasDoMapa(supabase, activeCityId);
       if (requestId !== streetsRequest.current) return;
@@ -227,11 +235,32 @@ const PavementMapPage = () => {
     } catch (error) {
       if (requestId !== streetsRequest.current) return;
       setStreetData([]);
+      setStreetsError(error.message);
       showAppError({ title: "Erro ao buscar ruas", description: error.message, variant: "destructive" });
     } finally {
       if (requestId === streetsRequest.current) setStreetsLoading(false);
     }
   }, [activeCityId]);
+
+  const deleteStreet = async () => {
+    if (!canEditStreets || !deletingStreet || deletingStreetBusy) return;
+    setDeletingStreetBusy(true);
+    const street = deletingStreet;
+    try {
+      const { error } = await supabase.from('pavement_streets')
+        .delete().eq('id', street.id).eq('city_id', activeCityId).select('id').single();
+      if (error) throw error;
+      try { await removePavementMedia(supabase, storagePathsFromStreet(street)); }
+      catch (storageError) { console.error('A rua foi removida, mas seus anexos não foram removidos:', storageError); }
+      setStreetData(current => current.filter(item => item.id !== street.id));
+      await fetchStreets();
+    } catch (error) {
+      showAppError({ title: 'Não foi possível remover a rua', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingStreetBusy(false);
+      setDeletingStreet(null);
+    }
+  };
 
   useEffect(() => {
     fetchStreets();
@@ -414,7 +443,7 @@ const PavementMapPage = () => {
   // Aqui so sobrou papel: cabecalho, o grafico de barras do panorama e as
   // tabelas que vierem, sejam quais forem.
   const gerarPdf = (relatorio) => {
-    const doc = new jsPDF({ orientation: relatorio.tipo === 'completo' ? 'landscape' : 'portrait' });
+    const doc = new jsPDF({ orientation: ['completo','bairros'].includes(relatorio.tipo) ? 'landscape' : 'portrait' });
     doc.setFontSize(16);
     doc.text(relatorio.titulo, 14, 18);
 
@@ -518,10 +547,10 @@ const PavementMapPage = () => {
   // cruzar com a planilha de orçamento. No PDF isso vira digitação manual — e
   // digitação manual de uma lista de trezentas ruas é onde o número oficial
   // ganha erro.
-  const handleDownloadCsv = async () => {
+  const handleDownloadCsv = async (override) => {
     setDownloading(true);
     try {
-      const relatorio = relatorioAtual();
+      const relatorio = override?.tipo ? override : relatorioAtual();
       const csv = relatorioParaCsv(relatorio);
       const fileName = `pavimentacao_${relatorio.tipo}_${new Date().toISOString().split('T')[0]}.csv`;
 
@@ -552,10 +581,10 @@ const PavementMapPage = () => {
     }
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async (override) => {
     setDownloading(true);
     try {
-      const relatorio = relatorioAtual();
+      const relatorio = override?.tipo ? override : relatorioAtual();
       const doc = gerarPdf(relatorio);
       const fileName = `pavimentacao_${relatorio.tipo}_${new Date().toISOString().split('T')[0]}.pdf`;
       const isNative = Capacitor.isNativePlatform();
@@ -644,13 +673,15 @@ const PavementMapPage = () => {
     filtrosAtivos: filtrosDoRelatorio,
   };
 
+  if (streetsError) return <div className="space-y-3 py-5"><p role="alert">Não foi possível carregar as ruas: {streetsError}</p><Button onClick={fetchStreets}>Tentar novamente</Button></div>;
+  const Heading = embedded ? 'h2' : 'h1';
   return (
     <>
-      <Helmet>
+      {!embedded && <Helmet>
         <title>Mapa de Pavimentação - Trombone Cidadão</title>
         <meta name="description" content="Acompanhe o status da pavimentação das ruas de Floresta-PE e veja os relatórios." />
-      </Helmet>
-      <div className="flex flex-col bg-surface-base md:px-6">
+      </Helmet>}
+      <div className={`flex min-w-0 flex-col bg-surface-base ${embedded ? '' : 'md:px-6'}`}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -660,8 +691,8 @@ const PavementMapPage = () => {
              espaço natural deles, e o painel fica com o restante da janela.
              O cálculo acompanha as mesmas variáveis usadas pelo layout global:
              header, banner opcional e reserva inferior. */
-          className={`flex min-w-0 w-full flex-col gap-2 px-3 pb-6 pt-3 sm:gap-3 md:px-6 lg:px-8 ${
-            modo === 'mapa'
+          className={`flex min-w-0 w-full flex-col gap-2 pb-6 pt-3 sm:gap-3 ${embedded ? statistics ? 'territorial-street-statistics' : 'territorial-street-content' : 'px-3 md:px-6 lg:px-8'} ${
+            modo === 'mapa' && !embedded
               ? MAP_PAGE_VIEWPORT_CLASS
               : ''
           }`}
@@ -685,21 +716,25 @@ const PavementMapPage = () => {
               ruas sem nome fica junto porque é um NÚMERO sobre o mesmo conjunto,
               e porque ligar o filtro por ele é o caminho de quem monta projeto
               de lei de denominação. */}
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl">Mapa de Ruas e Pavimentação</h1>
+          {statistics ? <PavementStatistics streets={filteredStreets} resumo={resumo} loading={streetsLoading} reports={propsDoRelatorio}
+            cityId={activeCityId} cityName={activeCityName} updatedAt={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
+            onQualityFilter={field=>setFiltro(field,'sem')}
+            filters={<PavementStatisticsFilters filtros={filtros} onFiltroChange={setFiltro} bairros={bairrosComRua} autores={autoresComProjeto} busca={searchTerm} onBuscaChange={setSearchTerm} />} /> : <>
+          <div className={embedded ? 'territorial-street-actions' : 'text-center'}>
+            {!embedded && <><Heading className={embedded ? 'text-lg font-bold' : 'text-2xl font-bold text-tc-red sm:text-3xl md:text-4xl'}>{embedded ? 'Cadastro de ruas e pavimentação' : 'Mapa de Ruas e Pavimentação'}</Heading>
             <p className="mt-2 text-sm text-content-secondary sm:text-base">
               Quais ruas têm pavimento, quais não têm, e o que já foi prometido
-            </p>
+            </p></>}
 
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
+            <div className={`flex flex-wrap items-center gap-2 ${embedded ? '' : 'mt-3 justify-center'}`}>
+              {!embedded && <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1.5 text-sm font-bold text-green-700">
                 <Route className="h-4 w-4" />
                 {filteredStreets.length === stats.total
                   ? `${stats.total} ${stats.total === 1 ? 'rua mapeada' : 'ruas mapeadas'}`
                   : `${filteredStreets.length} de ${stats.total} ruas`}
-              </span>
+              </span>}
 
-              {stats.unnamed > 0 && (
+              {!embedded && stats.unnamed > 0 && (
                 <button
                   type="button"
                   aria-pressed={filtros.nome === 'sem'}
@@ -724,7 +759,7 @@ const PavementMapPage = () => {
                 title={!activeCityId ? 'Selecione uma cidade para gerar o mapa' : 'Mapa geral A1 com todas as ruas da cidade e os contornos dos bairros. Uma única planta, sem relatório de ruas.'}
               >
                 {downloadingMap ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloadingMap ? 'Gerando mapa...' : filtrosDoRelatorio.length ? 'Baixar mapa filtrado (PDF)' : 'Baixar mapa detalhado (PDF)'}
+                {downloadingMap ? 'Gerando mapa...' : embedded ? 'Baixar mapa (PDF)' : filtrosDoRelatorio.length ? 'Baixar mapa filtrado (PDF)' : 'Baixar mapa detalhado (PDF)'}
               </Button>
               {canManageStreets && activeCityId && (
                 <Button type="button" size="sm" variant="outline" className="h-9 gap-2 rounded-full text-xs" onClick={openBoundaries} disabled={openingBoundaries}>
@@ -739,11 +774,11 @@ const PavementMapPage = () => {
             altura antes de o mapa começar. Como cartões compactos eles dizem o
             mesmo e continuam clicáveis: cada um ainda abre a lista das ruas
             daquela situação. */}
-        <PavementStats
+        {!embedded && <PavementStats
           resumo={resumoDosCartoes}
           situacaoAtiva={filtros.situacao}
           onSituacao={(id) => setFiltro('situacao', filtros.situacao === id ? 'all' : id)}
-        />
+        />}
 
         {/* O MODO LISTA É UMA PÁGINA, E NÃO UMA CAIXA DENTRO DO MAPA
             Ele nasceu ocupando o lugar do mapa: mesma moldura, mesma altura de
@@ -759,7 +794,7 @@ const PavementMapPage = () => {
           <div className="rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm sm:p-4">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
               <div className="grid gap-2">
-                <CitySelector />
+                {!embedded && <CitySelector />}
                 <BuscaDeRua
                   streets={streetData}
                   valor={searchTerm}
@@ -799,7 +834,7 @@ const PavementMapPage = () => {
               )}
 
               <div className="ml-auto flex flex-wrap items-center gap-2">
-                <Button
+                {!embedded && <Button
                   type="button"
                   size="sm"
                   variant="outline"
@@ -807,7 +842,7 @@ const PavementMapPage = () => {
                   onClick={() => setRelatoriosAbertos(true)}
                 >
                   <BarChart3 className="h-3.5 w-3.5 text-brand" /> Relatórios
-                </Button>
+                </Button>}
 
                 {canManageStreets && (
                   <Button
@@ -829,6 +864,7 @@ const PavementMapPage = () => {
             streets={filteredStreets}
             canManage={canEditStreets}
             onEditStreet={setEditingStreet}
+            onDeleteStreet={setDeletingStreet}
             onIrParaOMapa={irParaOMapa}
           />
         </div>
@@ -862,7 +898,7 @@ const PavementMapPage = () => {
             drawer. Abaixo de 1100 px, os filtros também deixam de ocupar uma
             coluna: o mapa passa a ser o único bloco largo. */}
         <div
-          className={`${MAP_GRID_CLASS} ${
+          className={`${MAP_GRID_CLASS} ${embedded ? (painelAberto ? 'min-[1100px]:grid-cols-[15rem_minmax(0,1fr)]' : 'min-[1100px]:grid-cols-1') :
             painelAberto
               ? 'min-[1100px]:grid-cols-[13.5rem_minmax(0,1fr)] min-[1440px]:grid-cols-[16rem_minmax(0,1fr)_21rem]'
               : 'min-[1100px]:grid-cols-[minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,1fr)_21rem]'
@@ -911,7 +947,7 @@ const PavementMapPage = () => {
                     </Button>
                   ) : null}
 
-                  <Button
+                  {!embedded && <Button
                     type="button"
                     size="sm"
                     variant="outline"
@@ -919,7 +955,7 @@ const PavementMapPage = () => {
                     onClick={() => setRelatoriosAbertos(true)}
                   >
                     <BarChart3 className="h-3.5 w-3.5 text-brand" /> Relatórios
-                  </Button>
+                  </Button>}
                 </div>
               )}
               cabecalho={
@@ -934,14 +970,14 @@ const PavementMapPage = () => {
 
                    Sobrou o que o painel de fato responde: ONDE estou vendo. */
                 <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-edge-subtle bg-surface-raised px-3 py-2 shadow-sm min-[900px]:flex-col min-[900px]:items-stretch min-[900px]:gap-1.5 min-[900px]:rounded-none min-[900px]:border-0 min-[900px]:bg-transparent min-[900px]:p-0 min-[900px]:shadow-none">
-                  <CitySelector mobileBare />
+                  {!embedded && <CitySelector mobileBare />}
 
                 </div>
               }
             />
           </div>
 
-          <div className={MAP_CANVAS_CLASS}>
+          <div className={`${MAP_CANVAS_CLASS} ${embedded ? 'territorial-street-map' : ''}`}>
             <div className="absolute inset-0">
               <FullscreenMapPanel title="Mapa de ruas">
               <PavementMapView
@@ -949,10 +985,12 @@ const PavementMapPage = () => {
                 streets={filteredStreets}
                 canManage={canEditStreets}
                 onEditStreet={setEditingStreet}
+                onDeleteStreet={setDeletingStreet}
               />
 
-              <div className="hidden lg:block">
+              <div className={embedded ? "block" : "hidden lg:block"}>
                 <PavementMapLegend
+                  colorsOnly={embedded}
                   resumo={resumo}
                   atualizadoEm={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
                   onRecarregar={fetchStreets}
@@ -982,7 +1020,7 @@ const PavementMapPage = () => {
 
           </div>
 
-          <section className="grid gap-3 lg:hidden" aria-label="Informações e relatórios do mapa">
+          {!embedded && <section className="grid gap-3 lg:hidden" aria-label="Informações e relatórios do mapa">
             <PavementMapLegend
               embedded
               resumo={resumo}
@@ -990,13 +1028,13 @@ const PavementMapPage = () => {
               onRecarregar={fetchStreets}
             />
             <PavementReportsPanel {...propsDoRelatorio} selectId="tipo-relatorio-mobile" />
-          </section>
+          </section>}
 
 
           {/* Só a coluna do desktop recebe `detalhado`: é a única das três
               montagens deste painel que tem altura sobrando para o anel e o
               rodapé de atualização. */}
-          <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0 min-[1440px]:overflow-y-auto min-[1440px]:overflow-x-hidden">
+          {!embedded && <aside className="hidden min-[1440px]:block min-[1440px]:h-full min-[1440px]:min-h-0 min-[1440px]:overflow-y-auto min-[1440px]:overflow-x-hidden">
             <PavementReportsPanel
               {...propsDoRelatorio}
               selectId="tipo-relatorio-desktop"
@@ -1004,22 +1042,23 @@ const PavementMapPage = () => {
               resumo={resumo}
               atualizadoEm={lastUpdate ? new Date(lastUpdate).toLocaleString('pt-BR') : null}
             />
-          </aside>
+          </aside>}
         </div>
         </>
         )}
+        </>}
         </motion.div>
 
         {/* O ranking é conteúdo complementar, não parte do painel cartográfico.
             Fora do contêiner com altura de viewport ele aparece depois do mapa
             sem consumir a altura do canvas nem apertar seus controles. */}
-        <div className="mx-auto w-full max-w-[112rem] px-3 pb-6 pt-1 md:px-6 lg:px-8">
+        {!embedded && <div className="mx-auto w-full max-w-[112rem] px-3 pb-6 pt-1 md:px-6 lg:px-8">
           <CouncilorRankingCard
             streets={streetData}
             cityId={activeCityId}
             cityName={activeCityName}
           />
-        </div>
+        </div>}
       </div>
 
       <Drawer
@@ -1114,6 +1153,24 @@ const PavementMapPage = () => {
         onBairroCreated={(novo) => setBairros((prev) => [...prev, novo])}
       />
 
+      <Dialog open={!!deletingStreet} onOpenChange={(open) => !open && !deletingStreetBusy && setDeletingStreet(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover rua do mapa?</DialogTitle>
+            <DialogDescription>
+              A rua “{deletingStreet?.name || 'sem nome oficial'}” será removida do cadastro. Essa ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" disabled={deletingStreetBusy} onClick={() => setDeletingStreet(null)}>Cancelar</Button>
+            <Button type="button" variant="destructive" disabled={deletingStreetBusy} onClick={deleteStreet}>
+              {deletingStreetBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Remover rua
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!editandoLinks} onOpenChange={(open) => !open && !salvandoLinks && setEditandoLinks(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -1170,7 +1227,7 @@ const PavementMapPage = () => {
 export default function PavementMapPageWithCityView() {
   return (
     <CityViewProvider>
-      <PavementMapPage />
+      <PavementContent />
     </CityViewProvider>
   );
 }

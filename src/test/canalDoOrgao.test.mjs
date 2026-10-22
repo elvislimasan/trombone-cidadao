@@ -74,10 +74,9 @@ test('canal completo não tem problema nenhum', () => {
   assert.deepEqual(problemasDoCanal(canalValido), []);
 });
 
-test('canal sem categoria não pode ser salvo — não haveria o que enviar', () => {
+test('canal sem categoria pode ser salvo para cuidar de mapas e inventários', () => {
   const erros = problemasDoCanal({ ...canalValido, categorias: [] });
-  assert.equal(erros.length, 1);
-  assert.match(erros[0], /categoria/i);
+  assert.deepEqual(erros, []);
 });
 
 test('reply-to é obrigatório: a resposta da secretaria precisa cair em alguém', () => {

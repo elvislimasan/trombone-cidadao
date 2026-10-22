@@ -20,10 +20,10 @@ const OFFER_PAGE_SIZE = ELECTRICIAN_SERVICES_PAGE_SIZE;
 const priorityLabel = (value) => DEMAND_PRIORITIES.find(([id]) => id === value)?.[1] || 'Normal';
 const statusLabel = (value) => DEMAND_STATUSES.find(([id]) => id === value)?.[1] || value;
 const dateLabel = (value) => value ? new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-function ServiceCard({ item, mine = false, cover, onSelect }) {
+export function ServiceCard({ item, mine = false, cover, onSelect, titleForItem, activityLabel }) {
   const urgent = item.prioridade === 'urgente';
   const group = mine ? null : offerGroup(item);
-  const problemLabel = item.descricao?.trim()
+  const problemLabel = item.descricao?.trim() || activityLabel
     || (item.issue_type?.trim() ? rotuloDoTipoDeProblemaIluminacao(item.issue_type) : 'Não informado');
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => setImageFailed(false), [cover]);
@@ -34,7 +34,7 @@ function ServiceCard({ item, mine = false, cover, onSelect }) {
         <span className="min-w-0 truncate text-right text-[9px] font-medium text-content-tertiary sm:text-xs">{item.protocolo || 'Sem protocolo'}</span>
       </span>
       <span className="mt-2 flex min-w-0 items-start gap-2.5 sm:mt-4 sm:gap-3">
-        <span className="min-w-0 flex-1"><strong className="block break-words font-display text-[13px] font-extrabold leading-[1.2] text-content-primary sm:text-lg">{mine || item.tipo === 'ordem' ? electricianVisitTitle(item.titulo) : compactPoleReference(item.titulo)}</strong><span className="mt-1 line-clamp-2 break-words text-[11px] leading-[1.3] text-content-secondary sm:mt-1.5 sm:text-sm">{problemLabel}</span></span>
+        <span className="min-w-0 flex-1"><strong className="block break-words font-display text-[13px] font-extrabold leading-[1.2] text-content-primary sm:text-lg">{titleForItem ? titleForItem(item) : mine || item.tipo === 'ordem' ? electricianVisitTitle(item.titulo) : compactPoleReference(item.titulo)}</strong><span className="mt-1 line-clamp-2 break-words text-[11px] leading-[1.3] text-content-secondary sm:mt-1.5 sm:text-sm">{problemLabel}</span></span>
         {cover && !imageFailed && <img src={cover} alt="Foto da ocorrência" loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="h-[60px] w-[60px] shrink-0 rounded-lg bg-surface-subtle object-cover sm:h-24 sm:w-24 sm:rounded-xl" />}
       </span>
       <span className="mt-1.5 flex min-w-0 items-start gap-1.5 text-[10px] leading-[1.25] text-content-secondary sm:mt-4 sm:gap-2 sm:text-sm"><MapPin className="h-3 w-3 shrink-0 text-danger sm:mt-0.5 sm:h-4 sm:w-4" /><span className="line-clamp-2 break-words">{[item.endereco, item.bairro].filter(Boolean).join(' · ') || 'Local a confirmar'}</span></span>

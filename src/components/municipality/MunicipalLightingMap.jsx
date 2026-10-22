@@ -46,7 +46,7 @@ function MapFrame({ onBounds, onPoint, focus, focusZoom = 16, center, satellite,
   const reportBounds = useCallback(() => {
     const bounds = map.getBounds();
     const size = map.getSize();
-    onBounds({
+    onBounds?.({
       south: Math.max(-90, bounds.getSouth()),
       north: Math.min(90, bounds.getNorth()),
       west: Math.max(-180, bounds.getWest()),
@@ -124,7 +124,7 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, coordinateTarget, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, showCurrentLocation = false }) {
+export default function MunicipalLightingMap({ center, focus, coordinateTarget, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, showCurrentLocation = false, mapLabel = "Mapa de iluminação pública", itemLabel = "postes", legendEntries, children, animateZoom = true }) {
   const frameRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [satellite, setSatellite] = useState(false);
@@ -140,8 +140,8 @@ export default function MunicipalLightingMap({ center, focus, coordinateTarget, 
     } catch { showAppError({ title: 'Não foi possível ampliar o mapa', description: 'Tente novamente no seu navegador.' }); }
   };
   const located = items.filter((item) => Number.isFinite(item.cluster_lat) && Number.isFinite(item.cluster_lng));
-  return <section aria-label="Mapa de iluminação pública" ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
-    {center ? <MapContainer center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
+  return <section aria-label={mapLabel} ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
+    {center ? <MapContainer zoomAnimation={animateZoom} center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
       {satellite ? <SatelliteTileLayer /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
       <MapFrame center={center} focus={focus} focusZoom={coordinateTarget ? 18 : 16} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} showCurrentLocation={showCurrentLocation} />
       {coordinateTarget && <>
@@ -149,7 +149,7 @@ export default function MunicipalLightingMap({ center, focus, coordinateTarget, 
         <CircleMarker center={[coordinateTarget.lat, coordinateTarget.lng]} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1 }}><Tooltip permanent direction="top" offset={[0, -8]}>Coordenada pesquisada</Tooltip></CircleMarker>
       </>}
       {selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude) && <CircleMarker center={[selected.latitude, selected.longitude]} radius={16} interactive={false} pathOptions={{ color: COLORS[lightingStatus(selected)], weight: 2, fillColor: COLORS[lightingStatus(selected)], fillOpacity: 0.18 }} />}
-      <LightingMarkers items={located} onSelect={onSelect} />
+      {children || <LightingMarkers items={located} onSelect={onSelect} />}
     </MapContainer> : <div role="status" aria-label="Carregando mapa" className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}
     {!fullBleed && <div className="pointer-events-none absolute inset-x-4 top-4 z-[500] flex items-start justify-between gap-3">
       <Button variant="outline" size="sm" aria-label="Abrir busca e filtros" onClick={onFilters} className="pointer-events-auto h-11 shrink-0 border-edge-default bg-surface-raised shadow-md"><SlidersHorizontal className="mr-2 h-4 w-4" />Busca e filtros</Button>
@@ -157,8 +157,8 @@ export default function MunicipalLightingMap({ center, focus, coordinateTarget, 
     </div>}
     {placing && <div role="status" className="absolute inset-x-4 top-20 z-[600] flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-surface-raised p-3 text-sm shadow-lg"><span>Toque no mapa para posicionar o poste.</span><Button variant="ghost" size="icon" onClick={onCancelPlacing} aria-label="Cancelar escolha da localização"><X className="h-4 w-4" /></Button></div>}
     <div className="pointer-events-none absolute bottom-7 left-4 right-4 z-[500] sm:right-auto sm:max-w-[calc(100%_-_5rem)]">
-      <div aria-label="Legenda do mapa" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-edge-subtle bg-surface-raised/95 px-3 py-2.5 text-[11px] text-content-secondary shadow-sm backdrop-blur-sm">{['aceso', 'apagado', ...(items.some((item) => Number(item.removido_count) > 0 || item.pole?.lighting_status === 'removido') ? ['removido'] : [])].map((status) => <span key={status} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[status] }} />{status === 'apagado' ? 'Apagado / problema' : LABELS[status]}</span>)}</div>
-      <p role="status" className="mt-2 w-fit rounded-md bg-surface-raised/95 px-2 py-1 text-[10px] text-content-secondary shadow-sm">{loading ? 'Carregando postes…' : `${Number(count).toLocaleString('pt-BR')} postes visíveis nesta área · ${located.length.toLocaleString('pt-BR')} marcadores`}{located.some((item) => Number(item.item_count) > 1) && ' · Clique nos grupos para aproximar'}</p>
+      <div aria-label="Legenda do mapa" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-edge-subtle bg-surface-raised/95 px-3 py-2.5 text-[11px] text-content-secondary shadow-sm backdrop-blur-sm">{legendEntries ? legendEntries.map(entry => <span key={entry.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: entry.color }} />{entry.label}</span>) : ['aceso', 'apagado', ...(items.some((item) => Number(item.removido_count) > 0 || item.pole?.lighting_status === 'removido') ? ['removido'] : [])].map((status) => <span key={status} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[status] }} />{status === 'apagado' ? 'Apagado / problema' : LABELS[status]}</span>)}</div>
+      <p role="status" className="mt-2 w-fit rounded-md bg-surface-raised/95 px-2 py-1 text-[10px] text-content-secondary shadow-sm">{loading ? 'Carregando mapa…' : `${Number(count).toLocaleString('pt-BR')} ${itemLabel} visíveis nesta área · ${located.length.toLocaleString('pt-BR')} marcadores`}{located.some((item) => Number(item.item_count) > 1) && ' · Clique nos grupos para aproximar'}</p>
     </div>
   </section>;
 }

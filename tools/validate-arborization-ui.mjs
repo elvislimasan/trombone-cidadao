@@ -38,6 +38,7 @@ const stubs = {
       return Promise.resolve({data:one?(operation==='insert'?rows[0]:data[0]):data,error:null}).then(ok,fail);
     }};return q;}};`,
 };
+stubs['@/hooks/useCanManageArborization']=stubs['@/hooks/useCanManagePavement'].replaceAll('useCanManagePavement','useCanManageArborization');
 if (!process.argv.includes('--reuse-assets')) {
 await build({
   stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import L from 'leaflet';import ArborizationMapPage from '@/pages/ArborizationMapPage';const maps=[];L.Map.addInitHook(function(){maps.push(this);window.testMap=this;this.on('unload',()=>{maps.splice(maps.indexOf(this),1);window.testMap=maps.at(-1)})});if(location.search.includes('dark'))document.documentElement.classList.add('dark');createRoot(document.getElementById('root')).render(<MemoryRouter><ArborizationMapPage/></MemoryRouter>);`, resolveDir: root, loader: 'jsx' },

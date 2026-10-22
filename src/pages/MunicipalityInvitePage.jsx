@@ -5,6 +5,8 @@ import { Building2, Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { notifyPermissionsChanged } from '@/lib/permissionUpdates';
+import { selectMunicipalityWorkspace } from '@/hooks/useMunicipalityWorkspace';
 
 export default function MunicipalityInvitePage() {
   const { token } = useParams();
@@ -52,14 +54,16 @@ export default function MunicipalityInvitePage() {
     if (user.email?.trim().toLowerCase() !== preview.email_convidado.toLowerCase()) return;
     if (accepting.current) return;
     accepting.current = true;
-    supabase.rpc('aceitar_convite_prefeitura', { p_token: token }).then(async ({ error: acceptError }) => {
+    supabase.rpc('aceitar_convite_prefeitura', { p_token: token }).then(async ({ data, error: acceptError }) => {
       if (acceptError) {
         setError(acceptError.message);
         return;
       }
       window.dispatchEvent(new Event('municipality-access-changed'));
       await refreshUserProfile();
-      navigate('/prefeitura/visao-geral', { replace: true });
+      selectMunicipalityWorkspace(user.id, data.prefeitura_id);
+      notifyPermissionsChanged(user.id);
+      navigate(data.redirect_to || '/prefeitura/visao-geral', { replace: true });
     });
   }, [attempt, authLoading, loading, navigate, preview, refreshUserProfile, token, user]);
 
