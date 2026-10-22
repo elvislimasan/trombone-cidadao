@@ -1,4 +1,3 @@
-import TreeResponsibilitiesFields from '@/components/admin/TreeResponsibilitiesFields';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
@@ -15,45 +14,26 @@ import { Input } from '@/components/ui/input';
 import { useListaPaginada } from '@/hooks/useListaPaginada';
 import PaginacaoLista from '@/components/admin/PaginacaoLista';
 import { showAppError, showAppInfo } from '@/lib/appError';
-import { useCity } from '@/contexts/CityContext';
 import { notifyPermissionsChanged } from '@/lib/permissionUpdates';
 
 const UserEditModal = ({ user, onSave, onClose }) => {
   const [name, setName] = useState('');
   const [userType, setUserType] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [treeAssignments, setTreeAssignments] = useState([]);
-  const [treeLinksStatus, setTreeLinksStatus] = useState({ loading: true, error: false });
-  const [planningRole, setPlanningRole] = useState(false);
-  const [planningCityIds, setPlanningCityIds] = useState([]);
   const [saving, setSaving] = useState(false);
-  const { cities, loadingCities } = useCity();
 
   useEffect(() => {
     if (user) {
       setName(user.name);
       setUserType(user.user_type);
       setIsAdmin(user.is_admin);
-      const ids = (user.urban_planner_cities || []).map(row => String(row.city_id));
-      setPlanningCityIds(ids);
-      setPlanningRole(ids.length > 0);
-      setTreeAssignments((user.tree_manager_cities || []).map(({ city_id, canal_id }) => ({ city_id, canal_id })));
     }
   }, [user]);
 
   const handleSave = async () => {
-    if ((planningRole || treeAssignments.length > 0) && userType !== 'public_official') {
-      showAppError({ title: 'Selecione Órgão Público', description: 'O cargo Planejamento urbano exige o tipo de usuário Órgão Público.' });
-      return;
-    }
-    if (planningRole && !planningCityIds.length) {
-      showAppError({ title: 'Escolha uma cidade', description: 'O cargo Planejamento urbano precisa de pelo menos uma cidade autorizada.' });
-      return;
-    }
     setSaving(true);
     try {
-      await onSave({ ...user, name, user_type: userType, is_admin: isAdmin,
-        planningCityIds: planningRole ? planningCityIds : [], treeAssignments });
+      await onSave({ id: user.id, name, user_type: userType, is_admin: isAdmin });
     } finally { setSaving(false); }
   };
 
@@ -90,36 +70,10 @@ const UserEditModal = ({ user, onSave, onClose }) => {
             <input type="checkbox" id="isAdmin" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} className="h-4 w-4 rounded" />
             <label htmlFor="isAdmin" className="text-sm font-medium">É Administrador?</label>
           </div>
-          <fieldset className="space-y-3 rounded-xl border border-edge-subtle p-4">
-            <legend className="px-1 text-sm font-semibold">Gestão de ruas</legend>
-            <label className="flex items-center gap-2 text-sm font-medium" htmlFor="urban-planner-role">
-              <input id="urban-planner-role" type="checkbox" className="h-4 w-4 rounded"
-                disabled={userType !== 'public_official' && !planningRole}
-                checked={planningRole} onChange={event => { setPlanningRole(event.target.checked); if (!event.target.checked) setPlanningCityIds([]); }} />
-              Atribuir cargo de gestão do mapa
-            </label>
-            {planningRole && <>
-              <p className="text-xs text-content-secondary">Cidades autorizadas para criar e editar ruas, traçados e contornos de bairros.</p>
-              <div className="flex flex-wrap gap-2" aria-label="Cidades autorizadas">
-                {planningCityIds.map(id => <button type="button" key={id}
-                  aria-label={`Remover cidade ${cities.find(city => String(city.id) === id)?.name || id}`}
-                  onClick={() => setPlanningCityIds(ids => ids.filter(value => value !== id))}
-                  className="rounded-full border border-brand/25 bg-brand-subtleBg px-3 py-1 text-xs text-brand-subtleFg">
-                  {cities.find(city => String(city.id) === id)?.name || `Cidade ${id}`} ×
-                </button>)}
-              </div>
-              <Combobox modal value="" disabled={loadingCities || userType !== 'public_official'}
-                options={cities.filter(city => !planningCityIds.includes(String(city.id))).map(city => ({ value: String(city.id), label: `${city.name}${city.state?.uf ? ` · ${city.state.uf}` : ''}` }))}
-                onChange={id => setPlanningCityIds(ids => [...new Set([...ids, String(id)])])}
-                placeholder={loadingCities ? 'Carregando cidades...' : 'Adicionar cidade autorizada'} searchPlaceholder="Buscar cidade..." />
-            </>}
-            <p className="text-xs text-content-secondary">A edição exige o tipo <strong>Órgão Público</strong>, o cargo na cidade e a liberação de <strong>Mapa de ruas</strong> no painel de permissões, inclusive para admin. Contas <strong>master</strong> têm acesso a todas as cidades, sem essas exigências.</p>
-          </fieldset>
-          <TreeResponsibilitiesFields userId={user.id} userType={userType} cities={cities} assignments={treeAssignments} onChange={setTreeAssignments} onStatus={setTreeLinksStatus} />
         </div>
         <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-3 sm:px-6">
           <Button variant="outline" className="h-11 rounded-xl sm:min-w-28" disabled={saving} onClick={onClose}>Cancelar</Button>
-          <Button className="h-11 rounded-xl sm:min-w-28" disabled={saving || treeLinksStatus.loading || treeLinksStatus.error} onClick={handleSave}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          <Button className="h-11 rounded-xl sm:min-w-28" disabled={saving} onClick={handleSave}>{saving ? 'Salvando...' : 'Salvar'}</Button>
         </DialogFooter>
       </FormDialogContent>
     </Dialog>
@@ -149,7 +103,7 @@ const ManageUsersPage = () => {
     // patrulha e de pontuação que esta lista nunca mostra.
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, name, avatar_url, user_type, is_admin, phone, urban_planner_cities(city_id), tree_manager_cities:tree_manager_cities!tree_manager_cities_user_id_fkey(city_id,canal_id)')
+      .select('id, name, avatar_url, user_type, is_admin, phone')
       .order('name');
 
     if (profilesError) {
@@ -254,13 +208,6 @@ const ManageUsersPage = () => {
       showAppError({ title: "Erro ao atualizar usuário", description: error.message, variant: "destructive" });
       return;
     }
-    const { error: roleError } = await supabase.rpc('set_territorial_responsibilities', {
-      p_user_id: userToSave.id, p_street_city_ids: userToSave.planningCityIds, p_tree_assignments: userToSave.treeAssignments,
-    });
-    if (roleError) {
-      showAppError({ title: 'Perfil salvo; não foi possível salvar as responsabilidades', description: roleError.message, variant: 'destructive' });
-      return;
-    }
     notifyPermissionsChanged(userToSave.id);
     await fetchUsers();
     setEditingUser(null);
@@ -363,8 +310,6 @@ const ManageUsersPage = () => {
                           {user.name}
                           {user.is_admin && <Shield className="w-4 h-4 text-tc-yellow" title="Administrador" />}
                         </p>
-                        {user.urban_planner_cities?.length > 0 && <p className="text-xs font-semibold text-brand">Ruas · {user.urban_planner_cities.length} cidade(s)</p>}
-                        {user.tree_manager_cities?.length > 0 && <p className="text-xs font-semibold text-brand">Arborização · {user.tree_manager_cities.length} cidade(s)</p>}
                         <p className={`text-sm flex items-center gap-1 ${userTypeDisplay[user.user_type]?.color}`}>
                           <UserTypeIcon className="w-3 h-3" />
                           {userTypeDisplay[user.user_type]?.text}
