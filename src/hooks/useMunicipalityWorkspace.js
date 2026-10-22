@@ -1,10 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enabledMunicipalCategories, filterMunicipalCategories } from '@/lib/municipalCategories';
 import { PERMISSIONS_CHANGED_EVENT, PERMISSIONS_STORAGE_KEY } from '@/lib/permissionUpdates';
-import { municipalCapabilities, assertMunicipalWorkspaceIdentity } from '@/lib/municipalAccess';
+import { municipalCapabilities, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel } from '@/lib/municipalAccess';
 
 const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
 const WorkspaceContext = createContext(empty);
@@ -16,7 +16,8 @@ export function selectMunicipalityWorkspace(userId, id) {
 }
 export function MunicipalityWorkspaceProvider({ children }) {
   const { user } = useAuth();
-  const { search } = useLocation();
+  const { pathname, search, hash } = useLocation();
+  const navigate = useNavigate();
   const explicitCity = new URLSearchParams(search).get('cidade');
   const requestedChannel = new URLSearchParams(search).get('secretaria');
   const [state, setState] = useState(empty);
@@ -41,7 +42,7 @@ export function MunicipalityWorkspaceProvider({ children }) {
     setState(current => {
       const sameContext = current.userId === user.id && current.municipality
         && (!explicitCity || String(current.municipality.city_id) === String(explicitCity))
-        && (requestedChannel === null || current.activeChannelId === requestedChannel)
+        && (requestedChannel === null || current.activeChannelId === municipalWorkspaceChannel(pathname, current.isAdministrator, requestedChannel))
         && (explicitCity || !chosenId || current.municipality.id === chosenId);
       return sameContext ? { ...current, refreshing: true } : { ...empty, userId: user.id };
     });
@@ -64,7 +65,7 @@ export function MunicipalityWorkspaceProvider({ children }) {
         const accesses = (data.accesses || []).filter(row => String(row.city_id) === String(municipality.city_id));
         const isAdministrator = membership.papel === 'administrador';
         const channels = (data.channels || []).filter(row => String(row.city_id) === String(municipality.city_id));
-        let selectedChannel = requestedChannel;
+        let selectedChannel = municipalWorkspaceChannel(pathname, isAdministrator, requestedChannel);
         const channelKey = 'municipality-channel:' + user.id + ':' + municipality.id;
         if (selectedChannel === null) {
           try { selectedChannel = window.localStorage.getItem(channelKey) || ''; } catch { selectedChannel = ''; }
@@ -103,8 +104,17 @@ export function MunicipalityWorkspaceProvider({ children }) {
       }
     })();
     return () => { active = false; };
-  }, [user?.id, revision, chosenId, explicitCity, requestedChannel]);
-  const valid = state.userId === user?.id && (!explicitCity || !state.municipality || String(state.municipality.city_id) === String(explicitCity)) && (requestedChannel === null || !state.municipality || state.activeChannelId === requestedChannel) && (explicitCity || !chosenId || !state.municipality || state.municipality.id === chosenId);
+  }, [user?.id, revision, chosenId, explicitCity, requestedChannel, pathname]);
+  const valid = state.userId === user?.id && (!explicitCity || !state.municipality || String(state.municipality.city_id) === String(explicitCity)) && (requestedChannel === null || !state.municipality || state.activeChannelId === municipalWorkspaceChannel(pathname, state.isAdministrator, requestedChannel)) && (explicitCity || !chosenId || !state.municipality || state.municipality.id === chosenId);
+  useEffect(() => {
+    // Essas telas não oferecem filtro de secretaria. Limpa links legados sem
+    // remover filtros visíveis como categoria, fase, bairro e visibilidade.
+    if (!valid || state.loading || !state.isAdministrator || requestedChannel === null
+      || !/^\/prefeitura\/(broncas|mapa|visao-geral)(\/|$)/.test(pathname)) return;
+    const params = new URLSearchParams(search);
+    params.delete('secretaria');
+    navigate({ pathname, search: params.size ? '?' + params : '', hash }, { replace: true });
+  }, [valid, state.loading, state.isAdministrator, requestedChannel, pathname, search, hash, navigate]);
   const value = { ...(valid ? state : empty), userName: user?.name || '', refresh };
   return React.createElement(WorkspaceContext.Provider, { value }, children);
 }

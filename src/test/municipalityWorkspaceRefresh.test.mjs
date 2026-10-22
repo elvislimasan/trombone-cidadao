@@ -17,7 +17,8 @@ const require = createRequire(import.meta.url);
 const React = require('react');
 const { createRoot } = require('react-dom/client');
 const { flushSync } = require('react-dom');
-let user, search, delayed, queue, revoked, failure, membershipRole, enabledCategoryIds;
+let user, pathname, search, delayed, queue, revoked, failure, membershipRole, enabledCategoryIds, navigations;
+const navigate = (to, options) => navigations.push({ to, options });
 const municipality = city => ({ id: 'pref-' + city, city_id: city, status: 'ativa', categorias_habilitadas: enabledCategoryIds });
 const supabase = {
   rpc() {
@@ -40,7 +41,7 @@ const supabase = {
 };
 const mocks = {
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user }) },
-  'react-router-dom': { useLocation: () => ({ search }) },
+  'react-router-dom': { useLocation: () => ({ pathname, search, hash: '' }), useNavigate: () => navigate },
   '@/lib/customSupabaseClient': { supabase },
   '@/lib/municipalCategories': municipalCategories,
   '@/lib/municipalAccess': municipalAccess,
@@ -59,9 +60,9 @@ async function waitFor(predicate) {
   assert.ok(predicate(), 'O contexto municipal não atualizou');
 }
 const pendingResponse = () => queue.length === 1;
-function fixture({ role = 'administrador', query = '?cidade=64', savedChannel = '', categories = ['iluminacao', 'poda'] } = {}) {
+function fixture({ role = 'administrador', path = '/prefeitura/broncas', query = '?cidade=64', savedChannel = '', categories = ['iluminacao', 'poda'] } = {}) {
   user = { id: 'municipal-admin' }; search = query; delayed = false; queue = []; revoked = false; failure = false;
-  membershipRole = role; enabledCategoryIds = categories;
+  pathname = path; membershipRole = role; enabledCategoryIds = categories; navigations = [];
   window.localStorage.clear();
   if (savedChannel) window.localStorage.setItem('municipality-channel:' + user.id + ':pref-64', savedChannel);
   const node = document.createElement('div'); document.body.appendChild(node);
@@ -146,7 +147,7 @@ test('trocar de conta descarta o contexto e ignora respostas antigas pendentes',
 
 test('trocar a cidade ou a secretaria não reaproveita o formulário do contexto anterior', async () => {
   for (const nextSearch of ['?cidade=65', '?cidade=64&secretaria=lighting']) {
-    const view = fixture();
+    const view = fixture({ role: nextSearch.includes('secretaria') ? 'colaborador' : 'administrador' });
     try {
       await waitFor(() => view.workspace.canEdit);
       delayed = true; search = nextSearch; view.render();
@@ -159,23 +160,28 @@ test('trocar a cidade ou a secretaria não reaproveita o formulário do contexto
   }
 });
 
-test('administrador cadastra Poda mesmo com a listagem filtrada pela secretaria de Iluminação na URL', async () => {
+test('administrador vê Poda na lista, no mapa e no cadastro mesmo com secretaria legada na URL', async () => {
   const view = fixture({ query: '?cidade=64&secretaria=lighting' });
   try {
     await waitFor(() => view.workspace.canEdit);
-    assert.equal(view.workspace.activeChannelId, 'lighting');
-    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao']);
+    assert.equal(view.workspace.activeChannelId, '');
+    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao', 'poda']);
+    assert.deepEqual(view.workspace.categories.map(category => category.id), ['iluminacao', 'poda']);
+    assert.equal(view.workspace.channels.length, 2);
     assert.deepEqual(view.workspace.reportCreationCategoryIds, ['iluminacao', 'poda']);
+    await waitFor(() => navigations.length === 1);
+    assert.deepEqual(navigations[0], { to: { pathname: '/prefeitura/broncas', search: '?cidade=64', hash: '' }, options: { replace: true } });
   } finally { view.close(); }
 });
 
-test('preferência salva da secretaria não restringe categorias de cadastro do administrador', async () => {
+test('preferência salva da secretaria não restringe consultas nem cadastro do administrador', async () => {
   const view = fixture({ savedChannel: 'lighting' });
   try {
     await waitFor(() => view.workspace.canEdit);
-    assert.equal(view.workspace.activeChannelId, 'lighting');
-    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao']);
+    assert.equal(view.workspace.activeChannelId, '');
+    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao', 'poda']);
     assert.deepEqual(view.workspace.reportCreationCategoryIds, ['iluminacao', 'poda']);
+    assert.equal(window.localStorage.getItem('municipality-channel:municipal-admin:pref-64'), '');
   } finally { view.close(); }
 });
 
@@ -184,7 +190,41 @@ test('cadastro por funcionário da secretaria continua respeitando seu escopo', 
   try {
     await waitFor(() => view.workspace.canEdit);
     assert.equal(view.workspace.isAdministrator, false);
+    assert.equal(view.workspace.activeChannelId, 'lighting');
+    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao']);
     assert.deepEqual(view.workspace.reportCreationCategoryIds, ['iluminacao']);
+    assert.equal(navigations.length, 0);
+  } finally { view.close(); }
+});
+
+test('limpa a secretaria oculta sem apagar os filtros visíveis da listagem', async () => {
+  const view = fixture({ query: '?cidade=64&secretaria=lighting&categoria=poda&fase=finished&visibilidade=internas&bairro=Centro' });
+  try {
+    await waitFor(() => navigations.length === 1);
+    const params = new URLSearchParams(navigations[0].to.search);
+    assert.deepEqual(Object.fromEntries(params), { cidade: '64', categoria: 'poda', fase: 'finished', visibilidade: 'internas', bairro: 'Centro' });
+    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao', 'poda']);
+  } finally { view.close(); }
+});
+
+test('filtro visível de secretaria das ordens não restringe o workspace do administrador', async () => {
+  const view = fixture({ path: '/prefeitura/demandas', query: '?cidade=64&secretaria=lighting' });
+  try {
+    await waitFor(() => view.workspace.canEdit);
+    assert.equal(view.workspace.activeChannelId, '');
+    assert.equal(view.workspace.channels.length, 2);
+    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao', 'poda']);
+    assert.equal(navigations.length, 0, 'O filtro visível da página de ordens permanece na URL');
+  } finally { view.close(); }
+});
+
+test('área técnica continua respeitando a secretaria explícita do administrador', async () => {
+  const view = fixture({ path: '/prefeitura/iluminacao', query: '?cidade=64&secretaria=lighting' });
+  try {
+    await waitFor(() => view.workspace.canEdit);
+    assert.equal(view.workspace.activeChannelId, 'lighting');
+    assert.deepEqual(view.workspace.enabledCategoryIds, ['iluminacao']);
+    assert.equal(navigations.length, 0);
   } finally { view.close(); }
 });
 

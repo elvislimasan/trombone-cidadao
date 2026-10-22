@@ -75,6 +75,13 @@ export function municipalRouteAllowed(path, workspace) {
   return workspace.canReadAttendance;
 }
 
+// Nas páginas gerais, a secretaria é um filtro da tela, não uma restrição
+// implícita do administrador. As áreas técnicas mantêm seu contexto próprio.
+export function municipalWorkspaceChannel(path, isAdministrator, channelId = '') {
+  const departmentArea = /^\/prefeitura\/(executor|eletricista|gestao-territorial|iluminacao)(\/|$)/.test(path.split('?')[0]);
+  return isAdministrator && !departmentArea ? '' : channelId;
+}
+
 export function municipalContextPath(path, cityId, channelId = '') {
   const [pathname, query] = path.split('?');
   const params = new URLSearchParams(query);

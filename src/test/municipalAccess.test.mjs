@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { municipalCapabilities, municipalHome, municipalRouteAllowed, municipalAccessUnavailableReason, assertMunicipalWorkspaceIdentity } from '../lib/municipalAccess.js';
+import { municipalCapabilities, municipalHome, municipalRouteAllowed, municipalAccessUnavailableReason, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel } from '../lib/municipalAccess.js';
 const row = (atendimento = 'nenhum', canal_id = 'a', extra = {}) => ({ atendimento, canal_id, especialidades_execucao: [], inventario_iluminacao: false, ...extra });
+
+test('navegação do administrador não transporta secretaria para as páginas gerais', () => {
+  for (const path of ['/prefeitura/broncas', '/prefeitura/mapa', '/prefeitura/visao-geral', '/prefeitura/demandas', '/prefeitura/equipe']) {
+    assert.equal(municipalWorkspaceChannel(path, true, 'lighting'), '');
+    assert.equal(municipalWorkspaceChannel(path, false, 'lighting'), 'lighting');
+  }
+  for (const path of ['/prefeitura/iluminacao', '/prefeitura/eletricista', '/prefeitura/executor/arborizacao', '/prefeitura/gestao-territorial/arborizacao?cidade=64']) {
+    assert.equal(municipalWorkspaceChannel(path, true, 'agriculture'), 'agriculture');
+  }
+});
 
 test('workspace rejeita sessão anônima ou de outra conta antes de interpretar os vínculos', () => {
   for (const actor_user_id of [null, 'previous-account']) assert.throws(() => assertMunicipalWorkspaceIdentity({ access_contract: 2, actor_user_id, memberships: [] }, 'worker'), /sessão consultada/);

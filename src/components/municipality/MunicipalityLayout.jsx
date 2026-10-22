@@ -1,5 +1,5 @@
 import { executorActivityForPath, executorHome, executionActivity } from '@/lib/executorActivities';
-import { municipalHome, municipalRouteAllowed, municipalContextPath, municipalAccessUnavailableReason } from '@/lib/municipalAccess';
+import { municipalHome, municipalRouteAllowed, municipalContextPath, municipalAccessUnavailableReason, municipalWorkspaceChannel } from '@/lib/municipalAccess';
 import { usePermissions } from '@/hooks/usePermissions';
 import { territorialModules, TERRITORIAL_BASE } from '@/lib/territorialAccess';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -65,7 +65,7 @@ function MunicipalityLayoutContent() {
   const modules = municipality ? ['ruas', 'arborizacao'].filter(area => workspace.inventoryModules?.includes(area === 'ruas' ? 'urban_planning' : 'arborization')) : territorialModules(territorialAccess, null);
   const inventoryPath = modules.length ? TERRITORIAL_BASE + '/' + modules[0] + '?cidade=' + municipality?.city_id : null;
   const homePath = municipalHome(workspace, inventoryPath);
-  const home = homePath ? municipalContextPath(homePath, municipality?.city_id, workspace.activeChannelId) : null;
+  const home = homePath ? municipalContextPath(homePath, municipality?.city_id, municipalWorkspaceChannel(homePath, isAdministrator, workspace.activeChannelId)) : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(() => pathname.startsWith('/prefeitura/demandas'));
   const [lightingOpen, setLightingOpen] = useState(() => pathname.startsWith('/prefeitura/iluminacao'));
@@ -116,7 +116,7 @@ function MunicipalityLayoutContent() {
   const ordersActive = pathname.startsWith('/prefeitura/demandas');
   const newOrderActive = pathname === '/prefeitura/demandas/nova';
   const ordersListActive = pathname === '/prefeitura/demandas';
-  const scopedHref = href => municipalContextPath(href, municipality?.city_id, workspace.activeChannelId);
+  const scopedHref = href => municipalContextPath(href, municipality?.city_id, municipalWorkspaceChannel(href, isAdministrator, workspace.activeChannelId));
   const renderNavigation = (mobile = false) => visibleNavigation.map(({ to, label, icon: Icon }) => {
     if (to === '/prefeitura/iluminacao') {
       const submenuId = mobile ? 'municipality-mobile-lighting' : 'municipality-desktop-lighting';
