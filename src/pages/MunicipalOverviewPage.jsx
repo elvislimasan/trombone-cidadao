@@ -172,7 +172,7 @@ function AdministrativeOverview() {
       <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2"><Distribution summary={summary} /><WeeklyChart days={days} error={weekError} loading={weekLoading} onRetry={() => setRevision((value) => value + 1)} /></div>
       <Attention summary={summary} />
     </>}
-    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} enabledCategoryIds={context.enabledCategoryIds} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
+    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} enabledCategoryIds={context.reportCreationCategoryIds} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
   </div>;
 }
 

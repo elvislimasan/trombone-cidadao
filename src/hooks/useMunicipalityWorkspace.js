@@ -6,7 +6,7 @@ import { enabledMunicipalCategories, filterMunicipalCategories } from '@/lib/mun
 import { PERMISSIONS_CHANGED_EVENT, PERMISSIONS_STORAGE_KEY } from '@/lib/permissionUpdates';
 import { municipalCapabilities, assertMunicipalWorkspaceIdentity } from '@/lib/municipalAccess';
 
-const empty = { loading: true, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
+const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
 const WorkspaceContext = createContext(empty);
 export const WORKSPACE_EVENT = 'municipality-workspace-changed';
 const workspaceKey = userId => 'municipality-workspace:' + userId;
@@ -35,7 +35,16 @@ export function MunicipalityWorkspaceProvider({ children }) {
   useEffect(() => {
     if (!user?.id) { setState({ ...empty, loading: false }); return undefined; }
     let active = true;
-    setState({ ...empty, userId: user.id });
+    // Voltar da galeria/câmera devolve o foco e revalida os vínculos. No mesmo
+    // contexto, manter a página montada preserva o formulário e seu input file.
+    // Uma troca de conta, cidade ou secretaria continua limpando o acesso.
+    setState(current => {
+      const sameContext = current.userId === user.id && current.municipality
+        && (!explicitCity || String(current.municipality.city_id) === String(explicitCity))
+        && (requestedChannel === null || current.activeChannelId === requestedChannel)
+        && (explicitCity || !chosenId || current.municipality.id === chosenId);
+      return sameContext ? { ...current, refreshing: true } : { ...empty, userId: user.id };
+    });
     (async () => {
       try {
         const { data, error } = await supabase.rpc('municipal_execution_workspace');
@@ -74,11 +83,14 @@ export function MunicipalityWorkspaceProvider({ children }) {
         if (failure) throw failure;
         const scopeChannels = selectedChannel ? channels.filter(row => String(row.id) === selectedChannel) : channels;
         const categoryIds = enabledMunicipalCategories(municipality).filter(id => (isAdministrator && !selectedChannel) || (mappings.data || []).some(mapping => mapping.category_id === id && scopeChannels.some(channel => channel.id === mapping.canal_id)));
+        // O filtro da listagem não limita o cadastro do administrador geral.
+        // Funcionários continuam cadastrando somente nas categorias do seu contexto.
+        const reportCreationCategoryIds = isAdministrator ? enabledMunicipalCategories(municipality) : categoryIds;
         if (active) setState({
-          loading: false, userId: user.id, municipality, memberships: available, accesses,
+          loading: false, refreshing: false, userId: user.id, municipality, memberships: available, accesses,
           channels: selectedChannel ? channels.filter(row => String(row.id) === selectedChannel) : channels,
           allChannels: channels, activeChannelId: selectedChannel,
-          categories: filterMunicipalCategories(categories.data, municipality).filter(category => categoryIds.includes(category.id)), enabledCategoryIds: categoryIds,
+          categories: filterMunicipalCategories(categories.data, municipality).filter(category => categoryIds.includes(category.id)), enabledCategoryIds: categoryIds, reportCreationCategoryIds,
           categoryChannels: mappings.data || [], members: (members.data || []).map(member => ({ ...member, especialidades_execucao: (data.execution_team || []).find(row => row.user_id === member.user_id && row.canal_id === member.canal_id)?.especialidades_execucao || [] })), serviceRules: rules.data || [],
           inventoryModules: [...(data.inventories || []), ...(data.inventory_views || [])].filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)).map(row => row.module),
           executionActivities: (data.execution_activities || []).filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)),

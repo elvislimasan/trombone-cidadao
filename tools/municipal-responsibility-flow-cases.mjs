@@ -131,4 +131,6 @@ export async function validateResponsibilities({ db, ids, asUser, saved, check }
   });
   const { validateExecutor } = await import('./municipal-executor-flow-cases.mjs');
   await validateExecutor({ db, ids, asUser, saved, check });
+  const { validateMunicipalReportInsert } = await import('./municipal-report-insert-flow-cases.mjs');
+  await validateMunicipalReportInsert({ db, ids, asUser, check });
 }

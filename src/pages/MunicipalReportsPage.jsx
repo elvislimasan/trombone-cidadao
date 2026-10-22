@@ -346,7 +346,7 @@ export default function MunicipalReportsPage({ view = 'list' }) {
       </section>
     </>}
     {serviceOrderOpen && <MunicipalServiceOrderDialog context={context} selectedIds={selectedIds} onRemove={(id) => setSelectedIds((current) => current.filter((value) => value !== id))} onClose={() => setServiceOrderOpen(false)} onCreated={() => { setRevision((value) => value + 1); setSelectedIds([]); }} onOpenOrder={(id) => { setServiceOrderOpen(false); openDemand(id); }} />}
-    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={municipalityId} municipalCityId={cityId} enabledCategoryIds={context.enabledCategoryIds} onClose={() => setReportCreateOpen(false)} onCreated={() => setRevision((value) => value + 1)} onReceiptClose={(created) => { if (created?.id) setParams(new URLSearchParams({ bronca: created.id, ...(created.is_public === false ? { visibilidade: 'internas' } : {}) }), { replace: true }); }} />
+    <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={municipalityId} municipalCityId={cityId} enabledCategoryIds={context.reportCreationCategoryIds} onClose={() => setReportCreateOpen(false)} onCreated={() => setRevision((value) => value + 1)} onReceiptClose={(created) => { if (created?.id) setParams(new URLSearchParams({ bronca: created.id, ...(created.is_public === false ? { visibilidade: 'internas' } : {}) }), { replace: true }); }} />
     {exportOpen && <MunicipalExportDialog kind="reports" context={context} selectedIds={selectedIds}
       initialFilters={{ query, category, issueType, visibility, neighborhood: neighborhood === 'all' ? '' : neighborhood,
         statuses: REPORT_PHASES.find(([id]) => id === phase)?.[2] || [], age, dateFrom, dateTo, sort }}
