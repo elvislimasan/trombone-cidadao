@@ -103,8 +103,9 @@
 <IfModule mod_headers.c>
   Header set X-Powered-By "Hostinger Horizons"
 
-  # Cache everything on CDN by default
-  Header set Cache-Control "public, s-maxage=604800, max-age=0"
+  # O HTML e o service worker precisam revalidar a versão publicada.
+  # Cache compartilhado do shell pode manter menus antigos por uma semana.
+  Header set Cache-Control "no-cache, max-age=0, must-revalidate"
   
   # Cache in browser all assets
   <If "%{REQUEST_URI} =~ m#^/assets/.*$#">

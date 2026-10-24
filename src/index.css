@@ -71,7 +71,7 @@
 .arborization-stat-value { font-size: 25px; line-height: 1; font-weight: 750; font-variant-numeric: tabular-nums; }
 .arborization-stat-label { margin-top: 6px; font-size: 12px; line-height: 1.35; color: rgb(var(--text-secondary)); }
 .arborization-stat-description { margin-top: 9px; font-size: 10px; line-height: 1.4; color: rgb(var(--text-tertiary)); }
-.arborization-actions { display: flex; align-items: center; gap: 10px; }
+.arborization-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; max-width: 640px; }
 .arborization-actions > button { height: 40px; gap: 8px; padding-inline: 14px; border-radius: 10px; font-size: 12px; font-weight: 500; box-shadow: 0 3px 10px rgb(30 60 85 / .04); }
 .arborization-page .arborization-primary { gap: 8px; border-radius: 9px; box-shadow: inset 0 1px 0 rgb(255 255 255 / .12), 0 2px 4px rgb(var(--brand) / .08); }
 .arborization-export { order: -1; background: rgb(var(--surface-raised)); }
@@ -283,6 +283,77 @@
   .arborization-embedded .arborization-map-panel { min-height: max(480px, calc(100dvh - 230px)); }
 }
 
+/* Inventário com busca no topo e painel avançado opcional: toda largura extra
+   pertence ao mapa, inclusive no painel municipal com navegação lateral. */
+.arborization-page.arborization-inventory-layout { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+.arborization-inventory-layout .arborization-header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.arborization-overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; min-width: 0; }
+.arborization-overview > .arborization-stats, .arborization-overview > .arborization-actions { grid-area: auto; align-self: center; }
+.arborization-inventory-layout .arborization-stats { gap: 8px; }
+.arborization-inventory-layout .arborization-stat { align-items: center; gap: 8px; padding: 10px 12px; border-radius: 9px; }
+.arborization-inventory-layout .arborization-stat-icon { width: 28px; height: 28px; border-radius: 8px; }
+.arborization-inventory-layout .arborization-stat-icon svg { width: 17px; height: 17px; }
+.arborization-inventory-layout .arborization-stat-value { font-size: 20px; }
+.arborization-inventory-layout .arborization-stat-label { margin-top: 3px; font-size: 10px; }
+.arborization-inventory-layout .arborization-stat-description { display: none; }
+.arborization-inventory-layout .arborization-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; max-width: none; gap: 8px; }
+.arborization-inventory-layout .arborization-actions > button { height: 38px; padding-inline: 12px; border-radius: 8px; }
+.arborization-primary-filters { display: grid; grid-template-columns: minmax(160px, 2.4fr) repeat(2, minmax(120px, 1fr)) auto auto; align-items: center; gap: 10px; min-width: 0; }
+.arborization-primary-filters .arborization-search > svg { position: absolute; left: 12px; top: 12px; color: rgb(var(--text-secondary)); pointer-events: none; }
+.arborization-primary-filters .arborization-search input { height: 40px; padding-left: 36px; border-radius: 8px; background: rgb(var(--surface-raised)); font-size: 12px; }
+.arborization-quick-select { position: relative; min-width: 0; }
+.arborization-quick-select > span { position: absolute; top: -5px; left: 9px; z-index: 1; padding-inline: 4px; font-size: 10px; line-height: 1; color: rgb(var(--text-secondary)); background: rgb(var(--surface-raised)); }
+.arborization-quick-select select { height: 40px; background: rgb(var(--surface-raised)); font-size: 12px; }
+.arborization-filter-trigger.is-active { border-color: rgb(var(--brand)); color: rgb(var(--brand)); }
+.arborization-statistics-trigger { height: 40px; gap: 8px; border-radius: 8px; background: rgb(var(--surface-raised)); font-size: 12px; }
+.arborization-reset-filters { grid-column: 1 / -1; justify-self: start; height: 24px; gap: 6px; padding-inline: 0; font-size: 11px; }
+.arborization-inventory-layout .arborization-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; align-items: stretch; }
+.arborization-inventory-layout .arborization-workspace.has-advanced-filters { grid-template-columns: 220px minmax(0, 1fr); }
+.arborization-inventory-layout .arborization-workspace > .arborization-filters { border-radius: 10px 0 0 10px; border-right: 0; padding: 14px 12px; }
+.arborization-inventory-layout .arborization-filter-heading > button { width: 26px; height: 26px; padding: 0; color: rgb(var(--text-secondary)); border: 1px solid rgb(var(--border-subtle)); border-radius: 6px; }
+.arborization-inventory-layout .arborization-filter-heading h2 { font-size: 13px; }
+.arborization-inventory-layout .arborization-filter-fields { gap: 16px; }
+.arborization-inventory-layout .arborization-results { display: flex; flex-direction: column; }
+.arborization-inventory-layout .arborization-map-panel { flex: 1; min-height: max(480px, calc(100dvh - 310px)); height: auto; border-radius: 10px; }
+.arborization-inventory-layout .has-advanced-filters .arborization-map-panel { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.arborization-inventory-layout.arborization-embedded .arborization-map-panel { min-height: max(480px, calc(100dvh - 240px)); }
+.arborization-inventory-layout .arborization-data-note { grid-column: auto; }
+.arborization-inventory-layout .arborization-list-toolbar { padding: 12px; }
+.arborization-inventory-layout .arborization-results article { margin-inline: 8px; }
+.arborization-filter-dialog .arborization-filter-fields { display: grid; gap: 14px; }
+@media (min-width: 980px) and (max-width: 1250px) {
+  .arborization-overview { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+@media (max-width: 979px) {
+  .arborization-overview { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .arborization-primary-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+  .arborization-primary-filters .arborization-search { grid-column: 1 / -1; }
+  .arborization-inventory-layout .arborization-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; width: 100%; }
+  .arborization-inventory-layout .arborization-actions .arborization-create { grid-column: 1 / -1; grid-row: 1; }
+  .arborization-inventory-layout .arborization-map-panel { min-height: 430px; height: 65dvh; flex: none; }
+  .arborization-inventory-layout .arborization-fullscreen { font-size: 0; }
+}
+
+.tree-entry-step { display: inline-flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: rgb(21 128 61 / .1); color: #15803d; font-size: 12px; font-weight: 700; }
+.dark .tree-entry-step { background: rgb(21 128 61 / .2); color: #86efac; }
+.tree-map-current-point .tree-current-point-dot { position: absolute; inset: 8px; border: 3px solid white; border-radius: 50%; background: #15803d; box-shadow: 0 0 0 2px #14532d, 0 2px 8px rgb(0 0 0 / .3); }
+.tree-map-current-point .tree-current-point-halo { position: absolute; inset: 0; border: 2px solid #16a34a; border-radius: 50%; background: rgb(34 197 94 / .2); animation: tree-point-pulse 1.8s ease-out infinite; pointer-events: none; }
+@keyframes tree-point-pulse { from { transform: scale(.65); opacity: .85; } to { transform: scale(1.8); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tree-map-current-point .tree-current-point-halo { animation: none; opacity: .6; } }
+.tree-entry-main { overflow-y: auto; overscroll-behavior: contain; }
+.tree-entry-layout { display: flex; flex-direction: column; gap: 20px; min-width: 0; padding: 16px; }
+.tree-entry-location { display: flex; flex-direction: column; gap: 10px; }
+.tree-entry-map { height: 360px; flex-shrink: 0; }
+.tree-entry-fields { min-width: 0; }
+@media (min-width: 980px) {
+  .tree-entry-main { overflow: hidden; }
+  .tree-entry-layout { display: grid; height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 0; padding: 0; }
+  .tree-entry-location { min-height: 0; padding: 20px; background: rgb(var(--surface-subtle) / .45); }
+  .tree-entry-map { height: auto; min-height: 0; flex: 1; }
+  .tree-entry-fields { overflow-y: auto; overscroll-behavior: contain; padding: 20px; border-left: 1px solid rgb(var(--border-subtle)); }
+}
+
+
 /* As duas colunas e o mapa permanecem no fluxo, antes do footer. */
 .tree-profile-page { position: relative; isolation: isolate; flex: 0 0 auto; min-width: 0; padding-block: 24px 36px; background: linear-gradient(180deg, rgb(235 247 244 / .45), transparent 280px); }
 .tree-profile-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 15px; font-size: 11px; color: rgb(var(--text-secondary)); }
@@ -312,8 +383,10 @@
 .tree-profile-card { position: relative; min-width: 0; padding: 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 13px; background: rgb(var(--surface-raised)); box-shadow: 0 3px 18px rgb(30 60 85 / .035); }
 .tree-profile-photo { position: relative; height: clamp(200px, 16vw, 285px); overflow: hidden; border-radius: 9px; background: rgb(var(--surface-subtle)); }
 .tree-profile-photo > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tree-profile-photo[data-illustrative=true] > img { object-fit: contain; }
 .tree-profile-photo > button { position: absolute; right: 10px; bottom: 10px; height: 32px; gap: 7px; padding-inline: 10px; border: 1px solid rgb(255 255 255 / .15); border-radius: 7px; background: rgb(0 0 0 / .72); color: white; font-size: 11px; }
 .tree-profile-photo > button:hover { background: rgb(0 0 0 / .88); }
+.tree-profile-photo-caption { position: absolute; top: 10px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); border-radius: 6px; padding: 6px 8px; background: rgb(0 0 0 / .75); color: white; font-size: 11px; line-height: 1.5; }
 .tree-profile-photo-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 100%; background: linear-gradient(130deg, rgb(5 150 105 / .07), transparent); font-size: 12px; color: rgb(var(--text-secondary)); }
 .tree-profile-photo-empty svg { color: #009461; }
 .tree-profile-section-title { display: flex; align-items: center; gap: 12px; font-size: 16px; line-height: 1.4; font-weight: 700; }
@@ -1988,6 +2061,23 @@ input[type="password"]::-ms-clear {
 .municipal-lighting-icon:focus-visible .municipal-lighting-cluster {
   outline: 3px solid #0f172a;
   outline-offset: 2px;
+}
+
+/* O painel municipal isolado aplica os insets uma vez, fora dos inventários.
+   O menu fica no workspace e acompanha a altura real do cabeçalho. */
+.municipality-shell { padding-bottom: var(--safe-area-bottom, env(safe-area-inset-bottom, 0px)); }
+.municipality-header {
+  padding-top: var(--header-safe-top, env(safe-area-inset-top, 0px));
+  padding-left: var(--safe-area-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-right, env(safe-area-inset-right, 0px));
+}
+.municipality-workspace {
+  padding-left: var(--safe-area-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-right, env(safe-area-inset-right, 0px));
+}
+.municipality-mobile-menu {
+  padding-left: calc(1rem + var(--safe-area-left, env(safe-area-inset-left, 0px)));
+  padding-right: calc(1rem + var(--safe-area-right, env(safe-area-inset-right, 0px)));
 }
 
 /* Painel territorial: largura fluida; em notebooks a tabela rola apenas

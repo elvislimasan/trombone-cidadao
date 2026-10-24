@@ -157,8 +157,8 @@ const createPoleIcon = ({ isSelected, distanceLabel, showBrokenX }) =>
   });
 
 const createTreeIcon = (tree, selected) => L.divIcon({
-  className: 'tree-picker-marker', iconSize: [32, 40], iconAnchor: [16, 39], popupAnchor: [0, -36],
-  html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg"><path d="M16 38V20" stroke="#6b4f32" stroke-width="4"/><path d="M16 2C10 2 7 7 8 11c-8 4-7 15 1 16h14c8-1 9-12 1-16 1-4-2-9-8-9Z" fill="${TREE_MAP_STATES[treeMapMarkerKey(tree, selected)].color}" stroke="${selected ? '#92400e' : '#fff'}" stroke-width="3"/></svg>`,
+  className: 'tree-picker-marker', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9],
+  html: `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M9 2a7 7 0 1 0 0 14A7 7 0 0 0 9 2Z" fill="${TREE_MAP_STATES[treeMapMarkerKey(tree, selected)].color}" stroke="${selected ? '#92400e' : '#fff'}" stroke-width="2"/></svg>`,
 });
 
 // Component to handle map clicks

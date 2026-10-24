@@ -20,6 +20,15 @@ export const TREE_PLANTED_BY = { nao_informado: 'Não informado', prefeitura: 'P
 
 export const treeLabel = tree => [tree?.public_code, tree?.common_name].filter(Boolean).join(' · ');
 
+export function treeImage(tree, failedUrls = []) {
+  const real = tree?.photo_url?.trim();
+  const illustration = tree?.species_illustration_url?.trim();
+  if (real && !failedUrls.includes(real)) return { url: real, illustrative: false, caption: 'Foto da árvore', alt: `Foto de ${tree.common_name}` };
+  if (illustration && !failedUrls.includes(illustration)) return { url: illustration, illustrative: true,
+    caption: `Imagem ilustrativa da espécie ${tree.common_name}.`, alt: `Imagem ilustrativa da espécie ${tree.common_name}` };
+  return null;
+}
+
 export const EMPTY_TREE = {
   common_name: '', scientific_name: '', origin: 'nao_identificada', status: 'saudavel',
   address: '', neighborhood: '', latitude: '', longitude: '', height_m: '', crown_diameter_m: '',

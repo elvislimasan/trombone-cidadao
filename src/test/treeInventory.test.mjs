@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_TREE, filterTrees, treePayload, treesCsv, treeMapMarkerKey } from '../lib/arborization.js';
+import { EMPTY_TREE, filterTrees, treeImage, treePayload, treesCsv, treeMapMarkerKey } from '../lib/arborization.js';
 import { loadReportMapTrees, nearbyTrees, treeNeighborhoodCounts, treeTimeline, treeRequestCounts, treeReportSelection, uploadTreePhoto } from '../lib/treeInventory.js';
+
+test('foto real tem prioridade; ilustração identifica a espécie e não se passa por foto da árvore', () => {
+  const tree = { common_name: 'Nim', photo_url: 'https://example.test/real.jpg', species_illustration_url: 'https://example.test/nim.png' };
+  assert.equal(treeImage(tree).url, tree.photo_url);
+  assert.equal(treeImage(tree).illustrative, false);
+  const fallback = treeImage({ ...tree, photo_url: null });
+  assert.equal(fallback.url, tree.species_illustration_url);
+  assert.equal(fallback.illustrative, true);
+  assert.equal(fallback.caption, 'Imagem ilustrativa da espécie Nim.');
+  assert.equal(treeImage(tree, [tree.photo_url]).url, tree.species_illustration_url);
+  assert.equal(treeImage(tree, [tree.photo_url, tree.species_illustration_url]), null);
+  assert.equal(treeImage({ common_name: 'Não identificada' }), null);
+});
 
 test('relatórios combinam plantio municipal por ano, bairro, sítio histórico e idade estimada', () => {
   const trees = [

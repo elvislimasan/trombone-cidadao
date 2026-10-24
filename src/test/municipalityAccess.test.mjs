@@ -1,6 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasMunicipalityPanelAccess, shouldRedirectMunicipalityUser } from '../lib/municipalityAccess.js';
+import { hasMunicipalityPanelAccess, resolveLoginDestination, shouldRedirectMunicipalityUser } from '../lib/municipalityAccess.js';
+import { municipalCapabilities, municipalHome, municipalRouteAllowed } from '../lib/municipalAccess.js';
+
+test('login do inventário entra pela resolução de responsabilidades e termina apenas na arborização', () => {
+  const user = { has_municipality_access: true, user_type: 'public_official' };
+  const access = municipalCapabilities([{ cargos: ['inventario'], atendimento: 'nenhum', especialidades_execucao: [], inventario_iluminacao: false }]);
+  const entry = resolveLoginDestination(user, '/prefeitura/broncas');
+  assert.equal(entry, '/prefeitura/visao-geral');
+  assert.equal(municipalRouteAllowed(entry, access), false);
+  assert.equal(municipalHome(access, '/prefeitura/gestao-territorial/arborizacao?cidade=64'), '/prefeitura/gestao-territorial/arborizacao?cidade=64');
+  assert.equal(municipalRouteAllowed('/prefeitura/broncas', access), false);
+  assert.equal(municipalRouteAllowed('/prefeitura/demandas', access), false);
+});
+
+test('login mantém convites, execução elétrica e retornos de contas sem vínculo municipal', () => {
+  const worker = { has_municipality_access: true };
+  for (const target of ['/prefeitura/convite/token', '/prefeitura/eletricista/ordem/123']) assert.equal(resolveLoginDestination(worker, target), target);
+  assert.equal(resolveLoginDestination({ id: 'citizen' }, '/bronca/123'), '/bronca/123');
+  assert.equal(resolveLoginDestination({ is_admin: true }, '/admin'), '/admin');
+  assert.equal(resolveLoginDestination(null, null), '/feed');
+});
 
 test('reconhece a conta municipal pelo tipo ou pelo vinculo ativo', () => {
   assert.equal(hasMunicipalityPanelAccess({ tipo_conta: 'prefeitura' }), true);

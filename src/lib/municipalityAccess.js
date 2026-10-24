@@ -10,6 +10,12 @@ export const hasMunicipalityPanelAccess = (user) => Boolean(
   )
 );
 
+export const resolveLoginDestination = (user, target, fallback = '/feed') => {
+  if (target?.startsWith('/prefeitura/convite/') || target?.startsWith('/prefeitura/eletricista')) return target;
+  // O layout resolve a área pelo workspace: inventário não passa pelo atendimento.
+  return hasMunicipalityPanelAccess(user) ? '/prefeitura/visao-geral' : (target || fallback);
+};
+
 export const shouldRedirectMunicipalityUser = (user, pathname) => {
   if (!hasMunicipalityPanelAccess(user)) return false;
 

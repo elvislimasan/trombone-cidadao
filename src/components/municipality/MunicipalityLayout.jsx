@@ -164,15 +164,15 @@ function MunicipalityLayoutContent() {
   if (workspace.error) return <div className="page-shell-fluid space-y-4 py-12"><p className="text-sm">Conta: {user?.email}</p><p role="alert">{workspace.error}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Tentar novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
   if (!municipality || !home) return <div className="page-shell-fluid space-y-4 py-12"><h1 className="text-xl font-bold">Acesso municipal indisponível</h1><p className="text-sm">Conta: {user?.email}</p><p role="alert">{municipalAccessUnavailableReason(workspace)}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Verificar acesso novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
   if (pathname === '/prefeitura/visao-geral' && !workspace.canReadAttendance && homePath !== pathname) return <Navigate to={home} replace />;
-  if (!municipalRouteAllowed(pathname, workspace)) return <div className="page-shell-fluid space-y-4 py-12"><h1 className="text-xl font-bold">Sem acesso a esta atividade</h1><Link className="underline" to={home}>Abrir minha área de trabalho</Link></div>;
+  if (!municipalRouteAllowed(pathname, workspace)) return <Navigate to={home} replace />;
 
   if (pathname === '/prefeitura/executor' && workspace.canExecute) return <Navigate to={scopedHref(executorHome(workspace))} replace />;
   if (pathname.startsWith('/prefeitura/executor/')) return <ExecutorLayout context={workspace} branding={branding} activity={executorActivityForPath(pathname)} />;
   if (isElectrician) return <ElectricianLayout context={workspace} branding={branding} />;
 
   return (
-    <div className="relative flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-surface-base text-content-primary">
-      <header className="relative z-40 shrink-0 border-b border-edge-subtle bg-header-bg text-header-fg shadow-sm">
+    <div className="municipality-shell relative flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-surface-base text-content-primary">
+      <header className="municipality-header relative z-40 shrink-0 border-b border-edge-subtle bg-header-bg text-header-fg shadow-sm">
         <div className="page-shell-fluid flex h-16 items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <Button
@@ -210,20 +210,20 @@ function MunicipalityLayoutContent() {
         </div>
       </header>
 
-      {menuOpen && <button type="button" className="absolute inset-x-0 bottom-0 top-16 z-30 bg-black/30 lg:hidden" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
-      {menuOpen && (
-        <div className="absolute inset-x-0 top-16 z-40 max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-edge-subtle bg-surface-raised px-4 py-3 shadow-lg lg:hidden">
-          <p className="mb-3 px-3 text-xs font-semibold text-content-secondary">{municipality?.nome || 'Gestão municipal'}{locationLabel ? ` · ${locationLabel}` : ''}</p>
-          <nav id="municipality-mobile-nav" aria-label="Painel da prefeitura" className="grid gap-1">
-            {workspace.executionSpecialties?.map(id => <NavLink key={id} to={scopedHref(executionActivity(id).path)} className={navClass}>Meus serviços · {executionActivity(id).label}</NavLink>)}{renderNavigation(true)}
-            <button type="button" onClick={handleSignOut} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-brand hover:bg-brand-subtleBg">
-              <LogOut className="h-4 w-4" /> Sair
-            </button>
-          </nav>
-        </div>
-      )}
+      <div className="municipality-workspace relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)]">
+        {menuOpen && <button type="button" className="absolute inset-0 z-30 bg-black/30 lg:hidden" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
+        {menuOpen && (
+          <div className="municipality-mobile-menu absolute inset-x-0 top-0 z-40 max-h-full overflow-y-auto border-b border-edge-subtle bg-surface-raised px-4 py-3 shadow-lg lg:hidden">
+            <p className="mb-3 px-3 text-xs font-semibold text-content-secondary">{municipality?.nome || 'Gestão municipal'}{locationLabel ? ` · ${locationLabel}` : ''}</p>
+            <nav id="municipality-mobile-nav" aria-label="Painel da prefeitura" className="grid gap-1">
+              {workspace.executionSpecialties?.map(id => <NavLink key={id} to={scopedHref(executionActivity(id).path)} className={navClass}>Meus serviços · {executionActivity(id).label}</NavLink>)}{renderNavigation(true)}
+              <button type="button" onClick={handleSignOut} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-brand hover:bg-brand-subtleBg">
+                <LogOut className="h-4 w-4" /> Sair
+              </button>
+            </nav>
+          </div>
+        )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)]">
         <aside className="hidden min-h-0 border-r border-edge-subtle bg-surface-raised lg:block">
           <div className="flex h-full min-h-0 flex-col p-4">
             <div className="mb-5 shrink-0 rounded-2xl border border-edge-subtle bg-surface-subtle p-4">

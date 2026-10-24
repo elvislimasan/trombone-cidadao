@@ -23,7 +23,7 @@ const stubs = {
   '@/pages/PavementMapPage': `export const PavementContent=()=> <div>Inventário de ruas</div>;`,
   '@/components/map/ThemedTileLayer': `export default function Tiles(){return null;}`,
   '@/components/map/SatelliteTileLayer': `export default function Tiles(){return null;}`,
-  '@/lib/arborization': `export { treeLabel, TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS } from '@/lib/arborization.js';export const loadCityTrees=async()=>[{id:'tree',city_id:64,common_name:'Ipê atribuído',status:'saudavel',latitude:-8.6,longitude:-38.5},{id:'tree-available',city_id:64,common_name:'Ipê disponível',status:'saudavel',latitude:-8.6002,longitude:-38.5002},{id:'tree-free',city_id:64,public_code:'AR-003',common_name:'Caraibeira',scientific_name:'Tabebuia aurea',address:'Praça da matriz',status:'saudavel',latitude:-8.6001,longitude:-38.5001}];`,
+  '@/lib/arborization': `export { treeLabel, treeImage, TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS } from '@/lib/arborization.js';export const loadCityTrees=async()=>[{id:'tree',city_id:64,common_name:'Ipê atribuído',status:'saudavel',latitude:-8.6,longitude:-38.5},{id:'tree-available',city_id:64,common_name:'Ipê disponível',status:'saudavel',latitude:-8.6002,longitude:-38.5002},{id:'tree-free',city_id:64,public_code:'AR-003',common_name:'Caraibeira',scientific_name:'Tabebuia aurea',address:'Praça da matriz',status:'saudavel',latitude:-8.6001,longitude:-38.5001}];`,
   '@/lib/pavementMapData': `export const carregarRuasDoMapa=async()=>[{id:'street',name:'Rua A',linhas:[[[-8.601,-38.501],[-8.602,-38.502]]]}];`,
   '@/lib/appError': `export const showAppError=x=>{window.uiErrors.push(x)};export const showAppNotice=()=>{};`,
   '@/lib/customSupabaseClient': `
@@ -56,7 +56,7 @@ const stubs = {
     },from(table){let start=0,end=999;let singular=false;const filters=[];const builder={select(){return this},eq(key,value){filters.push([key,value]);return this},in(key,values){filters.push([key,values]);return this},or(){return this},abortSignal(){return this},order(){return this},range(a,b){start=a;end=b;return this},maybeSingle(){singular=true;return this},single(){singular=true;return this},then(resolve,reject){let data=table==='reports'?overviewReports:table==='prefeitura_membros'?memberships:table==='orgao_canais'?channels:table==='categories'?[{id:'poda',name:'Poda'},{id:'iluminacao',name:'Iluminação'},{id:'buracos',name:'Buracos'},{id:'limpeza',name:'Limpeza'}]:table==='orgao_membros'?[member]:table==='orgao_categorias'?mappings:table==='site_config'?[{site_name:'Trombone Cidadão',logo_url:'/logo.png'}]:[];
       for(const [key,value] of filters)if(key!=='user_id'&&key!=='papel')data=data.filter(row=>Array.isArray(value)?value.includes(row[key]):row[key]===value);if(table==='reports')window.overviewQueries.push(filters);data=data.slice(start,end+1);return Promise.resolve({data:singular?data[0]||null:data,error:table==='reports'&&window.failOverview?{message:'Consulta indisponível'}:null}).then(resolve,reject)}};return builder}};`,
 };
-await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route} from 'react-router-dom';import Layout from '@/components/municipality/MunicipalityLayout';import Executor from '@/pages/ExecutorPanelPage';import ExecutorOrder from '@/pages/ExecutorOrderPage';import ExecutorStats from '@/pages/ExecutorStatsPage';import Inventory from '@/pages/TerritorialPanelPage';import Overview from '@/pages/MunicipalOverviewPage';import Team from '@/pages/MunicipalityTeamPage';import Departments from '@/pages/admin/ManageAgencyChannelsPage';const page=new URLSearchParams(location.search).get('page')||'/prefeitura/visao-geral';createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={[page]}><Routes><Route element={<Layout/>}><Route path="/prefeitura/executor/:activity" element={<Executor/>}/><Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrder/>}/><Route path="/prefeitura/executor/:activity/estatisticas" element={<ExecutorStats/>}/><Route path="/prefeitura/visao-geral" element={<Overview/>}/><Route path="/prefeitura/eletricista" element={<h1>Serviços do eletricista</h1>}/><Route path="/prefeitura/demandas" element={<h1>Ordens de serviço</h1>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações</h1>}/><Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<Inventory/>}/><Route path="/prefeitura/equipe" element={<Team/>}/><Route path="/prefeitura/secretarias" element={<Departments/>}/></Route></Routes></MemoryRouter>);`, loader: 'jsx', resolveDir: root },
+await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route,useLocation} from 'react-router-dom';import Layout from '@/components/municipality/MunicipalityLayout';import Executor from '@/pages/ExecutorPanelPage';import ExecutorOrder from '@/pages/ExecutorOrderPage';import ExecutorStats from '@/pages/ExecutorStatsPage';import Inventory from '@/pages/TerritorialPanelPage';import Overview from '@/pages/MunicipalOverviewPage';import Team from '@/pages/MunicipalityTeamPage';import Departments from '@/pages/admin/ManageAgencyChannelsPage';function RouteObserver(){const route=useLocation();window.previewRoute=route.pathname+route.search;return null;}const page=new URLSearchParams(location.search).get('page')||'/prefeitura/visao-geral';createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={[page]}><RouteObserver/><Routes><Route element={<Layout/>}><Route path="/prefeitura/executor/:activity" element={<Executor/>}/><Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrder/>}/><Route path="/prefeitura/executor/:activity/estatisticas" element={<ExecutorStats/>}/><Route path="/prefeitura/visao-geral" element={<Overview/>}/><Route path="/prefeitura/iluminacao" element={<h1>Lighting</h1>}/><Route path="/prefeitura/eletricista" element={<h1>Serviços do eletricista</h1>}/><Route path="/prefeitura/demandas" element={<h1>Ordens de serviço</h1>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações</h1>}/><Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<Inventory/>}/><Route path="/prefeitura/equipe" element={<Team/>}/><Route path="/prefeitura/secretarias" element={<Departments/>}/></Route></Routes></MemoryRouter>);`, loader: 'jsx', resolveDir: root },
   bundle: true, loader: { '.png': 'dataurl' }, jsx: 'automatic', outfile: path.join(out, 'preview.js'), alias: { '@': path.join(root, 'src') },
   define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' },
   plugins: [{ name: 'fixtures', setup(b) { b.onResolve({ filter: /.*/ }, a => stubs[a.path] ? { path: a.path, namespace: 'fixture' } : undefined); b.onLoad({ filter: /.*/, namespace: 'fixture' }, a => ({ contents: stubs[a.path], loader: 'jsx', resolveDir: root })); } }],
@@ -81,16 +81,28 @@ try {
   let endpoint;
   for(let attempt=0;attempt<150&&!endpoint;attempt++){try{const [port,route]=(await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8')).trim().split(/\r?\n/);endpoint=`ws://127.0.0.1:${port}${route}`;}catch{await pause(100);}}
   assert.ok(endpoint,'Chrome não iniciou');ws=new WebSocket(endpoint);await new Promise(resolve=>ws.addEventListener('open',resolve,{once:true}));
-  let sequence=0;const pending=new Map(),errors=[];
-  ws.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}});
+  let sequence=0;const pending=new Map(),errors=[],consoleErrors=[];
+  ws.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.method==='Runtime.consoleAPICalled'&&m.params.type==='error')consoleErrors.push(m.params.args.map(a=>a.value||a.description));if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}});
   const send=(method,params={},sessionId)=>new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});
   const {targetId}=await send('Target.createTarget',{url:'about:blank'});const {sessionId}=await send('Target.attachToTarget',{targetId,flatten:true});await send('Runtime.enable',{},sessionId);
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},sessionId);if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
-  const wait=async expression=>{for(let i=0;i<120;i++){if(await evaluate('Boolean('+expression+')'))return;await pause(50);}throw Error('Timeout: '+expression+' / '+await evaluate('document.body.innerText')+' / paths: '+await evaluate("[...document.querySelectorAll('.leaflet-overlay-pane path')].map(el=>el.outerHTML).join('')"));};
+  const wait=async expression=>{for(let i=0;i<120;i++){if(await evaluate('Boolean('+expression+')'))return;await pause(50);}throw Error('Timeout: '+expression+' / route: '+await evaluate('window.previewRoute')+' / browser errors: '+JSON.stringify(errors)+' / console errors: '+JSON.stringify(consoleErrors)+' / '+await evaluate('document.body.innerText')+' / paths: '+await evaluate("[...document.querySelectorAll('.leaflet-overlay-pane path')].map(el=>el.outerHTML).join('')"));};
   const visit=async(mode,page)=>{await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/?`+new URLSearchParams({mode,page})},sessionId);await wait('document.querySelector("main")||document.querySelector("[role=alert]")');};
   const results=[];
   for(const width of [390,1440,1920]){
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false},sessionId);
+    await visit('inventory','/prefeitura/visao-geral');
+    await wait('document.querySelector("[data-testid=inventory-content]")');
+    assert.equal(await evaluate('window.overviewQueries.length'),0,'Inventário consultou solicitações antes de abrir o mapa');
+    if(width<1024)await evaluate('document.querySelector("button[aria-label=\\"Abrir menu\\"]").click()');
+    assert.equal(await evaluate('[...document.querySelectorAll("nav a")].some(a=>/Solicitações|Ordens de serviço|Iluminação pública/.test(a.textContent))'),false,'Login do inventário exibiu menus de atendimento');
+    for (const page of ['/prefeitura/broncas','/prefeitura/demandas','/prefeitura/iluminacao','/prefeitura/equipe']) {
+      await visit('inventory',page+'?cidade=64&secretaria=agri');
+      await wait('document.querySelector("[data-testid=inventory-content]")');
+      assert.equal(await evaluate('document.body.innerText.includes("Sem acesso a esta atividade")'),false,'Rota sem acesso não redirecionou para o inventário');
+      assert.equal(await evaluate('window.overviewQueries.length'),0,'Rota sem acesso consultou atendimento antes de redirecionar');
+      assert.equal(await evaluate('window.previewRoute'),'/prefeitura/gestao-territorial/arborizacao?cidade=64&secretaria=agri','Redirecionamento perdeu cidade ou secretaria');
+    }
     for(const mode of ['agriculture','inventory','reader']){
       await visit(mode,'/prefeitura/gestao-territorial/arborizacao?cidade=64');await wait('document.querySelector("[data-testid=inventory-content]")');
       assert.equal(await evaluate('document.querySelectorAll("header").length'),1,'Cabeçalho duplicado');
@@ -202,6 +214,63 @@ try {
     assert.equal(await evaluate('[...document.querySelectorAll("label")].find(label=>label.textContent.includes("Postes e iluminação")).querySelector("input").disabled'),true,'Agricultura habilitou postes sem categoria de iluminação');
     const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,`department-${width}.png`),Buffer.from(shot.data,'base64'));
     results.push({width,oneHeader:true,agricultureWithoutLighting:true,inventoryWithoutAttendance:true,rolesInStaff:true,scopeInDepartment:true,noOverflow:true});
+  }
+  for (const insets of [
+    { name: 'portrait', width: 390, height: 844, top: 44, bottom: 34, left: 0, right: 0 },
+    { name: 'landscape', width: 844, height: 390, top: 0, bottom: 21, left: 44, right: 24 },
+  ]) {
+    const { width, height, top, bottom, left, right, name } = insets;
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+    await visit('inventory','/prefeitura/gestao-territorial/arborizacao?cidade=64');
+    await wait('document.querySelector("[data-testid=inventory-content]")');
+    await evaluate(`(() => {
+      const root = document.documentElement;
+      root.style.setProperty('--header-safe-top', '${top}px');
+      root.style.setProperty('--safe-area-bottom', '${bottom}px');
+      root.style.setProperty('--safe-area-left', '${left}px');
+      root.style.setProperty('--safe-area-right', '${right}px');
+      document.querySelector('[data-testid=inventory-content]').style.minHeight = '1600px';
+    })()`);
+    const bounds = await evaluate(`(() => {
+      const shell = document.querySelector('.municipality-shell').getBoundingClientRect();
+      const header = document.querySelector('.municipality-header').getBoundingClientRect();
+      const bar = document.querySelector('.municipality-header > div').getBoundingClientRect();
+      const main = document.querySelector('main');
+      main.scrollTop = main.scrollHeight;
+      const content = document.querySelector('[data-testid=inventory-content]').getBoundingClientRect();
+      const viewport = main.getBoundingClientRect();
+      return { shellHeight: shell.height, barTop: bar.top, barLeft: bar.left, barRight: bar.right,
+        headerBottom: header.bottom, mainBottom: viewport.bottom, mainLeft: viewport.left,
+        mainRight: viewport.right, contentBottom: content.bottom, scrolled: main.scrollTop > 0,
+        noOverflow: document.documentElement.scrollWidth <= innerWidth };
+    })()`);
+    assert.equal(bounds.shellHeight,height,'Safe area increased the viewport height');
+    assert.equal(bounds.barTop,top,'Header overlaps or duplicates the top safe area');
+    assert.ok(bounds.barLeft>=left && bounds.barRight<=width-right,'Header overlaps the side safe areas');
+    assert.ok(bounds.mainLeft>=left && bounds.mainRight<=width-right,'Inventory overlaps the side safe areas');
+    assert.equal(bounds.mainBottom,height-bottom,'Inventory overlaps or duplicates the bottom safe area');
+    assert.ok(bounds.scrolled && bounds.contentBottom<=bounds.mainBottom,'End of inventory is inaccessible');
+    assert.ok(bounds.noOverflow,'Safe areas caused horizontal overflow');
+    await evaluate('document.querySelector("button[aria-label=\\"Abrir menu\\"]").click()');
+    const menu = await evaluate(`(() => {
+      const panel = document.querySelector('.municipality-mobile-menu');
+      const box = panel.getBoundingClientRect();
+      const link = panel.querySelector('nav a').getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, linkLeft: link.left, linkRight: link.right };
+    })()`);
+    assert.equal(menu.top,bounds.headerBottom,'Menu is detached from the actual header height');
+    assert.ok(menu.bottom<=height-bottom,'Menu overlaps the bottom safe area');
+    assert.ok(menu.linkLeft>=left && menu.linkRight<=width-right,'Menu overlaps the side safe areas');
+    const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+    await fs.writeFile(path.join(out,`inventory-safe-area-${name}.png`),Buffer.from(shot.data,'base64'));
+    assert.ok(await evaluate(`(() => {
+      const panel = document.querySelector('.municipality-mobile-menu');
+      panel.querySelector('p').style.marginBottom = '1000px';
+      panel.scrollTop = panel.scrollHeight;
+      const lastButton = panel.querySelector('nav button').getBoundingClientRect();
+      return panel.scrollTop > 0 && lastButton.bottom <= innerHeight - ${bottom};
+    })()`),'Long menu hides the sign-out button under the system bar');
+    results.push({width,height,safeAreas:name,headerInset:true,inventoryInset:true,menuInset:true,noOverflow:true});
   }
   assert.equal(errors.length,0,JSON.stringify(errors));await fs.writeFile(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify({out,results},null,2));
 }finally{if(ws){try{ws.send(JSON.stringify({id:99999,method:'Browser.close'}));}catch{}ws.close();}chrome.kill();await new Promise(resolve=>server.close(resolve));}

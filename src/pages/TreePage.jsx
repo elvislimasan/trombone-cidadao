@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger, F
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreeMap from '@/components/arborization/TreeMap';
+import TreePhoto from '@/components/arborization/TreePhoto';
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { supabase } from '@/lib/customSupabaseClient';
 import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, TREE_SERVICES, treeLabel } from '@/lib/arborization';
@@ -33,8 +34,12 @@ function TreeContent({ id }) {
       if (fetchError) throw fetchError;
       if (!cancelled) setTree(data);
       if (data) {
-        const result = await supabase.from('cities').select('id,name').eq('id', data.city_id).maybeSingle();
-        if (!cancelled && !result.error) setCity(result.data);
+        const [result, species] = await Promise.allSettled([
+          supabase.from('cities').select('id,name').eq('id', data.city_id).maybeSingle(),
+          data.species_id ? supabase.from('city_tree_species').select('*').eq('id', data.species_id).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
+        if (!cancelled && result.status === 'fulfilled' && !result.value.error) setCity(result.value.data);
+        if (!cancelled && species.status === 'fulfilled' && !species.value.error) setTree({ ...data, species_illustration_url: species.value.data?.illustration_url || null });
       }
     }).catch(() => { if (!cancelled) setError('Não foi possível carregar a árvore.'); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -98,7 +103,7 @@ function TreeContent({ id }) {
     <div className="tree-profile-grid">
       <div className="tree-profile-column">
       <section className="tree-profile-card tree-profile-overview" aria-label="Dados da árvore">
-        <figure className="tree-profile-photo">{tree.photo_url ? <><img src={tree.photo_url} alt={`Foto de ${tree.common_name}`} /><Button type="button" variant="secondary" onClick={() => setPhotoOpen(true)}><ImageIcon className="h-4 w-4" />Ver imagem completa</Button></> : <div className="tree-profile-photo-empty"><Trees className="h-12 w-12" aria-hidden="true" /><span>Foto ainda não cadastrada</span></div>}</figure>
+        <TreePhoto tree={tree} className="tree-profile-photo" captionClassName="tree-profile-photo-caption" fallback={<figure className="tree-profile-photo"><div className="tree-profile-photo-empty"><Trees className="h-12 w-12" aria-hidden="true" /><span>Foto ainda não cadastrada</span></div></figure>}>{photo => <Button type="button" variant="secondary" onClick={() => setPhotoOpen(photo)}><ImageIcon className="h-4 w-4" />Ver imagem completa</Button>}</TreePhoto>
         <div className="tree-profile-summary-heading"><h2 className="tree-profile-section-title"><Leaf aria-hidden="true" />Resumo da árvore</h2><p className="tree-profile-description">Informações gerais e características registradas no inventário.</p></div>
         <dl className="tree-profile-facts">{[
           ['Cadastro na plataforma', CalendarDays, dateLabel(tree.created_at)], ['Situação', Heart, TREE_STATUS[tree.status]?.label],
@@ -126,8 +131,9 @@ function TreeContent({ id }) {
       </section>
       </div>
     </div>
-    {tree.photo_url && <Dialog open={photoOpen} onOpenChange={setPhotoOpen}><DialogContent className="tree-profile-photo-dialog" aria-describedby={undefined}><DialogTitle>Foto de {tree.common_name}</DialogTitle><img src={tree.photo_url} alt={`Foto completa de ${tree.common_name}`} /></DialogContent></Dialog>}
-    {editing && canManage && <TreeFormDialog tree={tree} city={city} cityId={tree.city_id} onClose={() => setEditing(false)} onSave={saveTree} />}
+    {photoOpen && <Dialog open onOpenChange={open => { if (!open) setPhotoOpen(false); }}><DialogContent className="tree-profile-photo-dialog" aria-describedby={undefined}><DialogTitle>{photoOpen.illustrative ? `Imagem ilustrativa de ${tree.common_name}` : `Foto de ${tree.common_name}`}</DialogTitle><img src={photoOpen.url} alt={photoOpen.illustrative ? photoOpen.alt : `Foto completa de ${tree.common_name}`} />{photoOpen.illustrative && <p className="text-sm text-muted-foreground">{photoOpen.caption}</p>}</DialogContent></Dialog>}
+    {editing && canManage && <TreeFormDialog tree={tree} city={city} cityId={tree.city_id} onClose={() => setEditing(false)} onSave={saveTree}
+      onSpeciesChanged={species => setTree(current => current?.species_id === species.id ? { ...current, species_illustration_url: species.illustration_url || null } : current)} />}
   </main>;
 }
 

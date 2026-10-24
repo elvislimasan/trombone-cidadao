@@ -1,11 +1,18 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
-export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', header, actions }) {
-  const [expanded, setExpanded] = useState(false);
+export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', header, actions, autoExpand = false, open, onOpenChange }) {
+  const [internalExpanded, setInternalExpanded] = useState(autoExpand);
+  const expanded = open ?? internalExpanded;
+  const setExpanded = next => {
+    if (open === undefined) setInternalExpanded(next);
+    onOpenChange?.(next);
+  };
+  // Abre ao ativar o cadastro, sem impedir que o usuário recolha o mapa depois.
+  useEffect(() => { if (autoExpand) setInternalExpanded(true); }, [autoExpand]);
   const inlineRef = useRef(null);
   const [expandedHost, setExpandedHost] = useState(null);
   // Um destino estável mantém o mapa, o zoom e os rascunhos ao trocar de tela.

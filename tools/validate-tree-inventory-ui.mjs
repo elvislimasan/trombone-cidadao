@@ -26,26 +26,42 @@ const stubs = {
     window.addressRequests=window.addressRequests||[];window.addressRequests.push(point);
     const delay=window.nextAddressDelay||20;window.nextAddressDelay=0;const fail=window.failAddress;
     await new Promise(resolve=>setTimeout(resolve,delay));
-    return fail?null:{address:point.lat < -8.6005?'Rua Nova':'Rua Joaquim Marques de Sá',suburb:point.lat < -8.6005?'Três Marias':'Centro'};
+    if(fail)return null;
+    if(window.batchAddressMode)return {address:'Rua do pin '+point.lat.toFixed(5)+','+point.lng.toFixed(5),suburb:point.lat < window.batchSplitLatitude?'Três Marias':'Centro'};
+    return {address:point.lat < -8.6005?'Rua Nova':'Rua Joaquim Marques de Sá',suburb:point.lat < -8.6005?'Três Marias':'Centro'};
   }`,
   '@/lib/nativeDownload': `export const salvarDocumento=async()=>{};export const pdfParaBase64=async()=>'';`,
   '@/lib/customSupabaseClient': `
-    window.writes=[];window.failSave=false;window.tableReads=[];window.generatedFiles=[];const originalCreateUrl=URL.createObjectURL;URL.createObjectURL=blob=>{window.generatedFiles.push(blob);return originalCreateUrl.call(URL,blob)};
+    window.maintenanceCalls=[];window.writes=[];window.uploads=[];window.removedUploads=[];window.failSave=false;window.tableReads=[];window.generatedFiles=[];const originalCreateUrl=URL.createObjectURL;URL.createObjectURL=blob=>{window.generatedFiles.push(blob);return originalCreateUrl.call(URL,blob)};
     const species=[{id:'s1',city_id:64,common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa'},{id:'s2',city_id:64,common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica'}];
+    if(location.search.includes('illustration'))species[0].illustration_url='/logo.png';
     const neighborhoods=[{id:'b1',city_id:64,name:'Centro'},{id:'b2',city_id:64,name:'Três Marias'},{id:'b3',city_id:64,name:'Bela Vista'}];
     let rows=[{id:'t1',city_id:64,public_code:'AR1',species_id:'s1',bairro_id:'b1',common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa',status:'saudavel',address:'Praça São José',neighborhood:'Centro',latitude:-8.597,longitude:-38.574,height_m:6,crown_diameter_m:4,maintenance_action:'nenhuma',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'prefeitura',planted_at:'2025-02-03',estimated_birth_year:1920,is_historic_site:true},
       {id:'t2',city_id:64,public_code:'AR2',species_id:'s2',bairro_id:'b3',common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica',status:'risco',address:'Rua das Flores',neighborhood:'Bela Vista',latitude:-8.6,longitude:-38.57,maintenance_action:'vistoria',maintenance_due_at:'2026-10-20',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'nao_informado'}];
+    if(location.search.includes('maintenance'))rows.push({id:'removed',city_id:64,public_code:'AR9',common_name:'Removida',status:'removida',latitude:-8.599,longitude:-38.572,maintenance_action:'nenhuma'});
     if(location.search.includes('photo'))rows[0].photo_url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
     let care=[];const reports=[{id:'r1',city_id:64,tree_id:'t1',title:'Poda solicitada',tree_service:'poda',status:'pending',created_at:'2026-10-16T12:00:00Z'}];
-    export const supabase={auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(){return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(){return {error:null}}}}},
-      rpc(name){const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:location.search.includes('fail-counts')?{code:'42501',message:'permission denied'}:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
+    export const supabase={auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(path,file){window.uploads.push({path,size:file.size});return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(paths){window.removedUploads.push(...paths);return {error:null}}}}},
+      rpc(name,args){
+        if(name==='schedule_city_tree_maintenance')return Promise.resolve().then(async()=>{
+          window.maintenanceCalls.push(args);
+          if(window.nextMaintenanceDelay){await new Promise(resolve=>setTimeout(resolve,window.nextMaintenanceDelay));window.nextMaintenanceDelay=0;}
+          if(window.failSave)return {data:null,error:{message:'offline'}};
+          const ids=[...new Set(args.p_tree_ids)];const affected=rows.filter(row=>ids.includes(row.id)&&row.city_id===args.p_city_id&&row.status!=='removida');
+          if(affected.length!==ids.length)return {data:null,error:{code:'22023',message:'A seleção contém árvores indisponíveis.'}};
+          const payload={maintenance_action:args.p_action,maintenance_due_at:args.p_due_at};const updated_at=new Date().toISOString();
+          rows=rows.map(row=>ids.includes(row.id)?{...row,...payload,updated_at}:row);window.writes.push({table:'city_trees',operation:'maintenance',payload,ids});
+          return {data:{updated_count:ids.length,updated_at},error:null};
+        });
+        const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:location.search.includes('fail-counts')?{code:'42501',message:'permission denied'}:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
       from(table){window.tableReads.push(table);let payload,operation,one=false,rangeStart=0,rangeEnd=Infinity;const filters=[];const q={select(){return q},order(){return q},range(start,end){rangeStart=start;rangeEnd=end;return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
       if((table==='bairros'&&location.search.includes('fail-neighborhoods'))||(table==='city_tree_species'&&location.search.includes('fail-species')))return Promise.resolve({error:{message:'catalog unavailable'}}).then(ok,fail);
       if(operation&&window.failSave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
-      if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert')rows.unshift({...payload,public_code:'AR'+(rows.length+1),id:'new'+rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species')species.unshift({...payload,id:'s-new'});if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
+      let insertedRows;
+      if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert'){insertedRows=(Array.isArray(payload)?payload:[payload]).map((item,index)=>({...item,public_code:'AR'+(rows.length+index+1),id:'new'+(rows.length+index),created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));rows.unshift(...insertedRows);}if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species'){if(operation==='insert')species.unshift({...payload,id:species.some(row=>row.id==='s-new')?'s-new-'+species.length:'s-new'});if(operation==='update')species.forEach(row=>{if(filters.every(f=>f(row)))Object.assign(row,payload)});}if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
       let source=table==='pavement_streets'?[{id:'street1',city_id:64,name:'Rua das Flores',status:'paved',pavement_type:'asphalt',cep:'56400000',location:{type:'Point',coordinates:[-38.573,-8.598]},path:{type:'MultiLineString',coordinates:[[[-38.574,-8.597],[-38.573,-8.598]]]},bairro_id:'b1',bairro:{name:'Centro'},updated_at:'2026-10-20T12:00:00Z'},{id:'street2',city_id:64,name:'',is_unnamed:true,status:'unpaved',pavement_type:'granite',bairro_id:'b2',bairro:{name:'Três Marias'}},{id:'street3',city_id:64,name:'Rua Parcial',status:'partially_paved',pavement_type:'asphalt',cep:'56400001',bairro_id:'b2',bairro:{name:'Três Marias'}}]:table==='city_trees'?rows:table==='city_tree_species'?species:table==='bairros'?neighborhoods:table==='cities'?[{id:64,name:'Floresta'}]:table==='city_tree_care'?care:table==='reports'?reports:[];
       if(table==='pavement_streets'&&location.search.includes('dashboard'))source.push(...Array.from({length:13},(_,i)=>({id:'extra'+i,city_id:64,name:'Rua extra '+i,status:i%3===0?'paved':'unpaved',bairro_id:'extra-b'+i,bairro:{name:'Bairro '+String(i+1).padStart(2,'0')},cep:'56400002'})));
-      const data=source.filter(r=>filters.every(f=>f(r))).slice(rangeStart,rangeEnd+1);if(operation==='delete'&&table==='city_trees')rows=rows.filter(r=>!filters.every(f=>f(r)));
+      const data=insertedRows||source.filter(r=>filters.every(f=>f(r))).slice(rangeStart,rangeEnd+1);if(operation==='delete'&&table==='city_trees')rows=rows.filter(r=>!filters.every(f=>f(r)));
       return Promise.resolve({data:one?(operation==='insert'?source[0]:data[0]):data,error:null}).then(ok,fail);
     }};return q;}};`,
 };
@@ -144,7 +160,19 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `Object.defineProperty(navigator,'geolocation',{value:{getCurrentPosition(ok){ok({coords:{latitude:-8.599,longitude:-38.571}});}}});` }, sessionId);
   const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId); if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
   const waitFor = async expression => { for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(${expression})`)) return; await pause(100); } throw Error(`Timeout: ${expression}\n${await evaluate('document.body.innerText')}\n${JSON.stringify(errors)}`); };
-  const click = label => evaluate(`(()=>{const scope=document.querySelector('[role=alertdialog]')||[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const button=[...scope.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!button)throw Error('Botão ausente: '+${JSON.stringify(label)});button.click()})()`);
+  const click = async label => {
+    if (label === 'Mais ações') {
+      const point = await evaluate(`(()=>{const el=[...document.querySelectorAll('button')].find(el=>el.textContent.trim()===${JSON.stringify(label)});el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
+      await waitFor('document.querySelector("[role=menu]")?.contains(document.activeElement)');
+      await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+      return;
+    }
+    if (['Cadastrar em sequência', 'Manejo em lote'].includes(label) && !await evaluate(`Boolean([...document.querySelectorAll('button,[role=menuitem]')].find(el=>el.textContent.trim()===${JSON.stringify(label)}))`)) {
+      await click('Mais ações');await waitFor('document.querySelector("[role=menu]")');
+    }
+    return evaluate(`(()=>{const scope=document.querySelector('[role=alertdialog][data-state=open]')||document.querySelector('[role=menu][data-state=open]')||[...document.querySelectorAll('[role=dialog][data-state=open]')].at(-1)||document;const button=[...scope.querySelectorAll('button,[role=menuitem]')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!button)throw Error('Botão ausente: '+${JSON.stringify(label)});button.click()})()`);
+  };
   const clickMapControl = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;scope.querySelector('button[aria-label=${JSON.stringify(label)}]').click()})()`);
   const hasSatellite = 'Object.values(window.testMap._layers).some(layer=>layer._url?.includes("World_Imagery"))';
   const zoomInsideMap = `(()=>{const map=window.testMap.getContainer();const bounds=map.getBoundingClientRect();const zoom=map.querySelector('.leaflet-control-zoom').getBoundingClientRect();return zoom.top>=bounds.top&&zoom.bottom<=bounds.bottom&&zoom.left>=bounds.left&&zoom.right<=bounds.right})()`;
@@ -155,19 +183,326 @@ try {
   const navigate = query => send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/${query || ''}` }, sessionId);
   const capture = async name => { await pause(300); const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); await fs.writeFile(path.join(out, `${name}.png`), Buffer.from(shot.data, 'base64')); };
   const closeDetails = async () => { await evaluate('document.querySelector("[data-testid=tree-details-dialog] button.absolute").click()'); await waitFor('!document.querySelector("[data-testid=tree-details-dialog]")'); };
-  const fieldValue = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;return [...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input').value})()`);
-  const choose = (label,value) => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input');Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`);
+  const fieldValue = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const field=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)});return field.id?scope.querySelector('[aria-labelledby="'+field.id+'"]').dataset.value:field.querySelector('select,input').value})()`);
+  const choose = async (label,value) => {
+    if(['Nome popular','Espécie do lote'].includes(label)) {
+      if(value==='__new_species__') return click('Nova espécie');
+      await evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;scope.querySelector('[role=combobox]').click()})()`);
+      await waitFor(`document.querySelector('[data-species-id="${value}"]')`);
+      await evaluate(`document.querySelector('[data-species-id="${value}"]').click()`);
+      await waitFor('!document.querySelector("[cmdk-root]")');
+      return;
+    }
+    return evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input');if(el.closest('details'))el.closest('details').open=true;Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`);
+  };
   const results=[];
-  const openFilters = async (advanced = false) => {
-    if (await evaluate('Boolean(document.querySelector(".arborization-filter-trigger"))')) {
+  const openFilters = async () => {
+    if (!await evaluate('Boolean(document.querySelector("#arborization-filters"))')) {
       await evaluate('document.querySelector(".arborization-filter-trigger").click()');
-      await waitFor('document.querySelector(".arborization-filter-dialog")');
-      if (advanced) await click('Mais filtros');
+      await waitFor('document.querySelector("#arborization-filters")');
     }
   };
   const detailBottomsAligned = '(()=>{const summary=document.querySelector(".tree-profile-overview").getBoundingClientRect();const history=document.querySelector(".tree-profile-history").getBoundingClientRect();return Math.abs(summary.bottom-history.bottom)<2})()';
-  const panelsAligned = '(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return Math.abs(map.top-filters.top)<2&&Math.abs(map.bottom-filters.bottom)<2&&(innerWidth<1520||(Math.abs(sidebar.top-filters.top)<2&&Math.abs(sidebar.bottom-filters.bottom)<2))})()';
-  if(process.argv.includes('--summary')){
+  const validateLayout = async width => {
+    await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Layout sem rolagem horizontal');
+    assert.ok(await evaluate('!document.querySelector(".arborization-neighborhood-sidebar")'),'Mapa sem coluna fixa de estatísticas');
+    assert.ok(await evaluate('(()=>{const top=document.querySelector(".arborization-primary-filters").getBoundingClientRect(),map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();return top.bottom<=map.top})()'),'Busca, situação e bairro ficam acima do mapa');
+    if(width>=980){
+      assert.ok(await evaluate('(()=>{const aside=document.querySelector("#arborization-filters").getBoundingClientRect(),map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect(),page=document.querySelector("[data-testid=arborization-page]").getBoundingClientRect();return Math.abs(map.top-aside.top)<2&&map.left>=aside.right&&map.width>page.width*.70&&aside.width<=240})()'),'Filtros compactos à esquerda e mapa ocupa a largura restante: '+JSON.stringify(await evaluate('(()=>{const selectors=["#arborization-filters","[data-testid=tree-map]","[data-testid=arborization-page]"];return selectors.map(s=>document.querySelector(s).getBoundingClientRect().toJSON())})()')));
+      if(width>=1280)assert.ok(await evaluate('(()=>{const stats=document.querySelector(".arborization-stats").getBoundingClientRect(),actions=document.querySelector(".arborization-actions").getBoundingClientRect();return actions.left>=stats.right&&actions.top>=stats.top&&actions.bottom<=stats.bottom})()'),'Indicadores e ações ficam na mesma linha');
+      assert.equal(await evaluate('new Set([...document.querySelectorAll(".arborization-stat")].map(el=>el.getBoundingClientRect().top)).size'),1);
+      const mapWidth=await evaluate('document.querySelector("[data-testid=tree-map]").getBoundingClientRect().width');
+      await evaluate('window.layoutMap=window.testMap;window.layoutZoom=window.testMap.getZoom()');
+      await evaluate(`document.querySelector('[aria-label="Recolher filtros avançados"]').click()`);await waitFor('!document.querySelector("#arborization-filters")');
+      assert.ok(await evaluate(`document.querySelector('[data-testid=tree-map]').getBoundingClientRect().width>${mapWidth}&&window.layoutMap===window.testMap&&window.layoutZoom===window.testMap.getZoom()`),'Recolher amplia o mapa sem remontar nem perder zoom');
+      await click('Mais filtros');await waitFor('document.querySelector("#arborization-filters")');
+    }else{
+      assert.ok(await evaluate('!document.querySelector("#arborization-filters")'),'Celular começa sem painel de filtros');
+      await click('Mais filtros');await waitFor('document.querySelector(".arborization-filter-dialog")');
+      assert.ok(await evaluate('(()=>{const dialog=document.querySelector(".arborization-filter-dialog").getBoundingClientRect(),apply=document.querySelector(".arborization-apply").getBoundingClientRect();return dialog.top>=0&&dialog.bottom<=innerHeight&&apply.bottom<=dialog.bottom})()'),'Filtros e aplicar cabem na tela');
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('!document.querySelector(".arborization-filter-dialog")');
+    }
+    await capture('inventory-layout-'+(await evaluate('Boolean(document.querySelector(".arborization-embedded"))')?'municipal-':'')+width);
+    await input('Buscar árvore','ar2');await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
+    await click('Lista');await waitFor('document.querySelectorAll("article").length===1');
+    assert.ok(await evaluate('document.querySelector("article h3").textContent.includes("AR2")'));
+    await input('Buscar árvore','');await waitFor('document.querySelectorAll("article").length===2');
+    await select('Bairro','Bela Vista');await waitFor('document.querySelectorAll("article").length===1');
+    await select('Bairro','all');await select('Situação','saudavel');await waitFor('document.querySelectorAll("article").length===1');
+    await select('Situação','all');await waitFor('document.querySelectorAll("article").length===2');
+    await openFilters();await choose('Responsável pelo plantio','prefeitura');
+    assert.equal(await evaluate('document.querySelectorAll("article").length'),2,'Filtros avançados aguardam aplicação');
+    await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('document.querySelectorAll("article").length===1');
+    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
+    await click('Estatísticas');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');
+    assert.ok(await evaluate('document.querySelector(".arborization-neighborhood-total strong").textContent==="1"'),'Estatísticas acompanham filtros');
+    assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] li").length'),3,'Inclui bairros sem árvores');
+    await input('Buscar bairro','bela vista');await waitFor('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] li").length===1');
+    await evaluate(`document.querySelector('[aria-label="Fechar bairros"]').click()`);await waitFor('!document.querySelector("[data-testid=tree-neighborhood-drawer]")');
+    await waitFor('document.activeElement===document.querySelector(".arborization-statistics-trigger")');
+    await evaluate('document.querySelector(".arborization-reset-filters").click()');await waitFor('document.querySelectorAll("article").length===2');
+    await click('Mapa');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    await click('Mais ações');await waitFor('document.querySelector("[role=menu]")');
+    assert.deepEqual(await evaluate('[...document.querySelectorAll("[role=menuitem]")].map(el=>el.textContent.trim())'),['Cadastrar em sequência','Manejo em lote']);
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[role=menu]")');
+  };
+  const validateRegistration = async width => {
+    const formReady = async () => {
+      await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await waitFor('document.querySelectorAll("[role=dialog]").length===1');
+      assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),1,'Cadastro usa apenas uma tela');
+      assert.ok(await evaluate('!document.querySelector(".tree-entry-dialog button[aria-label*=Expandir]")'),'Mapa não abre outro modal no cadastro');
+      assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=tree-form-footer]").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    };
+    const attach = async selector => {
+      const {root:doc}=await send('DOM.getDocument',{},sessionId);
+      const {nodeId}=await send('DOM.querySelector',{nodeId:doc.nodeId,selector},sessionId);
+      await send('DOM.setFileInputFiles',{nodeId,files:[photoPath]},sessionId);
+    };
+    const mark = async (dx=0,dy=0) => {
+      await evaluate('window.testMap.getContainer().scrollIntoView({block:"center",behavior:"instant"})');
+      const point=await evaluate(`(()=>{const r=window.testMap.getContainer().getBoundingClientRect();const p={x:r.left+r.width/2+${dx},y:r.top+r.height/2+${dy}};for(let i=0;i<8&&document.elementFromPoint(p.x,p.y)?.closest('.leaflet-marker-icon');i++){p.x+=25;p.y+=12}return p})()`);
+      await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);
+      await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
+    };
+    const common = async (batch = false) => {
+      await choose('Situação','atencao');
+      if(!batch){await choose('Bairro','b2');await input('Endereço / referência','Praça das árvores');}
+      await evaluate('document.querySelector("[data-testid=tree-extra-fields]").open=true');
+      await input('Altura (m)','8');await input('Diâmetro da copa (m)','4');await input('Data do plantio','2020-05-10');
+      await choose('Responsável pelo plantio','comunidade');await input('Ano de nascimento estimado','2000');
+      await choose('Manejo necessário','poda');await input('Prazo do manejo','2026-12-10');
+      await evaluate(`(()=>{const el=[...document.querySelectorAll('.tree-entry-dialog label')].find(el=>el.textContent.startsWith('Observações públicas')).querySelector('textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Dados completos');el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    };
+    await navigate('');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    await click('Tela cheia');await waitFor('document.querySelector("[role=dialog] .leaflet-container")');
+    await click('Cadastrar árvore');await formReady();
+    if(width>=980)assert.ok(await evaluate('document.querySelector("[data-testid=tree-form-map]").getBoundingClientRect().width>innerWidth*.5'));
+    const fieldNames=await evaluate('[...document.querySelectorAll(".tree-entry-dialog label")].map(el=>el.firstChild.textContent).filter(text=>!["Latitude","Longitude"].includes(text))');
+    await choose('Nome popular','s2');await click('Nova espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');
+    assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),2,'Nova espécie abre um modal próprio');
+    assert.ok(await evaluate('document.querySelector("[data-testid=tree-species-editor]").matches("[role=dialog]")&&!document.querySelector(".tree-entry-fields [data-testid=tree-species-editor]")'),'Espécie fora da coluna do formulário');
+    await input('Nome popular','  ním  ');await click('Usar espécie existente');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+    assert.equal(await fieldValue('Nome popular'),'s2');assert.equal(await evaluate('window.writes.length'),0);
+    await click('Nova espécie');await input('Nome popular','Castanhola');
+    await attach('[data-testid=tree-species-editor] input[type=file]');await waitFor('document.querySelector("[data-testid=tree-species-editor] img")');
+    await evaluate('window.failSave=true');await click('Adicionar ao catálogo');await waitFor('document.querySelector("[data-testid=tree-species-editor] [role=alert]")');
+    assert.equal(await fieldValue('Nome popular'),'Castanhola');assert.equal(await evaluate('window.removedUploads.length'),1,'Ilustração sem espécie salva é removida');
+    await evaluate('document.querySelector("[data-testid=tree-species-body]").scrollTop=document.querySelector("[data-testid=tree-species-body]").scrollHeight');
+    assert.ok(await evaluate('(()=>{const body=document.querySelector("[data-testid=tree-species-body]").getBoundingClientRect(),error=document.querySelector("[data-testid=tree-species-editor] [role=alert]").getBoundingClientRect(),footer=document.querySelector("[data-testid=tree-species-footer]").getBoundingClientRect();return error.bottom<=body.bottom+1&&body.bottom<=footer.top+1})()'),'Erro fica na área rolável e não sobrepõe as ações');
+    await capture('new-species-modal-'+width);
+    assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=tree-species-editor]").getBoundingClientRect(),save=[...document.querySelectorAll("[data-testid=tree-species-editor] button")].find(el=>el.type==="submit").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&save.bottom<=r.bottom})()'),'Modal e ação salvar cabem na tela');
+    await evaluate('window.failSave=false');await click('Adicionar ao catálogo');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+    assert.equal(await fieldValue('Nome popular'),'s-new');
+    assert.ok(await evaluate('window.writes.length===1&&Boolean(window.writes[0].payload.illustration_url)&&window.writes[0].payload.scientific_name===null'),'Espécie salva ilustração opcional');
+    await click('Usar GPS');await waitForAddress();await common();
+    assert.ok(await evaluate('Boolean(window.testMap.getContainer().querySelector(".tree-map-current-point"))'),'Ponto atual tem marcador próprio');
+    assert.equal(await evaluate('getComputedStyle(window.testMap.getContainer().querySelector(".tree-current-point-halo")).animationName'),'tree-point-pulse');
+    await attach('.tree-entry-dialog section[aria-label="Foto da árvore"] input[type=file]');
+    await waitFor(`document.querySelector('.tree-entry-dialog section[aria-label="Foto da árvore"] img')`);
+    assert.ok(await evaluate(`!document.querySelector('.tree-entry-dialog section[aria-label="Foto da árvore"] figcaption')`),'Foto real tem prioridade no formulário');
+    await capture('unified-single-'+width);
+    await click('Salvar árvore');await waitFor('!document.querySelector("[role=dialog]")');
+    assert.equal(await evaluate('window.writes.filter(row=>row.table==="city_trees").length'),1);
+    await click('Lista');await waitFor('document.querySelectorAll("article").length===3');
+    await click('Cadastrar em sequência');await formReady();
+    assert.deepEqual(await evaluate('[...document.querySelectorAll(".tree-entry-dialog label")].map(el=>el.firstChild.textContent).filter(text=>!["Latitude","Longitude"].includes(text))'),fieldNames.filter(text=>!['Bairro','Endereço / referência'].includes(text)),'Lote mantém dados comuns sem campos manuais de endereço e bairro');
+    assert.ok(await evaluate(`!document.querySelector('.tree-entry-dialog [aria-label="Endereço da árvore"]')&&Boolean(document.querySelector('[data-testid=tree-batch-address-info]'))`));
+    await choose('Nome popular','s-new');await common(true);
+    await mark(-65,-20);await mark(65,25);await waitFor('document.querySelectorAll(".tree-map-draft").length===2');
+    await click('Nova espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');await input('Nome popular','Rascunho');
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+    assert.equal(await evaluate('document.querySelectorAll(".tree-map-draft").length'),2,'Escape fecha só a espécie e mantém pins');
+    assert.ok(await evaluate('!document.querySelector("[data-testid=tree-form-footer]").textContent.includes("Descartar")'));
+    await capture('batch-pin-locations-'+width);
+    await click('Sair da tela cheia');await waitFor('document.querySelector("[data-testid=tree-form-footer]").textContent.includes("Descartar os 2 pontos")');
+    assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),1);await click('Manter lote');
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+    await waitFor('document.body.innerText.includes("Manter lote")');await click('Manter lote');
+    await evaluate('window.batchAddressMode=true;window.expectedBatchPoints=Object.values(window.testMap._layers).filter(layer=>layer.options?.icon?.options?.className==="tree-map-draft").map(layer=>({latitude:layer.getLatLng().lat,longitude:layer.getLatLng().lng}));window.batchSplitLatitude=window.expectedBatchPoints.reduce((sum,point)=>sum+point.latitude,0)/2;window.failAddress=true');
+    await click('Salvar lote (2)');await waitFor('document.querySelector("[data-testid=tree-form-footer] [role=alert]")');
+    assert.ok(await evaluate('document.querySelector("[data-testid=tree-form-footer] [role=alert]").textContent.includes("Nenhuma árvore foi salva")'));
+    assert.equal(await evaluate('document.querySelectorAll(".tree-map-draft").length'),2);
+    assert.equal(await evaluate('window.writes.filter(row=>row.table==="city_trees").length'),1,'Falha na consulta não salva lote parcial');
+    await evaluate('window.failAddress=false;window.nextAddressDelay=400');
+    await evaluate('window.failSave=true');await click('Salvar lote (2)');await waitFor('document.querySelector("[data-testid=tree-batch-address-progress]")');
+    assert.ok(await evaluate('[...document.querySelectorAll(".tree-entry-dialog button")].find(el=>el.textContent.trim()==="Sair da tela cheia").disabled'),'Consulta mantém a tela e a seleção bloqueadas durante o salvamento');
+    await waitFor('document.querySelector("[data-testid=tree-form-footer] [role=alert]")');
+    assert.equal(await evaluate('document.querySelectorAll(".tree-map-draft").length'),2);
+    const resolvedRequests=await evaluate('window.addressRequests.length');
+    await evaluate('window.failSave=false');await click('Salvar lote (2)');await waitFor('document.querySelectorAll(".tree-map-draft").length===0');
+    assert.equal(await evaluate('window.addressRequests.length'),resolvedRequests,'Repetir salvamento reutiliza os endereços já consultados');
+    assert.ok(await evaluate('(()=>{const writes=window.writes.filter(row=>row.table==="city_trees"),one=writes[0].payload,batch=writes[1].payload;const fields=["species_id","status","height_m","crown_diameter_m","planted_at","planted_by","estimated_birth_year","maintenance_action","maintenance_due_at","notes"];return writes.length===2&&batch.length===2&&batch.every((row,i)=>fields.every(key=>row[key]===one[key])&&row.photo_url===null&&row.latitude===window.expectedBatchPoints[i].latitude&&row.longitude===window.expectedBatchPoints[i].longitude&&row.address==="Rua do pin "+row.latitude.toFixed(5)+","+row.longitude.toFixed(5)&&row.bairro_id===(row.latitude<window.batchSplitLatitude?"b2":"b1"))&&new Set(batch.map(row=>row.bairro_id)).size===2&&Boolean(one.photo_url)})()'),'Cada pin salva seu próprio endereço, bairro e coordenadas; dados da espécie e medidas permanecem comuns');
+    await capture('unified-batch-'+width);
+    await click('Encerrar');await waitFor('!document.querySelector("[role=dialog]")');
+    assert.ok(await evaluate('!document.querySelector(".tree-batch-workspace")'),'Encerrar volta direto à visualização');
+    await click('Lista');await waitFor('document.querySelectorAll("article").length===5');
+    assert.equal(await evaluate('[...document.querySelectorAll("article figcaption")].filter(el=>el.textContent.includes("Imagem ilustrativa da espécie Castanhola")).length'),2,'Árvores sem foto usam ilustração identificada');
+    await capture('species-fallback-list-'+width);
+    await click('Cadastrar em sequência');await formReady();await click('Sair da tela cheia');await waitFor('!document.querySelector("[role=dialog]")');
+    await click('Cadastrar em sequência');await formReady();await mark(-50,15);await waitFor('document.querySelectorAll(".tree-map-draft").length===1');
+    await click('Sair da tela cheia');await click('Descartar pontos');await waitFor('!document.querySelector("[role=dialog]")');
+    assert.equal(await evaluate('window.writes.filter(row=>row.table==="city_trees").length'),2,'Sair com descarte não salva');
+    await navigate('?detail&illustration');await waitFor('document.querySelector(".tree-profile-photo figcaption")');
+    assert.ok(await evaluate('document.querySelector(".tree-profile-photo figcaption").textContent.includes("Imagem ilustrativa da espécie")'));
+    await navigate('?detail&illustration&photo');await waitFor('document.querySelector(".tree-profile-photo img")');
+    assert.ok(await evaluate('!document.querySelector(".tree-profile-photo figcaption")'),'Foto real prevalece também no perfil');
+    await navigate('?public');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
+  };
+  if(process.argv.includes('--edit-species')){
+    const attachIllustration = async () => {
+      const {root:doc}=await send('DOM.getDocument',{},sessionId);
+      const {nodeId}=await send('DOM.querySelector',{nodeId:doc.nodeId,selector:'[data-testid=tree-species-editor] input[type=file]'},sessionId);
+      await send('DOM.setFileInputFiles',{nodeId,files:[photoPath]},sessionId);
+      await waitFor('document.querySelector("[data-testid=tree-species-editor] img")');
+    };
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await click('Cadastrar árvore');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await choose('Nome popular','s2');await click('Usar GPS');await waitForAddress();
+      await click('Editar espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),2,'Imagem da espécie em modal próprio');
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-current-point").length'),1,'Escape preserva o cadastro da árvore');
+      await click('Editar espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');
+      assert.ok(await evaluate('!document.querySelector("[data-testid=tree-species-editor] input:not([type=file])")'),'Editor de imagem preserva a identificação da espécie');
+      await attachIllustration();await capture('edit-species-'+width);
+      await evaluate('window.failSave=true');await click('Salvar imagem padrão');await waitFor('document.querySelector("[data-testid=tree-species-editor] [role=alert]")');
+      assert.equal(await evaluate('window.removedUploads.length'),1,'Upload sem atualização salva é removido');
+      assert.ok(await evaluate('Boolean(document.querySelector("[data-testid=tree-species-editor] img"))'),'Falha preserva a imagem escolhida');
+      await evaluate('window.failSave=false');await click('Salvar imagem padrão');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.ok(await evaluate('window.writes.length===1&&window.writes[0].table==="city_tree_species"&&window.writes[0].operation==="update"&&Object.keys(window.writes[0].payload).join()==="illustration_url"'),'Salva somente a imagem, sem criar espécie ou árvore');
+      assert.equal(await fieldValue('Nome popular'),'s2');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-current-point").length'),1,'Mantém o pin do cadastro');
+      await click('Cancelar');await click('Descartar alterações');await waitFor('!document.querySelector("[role=dialog]")');
+      await click('Lista');await waitFor('document.querySelector("article figcaption")');
+      assert.ok(await evaluate('[...document.querySelectorAll("article figcaption")].some(el=>el.textContent.includes("Imagem ilustrativa da espécie Nim"))'),'Inventário recebe a imagem atualizada');
+      await click('Cadastrar em sequência');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await choose('Nome popular','s2');
+      await evaluate('void window.testMap.fire("click",{latlng:{lat:-8.61,lng:-38.58}});void window.testMap.fire("click",{latlng:{lat:-8.62,lng:-38.59}})');await waitFor('document.querySelectorAll(".tree-map-draft").length===2');
+      await click('Editar espécie');await click('Remover ilustração');await click('Cancelar');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('window.writes.length'),1,'Cancelar não altera a imagem salva');
+      assert.ok(await evaluate('Boolean(document.querySelector("[data-testid=tree-species-field] figure"))'));
+      await click('Editar espécie');await attachIllustration();await click('Salvar imagem padrão');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-draft").length'),2,'Editar imagem mantém pontos do lote');
+      assert.equal(await evaluate('window.writes.length'),2);
+      await click('Editar espécie');await click('Remover ilustração');await click('Salvar imagem padrão');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.ok(await evaluate('window.writes.length===3&&window.writes[2].payload.illustration_url===null'),'Pode remover a imagem padrão');
+      assert.ok(await evaluate('!document.querySelector("[data-testid=tree-species-field] figure")'));
+      await click('Encerrar');await click('Descartar pontos');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.ok(await evaluate('window.writes.every(row=>row.table==="city_tree_species"&&row.operation==="update")'));
+      await navigate('?detail&illustration');await waitFor('document.querySelector(".tree-profile-photo figcaption")');
+      await click('Editar árvore');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await click('Editar espécie');await click('Remover ilustração');await click('Salvar imagem padrão');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      await click('Cancelar');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.ok(await evaluate('!document.querySelector(".tree-profile-photo figcaption")'),'Perfil acompanha a edição sem salvar a árvore');
+      assert.equal(await evaluate('window.writes.filter(row=>row.table==="city_trees").length'),0);
+      await navigate('?detail&illustration&photo');await waitFor('document.querySelector(".tree-profile-photo img")');
+      const realPhoto=await evaluate('document.querySelector(".tree-profile-photo img").src');
+      await click('Editar árvore');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await click('Editar espécie');await click('Remover ilustração');await click('Salvar imagem padrão');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      await click('Cancelar');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.equal(await evaluate('document.querySelector(".tree-profile-photo img").src'),realPhoto,'Foto real permanece prioritária');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      results.push({width,editExisting:true,uploadRetry:true,replaceAndRemove:true,preservesPins:true,realPhotoPriority:true,noOverflow:true});
+    }
+    await navigate('?detail&public');await waitFor('document.querySelector("[data-testid=tree-page]")');
+    assert.ok(await evaluate('!document.body.innerText.includes("Editar espécie")&&!document.body.innerText.includes("Editar árvore")'));
+  }else if(process.argv.includes('--layout')){
+    for(const [width,height] of [[390,844],[768,1024],[1024,768],[1280,800],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('');await validateLayout(width);
+      if(width>=1280){await navigate('?territorial&scope=trees&area=arborizacao');await validateLayout(width);}
+      results.push({width,topFilters:true,collapsibleAdvanced:true,statisticsDrawer:true,moreActions:true,noOverflow:true});
+    }
+    await navigate('?public');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+    assert.ok(await evaluate('!document.body.innerText.includes("Mais ações")&&!document.body.innerText.includes("Cadastrar árvore")'),'Consulta pública sem ações de gestão');
+  }else if(process.argv.includes('--maintenance')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?maintenance');await waitFor('document.querySelectorAll(".tree-map-pin").length===3');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await click('Tela cheia');await waitFor('document.querySelector("[role=dialog] .leaflet-container")');
+      await click('Manejo em lote');await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog] .tree-map-pin")');await waitFor('document.querySelectorAll("[role=dialog]").length===1');
+      await capture('maintenance-open-'+width);
+      assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),1,'Manejo abre uma única tela: '+JSON.stringify(await evaluate('[...document.querySelectorAll("[role=dialog]")].map(el=>({state:el.dataset.state,title:el.querySelector("h2")?.textContent}))')));
+      assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-maintenance-dialog] .tree-map-pin").length'),2,'Árvore removida não participa da seleção');
+      const point=await evaluate(`(()=>{const r=document.querySelector('[data-testid=tree-maintenance-dialog] .tree-map-pin[title="AR1 · Ipê-amarelo"]').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
+      await waitFor('document.querySelectorAll(".tree-map-maintenance-selected").length===1');
+      assert.ok(await evaluate('!document.querySelector("[data-testid=tree-details-dialog]")'),'Selecionar não abre outro modal');
+      assert.ok(await evaluate('!document.querySelector("[data-testid=tree-maintenance-dialog] input[type=checkbox]")&&!document.querySelector("[data-testid=tree-maintenance-dialog] ul")&&!document.querySelector("[data-testid=tree-maintenance-dialog]").textContent.includes("Bairro da seleção")&&!document.querySelector("[data-testid=tree-maintenance-dialog]").textContent.includes("Selecionar resultados")'),'Seleção usa apenas busca e mapa');
+      const selectOnMap = async label => evaluate(`document.querySelector('[data-testid=tree-maintenance-dialog] .tree-map-pin[title="'+${JSON.stringify(label)}+'"]').click()`);
+      await input('Buscar árvores','nim');await waitFor('document.querySelectorAll("[data-testid=tree-maintenance-dialog] .tree-map-pin").length===1');
+      await selectOnMap('AR2 · Nim');await waitFor('document.querySelector("[data-testid=tree-maintenance-footer]").innerText.includes("2 árvores selecionadas")');
+      await input('Buscar árvores','sem resultado');await waitFor('document.querySelectorAll("[data-testid=tree-maintenance-dialog] .tree-map-pin").length===0&&document.querySelector("[data-testid=tree-maintenance-dialog]").textContent.includes("Nenhuma árvore encontrada")');
+      assert.ok(await evaluate('document.querySelector("[data-testid=tree-maintenance-footer]").innerText.includes("2 árvores selecionadas")'),'Busca preserva seleção');
+      await input('Buscar árvores','');await waitFor('document.querySelectorAll(".tree-map-maintenance-selected").length===2');
+      await selectOnMap('AR2 · Nim');await waitFor('document.querySelectorAll(".tree-map-maintenance-selected").length===1');
+      await click('Limpar seleção');await waitFor('document.querySelectorAll(".tree-map-maintenance-selected").length===0');
+      await selectOnMap('AR1 · Ipê-amarelo');await selectOnMap('AR2 · Nim');await waitFor('document.querySelectorAll(".tree-map-maintenance-selected").length===2');
+      await choose('Manejo necessário','poda');await input('Prazo do manejo','2026-12-20');
+      await click('Revisar manejo');await waitFor('document.querySelector("[data-testid=tree-maintenance-review]")');
+      assert.equal(await evaluate('window.maintenanceCalls.length'),0,'Revisão não altera cadastros');
+      assert.ok(await evaluate('document.querySelector("[data-testid=tree-maintenance-dialog]").textContent.includes("serão substituídos")'),'Manejo pendente fica explícito na revisão');
+      assert.ok(await evaluate('document.querySelector("[data-testid=tree-maintenance-footer]").getBoundingClientRect().bottom<=innerHeight'),'Ações permanecem visíveis');
+      await capture('maintenance-review-'+width);
+      await evaluate('window.failSave=true');await click('Salvar manejo (2)');await waitFor('document.querySelector("[data-testid=tree-maintenance-footer] [role=alert]")');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-maintenance-selected").length'),2,'Falha mantém seleção');assert.equal(await evaluate('window.writes.length'),0);
+      await evaluate('window.failSave=false;window.nextMaintenanceDelay=400');await click('Salvar manejo (2)');
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      assert.ok(await evaluate('Boolean(document.querySelector("[data-testid=tree-maintenance-dialog]"))'),'Salvamento não é interrompido por Escape');
+      await waitFor('!document.querySelector("[role=dialog]")');
+      assert.ok(await evaluate('window.writes.length===1&&window.writes[0].operation==="maintenance"&&window.writes[0].ids.length===2&&Object.keys(window.writes[0].payload).length===2&&window.writes[0].payload.maintenance_action==="poda"&&window.writes[0].payload.maintenance_due_at==="2026-12-20"'),'Apenas manejo e prazo foram alterados');
+      assert.ok(await evaluate('document.body.innerText.includes("Manejo programado em 2 árvores.")'));
+      await click('Lista');await waitFor('document.querySelectorAll("article").length===3');
+      assert.equal(await evaluate('[...document.querySelectorAll("article")].filter(el=>el.innerText.includes(" · Poda")).length'),2,'Lista reflete os dois manejos');
+      await click('Manejo em lote');await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog]")');
+      await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog] .tree-map-pin")');await selectOnMap('AR1 · Ipê-amarelo');
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('document.querySelector("[role=alertdialog]")');
+      assert.equal(await evaluate('document.activeElement.textContent'),'Continuar programação','Confirmação começa focada em continuar');
+      assert.ok(await evaluate('!document.querySelector("[data-testid=tree-maintenance-footer]").textContent.includes("Descartar alterações")'),'Confirmação aparece no modal');
+      await capture('maintenance-discard-'+width);
+      await click('Continuar programação');await waitFor('!document.querySelector("[role=alertdialog]")');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-maintenance-selected").length'),1);
+      await click('Sair da tela cheia');await waitFor('document.querySelector("[role=alertdialog]")');
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('!document.querySelector("[role=alertdialog]")');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-maintenance-selected").length'),1,'Escape cancela somente o descarte');
+      await click('Cancelar');await waitFor('document.querySelector("[role=alertdialog]")');await click('Descartar alterações');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.equal(await evaluate('window.writes.length'),1,'Cancelar não grava');
+      await click('Manejo em lote');await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog]")');
+      await choose('Manejo necessário','poda');await input('Prazo do manejo','2026-12-20');
+      await click('Sair da tela cheia');await waitFor('document.querySelector("[role=alertdialog]")');await click('Continuar programação');await waitFor('!document.querySelector("[role=alertdialog]")');
+      assert.equal(await fieldValue('Manejo necessário'),'poda');assert.equal(await fieldValue('Prazo do manejo'),'2026-12-20');
+      await click('Cancelar');await waitFor('document.querySelector("[role=alertdialog]")');await click('Descartar alterações');await waitFor('!document.querySelector("[role=dialog]")');
+      await click('Manejo em lote');await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog]")');await click('Sair da tela cheia');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture('maintenance-inventory-'+width);
+      if(width>=980){
+        await navigate('?territorial&scope=trees&area=arborizacao&maintenance');await waitFor('document.querySelector(".arborization-embedded .tree-map-pin")');
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Painel municipal sem overflow');
+        await capture('maintenance-municipal-'+width);
+        await click('Manejo em lote');await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog]")');
+        await click('Sair da tela cheia');await waitFor('!document.querySelector("[role=dialog]")');
+      }
+      results.push({width,existingTreesOnly:true,multiSelection:true,reviewBeforeSave:true,retryPreservesSelection:true,exitReturnsToInventory:true,noOverflow:true});
+    }
+    await navigate('?public&maintenance');await waitFor('document.querySelectorAll(".tree-map-pin").length===3');
+    assert.ok(await evaluate('!document.body.innerText.includes("Manejo em lote")'),'Consulta pública não oferece escrita');
+  }else if(['--registration','--batch','--species'].some(flag=>process.argv.includes(flag))){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await validateRegistration(width);
+      results.push({width,unifiedRegistration:true,speciesModal:true,illustrationFallback:true,exitReturnsToMap:true});
+    }
+  }else if(process.argv.includes('--summary')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       for(const query of ['?fail-species','?fail-neighborhoods','?fail-counts']){
@@ -180,7 +515,7 @@ try {
           await waitFor('document.querySelectorAll(".arborization-stat-value")[1]?.textContent==="1"');
           assert.equal(await evaluate('document.querySelectorAll(".arborization-stat-value")[2].textContent'),'1');
           if(query==='?fail-neighborhoods')await waitFor('document.body.innerText.includes("O cadastro de bairros não pôde ser carregado.")');
-          else assert.equal(await evaluate('Boolean(document.querySelector("[role=alert]"))'),false);
+          else assert.ok(await evaluate('document.body.innerText.includes("As imagens ilustrativas das espécies não puderam ser carregadas.")'));
         }
         assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
       }
@@ -328,146 +663,12 @@ try {
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
     const margins=await evaluate('(()=>{const r=document.querySelector("main").getBoundingClientRect();const p=getComputedStyle(document.querySelector("main"));return [r.left+parseFloat(p.paddingLeft),document.documentElement.clientWidth-r.right+parseFloat(p.paddingRight)]})()');
     if(width>=1200)assert.ok(margins.every(v=>v<=64),JSON.stringify({width,margins}));
-    await capture('map-'+width);
-    assert.ok(await evaluate('(()=>{const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const toggle=document.querySelector(".arborization-map-toolbar").getBoundingClientRect();return toggle.left>=map.left&&toggle.right<=map.right&&toggle.top>=map.top})()'), 'Alternância de visualização dentro do mapa');
-    if(width<980){
-      assert.ok(await evaluate('!document.querySelector("#arborization-filters")&&document.querySelector(".arborization-mobile-controls").getBoundingClientRect().height<=44'),'Mobile exibe apenas botão de filtros e contagem, sem painel empurrando o mapa');
-      assert.ok(await evaluate('document.querySelector("[data-testid=tree-map]").getBoundingClientRect().top<innerHeight'),'Mapa aparece na primeira tela');
-      await openFilters();
-      assert.ok(await evaluate('(()=>{const dialog=document.querySelector(".arborization-filter-dialog").getBoundingClientRect();const apply=document.querySelector(".arborization-apply").getBoundingClientRect();return dialog.top>=0&&dialog.bottom<=innerHeight&&apply.top>=dialog.top&&apply.bottom<=dialog.bottom})()'),'Painel de filtros e botão aplicar cabem na tela');
-      assert.ok(await evaluate('getComputedStyle(document.querySelector(".arborization-filter-advanced")).display==="none"'));
-      await click('Mais filtros');
-      await capture('mobile-filters-'+width);
-      assert.ok(await evaluate('(()=>{const dialog=document.querySelector(".arborization-filter-dialog").getBoundingClientRect();const apply=document.querySelector(".arborization-apply").getBoundingClientRect();return apply.top>=dialog.top&&apply.bottom<=dialog.bottom})()'),'Aplicar continua visível com filtros avançados');
-      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);
-      await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
-      await waitFor('!document.querySelector(".arborization-filter-dialog")');
-    }else{
-      assert.ok(await evaluate('document.querySelector("#arborization-filters").getBoundingClientRect().height>100'),'Filtros permanecem visíveis no desktop');
-      assert.ok(await evaluate('(()=>{const filters=document.querySelector("#arborization-filters").getBoundingClientRect();const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();const sidebar=document.querySelector(".arborization-neighborhood-sidebar").getBoundingClientRect();return map.left>filters.right&&Math.abs(map.top-filters.top)<2&&(innerWidth<1520?(sidebar.top>=map.bottom&&Math.abs(sidebar.left-filters.left)<2&&Math.abs(sidebar.right-map.right)<2&&map.width>innerWidth*.65):(sidebar.left>map.right&&Math.abs(map.top-sidebar.top)<2))})()'), 'Notebook com resumo alinhado à largura das duas colunas; desktop amplo com sidebar à direita');
-      assert.equal(await evaluate('new Set([...document.querySelectorAll(".arborization-stat")].map(el=>el.getBoundingClientRect().top)).size'),1,'Quatro indicadores na mesma linha');
-      assert.ok(await evaluate(panelsAligned), 'Mapa e sidebar com a mesma altura dos filtros');
-      const initialHeight = await evaluate('document.querySelector("#arborization-filters").getBoundingClientRect().height');
-      await evaluate('document.querySelector(".arborization-additional-filters").open=true');
-      await waitFor(`document.querySelector("#arborization-filters").getBoundingClientRect().height>${initialHeight}`);
-      await waitFor(panelsAligned);
-      await capture('panels-expanded-'+width);
-      await evaluate('document.querySelector(".arborization-additional-filters").open=false');
-      await waitFor(panelsAligned);
-    }
-    await waitFor('document.querySelectorAll(".arborization-neighborhood-sidebar .arborization-neighborhood-list li").length===2');
-    assert.ok(await evaluate(`(()=>{const color=document.createElement('span');color.style.color='hsl('+getComputedStyle(document.documentElement).getPropertyValue('--primary')+')';document.body.append(color);const expected=getComputedStyle(color).color;const buttons=[...document.querySelectorAll('.arborization-create,.arborization-apply,.arborization-neighborhood-more,.arborization-view-toggle [data-state=on]')];const matches=buttons.every(button=>getComputedStyle(button).backgroundColor===expected);color.remove();return matches})()`),'Botões usam a cor primária do sistema');
-    await evaluate('document.querySelector(".arborization-neighborhood-more").focus()');
-    await click('Ver mais');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');
-    assert.ok(await evaluate(`(()=>{
-      const el=document.querySelector('[data-testid=tree-neighborhood-drawer]');
-      const animation=el.getAnimations().find(item=>item.animationName==='arborization-drawer-in');
-      if(!animation)return false;
-      animation.pause();const duration=animation.effect.getComputedTiming().duration;
-      const positions=[0,duration/2,duration].map(time=>{animation.currentTime=time;const r=el.getBoundingClientRect();const s=getComputedStyle(el);const matrix=new DOMMatrixReadOnly(s.transform);return {left:r.left,top:r.top,scaleX:matrix.a,scaleY:matrix.d,opacity:s.opacity}});
-      animation.finish();
-      return positions[0].left>=document.documentElement.clientWidth-2&&positions[0].left>positions[1].left&&positions[1].left>positions[2].left&&positions.every(p=>Math.abs(p.top)<2&&p.scaleX===1&&p.scaleY===1&&p.opacity==='1');
-    })()`),'Modal desliza da direita para a esquerda, sem zoom nem deslocamento vertical');
-    assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] li").length'),3,'Modal lista inclusive os bairros sem cadastro');
-    await capture('neighborhood-drawer-'+width);
-    assert.ok(await evaluate('(()=>{const el=document.querySelector("[data-testid=tree-neighborhood-drawer]");const r=el.getBoundingClientRect();return Math.abs(r.right-document.documentElement.clientWidth)<2&&r.left>=0&&Math.abs(r.top)<2&&Math.abs(r.height-innerHeight)<2&&el.scrollWidth<=el.clientWidth})()'),'Modal lateral alinhado à direita e sem overflow');
-    await input('Buscar bairro','bela vista');await waitFor('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] li").length===1');
-    assert.ok(await evaluate('document.querySelector("[data-testid=tree-neighborhood-drawer] li").textContent.includes("Bela Vista")'));
-    await input('Buscar bairro','bairro ausente');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]").innerText.includes("Nenhum bairro encontrado")');
-    await evaluate('document.querySelector("[data-testid=tree-neighborhood-drawer] button").click()');
-    await waitFor('!document.querySelector("[data-testid=tree-neighborhood-drawer]")');
-    await waitFor('document.activeElement===document.querySelector(".arborization-neighborhood-more")');
-    await click('Ver mais');await waitFor('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] li").length===3');
-    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);
-    await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
-    await waitFor('!document.querySelector("[data-testid=tree-neighborhood-drawer]")');
-    if(width>=980&&width<1520){
-      await evaluate('document.querySelector(".arborization-neighborhood-sidebar").scrollIntoView({block:"center",behavior:"instant"})');
-      await capture('neighborhood-summary-'+width);await evaluate('window.scrollTo({top:0,behavior:"instant"})');
-    }
-    await openFilters();
-    await input('Buscar árvore','árvore ausente');await evaluate('document.querySelector(".arborization-apply").click()');
-    await waitFor('document.querySelectorAll(".tree-map-pin").length===0');
-    if(width<980){await waitFor('!document.querySelector(".arborization-filter-dialog")');assert.equal(await evaluate('document.querySelector(".arborization-filter-count").textContent'),'1');}
-    assert.ok(await evaluate('document.querySelector(".arborization-neighborhood-sidebar").innerText.includes("Ainda não há árvores vivas com bairro identificado")'),'Resumo acompanha filtros sem resultados');
-    await openFilters();await evaluate('document.querySelector(".arborization-filter-heading button").click()');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
-    if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');assert.ok(await evaluate('!document.querySelector(".arborization-filter-count")'));}
-    await click('Lista');await waitFor('document.querySelectorAll("article").length===2');
-    assert.ok(await evaluate('document.querySelector("article h3").textContent.includes("AR1 · Ipê-amarelo")'),'Lista exibe código e espécie');
-    await openFilters();await input('Buscar árvore','ar2');await evaluate('document.querySelector(".arborization-apply").click()');
-    await waitFor('document.querySelectorAll("article").length===1&&document.querySelector("article h3").textContent.includes("AR2 · Nim")');
-    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
-    await openFilters();await evaluate('document.querySelector(".arborization-filter-heading button").click()');
-    if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');}
-    await waitFor('document.querySelectorAll("article").length===2');
-
-    await click('Mapa');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
-    await openFilters(true);
-    await evaluate('document.querySelector(".arborization-additional-filters").open=true');
-    await choose('Responsável pelo plantio','prefeitura');await choose('Ano do plantio','2025');
-    assert.equal(await evaluate('document.querySelectorAll(".tree-map-pin").length'),2,'Filtros aguardam a aplicação');
-    await evaluate('document.querySelector(".arborization-apply").click()');
-    await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
-    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
-    await openFilters(true);
-    await evaluate('document.querySelector(".arborization-filter-heading button").click()');
-    await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
-    await evaluate(`(()=>{const input=document.querySelector('[aria-label="Idade mínima"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'100');input.dispatchEvent(new Event('input',{bubbles:true}))})()`);
-    await evaluate('document.querySelector(".arborization-apply").click()');
-    await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
-    if(width<980)await waitFor('!document.querySelector(".arborization-filter-dialog")');
-    await openFilters();
-    await evaluate('document.querySelector(".arborization-filter-heading button").click()');
-    await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
-    if(width<980){await evaluate('document.querySelector(".arborization-apply").click()');await waitFor('!document.querySelector(".arborization-filter-dialog")');}
-    await clickMapControl('Usar mapa de satélite');await waitFor(hasSatellite);
+    await validateLayout(width);
     await click('Tela cheia');await waitFor('document.querySelector("[role=dialog] .leaflet-container")');
-    assert.ok(await evaluate(hasSatellite),'Tela cheia mantém a camada');
-    assert.ok(await evaluate(zoomInsideMap),'Zoom dentro do mapa em tela cheia');
+    assert.ok(await evaluate(hasSatellite));assert.ok(await evaluate(zoomInsideMap));
     await click('Sair da tela cheia');await waitFor('!document.querySelector("[role=dialog]")');
     await clickMapControl('Usar mapa padrão');await waitFor(`!(${hasSatellite})`);
-    await click('Cadastrar árvore');
-    await waitFor('document.querySelector("[role=dialog] select option[value=s1]")');
-    assert.ok(await evaluate('![...document.querySelectorAll("[role=dialog] label")].some(el=>el.firstChild.textContent==="Nome científico"||el.firstChild.textContent==="Origem")'));
-    const footerVisible = '(()=>{const r=document.querySelector("[data-testid=tree-form-footer]").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()';
-    assert.ok(await evaluate(footerVisible),'Ações visíveis ao abrir o formulário');
-    assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("Gerado automaticamente ao salvar o cadastro")'),'Cadastro informa a geração automática');
-    await capture('form-initial-'+width);
-    await choose('Nome popular','s1');
-    await waitFor('document.querySelector("[data-testid=selected-species-info]").textContent.includes("Handroanthus albus")');
-    await choose('Nome popular','__new_species__');
-    await waitFor('document.querySelectorAll("[role=dialog]").length===2');
-    await capture('new-species-'+width);
-    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
-    await click('Cancelar inclusão');await waitFor('document.querySelectorAll("[role=dialog]").length===1');
-    assert.equal(await fieldValue('Nome popular'),'s1','Cancelar mantém a seleção anterior');
-    if(width===1440){
-      await choose('Nome popular','__new_species__');await waitFor('document.querySelectorAll("[role=dialog]").length===2');
-      await input('Nome popular da espécie','Nova espécie');await input('Nome científico da espécie','Species test');await choose('Origem da espécie','nativa');
-      await click('Adicionar ao catálogo');await waitFor('document.querySelectorAll("[role=dialog]").length===1');
-      assert.equal(await fieldValue('Nome popular'),'s-new');
-      assert.ok(await evaluate('document.querySelector("[data-testid=selected-species-info]").textContent.includes("Species test")'));
-      assert.equal(await evaluate('window.writes.filter(row=>row.table==="city_trees").length'),0,'Salvar espécie não envia o cadastro da árvore');
-    }
-    await choose('Nome popular','s2');
-    await evaluate('document.querySelector("[data-testid=tree-extra-fields]").open=true');
-    await click('Usar GPS');await waitForAddress();assert.equal(await fieldValue('Bairro'),'b1');
-    await choose('Bairro','b2');await choose('Responsável pelo plantio','prefeitura');
-    await input('Ano de nascimento estimado','1910');
-    if(width===1440){
-      const {root:doc}=await send('DOM.getDocument',{},sessionId);
-      const {nodeId}=await send('DOM.querySelector',{nodeId:doc.nodeId,selector:'[role=dialog] input[type=file]'},sessionId);
-      await send('DOM.setFileInputFiles',{nodeId,files:[photoPath]},sessionId);
-      await waitFor('document.querySelector("[role=dialog] img")');
-    }
-    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
-    await capture('form-'+width);
-    if(width===1920){await evaluate('window.failSave=true');await click('Salvar árvore');await waitFor('document.querySelector("[role=dialog] [role=alert]")');assert.equal(await fieldValue('Nome popular'),'s2');await evaluate('window.failSave=false');}
-    await click('Salvar árvore');await waitFor('document.body.innerText.includes("Árvore cadastrada.")');
-    assert.ok(await evaluate('(()=>{const payload=window.writes.find(row=>row.table==="city_trees").payload;return payload.species_id==="s2"&&payload.scientific_name==="Azadirachta indica"&&payload.bairro_id==="b2"&&payload.neighborhood==="Três Marias"})()'));
-    if(width===1440)assert.ok(await evaluate('Boolean(window.writes.find(row=>row.table==="city_trees").payload.photo_url)'));
-    assert.ok(await evaluate('document.body.innerText.includes("Código: AR3.")'),'Confirmação informa o código retornado pelo banco');
-    assert.ok(await evaluate('!Object.hasOwn(window.writes.find(row=>row.table==="city_trees").payload,"public_code")'),'Formulário não envia código ao banco');
+    await validateRegistration(width);
     await navigate('?detail');await waitFor('document.querySelector("[data-testid=tree-page]")');
     assert.equal(await evaluate('document.querySelector("h1").textContent'),'AR1 · Ipê-amarelo');
     await click('Editar árvore');await waitFor('document.querySelector("[role=dialog]").textContent.includes("Código da árvore")');

@@ -10,14 +10,11 @@ import { LogIn, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { resolvePostAuthFallback } from '@/lib/homeEntry';
-import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
+import { resolveLoginDestination } from '@/lib/municipalityAccess';
 
 const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform();
 const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
-const loginDestination = (user, target) =>
-  (target?.startsWith('/prefeitura/convite/') || target?.startsWith('/prefeitura/eletricista'))
-    ? target
-    : (hasMunicipalityPanelAccess(user) ? '/prefeitura/broncas' : (target || postAuthFallback));
+const loginDestination = (user, target) => resolveLoginDestination(user, target, postAuthFallback);
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');

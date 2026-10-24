@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, Clock3, Leaf, MapPin, Ruler, Scissors, Sprout
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { TREE_ACTIONS, TREE_ORIGINS, TREE_STATUS, treeLabel } from '@/lib/arborization';
+import TreePhoto from './TreePhoto';
 
 const STATUS_STYLE = {
   saudavel: 'bg-success-bg text-success-fg',
@@ -32,8 +33,8 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
         </div>
 
         <div className="mt-4 flex min-w-0 items-start gap-3">
-          {tree.photo_url && <img src={tree.photo_url} alt={tree.common_name} className="h-16 w-16 shrink-0 rounded-xl object-cover" />}
-          {!tree.photo_url && <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-success-fg/20 bg-gradient-to-br from-success-bg to-surface-raised"><Trees className="h-7 w-7 text-success-fg" /></div>}
+          <TreePhoto tree={tree} className="w-24 shrink-0" imageClassName="h-20 w-24 rounded-xl bg-surface-subtle object-contain" captionClassName="mt-1 text-[10px] leading-relaxed text-content-secondary"
+            fallback={<div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-success-fg/20 bg-gradient-to-br from-success-bg to-surface-raised"><Trees className="h-7 w-7 text-success-fg" /></div>} />
           <div className="min-w-0 flex-1">
             <h3 className="break-words text-base font-bold leading-6">{treeLabel(tree)}</h3>
             {tree.scientific_name && <p className="mt-0.5 break-words text-xs italic text-content-secondary">{tree.scientific_name}</p>}

@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-globals */
 // Troque a versão quando o shell visual mudar. Isso impede que instalações
 // mobile continuem servindo bundles antigos depois de uma publicação.
-const CACHE_NAME = 'trombone-cidadao-cache-v5';
+const CACHE_NAME = 'trombone-cidadao-cache-v6';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -70,7 +70,7 @@ self.addEventListener('fetch', event => {
   // Strategy 1: Para navegações (páginas HTML)
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-cache' })
         .then(response => {
           // 🔥 Verificar se o request pode ser cacheado
           const requestUrl = new URL(request.url);
