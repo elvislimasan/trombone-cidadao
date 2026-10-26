@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarDays, Clock3, Leaf, MapPin, Ruler, Scissors, Sprout, Trash2, Trees } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronDown, Clock3, Leaf, MapPin, Ruler, Scissors, Sprout, Trash2, Trees, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogDescription, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
 import { TREE_ACTIONS, TREE_ORIGINS, TREE_STATUS, treeLabel } from '@/lib/arborization';
 import TreePhoto from './TreePhoto';
 
@@ -15,6 +15,8 @@ const STATUS_STYLE = {
 const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : 'Não informado';
 
 export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, onDelete, children }) {
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { setExpanded(false); }, [tree?.id]);
   if (!tree) return null;
   const status = TREE_STATUS[tree.status];
   const neighborhoodInAddress = Boolean(tree.neighborhood && String(tree.address || '').split(/\s+[-–—]\s+|[,;]/)
@@ -24,8 +26,10 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
     ? `${Number(tree.latitude).toFixed(6)}, ${Number(tree.longitude).toFixed(6)}` : 'Não informadas';
 
   return <Dialog open onOpenChange={open => { if (!open) onClose?.(); }}>
-    <DialogContent aria-label="Árvore selecionada" data-testid="tree-details-dialog"
-      className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg gap-0 overflow-x-hidden overflow-y-auto rounded-2xl border-edge-subtle bg-surface-raised p-0">
+    <FormDialogContent hideClose aria-label="Árvore selecionada" data-testid="tree-details-dialog"
+      className={`tree-details-sheet ${expanded ? 'is-expanded' : ''} max-h-[90dvh] gap-0 overflow-x-hidden overflow-y-auto rounded-2xl border-edge-subtle bg-surface-raised p-0`}>
+      <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30 md:hidden" />
+      <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-2 h-11 w-11" aria-label="Voltar ao mapa" onClick={onClose}><X className="h-5 w-5" /></Button>
       <div className="p-5 sm:p-6">
         <div className="border-b border-edge-subtle pb-4">
           <DialogTitle className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-brand" />Árvore selecionada</DialogTitle>
@@ -44,6 +48,8 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
           </div>
         </div>
 
+        <Button type="button" variant="ghost" className="mt-3 min-h-11 w-full justify-between md:hidden" aria-expanded={expanded} aria-controls="tree-details-secondary" onClick={() => setExpanded(current => !current)}>{expanded ? 'Recolher informações' : 'Ver mais informações'}<ChevronDown className={`h-4 w-4 ${expanded ? 'rotate-180' : ''}`} /></Button>
+        <div id="tree-details-secondary" className="tree-details-secondary">
         <dl className="mt-5 grid grid-cols-1 gap-x-4 gap-y-3 border-t border-edge-subtle pt-4 min-[420px]:grid-cols-2">
           {[
             ['Origem', Leaf, TREE_ORIGINS[tree.origin] || 'Não informada'],
@@ -58,6 +64,7 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
 
         <div className="mt-4 flex min-w-0 items-start gap-2 rounded-xl border border-edge-subtle bg-surface-subtle p-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-content-secondary" /><div className="min-w-0"><p className="text-[11px] leading-4 text-content-secondary">Coordenadas:</p><p className="mt-0.5 break-words text-sm font-medium leading-5">{coordinates}</p></div></div>
         {tree.notes && <details className="mt-4 rounded-xl border border-edge-subtle bg-surface-subtle p-4"><summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Observações da árvore</summary><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-5 text-content-secondary">{tree.notes}</p></details>}
+        </div>
         {children}
         <Button asChild className="mt-4 w-full"><Link to={`/arborizacao/arvore/${tree.id}`}>Página da árvore e linha do tempo<ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
 
@@ -66,6 +73,6 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
           <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs text-destructive" onClick={() => onDelete?.(tree)}><Trash2 className="h-3.5 w-3.5 shrink-0" />Excluir cadastro</Button>
         </div>}
       </div>
-    </DialogContent>
+    </FormDialogContent>
   </Dialog>;
 }

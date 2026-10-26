@@ -73,9 +73,9 @@ export function filterTrees(trees, { search = '', status = 'all', origin = 'all'
   const term = normalize(search).trim();
   const year = new Date().getFullYear();
   const validBirthYear = tree => tree.estimated_birth_year != null && Number.isInteger(Number(tree.estimated_birth_year)) && Number(tree.estimated_birth_year) > 0 && Number(tree.estimated_birth_year) <= year;
-  return trees.filter(tree => (status === 'all' || tree.status === status)
+  return trees.filter(tree => (status === 'all' || (status === 'living' ? tree.status !== 'removida' : tree.status === status))
     && (origin === 'all' || tree.origin === origin)
-    && (neighborhood === 'all' || tree.neighborhood === neighborhood)
+    && (neighborhood === 'all' || (neighborhood === 'unidentified' ? !tree.bairro_id && !tree.neighborhood?.trim() : tree.neighborhood === neighborhood))
     && (plantedBy === 'all' || tree.planted_by === plantedBy)
     && (!plantedYear || tree.planted_at?.slice(0, 4) === plantedYear)
     && (historic === 'all' || tree.is_historic_site === (historic === 'yes'))
@@ -83,7 +83,7 @@ export function filterTrees(trees, { search = '', status = 'all', origin = 'all'
     && (maxAge === '' || (validBirthYear(tree) && year - Number(tree.estimated_birth_year) <= Number(maxAge)))
     && (centenarian === 'all' || (tree.estimated_birth_year != null && Number(tree.estimated_birth_year) <= new Date().getFullYear() - 100 && tree.status !== 'removida'))
     && (action === 'all' || (action === 'pending' ? tree.maintenance_action !== 'nenhuma' : tree.maintenance_action === action))
-    && (!term || normalize([tree.public_code, tree.common_name, tree.scientific_name, tree.address, tree.neighborhood].join(' ')).includes(term)));
+    && (!term || normalize([tree.public_code, tree.common_name, tree.scientific_name, ...(tree.species_aliases || []), tree.address, tree.neighborhood].join(' ')).includes(term)));
 }
 
 export function treeStats(trees) {

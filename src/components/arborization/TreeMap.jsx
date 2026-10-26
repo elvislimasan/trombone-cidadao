@@ -20,6 +20,11 @@ const draftIcon = L.divIcon({
   className: 'tree-map-draft', iconSize: [22, 22], iconAnchor: [11, 11],
   html: '<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="9" fill="#15803d" fill-opacity=".4" stroke="#14532d" stroke-width="2" stroke-dasharray="3 2"/><path d="M7 11h8m-4-4v8" stroke="white" stroke-width="2"/></svg>',
 });
+const existingTreeIcon = L.divIcon({
+  className: 'tree-map-pin tree-map-existing', iconSize: [24, 24], iconAnchor: [12, 12],
+  // O contorno duplo mantém o marcador legível sobre copas, telhados e ruas.
+  html: '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10.5" fill="#0f172a" fill-opacity=".7"/><circle cx="12" cy="12" r="8.5" fill="#0891b2" fill-opacity=".9" stroke="white" stroke-width="2.5"/><path d="m8.5 12 2.3 2.3 4.7-4.6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+});
 const currentPointIcon = L.divIcon({
   className: 'tree-map-current-point', iconSize: [34, 34], iconAnchor: [17, 17],
   html: '<span class="tree-current-point-halo" aria-hidden="true"></span><span class="tree-current-point-dot" aria-hidden="true"></span>',
@@ -103,7 +108,7 @@ function MapController({ trees, city, selected, position, onPick, resetKey, init
   return null;
 }
 
-export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect, onDeselect, canManage = false, onEdit, onDelete, position, onPick, showLegend = false, toolbar, draftPoints = EMPTY_TREES, onRemoveDraft, initialView, onMapReady, selectedIds = EMPTY_TREES, initialLayer = MAP_LAYER.STANDARD }) {
+export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect, onDeselect, canManage = false, onEdit, onDelete, position, onPick, showLegend = false, toolbar, draftPoints = EMPTY_TREES, onRemoveDraft, initialView, onMapReady, selectedIds = EMPTY_TREES, initialLayer = MAP_LAYER.STANDARD, registrationMode = false }) {
   const [layer, setLayer] = useState(initialLayer);
   const [resetKey, setResetKey] = useState(0);
   const validTrees = useMemo(() => trees.filter(tree => Number.isFinite(Number(tree.latitude)) && Number.isFinite(Number(tree.longitude))), [trees]);
@@ -116,8 +121,8 @@ export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect,
       <MapResizeObserver />
       <MapController trees={validTrees} city={city} selected={selected} position={position} onPick={onPick} resetKey={resetKey} initialView={initialView} onMapReady={onMapReady} />
       <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} toolbar={toolbar} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />
-      {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={selection.has(tree.id) ? selectedTreeIcon : icons[treeMapMarkerKey(tree)]} zIndexOffset={selection.has(tree.id) ? 1000 : 0}
-        alt={treeLabel(tree)} title={treeLabel(tree)} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
+      {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={registrationMode ? existingTreeIcon : selection.has(tree.id) ? selectedTreeIcon : icons[treeMapMarkerKey(tree)]} zIndexOffset={selection.has(tree.id) ? 1000 : 0}
+        alt={treeLabel(tree)} title={registrationMode ? `Árvore já cadastrada: ${treeLabel(tree)}` : treeLabel(tree)} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
       {position && <Marker position={[position.latitude, position.longitude]} icon={currentPointIcon} title="Localização desta árvore · Arraste para ajustar" zIndexOffset={1200} draggable={Boolean(onPick)} eventHandlers={{ dragend: event => { const point = event.target.getLatLng(); onPick?.({ latitude: point.lat, longitude: point.lng }); } }} />}
       {draftPoints.map((point, index) => <Marker key={`${point.latitude},${point.longitude}`} position={[point.latitude, point.longitude]} icon={draftIcon}
         title={`Ponto ${index + 1} · Clique para remover`} alt={`Ponto ${index + 1} ainda não salvo`} eventHandlers={{ click: () => onRemoveDraft?.(index) }} />)}

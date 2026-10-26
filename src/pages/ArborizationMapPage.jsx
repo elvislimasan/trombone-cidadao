@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronsLeft, Download, FileText, Filter, List, Loader2, Map, MapPin, MoreHorizontal, Pencil, Plus, Scissors, Search, Trees, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronsLeft, Download, Filter, Leaf, List, Loader2, Map as MapIcon, MapPin, MoreHorizontal, Pencil, Plus, Scissors, Search, Sprout, Trees, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,8 @@ import { CityViewProvider, useCityView } from '@/contexts/CityContext';
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { supabase } from '@/lib/customSupabaseClient';
 import { salvarDocumento } from '@/lib/nativeDownload';
-import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, filterTrees, loadCityTrees, treesCsv, treeStats, treeLabel } from '@/lib/arborization';
+import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, filterTrees, loadCityTrees, treesCsv, treeLabel } from '@/lib/arborization';
+import { treeInventoryHighlights, withTreeSpecies } from '@/lib/treeSpecies';
 import { allTreeRows, treeNeighborhoodCounts, treeRequestCounts, uploadTreePhoto } from '@/lib/treeInventory';
 import { treeMaintenancePayload, treeMaintenanceSelection } from '@/lib/treeMaintenance';
 
@@ -45,7 +46,7 @@ function InventoryBackdrop() {
 
 function InventoryViewToggle({ view, onChange }) {
   return <ToggleGroup type="single" value={view} onValueChange={value => value && onChange(value)} className="arborization-view-toggle" aria-label="Visualização">
-    <ToggleGroupItem value="map" aria-label="Ver mapa"><Map className="h-4 w-4" />Mapa</ToggleGroupItem>
+    <ToggleGroupItem value="map" aria-label="Ver mapa"><MapIcon className="h-4 w-4" />Mapa</ToggleGroupItem>
     <ToggleGroupItem value="list" aria-label="Ver lista"><List className="h-4 w-4" />Lista</ToggleGroupItem>
   </ToggleGroup>;
 }
@@ -129,15 +130,14 @@ export function ArborizationContent({ management, embedded = false }) {
   }, [cityId, revision]);
 
   const treesWithImages = useMemo(() => {
-    const images = new globalThis.Map(speciesCatalog.map(species => [species.id, species.illustration_url]));
-    return trees.map(tree => ({ ...tree, species_illustration_url: images.get(tree.species_id) || null }));
+    const catalog = new Map(speciesCatalog.map(species => [species.id, species]));
+    return trees.map(tree => withTreeSpecies(tree, catalog.get(tree.species_id)));
   }, [trees, speciesCatalog]);
   const filtered = useMemo(() => filterTrees(treesWithImages, filters).map(tree => ({ ...tree, service_requests: counts ? Number(counts.get(tree.id)?.total || 0) : null })), [treesWithImages, filters, counts]);
-  const stats = useMemo(() => treeStats(filtered), [filtered]);
-  const services = useMemo(() => counts ? filtered.reduce((total, tree) => { const row = counts.get(tree.id); return { total: total.total + Number(row?.total || 0), poda: total.poda + Number(row?.poda || 0), remocao: total.remocao + Number(row?.remocao || 0) }; }, { total: 0, poda: 0, remocao: 0 }) : null, [filtered, counts]);
   const neighborhoodCounts = useMemo(() => treeNeighborhoodCounts(filtered, catalogNeighborhoods), [filtered, catalogNeighborhoods]);
+  const stats = useMemo(() => treeInventoryHighlights(filtered, neighborhoodCounts), [filtered, neighborhoodCounts]);
   const neighborhoods = useMemo(() => [...new Set(trees.map(tree => tree.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [trees]);
-  const previewCount = useMemo(() => filterTrees(trees, draftFilters).length, [trees, draftFilters]);
+  const previewCount = useMemo(() => filterTrees(treesWithImages, draftFilters).length, [treesWithImages, draftFilters]);
   const setFilter = (key, value) => setDraftFilters(current => ({ ...current, [key]: value }));
   const setMainFilter = (key, value) => {
     setFilters(current => ({ ...current, [key]: value }));
@@ -270,12 +270,12 @@ export function ArborizationContent({ management, embedded = false }) {
     <section aria-label="Indicadores do inventário filtrado" className="arborization-stats">
       {[
         [Trees, 'Árvores no inventário', stats.total, 'green', 'Total de árvores cadastradas na cidade'],
-        [FileText, 'Solicitações de serviço', services?.total, 'blue', 'Serviços vinculados às árvores'],
-        [Scissors, 'Solicitações de poda', services?.poda, 'orange', 'Pedidos de poda registrados'],
-        [Trash2, 'Solicitações de remoção', services?.remocao, 'red', 'Pedidos de remoção registrados'],
+        [Leaf, 'Espécie mais plantada', stats.mostPlanted?.name || 'Não identificada', 'blue', stats.mostPlanted ? `${stats.mostPlanted.count.toLocaleString('pt-BR')} árvores vivas desta espécie` : 'Nenhuma espécie identificada no resultado'],
+        [MapPin, 'Bairro menos arborizado', stats.leastWooded?.name || 'Não identificado', 'orange', stats.leastWooded ? `${stats.leastWooded.count.toLocaleString('pt-BR')} árvores vivas cadastradas · menor quantidade` : 'Nenhum bairro disponível'],
+        [Sprout, `Plantadas em ${new Date().getFullYear()}`, stats.plantedThisYear, 'green', 'Conforme a data de plantio informada'],
       ].map(([Icon, label, value, tone, description]) => <div key={label} className="arborization-stat">
         <span className={`arborization-stat-icon arborization-tone-${tone}`}><Icon aria-hidden="true" /></span>
-        <div className="min-w-0"><p className="arborization-stat-value">{loading || value == null ? '—' : value.toLocaleString('pt-BR')}</p><p className="arborization-stat-label">{label}</p><p className="arborization-stat-description">{description}</p></div>
+        <div className="min-w-0"><p className="arborization-stat-value break-words" style={typeof value === 'string' ? { fontSize: 'clamp(1rem, 1.3vw, 1.5rem)' } : undefined}>{loading || value == null ? '—' : value.toLocaleString('pt-BR')}</p><p className="arborization-stat-label">{label}</p><p className="arborization-stat-description">{description}</p></div>
       </div>)}
     </section>
     <div className="arborization-actions">
@@ -294,8 +294,8 @@ export function ArborizationContent({ management, embedded = false }) {
     </div>}
     <div className="arborization-primary-filters" aria-label="Filtros principais">
       <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search className="h-4 w-4" aria-hidden="true" /><Input placeholder="Buscar árvore por código, espécie, rua ou bairro…" value={filters.search} onChange={event => setMainFilter('search', event.target.value)} /></label>
-      <label className="arborization-quick-select"><span>Situação</span><select className={selectClass} value={filters.status} onChange={event => setMainFilter('status', event.target.value)}><option value="all">Todos</option>{Object.entries(TREE_STATUS).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label>
-      <label className="arborization-quick-select"><span>Bairro</span><select className={selectClass} value={filters.neighborhood} onChange={event => setMainFilter('neighborhood', event.target.value)}><option value="all">Todos</option>{neighborhoods.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+      <label className="arborization-quick-select"><span>Situação</span><select className={selectClass} value={filters.status} onChange={event => setMainFilter('status', event.target.value)}><option value="all">Todos</option><option value="living">Árvores vivas</option>{Object.entries(TREE_STATUS).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label>
+      <label className="arborization-quick-select"><span>Bairro</span><select className={selectClass} value={filters.neighborhood} onChange={event => setMainFilter('neighborhood', event.target.value)}><option value="all">Todos</option><option value="unidentified">Sem bairro identificado</option>{neighborhoods.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
       <Button variant="outline" className={`arborization-filter-trigger ${!compactFilters && filtersOpen ? 'is-active' : ''}`} aria-expanded={compactFilters ? filterDialogOpen : filtersOpen} aria-controls="arborization-filters" onClick={() => compactFilters ? setFilterDialogOpen(true) : setFiltersOpen(value => !value)}><Filter className="h-4 w-4" />Mais filtros{advancedFilterCount > 0 && <span className="arborization-filter-count">{advancedFilterCount}</span>}</Button>
       <TreeNeighborhoodSidebar neighborhoods={neighborhoodCounts} unidentified={filtered.filter(tree => !tree.neighborhood && tree.status !== 'removida').length} loading={loading} error={error} />
       {activeFilters && <Button type="button" variant="ghost" size="sm" className="arborization-reset-filters" onClick={resetFilters}><X className="h-3.5 w-3.5" />Limpar filtros ({activeFilterCount})</Button>}

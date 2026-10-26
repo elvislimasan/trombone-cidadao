@@ -345,6 +345,58 @@
 .tree-entry-location { display: flex; flex-direction: column; gap: 10px; }
 .tree-entry-map { height: 360px; flex-shrink: 0; }
 .tree-entry-fields { min-width: 0; }
+/* No celular, o mapa e o formulário têm etapas próprias; no desktop seguem
+   lado a lado. O Leaflet permanece montado ao alternar as etapas. */
+.tree-entry-progress { flex-shrink: 0; border-bottom: 1px solid rgb(var(--border-subtle)); padding: 8px 16px; }
+.tree-entry-progress ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tree-entry-progress button { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; color: rgb(var(--text-secondary)); font-size: 11px; font-weight: 600; }
+.tree-entry-progress button[aria-current=step] { background: rgb(21 128 61 / .1); color: #15803d; }
+.dark .tree-entry-progress button[aria-current=step] { background: rgb(21 128 61 / .2); color: #86efac; }
+.tree-entry-progress button:disabled { opacity: .5; }
+.tree-entry-progress-number { display: flex; width: 22px; height: 22px; flex-shrink: 0; align-items: center; justify-content: center; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; }
+.tree-entry-mobile-heading { padding: 16px 16px 0; }
+.tree-entry-mobile-heading h2 { font-size: 18px; font-weight: 700; outline: none; }
+.tree-entry-mobile-heading p { margin-top: 4px; color: rgb(var(--text-secondary)); font-size: 12px; line-height: 1.5; }
+.tree-entry-address-toggle { display: flex; width: 100%; min-height: 48px; align-items: center; gap: 10px; text-align: left; }
+.tree-entry-address-toggle > span { min-width: 0; flex: 1; }
+.tree-entry-address-toggle strong, .tree-entry-address-toggle > span > span { display: block; overflow-wrap: anywhere; }
+.tree-entry-address-toggle strong { font-size: 12px; }
+.tree-entry-address-toggle > span > span { margin-top: 3px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-entry-mobile-actions > p { margin-bottom: 8px; }
+.tree-entry-mobile-actions > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 10px; }
+.tree-entry-mobile-actions button { min-height: 48px; border-radius: 12px; }
+.tree-entry-review { min-width: 0; }
+.tree-entry-review-card { min-width: 0; padding: 12px 16px 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; }
+.tree-entry-review-card h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.tree-entry-review-card > p + p { margin-top: 6px; }
+@media (max-width: 767px) {
+  .tree-details-sheet[role=dialog] { top: auto !important; right: 0 !important; bottom: 0 !important; left: 0 !important; width: 100% !important; max-width: none !important; max-height: 78dvh !important; transform: none !important; border-radius: 24px 24px 0 0 !important; padding-bottom: env(safe-area-inset-bottom); }
+  .tree-details-sheet:not(.is-expanded) .tree-details-secondary { display: none; }
+  .tree-details-sheet button, .tree-details-sheet a { min-height: 44px; }
+  .tree-entry-header { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 10px; }
+  .tree-entry-header button { width: 44px; height: 44px; }
+  .tree-entry-header [id] + p { font-size: 12px; }
+  .tree-entry-dialog .tree-entry-layout { gap: 14px; padding: 14px 16px 20px; }
+  .tree-entry-dialog .tree-entry-map { height: clamp(200px, calc(100dvh - 480px), 520px); }
+  .tree-entry-dialog .tree-entry-map-instruction { display: none; }
+  .tree-entry-dialog .tree-entry-map-heading h3 { display: none; }
+  .tree-entry-dialog .tree-entry-map-heading { justify-content: flex-end; }
+  .tree-entry-dialog .tree-entry-map-heading button { min-height: 44px; border-radius: 12px; }
+  .tree-map-canvas .leaflet-control-zoom a { width: 40px; height: 40px; line-height: 40px; }
+  .tree-entry-dialog input:not([type=checkbox]):not([type=file]), .tree-entry-dialog select, .tree-entry-dialog textarea { min-height: 48px; font-size: 16px; }
+  .tree-entry-dialog [role=combobox] { min-height: 48px; font-size: 16px; }
+  .tree-entry-dialog .tree-entry-fields { margin: 0; padding: 0; border: 0; }
+  .tree-entry-dialog[data-mobile-step="0"] .tree-entry-fields { display: contents; }
+  .tree-entry-dialog[data-mobile-step="0"] .tree-entry-fields > :not(.tree-entry-address) { display: none; }
+  .tree-entry-dialog[data-mobile-step="1"] .tree-entry-location,
+  .tree-entry-dialog[data-mobile-step="1"] .tree-entry-address,
+  .tree-entry-dialog[data-mobile-step="2"] .tree-entry-location,
+  .tree-entry-dialog[data-mobile-step="2"] .tree-entry-fields { display: none; }
+  .tree-entry-dialog .tree-entry-address { margin: 0; padding-top: 8px; }
+  .tree-entry-address:not(.is-open) .tree-entry-address-body { display: none; }
+  .tree-entry-photo input[type=file] { min-height: 44px; height: auto; padding-block: 10px; }
+  .tree-entry-dialog [data-testid=tree-form-footer] { padding-top: 10px; box-shadow: 0 -4px 20px rgb(0 0 0 / .04); }
+}
 @media (min-width: 980px) {
   .tree-entry-main { overflow: hidden; }
   .tree-entry-layout { display: grid; height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 0; padding: 0; }
@@ -377,6 +429,11 @@
 .tree-profile-scientific { margin-top: 4px; font-size: 12px; font-style: italic; color: rgb(var(--text-secondary)); }
 .tree-profile-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .tree-profile-header-actions > button { gap: 8px; border-radius: 9px; font-size: 12px; }
+.tree-profile-header-actions .tree-profile-service-action { border-color: rgb(8 118 83 / .2); background: transparent; color: #087653; }
+.tree-profile-header-actions .tree-profile-service-action:hover { background: rgb(8 118 83 / .05); }
+.tree-profile-care-fields .tree-profile-save-care { background: #087653; color: #fff; }
+.tree-profile-care-fields .tree-profile-save-care:hover { background: #065f46; }
+.tree-profile-history-toggle { display: none; }
 .tree-profile-page > [role=status] { margin-bottom: 16px; }
 .tree-profile-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
 .tree-profile-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -401,6 +458,12 @@
 .tree-profile-fact dt { margin-top: 1px; font-size: 11px; line-height: 1.35; color: rgb(var(--text-secondary)); }
 .tree-profile-fact dd { margin-top: 3px; font-size: 12px; line-height: 1.4; font-weight: 550; overflow-wrap: anywhere; }
 .tree-profile-overview > p { margin-block: 12px; }
+.tree-profile-all-data-toggle { display: none; }
+.tree-profile-mobile-highlights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-block: 14px; }
+.tree-profile-mobile-highlights > div { position: relative; min-width: 0; padding: 12px; border-radius: 12px; background: rgb(var(--surface-subtle)); }
+.tree-profile-mobile-highlights svg { margin-bottom: 8px; color: #009461; }
+.tree-profile-mobile-highlights dt { font-size: 11px; color: rgb(var(--text-secondary)); }
+.tree-profile-mobile-highlights dd { margin-top: 4px; font-size: 13px; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
 .tree-profile-location-map { position: relative; z-index: 0; isolation: isolate; contain: paint; height: 290px; min-height: 0; overflow: hidden; }
 .tree-profile-location .tree-profile-description { margin: 1px 0 0 32px; }
 .tree-profile-location-map .tree-map-canvas { min-height: 0 !important; }
@@ -446,6 +509,9 @@
 .dark .tree-profile-badge--atencao { color: #fbbf24; }
 .dark .tree-profile-badge--risco { color: #f87171; }
 .dark .tree-profile-badge--removida { color: #94a3b8; }
+.dark .tree-profile-header-actions .tree-profile-service-action { border-color: rgb(110 231 183 / .25); color: #6ee7b7; }
+.dark .tree-profile-photo-placeholder .tree-profile-photo-empty > button,
+.dark .tree-profile-mobile-highlights svg { color: #6ee7b7; }
 /* No desktop, as colunas terminam juntas e a foto absorve o espaço extra. */
 @media (min-width: 980px) {
   .tree-profile-grid { align-items: stretch; }
@@ -482,6 +548,67 @@
   .tree-profile-event { padding: 12px; gap: 10px; }
   .tree-profile-event-icon { width: 34px; height: 34px; }
   .tree-profile-event-icon svg { width: 18px; height: 18px; }
+}
+
+@media (max-width: 767px) {
+  .tree-profile-page { padding-top: 6px; padding-bottom: calc(88px + var(--safe-area-bottom, 0px)); }
+  .tree-profile-breadcrumb, .tree-profile-qr-action { display: none; }
+  .tree-profile-mobile-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .tree-profile-mobile-topbar > a { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; font-size: 12px; color: rgb(var(--text-secondary)); }
+  .tree-profile-mobile-topbar > button { width: 44px; height: 44px; }
+  .tree-profile-header { gap: 14px; margin-bottom: 16px; }
+  .tree-profile-heading { flex-basis: 100%; gap: 12px; }
+  .tree-profile-header h1 { font-size: 24px; line-height: 1.25; }
+  .tree-profile-title-icon { width: 32px; height: 36px; }
+  .tree-profile-title-icon svg { width: 30px; height: 30px; }
+  .tree-profile-badges { gap: 6px; }
+  .tree-profile-badge { border-radius: 8px; padding: 6px 8px; font-size: 10px; }
+  .tree-profile-badge:not(:first-child) { background: rgb(var(--surface-subtle)); color: rgb(var(--text-secondary)); }
+  .tree-profile-header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .tree-profile-header-actions > button { min-height: 44px; padding-inline: 10px; background: transparent; box-shadow: none; }
+  .tree-profile-grid { gap: 16px; }
+  .tree-profile-card { padding: 16px; border-radius: 16px; box-shadow: none; }
+  .tree-profile-mobile-highlights { column-gap: 24px; row-gap: 0; margin-block: 8px 4px; }
+  .tree-profile-mobile-highlights > div { padding: 14px 0; border-radius: 0; background: transparent; }
+  .tree-profile-mobile-highlights > div:nth-child(-n+2) { border-bottom: 1px solid rgb(var(--border-subtle)); }
+  .tree-profile-mobile-highlights svg { width: 14px; height: 14px; margin-bottom: 6px; opacity: .8; }
+  .tree-profile-mobile-highlights dd { font-weight: 550; }
+  .tree-profile-photo { height: 180px; border-radius: 12px; }
+  .tree-profile-photo-placeholder { height: auto; min-height: 72px; border: 1px dashed rgb(var(--border-subtle)); background: transparent; }
+  .tree-profile-photo-placeholder .tree-profile-photo-empty { min-height: 72px; flex-direction: row; gap: 10px; padding: 10px 12px; background: rgb(5 150 105 / .025); }
+  .tree-profile-photo-placeholder .tree-profile-photo-empty > svg { width: 28px; height: 28px; flex-shrink: 0; }
+  .tree-profile-photo-placeholder .tree-profile-photo-empty > span { flex: 1; font-size: 12px; }
+  .tree-profile-photo-placeholder .tree-profile-photo-empty > button { min-height: 44px; flex-shrink: 0; padding-inline: 0; border: 0; background: transparent; color: #087653; font-size: 11px; font-weight: 600; }
+  .tree-profile-photo-placeholder .tree-profile-photo-empty > button:hover { text-decoration: underline; }
+  .tree-profile-photo > button { min-height: 44px; }
+  .tree-profile-summary-heading .tree-profile-description { display: none; }
+  .tree-profile-all-data { margin-top: 14px; border-top: 1px solid rgb(var(--border-subtle)); }
+  .tree-profile-all-data-toggle { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; color: rgb(var(--text-secondary)); font-size: 12px; font-weight: 500; }
+  .tree-profile-all-data-toggle::-webkit-details-marker { display: none; }
+  .tree-profile-all-data[open] .tree-profile-all-data-toggle > svg { transform: rotate(180deg); }
+  .tree-profile-all-data .tree-profile-facts { grid-template-columns: minmax(0, 1fr); }
+  .tree-profile-fact { padding-block: 10px; }
+  .tree-profile-location-map { height: clamp(330px, 52dvh, 480px); }
+  .tree-profile-location-map .tree-map-tools { top: 104px; }
+  .tree-profile-location-map .tree-map-tools button { width: 44px; height: 44px; }
+  .tree-profile-location-map button.tree-profile-map-expand { min-height: 44px; }
+  .tree-profile-map-address { display: flex; align-items: flex-start; gap: 10px; margin-top: 14px; font-size: 13px; overflow-wrap: anywhere; }
+  .tree-profile-map-address > svg { margin-top: 3px; color: #009461; }
+  .tree-profile-map-address p + p { margin-top: 3px; font-size: 12px; color: rgb(var(--text-secondary)); }
+  .tree-profile-history > .tree-profile-description { margin-left: 0; }
+  .tree-profile-history-toggle { display: flex; min-height: 48px; align-items: center; gap: 12px; list-style: none; cursor: pointer; }
+  .tree-profile-history-toggle::-webkit-details-marker { display: none; }
+  .tree-profile-history-toggle > svg:first-child { flex-shrink: 0; color: #009461; }
+  .tree-profile-history-toggle > span { flex: 1; }
+  .tree-profile-history-toggle strong { display: block; font-size: 15px; font-weight: 600; }
+  .tree-profile-history-toggle > span > span { display: block; margin-top: 4px; color: rgb(var(--text-secondary)); font-size: 12px; }
+  .tree-profile-history-disclosure[open] .tree-profile-history-toggle > svg:last-child { transform: rotate(180deg); }
+  .tree-profile-history-disclosure > .tree-profile-section-title,
+  .tree-profile-history-disclosure > .tree-profile-description { display: none; }
+  .tree-profile-history-summary { padding: 12px; font-size: 11px; }
+  .tree-profile-event a { min-height: 44px; }
+  .tree-profile-care-fields input, .tree-profile-care-fields select, .tree-profile-care-fields textarea { min-height: 48px; font-size: 16px; }
+  .tree-profile-care-fields > button { min-height: 48px; }
 }
 
 /* Controles do mapa municipal ficam abaixo da busca e acompanham o tema. */
