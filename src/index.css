@@ -435,6 +435,13 @@
 .tree-profile-care-fields .tree-profile-save-care:hover { background: #065f46; }
 .tree-profile-history-toggle { display: none; }
 .tree-profile-page > [role=status] { margin-bottom: 16px; }
+.tree-profile-qr-action { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-bottom: 20px; padding: 14px 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 14px; background: rgb(var(--surface-raised)); }
+.tree-profile-qr-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; color: #087653; background: rgb(5 150 105 / .07); }
+.tree-profile-qr-icon svg { width: 23px; height: 23px; }
+.tree-profile-qr-action h2 { font-size: 14px; line-height: 1.4; font-weight: 600; }
+.tree-profile-qr-action p { margin-top: 3px; color: rgb(var(--text-secondary)); font-size: 12px; }
+.tree-profile-qr-action > button { min-height: 44px; gap: 8px; border-color: rgb(8 118 83 / .25); border-radius: 10px; color: #087653; background: transparent; }
+.tree-profile-qr-action > button:hover { background: rgb(8 118 83 / .05); }
 .tree-profile-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
 .tree-profile-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .tree-profile-card { position: relative; min-width: 0; padding: 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 13px; background: rgb(var(--surface-raised)); box-shadow: 0 3px 18px rgb(30 60 85 / .035); }
@@ -511,7 +518,8 @@
 .dark .tree-profile-badge--removida { color: #94a3b8; }
 .dark .tree-profile-header-actions .tree-profile-service-action { border-color: rgb(110 231 183 / .25); color: #6ee7b7; }
 .dark .tree-profile-photo-placeholder .tree-profile-photo-empty > button,
-.dark .tree-profile-mobile-highlights svg { color: #6ee7b7; }
+.dark .tree-profile-mobile-highlights svg,
+.dark .tree-profile-qr-icon, .dark .tree-profile-qr-action > button { color: #6ee7b7; }
 /* No desktop, as colunas terminam juntas e a foto absorve o espaço extra. */
 @media (min-width: 980px) {
   .tree-profile-grid { align-items: stretch; }
@@ -552,7 +560,12 @@
 
 @media (max-width: 767px) {
   .tree-profile-page { padding-top: 6px; padding-bottom: calc(88px + var(--safe-area-bottom, 0px)); }
-  .tree-profile-breadcrumb, .tree-profile-qr-action { display: none; }
+  .tree-profile-breadcrumb { display: none; }
+  .tree-profile-qr-action { grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; margin-bottom: 16px; padding: 12px; }
+  .tree-profile-qr-icon { width: 32px; height: 36px; background: transparent; }
+  .tree-profile-qr-action h2 { font-size: 13px; }
+  .tree-profile-qr-action p { font-size: 11px; }
+  .tree-profile-qr-action > button { gap: 6px; padding-inline: 10px; font-size: 12px; }
   .tree-profile-mobile-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
   .tree-profile-mobile-topbar > a { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; font-size: 12px; color: rgb(var(--text-secondary)); }
   .tree-profile-mobile-topbar > button { width: 44px; height: 44px; }

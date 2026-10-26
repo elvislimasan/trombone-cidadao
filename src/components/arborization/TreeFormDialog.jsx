@@ -109,6 +109,13 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
     setAddressLookup('loading');
     setLocationRevision(value => value + 1);
   };
+  const lookupNeighborhoodFromPoint = () => {
+    if (!position || batchMode || savingRef.current || locating || speciesCreating || confirmDiscard || catalogLoading || catalogError || addressLookup === 'loading') return;
+    // Consulta a posição existente e preserva a referência já informada.
+    addressEdited.current = { address: Boolean(form.address?.trim()), neighborhood: Boolean(form.bairro_id) };
+    setAddressOpen(true); setError(''); setAddressLookup('loading');
+    setLocationRevision(value => value + 1);
+  };
   const pick = point => {
     if (savingRef.current || confirmDiscard || speciesCreating) return;
     setNotice('');
@@ -138,9 +145,10 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
         if (cancelled) return;
         const address = result?.address?.trim() || '';
         const neighborhood = result?.suburb?.trim() || '';
+        if ((!addressEdited.current.address && address) || (!addressEdited.current.neighborhood && neighborhood)) setDirty(true);
         setForm(current => ({ ...current,
-          ...(!addressEdited.current.address ? { address } : {}),
-          ...(!addressEdited.current.neighborhood ? { neighborhood, bairro_id: '' } : {}),
+          ...(!addressEdited.current.address && address ? { address } : {}),
+          ...(!addressEdited.current.neighborhood && neighborhood ? { neighborhood, bairro_id: '' } : {}),
         }));
         setAddressLookup(address && neighborhood ? 'success' : address || neighborhood ? 'partial' : 'failed');
       } catch {
@@ -243,10 +251,12 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
                 <div id="tree-entry-address-fields" className="tree-entry-address-body space-y-3">
                 <Field label="Endereço / referência"><Input maxLength={300} value={form.address || ''} onChange={event => change('address', event.target.value)} placeholder="Rua, número ou praça" /></Field>
                 <Field label="Bairro"><select disabled={catalogLoading || !!catalogError} className={selectClass} value={form.bairro_id || ''} onChange={event => { change('bairro_id', event.target.value); change('neighborhood', catalogs.neighborhoods.find(item => item.id === event.target.value)?.name || ''); }}><option value="">Não identificado</option>{catalogs.neighborhoods.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+                {!form.bairro_id && <div className="space-y-1.5"><Button type="button" variant="outline" size="sm" className="h-auto min-h-11 w-full gap-2 whitespace-normal text-left" disabled={!position || saving || locating || speciesCreating || confirmDiscard || catalogLoading || !!catalogError || addressLookup === 'loading'} onClick={lookupNeighborhoodFromPoint}>{addressLookup === 'loading' ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <MapPin className="h-4 w-4 shrink-0" />}Buscar bairro pelo ponto</Button><p className="text-xs text-muted-foreground">Usa a localização já marcada no mapa para identificar o bairro.</p></div>}
                 <p role="status" className="flex items-center gap-2 text-xs leading-relaxed text-muted-foreground">
                   {addressLookup === 'loading' && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />}
                   {addressLookup === 'loading' ? 'Buscando rua e bairro pela posição do mapa…'
-                    : addressLookup === 'failed' ? 'Não foi possível identificar o endereço. Informe a referência e selecione o bairro.'
+                    : addressLookup === 'failed' ? 'Não foi possível identificar o bairro ou endereço deste ponto. Tente novamente ou selecione o bairro manualmente.'
+                    : addressLookup !== 'idle' && form.neighborhood && !form.bairro_id && !catalogLoading ? `O bairro “${form.neighborhood}” retornado pela busca não está no cadastro desta cidade. Selecione o bairro manualmente.`
                     : addressLookup === 'partial' ? 'Localização consultada. Complete os campos que não foram identificados.'
                     : addressLookup === 'success' ? 'Rua e bairro preenchidos pela localização. Você pode ajustar os campos.'
                     : 'Marque um ponto no mapa para preencher rua e bairro automaticamente.'}

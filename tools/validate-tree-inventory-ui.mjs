@@ -27,6 +27,7 @@ const stubs = {
     const delay=window.nextAddressDelay||20;window.nextAddressDelay=0;const fail=window.failAddress;
     await new Promise(resolve=>setTimeout(resolve,delay));
     if(fail)return null;
+    if(window.addressResult)return window.addressResult;
     if(window.batchAddressMode)return {address:'Rua do pin '+point.lat.toFixed(5)+','+point.lng.toFixed(5),suburb:point.lat < window.batchSplitLatitude?'Três Marias':'Centro'};
     return {address:point.lat < -8.6005?'Rua Nova':'Rua Joaquim Marques de Sá',suburb:point.lat < -8.6005?'Três Marias':'Centro'};
   }`,
@@ -396,9 +397,7 @@ try {
       assert.ok(await evaluate('document.querySelector(".tree-profile-history-disclosure").open'));
       await click('Adicionar foto');await waitFor('document.querySelector(".tree-entry-dialog")?.dataset.mobileStep==="1"');
       await evaluate(`document.querySelector('button[aria-label="Fechar cadastro"]').click()`);await waitFor('!document.querySelector(".tree-entry-dialog")');
-      await tap('button[aria-label="Mais opções da árvore"]');await waitFor('document.querySelector("[role=menu]")');
-      assert.ok(await evaluate('document.querySelector("[role=menu]").innerText.includes("Baixar QR Code para impressão")'));
-      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      assert.ok(await evaluate('(()=>{const qr=document.querySelector(".tree-profile-qr-action");const button=qr.querySelector("button").getBoundingClientRect();return getComputedStyle(qr).display!=="none"&&button.height>=44&&qr.innerText.includes("Baixar PDF")&&qr.innerText.includes("PDF A5")})()'),'Download de QR Code visível na página, com formato indicado');
       await navigate('?detail&photo');await waitFor('document.querySelector(".tree-profile-photo img")');
       assert.ok(await evaluate('document.querySelector(".tree-profile-photo").getBoundingClientRect().height<=190'));
       await click('Ver imagem completa');await waitFor('document.querySelector(".tree-profile-photo-dialog img")');
@@ -491,10 +490,24 @@ try {
       await select('Situação','living');await select('Bairro','unidentified');await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
       await click('Lista');await waitFor('document.querySelector("article")');assert.ok(await evaluate('document.querySelector("article").innerText.includes("AR3")'));
       await click('Editar');await waitFor('document.querySelector(".tree-entry-dialog select")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
-      await choose('Bairro','b1');
+      assert.equal(await evaluate('(window.addressRequests||[]).length'),0,'Abrir edição preserva o endereço sem consulta automática');
+      await input('Endereço / referência','Referência conferida');
+      await evaluate('window.failAddress=true');await click('Buscar bairro pelo ponto');
+      await waitFor('document.querySelector(".tree-entry-address [role=status]").innerText.includes("Não foi possível identificar")');
+      assert.equal(await addressValue(),'Referência conferida');assert.equal(await fieldValue('Bairro'),'');
+      await evaluate('window.failAddress=false;window.addressResult={address:"Rua retornada",suburb:"Bairro sem cadastro"}');
+      await click('Buscar bairro pelo ponto');await waitFor('document.querySelector(".tree-entry-address [role=status]").innerText.includes("não está no cadastro desta cidade")');
+      assert.equal(await fieldValue('Bairro'),'');assert.equal(await addressValue(),'Referência conferida');
+      await evaluate('delete window.addressResult;window.nextAddressDelay=500');await click('Buscar bairro pelo ponto');
+      assert.ok(await evaluate('[...document.querySelectorAll(".tree-entry-address button")].find(el=>el.textContent.includes("Buscar bairro pelo ponto")).disabled'));
+      await input('Endereço / referência','Referência ajustada durante a busca');
+      await waitFor('document.querySelector(".tree-entry-address select").value==="b1"');
+      assert.equal(await addressValue(),'Referência ajustada durante a busca');
+      assert.ok(await evaluate('window.addressRequests.length===3&&window.addressRequests.every(point=>point.lat===-8.599&&point.lng===-38.571)'),'Busca usa coordenadas existentes sem mover a árvore');
+      await capture('tree-neighborhood-point-'+width);
       if(width<768){await click('Continuar');await click('Revisar');await click('Salvar alterações');}else await click('Salvar árvore');
       await waitFor('!document.querySelector(".tree-entry-dialog")');
-      assert.ok(await evaluate('window.writes.some(row=>row.table==="city_trees"&&row.payload.bairro_id==="b1")'));
+      assert.ok(await evaluate('window.writes.some(row=>row.table==="city_trees"&&row.payload.bairro_id==="b1"&&row.payload.latitude===-8.599&&row.payload.longitude===-38.571&&row.payload.address==="Referência ajustada durante a busca")'));
       await navigate('');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
       await click('Cadastrar em sequência');await waitFor('document.querySelectorAll(".tree-map-existing").length===2&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
       await evaluate('void window.testMap.fire("click",{latlng:{lat:-8.597,lng:-38.574}})');await waitFor('document.body.innerText.includes("até 3 metros")');
@@ -516,8 +529,8 @@ try {
       assert.ok(await evaluate('document.body.innerText.includes("Pau-d’arco")&&document.body.innerText.includes("Com restrições")&&document.body.innerText.includes("Conferir espaço para a copa.")'));
       await send('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:out});
       await fs.rm(path.join(out,'arvore-AR1-qrcode.pdf'),{force:true});
-      if(width<768){await tap('button[aria-label="Mais opções da árvore"]');await waitFor('document.querySelector("[role=menu]")');}
-      await click('Baixar QR Code para impressão');await waitFor('!document.querySelector("[data-testid=tree-page] button:disabled")');
+      await click('Baixar PDF');await waitFor('!document.querySelector("[data-testid=tree-page] button:disabled")');
+      assert.ok(await evaluate('!document.body.innerText.includes("Download iniciado:")'));
       await pause(500);const pdf=await fs.readFile(path.join(out,'arvore-AR1-qrcode.pdf'));assert.ok(pdf.subarray(0,5).toString()==='%PDF-');assert.ok(pdf.toString().includes('/arborizacao/arvore/t1'));
       assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
       await capture('tree-qr-'+width);

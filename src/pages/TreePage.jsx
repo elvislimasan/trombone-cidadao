@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Clock3, FileText, Heart, Home, Image as ImageIcon, Info, Landmark, Leaf, Loader2, Map, MapPin, MessageSquare, MoreHorizontal, Pencil, QrCode, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Clock3, Download, FileText, Heart, Home, Image as ImageIcon, Info, Landmark, Leaf, Loader2, Map, MapPin, MessageSquare, Pencil, QrCode, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger, FormDialogContent } from '@/components/ui/dialog';
@@ -15,7 +15,6 @@ import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, TREE_SERVICES
 import { loadTreeHistory, treeTimeline, uploadTreePhoto } from '@/lib/treeInventory';
 import { SIDEWALK_SUITABILITY, withTreeSpecies } from '@/lib/treeSpecies';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const dateLabel = value => value ? new Date(value.length === 10 ? `${value}T12:00:00` : value).toLocaleDateString('pt-BR') : 'Não informada';
 const selectClass = 'h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm';
@@ -80,7 +79,10 @@ function TreeContent({ id }) {
   const downloadQr = async () => {
     if (downloadingQr) return;
     setDownloadingQr(true); setNotice('');
-    try { const { downloadTreeQrCode } = await import('@/lib/treeQrCode'); await downloadTreeQrCode(tree, city?.name); }
+    try {
+      const { downloadTreeQrCode } = await import('@/lib/treeQrCode');
+      await downloadTreeQrCode(tree, city?.name);
+    }
     catch { setNotice('Não foi possível baixar o QR Code. Tente novamente.'); }
     finally { setDownloadingQr(false); }
   };
@@ -91,7 +93,7 @@ function TreeContent({ id }) {
   return <main className="page-shell-fluid tree-profile-page" data-testid="tree-page">
     <Helmet><title>{treeLabel(tree)} — Arborização</title><meta name="description" content={`Consulte o cadastro de ${treeLabel(tree)}, sua localização e o histórico de cuidados e solicitações de serviço.`} /></Helmet>
     <nav className="tree-profile-breadcrumb" aria-label="Navegação estrutural"><Link to="/" aria-label="Início"><Home className="h-3.5 w-3.5" /></Link><ChevronRight aria-hidden="true" /><Link to="/mapa-arborizacao">Mapa de arborização</Link><ChevronRight aria-hidden="true" /><span>Inventário de arborização</span><ChevronRight aria-hidden="true" /><span>{city?.name || 'Cidade'}</span><ChevronRight aria-hidden="true" /><span aria-current="page">{treeLabel(tree)}</span></nav>
-    {mobile && <div className="tree-profile-mobile-topbar"><Link to="/mapa-arborizacao"><ArrowLeft className="h-4 w-4" />Mapa de arborização</Link><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Mais opções da árvore" disabled={downloadingQr}>{downloadingQr ? <Loader2 className="h-5 w-5 animate-spin" /> : <MoreHorizontal className="h-5 w-5" />}</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={downloadingQr} onSelect={downloadQr}><QrCode className="mr-2 h-4 w-4" />Baixar QR Code para impressão</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>}
+    {mobile && <div className="tree-profile-mobile-topbar"><Link to="/mapa-arborizacao"><ArrowLeft className="h-4 w-4" />Mapa de arborização</Link></div>}
     <header className="tree-profile-header">
       <div className="tree-profile-heading"><div className="tree-profile-identity"><span className="tree-profile-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><h1>{treeLabel(tree)}</h1><p className="tree-profile-subtitle">{[city?.name, tree.neighborhood].filter(Boolean).join(' · ') || 'Localização não informada'}</p>{tree.scientific_name && <p className="tree-profile-scientific">{tree.scientific_name}</p>}</div></div><div className="tree-profile-badges" aria-label="Características da árvore"><span className={`tree-profile-badge tree-profile-badge--${tree.status}`}><Heart aria-hidden="true" />{TREE_STATUS[tree.status]?.label || 'Situação não informada'}</span>{TREE_ORIGINS[tree.origin] && <span className="tree-profile-badge"><Leaf aria-hidden="true" />{TREE_ORIGINS[tree.origin]}</span>}{TREE_ACTIONS[tree.maintenance_action] && (!mobile || tree.maintenance_action !== 'nenhuma') && <span className="tree-profile-badge"><Trees aria-hidden="true" />{TREE_ACTIONS[tree.maintenance_action]}</span>}</div></div>
       {canManage && <div className="tree-profile-header-actions">
@@ -114,8 +116,8 @@ function TreeContent({ id }) {
         </Dialog>
       </div>}
     </header>
-    {notice && <p role="status" className="rounded-xl border p-3 text-sm">{notice}</p>}
-    <div className="tree-profile-qr-action mb-4 flex flex-wrap gap-2"><Button variant="outline" disabled={downloadingQr} onClick={downloadQr}>{downloadingQr ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}Baixar QR Code para impressão</Button></div>
+    {notice && <p role="status" className="break-words rounded-xl border p-3 text-sm">{notice}</p>}
+    <section className="tree-profile-qr-action" aria-labelledby="tree-qr-title"><span className="tree-profile-qr-icon"><QrCode aria-hidden="true" /></span><div className="min-w-0"><h2 id="tree-qr-title">QR Code da árvore</h2><p>PDF A5 · Para impressão</p></div><Button type="button" variant="outline" disabled={downloadingQr} onClick={downloadQr} aria-label="Baixar QR Code da árvore em PDF">{downloadingQr ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}{downloadingQr ? 'Gerando…' : 'Baixar PDF'}</Button></section>
     <div className="tree-profile-grid">
       <div className="tree-profile-column">
       <section className="tree-profile-card tree-profile-overview" aria-label="Dados da árvore">
