@@ -13,6 +13,8 @@ import { useCity } from '@/contexts/CityContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { enabledMunicipalCategories } from '@/lib/municipalCategories';
+import { createMunicipalAccount } from '@/lib/municipalAccount';
+import MunicipalCredentials from '@/components/municipality/MunicipalCredentials';
 
 const cityName = (city) => city ? `${city.name}${city.states?.uf ? ` - ${city.states.uf}` : ''}` : '—';
 const PAGE_SIZE = 8;
@@ -44,7 +46,7 @@ export default function ManageMunicipalitiesPage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(null);
   const [form, setForm] = useState({ cityId: '', name: '', email: '' });
-  const [generatedLink, setGeneratedLink] = useState('');
+  const [credentials, setCredentials] = useState(null);
   const [tab, setTab] = useState('municipalities');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -129,24 +131,22 @@ export default function ManageMunicipalitiesPage() {
     load();
   };
 
-  const createInvite = async (event) => {
+  const createAccess = async (event) => {
     event.preventDefault();
-    if (!form.cityId || !form.name.trim() || !form.email.trim()) return;
+    if (!form.cityId || !form.name.trim() || !form.email.trim() || working === 'invite' || credentials) return;
     setWorking('invite');
-    const { data, error } = await supabase.rpc('criar_convite_administrador_prefeitura', {
-      p_city_id: Number(form.cityId),
-      p_prefeitura_nome: form.name.trim(),
-      p_email: form.email.trim().toLowerCase(),
-    });
-    setWorking(null);
-    if (error) {
-      showAppError({ title: 'Não foi possível gerar o convite', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      const data = await createMunicipalAccount({
+        kind: 'administrator', city_id: Number(form.cityId),
+        name: form.name.trim(), email: form.email.trim().toLowerCase(),
+      });
+      setCredentials(data);
+      load();
+    } catch (error) {
+      showAppError({ title: 'Não foi possível criar o acesso', description: error.message, variant: 'destructive' });
+    } finally {
+      setWorking(null);
     }
-    const link = `${window.location.origin}/prefeitura/convite/${data.token}`;
-    setGeneratedLink(link);
-    setForm({ cityId: '', name: '', email: '' });
-    load();
   };
 
   const copyLink = async (link) => {
@@ -202,7 +202,7 @@ export default function ManageMunicipalitiesPage() {
     <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-content-secondary hover:text-content-primary"><ArrowLeft className="h-4 w-4" /> Voltar ao painel administrativo</Link>
     <header className="mt-6 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
       <div className="min-w-0"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">Cadastros institucionais</p><h1 className="mt-1 text-2xl font-black sm:text-3xl">Prefeituras e acessos</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-content-secondary">Gerencie os cadastros municipais, analise solicitações e acompanhe os convites de acesso.</p></div>
-      <Button className="shrink-0 gap-2" onClick={() => { setGeneratedLink(''); setInviteOpen(true); }}><Mail className="h-4 w-4" /> Convidar administrador</Button>
+      <Button className="shrink-0 gap-2" onClick={() => { setCredentials(null); setForm({ cityId: '', name: '', email: '' }); setInviteOpen(true); }}><Mail className="h-4 w-4" /> Criar acesso de administrador</Button>
     </header>
 
     <Tabs value={tab} onValueChange={(value) => { setTab(value); setQuery(''); setStatus('all'); setPage(1); }} className="mt-7">
@@ -251,16 +251,18 @@ export default function ManageMunicipalitiesPage() {
 
     <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-content-tertiary"><Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> A operação das solicitações e dos serviços continua no painel de cada prefeitura.</p>
 
-    <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+    <Dialog open={inviteOpen} onOpenChange={(open) => { if (working !== 'invite') { setInviteOpen(open); if (!open) setCredentials(null); } }}>
       <FormDialogContent>
-        <DialogHeader><DialogTitle>Convidar administrador municipal</DialogTitle><DialogDescription>Informe a cidade e o responsável pelo acesso à prefeitura.</DialogDescription></DialogHeader>
-        <form className="grid gap-4" onSubmit={createInvite}>
+        <DialogHeader><DialogTitle>Criar acesso de administrador municipal</DialogTitle><DialogDescription>Gere uma senha temporária. O usuário completa o cadastro no primeiro acesso e deverá trocar a senha após 24 horas da geração.</DialogDescription></DialogHeader>
+        {!credentials && <form className="grid gap-4" onSubmit={createAccess}>
+          <fieldset disabled={working === 'invite' || Boolean(credentials)} className="grid min-w-0 gap-4">
           <div><Label id="admin-municipality-city-label">Cidade</Label><div className="mt-1" role="group" aria-labelledby="admin-municipality-city-label"><Combobox options={cityOptions} value={form.cityId} onChange={(value) => setForm((current) => ({ ...current, cityId: value }))} placeholder="Selecione a cidade" searchPlaceholder="Buscar cidade..." notFoundText="Cidade não encontrada." /></div></div>
           <div><Label htmlFor="admin-municipality-name">Nome da prefeitura</Label><Input id="admin-municipality-name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Prefeitura Municipal de..." /></div>
           <div><Label htmlFor="admin-municipality-email">E-mail do administrador municipal</Label><Input id="admin-municipality-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="servidor@prefeitura.gov.br" /></div>
-          <Button type="submit" disabled={working === 'invite' || !form.cityId || !form.name.trim() || !form.email.trim()}>{working === 'invite' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Gerar convite</Button>
-        </form>
-        {generatedLink && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-sm font-bold text-emerald-900">Convite gerado</p><p className="mt-1 break-all text-xs text-emerald-900">{generatedLink}</p><Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => copyLink(generatedLink)}><Copy className="mr-2 h-3.5 w-3.5" /> Copiar link</Button></div>}
+          <Button type="submit" disabled={working === 'invite' || Boolean(credentials) || !form.cityId || !form.name.trim() || !form.email.trim()}>{working === 'invite' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar acesso e gerar senha</Button>
+          </fieldset>
+        </form>}
+        <MunicipalCredentials credentials={credentials} />
       </FormDialogContent>
     </Dialog>
 

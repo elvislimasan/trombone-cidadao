@@ -685,6 +685,23 @@ try {
       await validateRegistration(width);
       results.push({width,unifiedRegistration:true,speciesModal:true,illustrationFallback:true,exitReturnsToMap:true});
     }
+  }else if(process.argv.includes('--species-filter')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate(); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await openFilters();
+      await select('Espécie','s1'); await click('Aplicar filtros (1)');
+      await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-pin").length'),1);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Filtro de espécie com rolagem horizontal');
+      if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=arborization-page]").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'),'Margens externas excederam 64px');
+      await capture('species-filter-'+width);
+      await openFilters(); await select('Espécie','unidentified'); await click('Aplicar filtros (0)');
+      await waitFor('document.body.innerText.includes("Nenhuma árvore encontrada")');
+      await evaluate('document.querySelector(".arborization-reset-filters").click()');
+      await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      results.push({width,speciesSelection:true,reset:true,noOverflow:true});
+    }
   }else if(process.argv.includes('--summary')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);

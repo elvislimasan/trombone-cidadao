@@ -69,12 +69,13 @@ export function treePayload(form, cityId) {
   };
 }
 
-export function filterTrees(trees, { search = '', status = 'all', origin = 'all', neighborhood = 'all', action = 'all', plantedBy = 'all', plantedYear = '', historic = 'all', centenarian = 'all', minAge = '', maxAge = '' } = {}) {
+export function filterTrees(trees, { search = '', species = 'all', status = 'all', origin = 'all', neighborhood = 'all', action = 'all', plantedBy = 'all', plantedYear = '', historic = 'all', centenarian = 'all', minAge = '', maxAge = '' } = {}) {
   const term = normalize(search).trim();
   const year = new Date().getFullYear();
   const validBirthYear = tree => tree.estimated_birth_year != null && Number.isInteger(Number(tree.estimated_birth_year)) && Number(tree.estimated_birth_year) > 0 && Number(tree.estimated_birth_year) <= year;
   return trees.filter(tree => (status === 'all' || (status === 'living' ? tree.status !== 'removida' : tree.status === status))
     && (origin === 'all' || tree.origin === origin)
+    && (species === 'all' || (species === 'unidentified' ? !tree.species_id : String(tree.species_id) === species))
     && (neighborhood === 'all' || (neighborhood === 'unidentified' ? !tree.bairro_id && !tree.neighborhood?.trim() : tree.neighborhood === neighborhood))
     && (plantedBy === 'all' || tree.planted_by === plantedBy)
     && (!plantedYear || tree.planted_at?.slice(0, 4) === plantedYear)

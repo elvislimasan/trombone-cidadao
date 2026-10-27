@@ -35,6 +35,15 @@ test('indicadores excluem removidas das árvores nativas vivas, mantendo reposi�
   assert.deepEqual(treeStats(trees), { total: 3, living: 2, native: 1, risk: 1, pending: 2 });
 });
 
+test('seleção de espécie usa o vínculo do catálogo e combina com os demais filtros', () => {
+  const inventory = trees.map((tree, index) => ({ ...tree, species_id: index < 2 ? 'species-ipe' : null }));
+  assert.deepEqual(filterTrees(inventory, { species: 'species-ipe' }).map(tree => tree.id), ['1', '2']);
+  assert.deepEqual(filterTrees(inventory, { species: 'species-ipe', status: 'risco', neighborhood: 'Centro' }).map(tree => tree.id), ['2']);
+  assert.deepEqual(filterTrees(inventory, { species: 'unidentified' }).map(tree => tree.id), ['3']);
+  assert.equal(filterTrees(inventory, { species: 'missing' }).length, 0);
+  assert.equal(filterTrees(inventory, { species: 'all' }).length, 3);
+});
+
 test('CSV preserva acentos, aspas e quebras, identifica cidades e neutraliza fórmulas', () => {
   const csv = treesCsv([{ ...trees[0], common_name: ' =HYPERLINK("x")', notes: 'Linha 1\nLinha 2;teste' }], [{ id: 64, name: 'Floresta' }]);
   assert.ok(csv.startsWith('\uFEFF'));

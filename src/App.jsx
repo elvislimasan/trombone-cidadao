@@ -106,6 +106,7 @@ import ManageMastersPage from '@/pages/admin/ManageMastersPage';
 import AmbassadorProfilePage from '@/pages/admin/AmbassadorProfilePage';
 import CompleteProfilePage from '@/pages/CompleteProfilePage';
 import { shouldCompleteProfile } from '@/lib/profileOnboarding';
+import MunicipalAccountGate from '@/components/municipality/MunicipalAccountGate';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
@@ -1027,7 +1028,7 @@ function AppShell() {
 export default function App() {
   return (
     <NativeUIModeProvider>
-      <PermissionsProvider><AppShell /></PermissionsProvider>
+      <MunicipalAccountGate><PermissionsProvider><AppShell /></PermissionsProvider></MunicipalAccountGate>
     </NativeUIModeProvider>
   );
 }

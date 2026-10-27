@@ -25,7 +25,7 @@ import { treeInventoryHighlights, withTreeSpecies } from '@/lib/treeSpecies';
 import { allTreeRows, treeNeighborhoodCounts, treeRequestCounts, uploadTreePhoto } from '@/lib/treeInventory';
 import { treeMaintenancePayload, treeMaintenanceSelection } from '@/lib/treeMaintenance';
 
-const EMPTY_FILTERS = { search: '', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
+const EMPTY_FILTERS = { search: '', species: 'all', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
 const selectClass = 'arborization-select';
 const COMPACT_FILTERS_QUERY = '(max-width: 979px)';
 
@@ -86,6 +86,11 @@ export function ArborizationContent({ management, embedded = false }) {
   const [counts, setCounts] = useState(null);
   const [summaryError, setSummaryError] = useState('');
   useEffect(() => {
+    setFilters(current => ({ ...current, species: 'all' }));
+    setDraftFilters(current => ({ ...current, species: 'all' }));
+    setPage(1); setSelected(null);
+  }, [cityId]);
+  useEffect(() => {
     const media = window.matchMedia(COMPACT_FILTERS_QUERY);
     const update = () => { setCompactFilters(media.matches); if (!media.matches) setFilterDialogOpen(false); };
     update();
@@ -132,6 +137,11 @@ export function ArborizationContent({ management, embedded = false }) {
   const treesWithImages = useMemo(() => {
     const catalog = new Map(speciesCatalog.map(species => [species.id, species]));
     return trees.map(tree => withTreeSpecies(tree, catalog.get(tree.species_id)));
+  }, [trees, speciesCatalog]);
+  const speciesOptions = useMemo(() => {
+    const options = new Map(speciesCatalog.map(item => [String(item.id), item]));
+    for (const tree of trees) if (tree.species_id && !options.has(String(tree.species_id))) options.set(String(tree.species_id), { id: tree.species_id, common_name: tree.common_name, scientific_name: tree.scientific_name });
+    return [...options.values()].sort((a, b) => a.common_name.localeCompare(b.common_name, 'pt-BR'));
   }, [trees, speciesCatalog]);
   const filtered = useMemo(() => filterTrees(treesWithImages, filters).map(tree => ({ ...tree, service_requests: counts ? Number(counts.get(tree.id)?.total || 0) : null })), [treesWithImages, filters, counts]);
   const neighborhoodCounts = useMemo(() => treeNeighborhoodCounts(filtered, catalogNeighborhoods), [filtered, catalogNeighborhoods]);
@@ -245,6 +255,7 @@ export function ArborizationContent({ management, embedded = false }) {
         <div className="arborization-filter-heading"><h2>Filtros avançados</h2>{!compactFilters && <Button type="button" variant="ghost" size="icon" aria-label="Recolher filtros avançados" onClick={() => setFiltersOpen(false)}><ChevronsLeft className="h-4 w-4" /></Button>}</div>
         <div className="arborization-filter-fields" id="arborization-filter-fields">
           {[
+            ['species', 'Espécie', [['unidentified', 'Não identificada / sem vínculo no catálogo'], ...speciesOptions.map(item => [String(item.id), `${item.common_name}${item.scientific_name ? ` — ${item.scientific_name}` : ''}`])]],
             ['origin', 'Origem', Object.entries(TREE_ORIGINS)],
             ['action', 'Manejo', [['pending', 'Todos os manejos pendentes'], ...Object.entries(TREE_ACTIONS)]],
             ['plantedBy', 'Responsável pelo plantio', Object.entries(TREE_PLANTED_BY)],

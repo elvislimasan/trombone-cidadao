@@ -1,4 +1,6 @@
 import MunicipalStaffResponsibilities from '@/components/municipality/MunicipalStaffResponsibilities';
+import MunicipalCredentials from '@/components/municipality/MunicipalCredentials';
+import { createMunicipalAccount } from '@/lib/municipalAccount';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useOutletContext } from 'react-router-dom';
@@ -63,7 +65,7 @@ export default function MunicipalityTeamPage() {
   const [email, setEmail] = useState('');
   const [inviteAccess, setInviteAccess] = useState(EMPTY_ACCESS);
   const [working, setWorking] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
+  const [credentials, setCredentials] = useState(null);
   const [inviteError, setInviteError] = useState('');
 
   const load = useCallback(async ({ quiet = false } = {}) => {
@@ -106,6 +108,7 @@ export default function MunicipalityTeamPage() {
     const firstError = channelResult.error || memberResult.error || inviteResult.error || accessResult.error || officialsResult.error;
     if (firstError) {
       showAppError({ title: 'Não foi possível carregar a equipe', description: firstError.message, variant: 'destructive' });
+      if (quiet) { setLoading(false); return; }
       setLoadError(firstError.message);
       setChannels([]); setMembers([]); setInvites([]); setPublicOfficials([]); setLoading(false);
       return;
@@ -126,7 +129,7 @@ export default function MunicipalityTeamPage() {
 
   useEffect(() => { load(); return () => { loadVersion.current += 1; }; }, [load]);
   useEffect(() => {
-    setInviteOpen(false); setAssignOpen(false); setSelected(null); setInviteLink(''); setEmail('');
+    setInviteOpen(false); setAssignOpen(false); setSelected(null); setCredentials(null); setEmail('');
     setInviteChannelId(''); setInviteAccess(EMPTY_ACCESS); setInviteError(''); setChannelId('all');
     setAssignUserId(''); setAssignChannelId(''); setAssignAccess(EMPTY_ACCESS); setAssignError('');
     setWorking(false); setSaving(false);
@@ -152,28 +155,22 @@ export default function MunicipalityTeamPage() {
   const assignedToSelectedChannel = new Set(members.filter(member => String(member.canal_id) === String(assignChannelId)).map(member => String(member.user_id)));
   const assignableOfficials = publicOfficials.filter(candidate => !assignedToSelectedChannel.has(String(candidate.user_id)));
 
-  const createInvite = async (event) => {
+  const createAccess = async (event) => {
     event.preventDefault();
-    if (!inviteChannelId || !email.trim() || !inviteAccess.cargos.length || working) return;
-    setWorking(true); setInviteError(''); setInviteLink('');
+    if (!inviteChannelId || !email.trim() || !inviteAccess.cargos.length || working || credentials) return;
+    setWorking(true); setInviteError(''); setCredentials(null);
     const invitedScope = scopeKey;
     try {
-      const { data, error } = await supabase.rpc('convidar_funcionario_secretaria', {
-        p_prefeitura: scopeId, p_canal: inviteChannelId,
-        p_email: email.trim().toLowerCase(), p_cargos: inviteAccess.cargos,
+      const data = await createMunicipalAccount({
+        kind: 'staff', prefeitura_id: scopeId, channel_id: inviteChannelId,
+        email: email.trim().toLowerCase(), roles: inviteAccess.cargos,
       });
       if (scope.current !== invitedScope) return;
-      if (error) throw error;
-      if (!data?.token) throw new Error('O servidor não retornou o link do convite. Atualize o acesso e tente novamente.');
-      setInviteLink(`${window.location.origin}/prefeitura/convite/${data.token}`);
-      setEmail('');
+      setCredentials(data);
       await load({ quiet: true });
     } catch (failure) {
       if (scope.current !== invitedScope) return;
-      const message = failure.message || 'Não foi possível gerar o convite. Confira sua conexão e tente novamente.';
-      setInviteError(/execução de campo habilitada/.test(message)
-        ? channels.find(channel => channel.id === inviteChannelId)?.categorias?.length === 0 ? 'Vincule categorias à secretaria antes de convidar um executor.' : 'O banco ainda não habilitou executores pelas categorias da secretaria. Aplique a migração 379 e atualize o acesso antes de gerar este convite.'
-        : ['42883', 'PGRST202'].includes(failure.code) ? 'O banco precisa ser atualizado para gerar convites por cargos. Aplique as migrações do painel municipal.' : message);
+      setInviteError(failure.message || 'Não foi possível criar o acesso. Confira sua conexão e tente novamente.');
     } finally { if (scope.current === invitedScope) setWorking(false); }
   };
 
@@ -247,7 +244,7 @@ export default function MunicipalityTeamPage() {
     <>
       <Helmet><title>Equipe | Painel da Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
       <div className="page-shell-fluid py-6 sm:py-8">
-        <MunicipalPageHeader eyebrow="Administração municipal" title="Equipe e acessos" description="Vincule contas Órgão Público existentes ou convide novos servidores, depois atribua as secretarias e os cargos." action={channels.length > 0 && <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => { setAssignError(''); setAssignOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Vincular conta existente</Button><Button className="w-full sm:w-auto" onClick={() => { setInviteAccess(EMPTY_ACCESS); setInviteError(''); setInviteLink(''); setEmail(''); setInviteOpen(true); }}><Mail className="mr-2 h-4 w-4" />Convidar funcionário</Button></div>} />
+        <MunicipalPageHeader eyebrow="Administração municipal" title="Equipe e acessos" description="Vincule contas Órgão Público existentes ou crie acessos com senha temporária e atribua as secretarias e os cargos." action={channels.length > 0 && <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => { setAssignError(''); setAssignOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Vincular conta existente</Button><Button className="w-full sm:w-auto" onClick={() => { setInviteAccess(EMPTY_ACCESS); setInviteError(''); setCredentials(null); setEmail(''); setInviteOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Criar acesso de funcionário</Button></div>} />
 
         {channels.length === 0 ? (
           <section className="mt-6 rounded-2xl border border-dashed border-edge-strong bg-surface-raised p-10 text-center">
@@ -268,7 +265,7 @@ export default function MunicipalityTeamPage() {
                     setAssignAccess(nextChannel && !(nextChannel.categorias || []).length ? { cargos: ['inventario'] } : EMPTY_ACCESS);
                   }} className="mt-1 h-10 w-full rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map(channel => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
                   <div><Label htmlFor="assign-user">Funcionário Órgão Público</Label><select id="assign-user" required disabled={working || !assignChannelId} value={assignUserId} onChange={event => setAssignUserId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione um funcionário</option>{assignableOfficials.map(candidate => <option key={candidate.user_id} value={candidate.user_id}>{candidate.name || 'Perfil sem nome'}{candidate.phone ? ` · ${candidate.phone}` : ''}</option>)}</select>
-                    {assignChannelId && assignableOfficials.length === 0 && <p className="mt-1 text-xs text-content-secondary">Não há contas Órgão Público disponíveis para esta secretaria. Novos servidores podem ser adicionados por convite.</p>}
+                    {assignChannelId && assignableOfficials.length === 0 && <p className="mt-1 text-xs text-content-secondary">Não há contas Órgão Público disponíveis para esta secretaria. Crie um acesso com senha temporária para novos servidores.</p>}
                   </div>
                   <MunicipalStaffResponsibilities value={assignAccess} onChange={setAssignAccess} disabled={working} roles={assignRoles} />
                   {assignError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{assignError}</p>}
@@ -277,33 +274,27 @@ export default function MunicipalityTeamPage() {
               </section>
             </MunicipalDrawer>
 
-            <MunicipalDrawer open={inviteOpen} onClose={() => setInviteOpen(false)} busy={working} title="Convidar funcionário" description={`Município: ${municipality?.cidade?.name || municipality?.nome}.`}>
+            <MunicipalDrawer open={inviteOpen} onClose={() => { if (!working) { setInviteOpen(false); setCredentials(null); } }} busy={working} title="Criar acesso de funcionário" description={`Município: ${municipality?.cidade?.name || municipality?.nome}.`}>
             <section className="self-start rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><Mail className="h-5 w-5" /></div>
                 <div>
-                  <h2 className="font-black">Convidar funcionário</h2>
+                  <h2 className="font-black">Acesso com senha temporária</h2>
                   <p className="mt-1 text-xs leading-5 text-content-tertiary">Selecione a secretaria à qual o funcionário será vinculado.</p>
                 </div>
               </div>
 
-              <form onSubmit={createInvite} className="mt-5 grid gap-4">
-                <div className="rounded-xl bg-surface-subtle p-3 text-sm"><p className="font-semibold">{municipality?.cidade?.name || municipality?.nome}{municipality?.cidade?.states?.uf ? ` · ${municipality.cidade.states.uf}` : ''}</p><p className="mt-1 text-xs text-content-secondary">Cidade definida pela prefeitura ativa. Ao aceitar, o funcionário será cadastrado como Órgão Público.</p></div>
-                <div><Label htmlFor="invite-channel">Secretaria do funcionário</Label><select id="invite-channel" required disabled={working} value={inviteChannelId} onChange={(event) => { const nextId = event.target.value; const nextChannel = channels.find(channel => String(channel.id) === String(nextId)); setInviteChannelId(nextId); setInviteLink(''); setInviteAccess(nextChannel && !(nextChannel.categorias || []).length ? { cargos: ['inventario'] } : EMPTY_ACCESS); }} className="mt-1 h-10 w-full min-w-0 rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map((channel) => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
-                <div><Label htmlFor="team-email">E-mail institucional</Label><Input id="team-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="servidor@prefeitura.gov.br" /></div>
-                <MunicipalStaffResponsibilities value={inviteAccess} onChange={setInviteAccess} disabled={working} roles={inviteRoles} />
+              {!credentials && <form onSubmit={createAccess} className="mt-5 grid gap-4">
+                <div className="rounded-xl bg-surface-subtle p-3 text-sm"><p className="font-semibold">{municipality?.cidade?.name || municipality?.nome}{municipality?.cidade?.states?.uf ? ` · ${municipality.cidade.states.uf}` : ''}</p><p className="mt-1 text-xs text-content-secondary">Conta Órgão Público vinculada à prefeitura ativa. Cadastro pessoal no primeiro acesso e troca obrigatória da senha após 24 horas da geração.</p></div>
+                <div><Label htmlFor="invite-channel">Secretaria do funcionário</Label><select id="invite-channel" required disabled={working || Boolean(credentials)} value={inviteChannelId} onChange={(event) => { const nextId = event.target.value; const nextChannel = channels.find(channel => String(channel.id) === String(nextId)); setInviteChannelId(nextId); setInviteAccess(nextChannel && !(nextChannel.categorias || []).length ? { cargos: ['inventario'] } : EMPTY_ACCESS); }} className="mt-1 h-10 w-full min-w-0 rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map((channel) => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
+                <div><Label htmlFor="team-email">E-mail institucional</Label><Input id="team-email" type="email" required disabled={working || Boolean(credentials)} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="servidor@prefeitura.gov.br" /></div>
+                <MunicipalStaffResponsibilities value={inviteAccess} onChange={setInviteAccess} disabled={working || Boolean(credentials)} roles={inviteRoles} />
 
                 {inviteError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{inviteError}</p>}
-                <Button type="submit" disabled={working || !inviteChannelId || !email.trim() || !inviteAccess.cargos.length}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Gerar convite</Button>
-              </form>
+                <Button type="submit" disabled={working || Boolean(credentials) || !inviteChannelId || !email.trim() || !inviteAccess.cargos.length}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar acesso e gerar senha</Button>
+              </form>}
 
-              {inviteLink && (
-                <div className="mt-4 rounded-xl border border-success-border bg-success-bg p-3">
-                  <p className="text-xs font-bold text-success-fg">Convite pronto</p>
-                  <p className="mt-1 break-all text-xs text-success-fg">{inviteLink}</p>
-                  <Button type="button" size="sm" variant="outline" className="mt-3 bg-surface-raised" onClick={() => copy(inviteLink)}><Copy className="mr-2 h-3.5 w-3.5" /> Copiar link</Button>
-                </div>
-              )}
+              <MunicipalCredentials credentials={credentials} />
 
               {pendingInvites.length > 0 && (
                 <div className="mt-6 border-t border-edge-subtle pt-5">

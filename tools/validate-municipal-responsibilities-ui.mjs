@@ -41,7 +41,7 @@ const stubs = {
     const linkedReport={report_id:'work-report',title:'Solicitação da praça',status:'pending'};const executionResults=[];
     const overviewReports=[{id:'r1',city_id:64,category_id:'poda',status:'pending',is_public:true,moderation_status:'approved',created_at:new Date().toISOString()},{id:'r2',city_id:64,category_id:'poda',status:'in-progress',is_public:false,moderation_status:'internal',created_by_municipality:'pref64',created_at:new Date().toISOString()},{id:'r3',city_id:64,category_id:'iluminacao',status:'pending',is_public:true,moderation_status:'approved',created_at:new Date().toISOString()}];window.overviewQueries=[];
     const memberships=[{papel:admin?'administrador':'colaborador',prefeitura}];
-    export const supabase={rpc(name,params){window.rpcCalls.push({name,params});let data=[];
+    export const supabase={functions:{async invoke(name,{body}){window.rpcCalls.push({name,params:body});return window.inviteFailure?{error:{context:{async json(){return {error:'A secretaria não possui execução de campo habilitada.'}}}}}:{data:{email:body.email,temporary_password:'Senha-temporaria-teste-123!',password_expires_at:new Date(Date.now()+86400000).toISOString()}};}},rpc(name,params){window.rpcCalls.push({name,params});let data=[];
       if(name==='municipal_execution_workspace')data={execution_contract:1,execution_activities:field?[{canal_id:canal.id,city_id:64,specialty,category_ids:canal.categorias.map(row=>row.category_id)}]:[],actor_user_id:mode==='wrong-session'?'previous-account':'worker',access_contract:2,category_channels:mappings.map(row=>({...row,city_id:64})),memberships,channels,accesses:admin?[]:[access],inventories:[],inventory_views:canal.id==='agri'&&!field?[{city_id:64,canal_id:'agri',module:'arborization'}]:[],execution_team:[]};
       if(name==='municipal_team_access')data=[{membro_id:'member1',access:{...access,cargos:['gestor']},asset_modules:[]}];
       if(name==='listar_emails_equipe_prefeitura')data=[{membro_id:'member1',email:'servidor@municipio.gov.br'}];
@@ -91,6 +91,23 @@ try {
   const results=[];
   for(const width of [390,1440,1920]){
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false},sessionId);
+    if(process.argv.includes('--temporary-access')){
+      await visit('admin','/prefeitura/equipe');await wait('document.body.innerText.includes("Equipe e acessos")');
+      await evaluate(`[...document.querySelectorAll('button')].find(el=>el.textContent.includes('Criar acesso de funcionário')).click()`);
+      await wait('document.querySelector("#team-email")');
+      await evaluate(`(()=>{const select=document.querySelector('#invite-channel');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'agri');select.dispatchEvent(new Event('change',{bubbles:true}));const email=document.querySelector('#team-email');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(email,'executor@municipio.gov.br');email.dispatchEvent(new Event('input',{bubbles:true}));[...document.querySelectorAll('[role=dialog] label')].find(el=>el.textContent.includes('Executor de campo')).querySelector('input').click();window.inviteFailure=true;})()`);
+      await evaluate('document.querySelector("[role=dialog] form").requestSubmit()');
+      await wait('document.querySelector("[role=dialog] [role=alert]")');
+      await evaluate('window.inviteFailure=false;document.querySelector("[role=dialog] form").requestSubmit()');
+      await wait('document.body.innerText.includes("Acesso criado")');
+      assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="create-municipal-account").at(-1).params.roles'),['executor']);
+      assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("24 horas")'));
+      assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("Senha-temporaria-teste-123!")'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Credenciais causaram rolagem horizontal');
+      const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,`temporary-access-${width}.png`),Buffer.from(shot.data,'base64'));
+      results.push({width,temporaryPassword:true,failedSavePreserved:true,roles:true,noOverflow:true});
+      continue;
+    }
     await visit('inventory','/prefeitura/visao-geral');
     await wait('document.querySelector("[data-testid=inventory-content]")');
     assert.equal(await evaluate('window.overviewQueries.length'),0,'Inventário consultou solicitações antes de abrir o mapa');
@@ -199,23 +216,26 @@ try {
     assert.ok(await evaluate('document.body.innerText.includes("Executor de campo")'),'Cargo de executor oculto em Agricultura');
     assert.equal(await evaluate('document.body.innerText.includes("Gerenciar ruas")'),false,'Concessão de módulo individual continuou no funcionário');
     await visit('admin','/prefeitura/equipe');await wait('document.body.innerText.includes("Equipe e acessos")');
-    await evaluate(`[...document.querySelectorAll('button')].find(el=>el.textContent.includes('Convidar funcionário')).click()`);
+    await evaluate(`[...document.querySelectorAll('button')].find(el=>el.textContent.includes('Criar acesso de funcionário')).click()`);
     await wait('document.querySelector("#team-email")');
     assert.equal(await evaluate('document.querySelectorAll("[role=dialog] input[type=checkbox]:checked").length'),0,'Convite começou com cargo marcado');
     await evaluate(`(()=>{const select=document.querySelector('#invite-channel');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'agri');select.dispatchEvent(new Event('change',{bubbles:true}));const email=document.querySelector('#team-email');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(email,'executor@municipio.gov.br');email.dispatchEvent(new Event('input',{bubbles:true}));[...document.querySelectorAll('[role=dialog] label')].find(el=>el.textContent.includes('Executor de campo')).querySelector('input').click();window.inviteFailure=true;})()`);
     await evaluate('document.querySelector("[role=dialog] form").requestSubmit()');
     await wait('document.querySelector("[role=dialog] [role=alert]")');
-    assert.ok(await evaluate('document.querySelector("[role=dialog] [role=alert]").textContent.includes("migração 379")'),'Erro do servidor ficou fora do formulário');
+    assert.ok(await evaluate('document.querySelector("[role=dialog] [role=alert]").textContent.includes("execução de campo")'),'Erro do servidor ficou fora do formulário');
     await evaluate('window.inviteFailure=false;document.querySelector("[role=dialog] form").requestSubmit()');
-    await wait('document.body.innerText.includes("Convite pronto")');
-    assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="convidar_funcionario_secretaria").at(-1).params.p_cargos'),['executor']);
+    await wait('document.body.innerText.includes("Acesso criado")');
+    assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="create-municipal-account").at(-1).params.roles'),['executor']);
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("24 horas")'));
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("Senha-temporaria-teste-123!")'));
+    const credentialsShot=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,`temporary-access-${width}.png`),Buffer.from(credentialsShot.data,'base64'));
     await visit('admin','/prefeitura/secretarias');await wait('document.querySelector("tbody tr")');
     await evaluate('[...document.querySelectorAll("tbody tr")].find(row=>row.innerText.includes("Agricultura")).click()');await wait('document.body.innerText.includes("Mapas e cadastros da secretaria")');
     assert.equal(await evaluate('[...document.querySelectorAll("label")].find(label=>label.textContent.includes("Postes e iluminação")).querySelector("input").disabled'),true,'Agricultura habilitou postes sem categoria de iluminação');
     const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,`department-${width}.png`),Buffer.from(shot.data,'base64'));
     results.push({width,oneHeader:true,agricultureWithoutLighting:true,inventoryWithoutAttendance:true,rolesInStaff:true,scopeInDepartment:true,noOverflow:true});
   }
-  for (const insets of [
+  for (const insets of process.argv.includes('--temporary-access')?[]:[
     { name: 'portrait', width: 390, height: 844, top: 44, bottom: 34, left: 0, right: 0 },
     { name: 'landscape', width: 844, height: 390, top: 0, bottom: 21, left: 44, right: 24 },
   ]) {

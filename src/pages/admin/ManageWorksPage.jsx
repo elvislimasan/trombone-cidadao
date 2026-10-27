@@ -705,6 +705,7 @@ export const WorkEditModal = ({ work, onSave, onClose, workOptions, initialTab =
                                cidade até o ponto certo — com ele, um toque
                                marca onde a pessoa está. */
                             showLocateButton
+                            showSatelliteToggle
                           />
                         </Suspense>
                       </div>
