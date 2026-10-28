@@ -1,0 +1,13 @@
+/* A adoção é uma ação do cabeçalho; não cria outra faixa acima do mapa. */
+.arborization-header-tools { display: flex; min-width: 0; align-self: flex-start; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tree-adoption-card { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tree-adoption-card > a { min-height: 40px; height: auto; gap: 8px; padding: 9px 12px; border-radius: 9px; font-size: 12px; line-height: 1.5; }
+.tree-adoption-card svg { flex-shrink: 0; width: 16px; height: 16px; }
+.tree-adoption-card-primary { border-color: rgb(var(--brand) / .25); background: rgb(var(--surface-raised)); color: rgb(var(--brand)); }
+.tree-adoption-card-primary:hover { background: rgb(var(--brand-subtle-bg)); color: rgb(var(--brand)); }
+.tree-adoption-card-management { border-color: rgb(var(--border-default)); background: rgb(var(--surface-raised)); color: rgb(var(--text-secondary)); }
+@media (max-width: 979px) {
+  .arborization-header-tools { width: 100%; }
+  .tree-adoption-card { flex: 1; }
+  .tree-adoption-card > a { flex: 1 1 auto; min-height: 44px; }
+}

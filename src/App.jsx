@@ -27,6 +27,7 @@ import RentalPropertyDetailsPage from '@/pages/RentalPropertyDetailsPage';
 import RentalPropertiesPage from '@/pages/RentalPropertiesPage';
 import PavementMapPage from '@/pages/PavementMapPage';
 import ArborizationMapPage from '@/pages/ArborizationMapPage';
+import AdoptTreePage from '@/pages/AdoptTreePage';
 import TreePage from '@/pages/TreePage';
 import PavementStreetPage from '@/pages/PavementStreetPage';
 import CouncilorProfilePage from '@/pages/CouncilorProfilePage';
@@ -112,6 +113,7 @@ import BecomeAmbassadorPage from '@/pages/BecomeAmbassadorPage';
 import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions, PermissionsProvider } from '@/hooks/usePermissions';
 import TerritorialPanelPage from '@/pages/TerritorialPanelPage';
+import TreeAdoptionManagementPage from '@/pages/TreeAdoptionManagementPage';
 import { TERRITORIAL_BASE, territorialEntryRedirect } from '@/lib/territorialAccess';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
@@ -373,6 +375,7 @@ function AppShell() {
   const { user, loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
   const isDesktopViewport = useIsDesktopViewport();
+  const adoptionDesktop = isDesktopViewport && location.pathname === '/adote-uma-arvore';
   const patrolBlockedOnDesktop = isPatrolBlockedOnDesktop({
     isNative,
     isDesktop: isDesktopViewport,
@@ -757,19 +760,19 @@ function AppShell() {
         {/* bg-surface-base em vez do #F9FAFB fixo: o padding inferior do <main>
             (que reserva o espaco da bottom nav) deixava esse cinza claro
             aparecer como uma faixa no tema escuro ao chegar no fim da pagina. */}
-        <div className="min-h-screen bg-surface-base text-content-primary flex flex-col">
+        <div className={`min-h-screen bg-surface-base text-content-primary flex flex-col${adoptionDesktop ? ' tree-adoption-app' : ''}`}>
           {!interfaceIsolada && (!isNative || !isInteractive) && <Header />}
           {!interfaceIsolada && isNative && isInteractive && <MobileHeader />}
           {!isNative && !interfaceIsolada && <AppDownloadBanner />}
           <main
-            className={`flex-grow flex flex-col min-h-0 ${interfaceIsolada ? '' : 'pb-20 lg:pb-0'}`}
+            className={`flex-grow flex flex-col min-h-0 ${interfaceIsolada ? '' : 'pb-20 lg:pb-0'}${adoptionDesktop ? ' tree-adoption-app-main' : ''}`}
             style={{
               paddingTop: interfaceIsolada
                 ? 0
                 : (isNative && isInteractive)
                   ? 'calc(var(--header-bar-height) + var(--header-safe-top))'
                   : 'calc(var(--header-bar-height) + var(--header-safe-top) + var(--app-banner-height, 0px) + var(--desktop-extra-top, 0px))',
-              paddingBottom: interfaceIsolada
+              paddingBottom: interfaceIsolada || adoptionDesktop
                 ? 0
                 : (isNative && isInteractive)
                   ? 'calc(4.5rem + env(safe-area-inset-bottom, 0px))'
@@ -796,6 +799,7 @@ function AppShell() {
               <Route path="/prefeitura/convite/:token/cadastro" element={<MunicipalityRegisterPage />} />
               <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
                 <Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<TerritorialPanelPage />} />
+                <Route path="/prefeitura/adote-uma-arvore" element={<TreeAdoptionManagementPage />} />
                 <Route path="/prefeitura/executor" element={<ExecutorPanelPage />} />
                 <Route path="/prefeitura/executor/:activity" element={<ExecutorPanelPage />} />
                 <Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrderPage />} />
@@ -917,6 +921,7 @@ function AppShell() {
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/mapa-arborizacao" element={<ArborizationMapPage />} />
+              <Route path="/adote-uma-arvore" element={<AdoptTreePage />} />
               <Route path="/arborizacao/arvore/:id" element={<TreePage />} />
               <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/admin/arborizacao" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
@@ -1011,7 +1016,7 @@ function AppShell() {
               </ErrorBoundary>
             </div>
           </main>
-          {!interfaceIsolada && (!isNative || !isInteractive) && <Footer />}
+          {!interfaceIsolada && !adoptionDesktop && (!isNative || !isInteractive) && <Footer />}
           {/* O modo navegação ocupa a tela inteira: a barra roubaria 64px da
               via à frente e oferece destinos que ninguém deve tocar dirigindo.
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}

@@ -1,7 +1,7 @@
 import { poleReferenceText } from '@/lib/poleDisplay';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Ban, ClipboardCheck, ClipboardCopy, Coins, Info, Settings, AlertCircle, ArrowRight, ArrowUpDown, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, Download, Filter, Link2, Loader2, MapPin, MoreHorizontal, Plus, Search, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 import { DEMAND_STATUSES, DEMAND_PRIORITIES, DEMAND_TONES, OPEN_DEMAND_STATUSES } from '@/lib/municipalDemand';
 import { municipalDemandsQuery, selectPageRecords } from '@/lib/municipalExport';
+import { municipalContextPath } from '@/lib/municipalAccess';
+import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
 
 const PAGE_SIZES = [10, 25, 50];
 const SORTS = { recentes: ['updated_at', false], antigas: ['created_at', true], prazo: ['prazo_em', true] };
@@ -197,6 +199,7 @@ export default function MunicipalDemandsPage({ view = 'list' }) {
 
   if (context.loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!context.municipality) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Acesso institucional necessário</h1><p className="mt-2 text-sm text-content-secondary">{context.error || 'Sua conta não está vinculada a uma prefeitura ativa.'}</p></div>;
+  if (view !== 'form' && params.get('programa') === 'adote-uma-arvore') return <Navigate replace to={municipalContextPath(TREE_ADOPTION_MANAGEMENT_PATH, context.municipality.city_id, context.activeChannelId)} />;
   if (view === 'form') return <div className="page-shell-fluid h-full min-h-0 min-w-0 py-3 sm:py-5" aria-label="Cadastro da ordem de serviço"><MunicipalDemandDrawer open inline demandId={drawerId} reportId={sourceReportId} poleId={sourcePoleId} context={context} onClose={closeDrawer} onSaved={saved} onRemoved={saved} /></div>;
   const hasFilters = Boolean(query || priority !== 'all' || channel !== 'all' || category !== 'all' || queue !== 'all' || overdue || linked || dueToday);
   const clearFilters = () => setParams((current) => { const next = new URLSearchParams(current); ['q','prioridade','secretaria','categoria','fila','atrasadas','vinculadas','vencem_hoje','pagina'].forEach((key) => next.delete(key)); return next; }, { replace: true });

@@ -1,4 +1,5 @@
 import { executorHome, executionActivity, executorActivityForPath } from './executorActivities.js';
+import { TREE_ADOPTION_MANAGEMENT_PATH } from './treeAdoption.js';
 
 export const ATTENDANCE_LEVELS = [
   { id: 'nenhum', label: 'Sem acesso ao atendimento' },
@@ -64,7 +65,17 @@ export function municipalAccessUnavailableReason(workspace) {
   return 'Os cargos encontrados não habilitam uma atividade neste contexto. O administrador deve conferir as áreas da secretaria e os cargos concedidos.';
 }
 
+export function municipalTreeAdoptionAccess({ isAdministrator = false, cityId, activeChannelId = '', accesses = [], inventories = [], categoryChannels = [] }) {
+  if (cityId == null) return false;
+  if (isAdministrator) return true;
+  const inScope = row => String(row.city_id) === String(cityId) && (!activeChannelId || String(row.canal_id) === String(activeChannelId));
+  return inventories.some(row => inScope(row) && row.module === 'arborization')
+    || accesses.some(row => inScope(row) && ['atendente', 'gestor'].includes(row.atendimento)
+      && categoryChannels.some(mapping => String(mapping.city_id) === String(cityId) && String(mapping.canal_id) === String(row.canal_id) && mapping.category_id === 'poda'));
+}
+
 export function municipalRouteAllowed(path, workspace) {
+  if (path.split('?')[0] === TREE_ADOPTION_MANAGEMENT_PATH) return Boolean(workspace.canAttendTreeAdoption);
   if (path.startsWith('/prefeitura/gestao-territorial')) return true; // City/module guard in the inventory.
   if (path === '/prefeitura/executor') return workspace.canExecute;
   if (path.startsWith('/prefeitura/eletricista')) return workspace.canExecuteLighting;

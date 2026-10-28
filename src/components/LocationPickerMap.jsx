@@ -13,6 +13,7 @@ import {
 import L from "leaflet";
 import { FLORESTA_COORDS, INITIAL_ZOOM } from "@/config/mapConfig";
 import { geocodeCity } from "@/lib/geocodeCity";
+import { cityStateUf } from '@/lib/cityLocation';
 import { useCity } from "@/contexts/CityContext";
 import { TREE_MAP_STATES, treeMapMarkerKey } from '@/lib/arborization';
 import "leaflet/dist/leaflet.css";
@@ -36,6 +37,11 @@ const OSM_MAX_ZOOM = 19;
 const MapController = ({ mapRef }) => {
   const map = useMap();
   mapRef.current = map;
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
   return null;
 };
 
@@ -196,6 +202,7 @@ const LocationPickerMap = ({
   showMarker = true,
   readOnly = false,
   fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
+  cityZoom = 13,
   flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
   /**
    * Esta tela precisa funcionar sem rede.
@@ -214,14 +221,15 @@ const LocationPickerMap = ({
   initialZoom = null,
   children,
 }) => {
-  const [position, setPosition] = useState(initialPosition || FLORESTA_COORDS);
-  const [mapLayer, setMapLayer] = useState("osm");
-  const mapRef = useRef();
   const { activeCity } = useCity();
   // Cidade para centralizar quando não há posição inicial: a prop explícita
   // tem prioridade; senão usa a cidade ativa do app (feed/estatísticas/obras).
   const effectiveCityCenter =
-    fallbackCityCenter || (activeCity ? { name: activeCity.name, uf: activeCity.state?.uf } : null);
+    fallbackCityCenter || (activeCity ? { name: activeCity.name, uf: cityStateUf(activeCity) } : null);
+  const isFlorestaPe = effectiveCityCenter?.name?.trim().toLowerCase() === 'floresta' && effectiveCityCenter?.uf?.toUpperCase() === 'PE';
+  const [position, setPosition] = useState(initialPosition || (effectiveCityCenter && !isFlorestaPe ? [-14.2, -51.9] : FLORESTA_COORDS));
+  const [mapLayer, setMapLayer] = useState("osm");
+  const mapRef = useRef();
 
   // Controla se a view inicial já foi definida.
   // Impede que o useEffect re-center o mapa toda vez que o usuário
@@ -237,7 +245,7 @@ const LocationPickerMap = ({
   // Zoom com posição em mãos: o pedido pela prop, ou 19, sempre dentro do
   // limite do layer ativo.
   const zoomComPosicao = Math.min(initialZoom || 19, activeMaxZoom);
-  const zoomDeAbertura = initialPosition ? zoomComPosicao : INITIAL_ZOOM;
+  const zoomDeAbertura = initialPosition ? zoomComPosicao : effectiveCityCenter && !isFlorestaPe ? 4 : INITIAL_ZOOM;
   const focusLat = focusPosition?.lat;
   const focusLng = focusPosition?.lng;
   const focusNonce = focusPosition?.nonce;
@@ -274,11 +282,11 @@ const LocationPickerMap = ({
       if (cancelled || !coord || userMovedRef.current || hasSetInitialView.current) return;
       if (mapRef.current) {
         hasSetInitialView.current = true;
-        try { mapRef.current.setView([coord.lat, coord.lng], 13, { animate: false }); } catch {}
+        try { mapRef.current.setView([coord.lat, coord.lng], Math.min(cityZoom, activeMaxZoom), { animate: false }); } catch {}
       }
     });
     return () => { cancelled = true; };
-  }, [effectiveCityCenter?.name, effectiveCityCenter?.uf]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveCityCenter?.name, effectiveCityCenter?.uf, cityZoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Voo forçado ao trocar a cidade manualmente (admin) — independe de
   // hasSetInitialView/userMovedRef, que só protegem a centralização automática
@@ -288,7 +296,7 @@ const LocationPickerMap = ({
     let cancelled = false;
     geocodeCity(flyToCity.name, flyToCity.uf).then((coord) => {
       if (cancelled || !coord || !mapRef.current) return;
-      try { mapRef.current.flyTo([coord.lat, coord.lng], 13, { animate: true, duration: 0.8 }); } catch {}
+      try { mapRef.current.flyTo([coord.lat, coord.lng], Math.min(cityZoom, activeMaxZoom), { animate: true, duration: 0.8 }); } catch {}
     });
     return () => { cancelled = true; };
   }, [flyToCity?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -35,6 +35,7 @@ const stubs = {
   '@/lib/customSupabaseClient': `
     window.maintenanceCalls=[];window.writes=[];window.uploads=[];window.removedUploads=[];window.failSave=false;window.tableReads=[];window.generatedFiles=[];const originalCreateUrl=URL.createObjectURL;URL.createObjectURL=blob=>{window.generatedFiles.push(blob);return originalCreateUrl.call(URL,blob)};
     const species=[{id:'s1',city_id:64,common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa'},{id:'s2',city_id:64,common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica'}];
+    if(location.search.includes('species-scroll'))species.push(...Array.from({length:40},(_,index)=>({id:'scroll-'+index,city_id:64,common_name:'Espécie '+String(index+1).padStart(2,'0'),origin:'nativa'})));
     if(location.search.includes('illustration'))species[0].illustration_url='/logo.png';
     if(location.search.includes('species-info'))Object.assign(species[0],{aliases:['Pau-d’arco'],summary:'Resumo público da espécie.',sidewalk_suitability:'com_restricoes',planting_guidance:'Conferir espaço para a copa.'});
     const neighborhoods=[{id:'b1',city_id:64,name:'Centro'},{id:'b2',city_id:64,name:'Três Marias'},{id:'b3',city_id:64,name:'Bela Vista'}];
@@ -129,6 +130,7 @@ await build({
 });
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
+sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionCard.css', 'utf8');
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
 const css = await postcss([tailwind({ ...config, content: ['src/pages/MunicipalityTeamPage.jsx','src/components/municipality/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/PavementMapPage.jsx','src/components/pavement/*.jsx','src/components/PavementMapView.jsx','src/pages/ArborizationMapPage.jsx', 'src/pages/TreePage.jsx', 'src/components/Footer.jsx', 'src/components/report/ReportTreePicker.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + '\n' + await fs.readFile('node_modules/leaflet/dist/leaflet.css', 'utf8'));
@@ -684,6 +686,46 @@ try {
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       await validateRegistration(width);
       results.push({width,unifiedRegistration:true,speciesModal:true,illustrationFallback:true,exitReturnsToMap:true});
+    }
+  }else if(process.argv.includes('--species-scroll')){
+    for(const [width,height] of [[1440,900],[1920,1080],[390,844]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<768},sessionId);
+      await navigate('?species-scroll');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await click('Cadastrar árvore');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      if(width<768){await click('Usar GPS');await waitFor('document.querySelectorAll(".tree-map-current-point").length===1');await click('Continuar');}
+      await tap('.tree-entry-dialog [role=combobox]');await waitFor('document.querySelectorAll("[cmdk-list] [data-species-id]").length===42');
+      const point=await evaluate('(()=>{const list=document.querySelector("[cmdk-list]"),r=list.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()');
+      await send('Input.dispatchMouseEvent',{type:'mouseMoved',...point},sessionId);
+      await send('Input.dispatchMouseEvent',{type:'mouseWheel',...point,deltaX:0,deltaY:550},sessionId);await pause(450);
+      assert.ok(await evaluate('document.querySelector("[cmdk-list]").scrollTop>50'),`Lista de espécies deve rolar com a roda do mouse em ${width}px`);
+      await send('Input.dispatchMouseEvent',{type:'mouseWheel',...point,deltaX:0,deltaY:5000},sessionId);await pause(450);
+      assert.ok(await evaluate('(()=>{const list=document.querySelector("[cmdk-list]"),item=list.querySelector("[data-species-id=scroll-39]"),r=item.getBoundingClientRect(),b=list.getBoundingClientRect();return r.top>=b.top&&r.bottom<=b.bottom+1})()'),'Última espécie acessível');
+      await capture('species-scroll-'+width);
+      await tap('[data-species-id=scroll-39]');await waitFor('!document.querySelector("[cmdk-list]")');
+      assert.equal(await evaluate('document.querySelector(".tree-entry-dialog [role=combobox]").dataset.value'),'scroll-39');
+      await tap('.tree-entry-dialog [role=combobox]');await waitFor('document.querySelector("[cmdk-input]")');
+      if(width<768){
+        await send('Emulation.setTouchEmulationEnabled',{enabled:true},sessionId);
+        await pause(150);await evaluate('document.querySelector("[cmdk-list]").scrollTop=0');
+        const touch=await evaluate('(()=>{const r=document.querySelector("[cmdk-list]").getBoundingClientRect();return {x:r.left+r.width/2,y:r.bottom-20}})()');
+        await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...touch,id:0}]},sessionId);
+        for(let offset=15;offset<=150;offset+=15){await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touch.x,y:touch.y-offset,id:0}]},sessionId);await pause(25);}
+        await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]},sessionId);await pause(250);
+        assert.ok(await evaluate('document.querySelector("[cmdk-list]").scrollTop>20'),'Lista de espécies deve rolar com gesto de toque');
+        await send('Emulation.setTouchEmulationEnabled',{enabled:false},sessionId);
+      }
+      await evaluate('(()=>{const input=document.querySelector("[cmdk-input]");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(input,"Espécie 07");input.dispatchEvent(new Event("input",{bubbles:true}))})()');
+      await waitFor('document.querySelectorAll("[cmdk-list] [data-species-id]").length===1');
+      await tap('[data-species-id=scroll-6]');await waitFor('!document.querySelector("[cmdk-list]")');
+      assert.equal(await evaluate('document.querySelector(".tree-entry-dialog [role=combobox]").dataset.value'),'scroll-6');
+      await tap('.tree-entry-dialog [role=combobox]');await waitFor('document.querySelector("[cmdk-list]")');
+      await pause(200);
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27},sessionId);
+      await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27},sessionId);
+      await waitFor('!document.querySelector("[cmdk-list]")');
+      assert.ok(await evaluate('Boolean(document.querySelector(".tree-entry-dialog"))'),'Escape fecha apenas a lista');
+      assert.equal(await evaluate('window.writes.length'),0,'Escolher espécie não salva o cadastro');
+      results.push({width,mouseWheel:true,lastSpeciesSelectable:true,search:true,escapeKeepsForm:true});
     }
   }else if(process.argv.includes('--species-filter')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){

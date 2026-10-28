@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { EMPTY_ADOPTION, adoptionPayload, adoptionNextStatuses, validateAdoption, availableAdoptionSpecies, availableAdoptionProviders } from '../lib/treeAdoption.js';
+
+const species = [{ id: 'ipe', city_id: 64 }, { id: 'oiti', city_id: 65 }];
+const availability = [{ species_id: 'ipe', provider: 'viveiro_municipal', status: 'disponivel' }];
+const validate = (form, cityId, catalog, step = null) => validateAdoption(form, cityId, catalog, step, availability);
+const valid = { ...EMPTY_ADOPTION, request_type: 'plantio', zone: 'urbana', planting_place: 'calcada', purpose: 'sombra', overhead_wiring: 'sim', species_id: 'ipe', provider: 'viveiro_municipal', latitude: -8.6, longitude: -38.57, address: 'Rua da Praça, 10', commitment: true };
+test('pedido exige local, fiação explícita, espécie da cidade e compromisso', () => {
+  assert.equal(validate(valid, 64, species), '');
+  for (const patch of [{ overhead_wiring: '' }, { species_id: 'oiti' }, { commitment: false }, { latitude: '' }, { longitude: Infinity }, { address: '  ' }, { zone: 'inventada' }]) {
+    assert.ok(validate({ ...valid, ...patch }, 64, species), JSON.stringify(patch));
+  }
+  assert.equal(validate({ ...valid, overhead_wiring: 'nao_sei' }, 64, species), '');
+});
+test('quatro etapas validam pedido, local, espécie e revisão separadamente', () => {
+  assert.equal(validate({ ...EMPTY_ADOPTION, request_type: 'muda', purpose: 'sombra' }, 64, species, 0), '');
+  assert.equal(validate({ ...valid, species_id: '', provider: '', commitment: false }, 64, species, 1), '');
+  assert.ok(validate({ ...valid, latitude: '' }, 64, species, 1));
+  assert.ok(validate({ ...valid, species_id: 'oiti' }, 64, species, 2));
+  assert.ok(validate({ ...valid, commitment: false }, 64, species));
+});
+test('sugestões exigem disponibilidade explícita por espécie e fornecedor', () => {
+  const rows = [...availability, { species_id: 'ipe', provider: 'instituto_florestar', status: 'indisponivel' }, { species_id: 'oiti', provider: 'viveiro_municipal', status: 'sob_consulta' }];
+  assert.deepEqual(availableAdoptionSpecies(species, []), []);
+  assert.deepEqual(availableAdoptionSpecies(species, rows), [species[0]]);
+  assert.deepEqual(availableAdoptionProviders(rows, 'ipe'), availability);
+  assert.deepEqual(availableAdoptionProviders(rows, 'oiti'), []);
+  assert.deepEqual(availableAdoptionSpecies(species, [{ species_id: 'ipe', provider: 'inventado', status: 'disponivel' }]), []);
+  assert.ok(validateAdoption(valid, 64, species, 2));
+  assert.ok(validateAdoption({ ...valid, provider: 'instituto_florestar' }, 64, species, 2, rows));
+  for (const status of ['sob_consulta', 'indisponivel']) {
+    const revoked = [{ ...availability[0], status }];
+    assert.deepEqual(availableAdoptionSpecies(species, revoked), []);
+    assert.ok(validateAdoption(valid, 64, species, null, revoked));
+  }
+  assert.equal(validateAdoption(valid, 64, species, null, rows), '');
+});
+test('retirada e plantio seguem caminhos diferentes e encerramento não reabre pedido', () => {
+  assert.ok(adoptionNextStatuses({ status: 'aprovada', request_type: 'muda' }).includes('pronta_retirada'));
+  assert.ok(!adoptionNextStatuses({ status: 'aprovada', request_type: 'muda' }).includes('agendada'));
+  assert.ok(adoptionNextStatuses({ status: 'aprovada', request_type: 'plantio' }).includes('agendada'));
+  assert.ok(!adoptionNextStatuses({ status: 'solicitada', request_type: 'plantio' }).includes('concluida'));
+  for (const status of ['concluida', 'recusada', 'cancelada']) assert.deepEqual(adoptionNextStatuses({ status }), []);
+});
+test('payload mantém chave idempotente e não aceita campos administrativos injetados', () => {
+  const payload = adoptionPayload({ ...valid, status: 'concluida', author_id: 'outro', tree_id: 'falsa', address: ' Rua Nova ' }, 64, 'chave');
+  assert.equal(payload.id, 'chave'); assert.equal(payload.address, 'Rua Nova'); assert.equal(payload.commitment, true);
+  assert.equal(payload.status, undefined); assert.equal(payload.author_id, undefined); assert.equal(payload.tree_id, undefined);
+});

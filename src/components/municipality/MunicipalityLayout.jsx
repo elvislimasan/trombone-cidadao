@@ -2,6 +2,7 @@ import { executorActivityForPath, executorHome, executionActivity } from '@/lib/
 import { municipalHome, municipalRouteAllowed, municipalContextPath, municipalAccessUnavailableReason, municipalWorkspaceChannel } from '@/lib/municipalAccess';
 import { usePermissions } from '@/hooks/usePermissions';
 import { territorialModules, TERRITORIAL_BASE } from '@/lib/territorialAccess';
+import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -22,6 +23,7 @@ import {
   BarChart3,
   Map as MapIcon,
   Plus,
+  Sprout,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -34,6 +36,7 @@ import ElectricianLayout, { ExecutorLayout } from '@/components/municipality/Ele
 const navigation = [
   { to: '/prefeitura/visao-geral', label: 'Visão geral', icon: LayoutDashboard, adminOnly: false },
   { to: TERRITORIAL_BASE, label: 'Ruas e arborização', icon: MapIcon, territorial: true },
+  { to: TREE_ADOPTION_MANAGEMENT_PATH, label: 'Adote uma árvore', icon: Sprout, adminOnly: false },
   { to: '/prefeitura/broncas', label: 'Solicitações da cidade', icon: MessageSquare, adminOnly: false },
   { to: '/prefeitura/demandas', label: 'Ordens de serviço', icon: ClipboardList, adminOnly: false },
   { to: '/prefeitura/iluminacao', label: 'Iluminação pública', icon: LampDesk, adminOnly: false },
@@ -160,7 +163,7 @@ function MunicipalityLayoutContent() {
   };
 
   if (workspace.loading) return <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base text-sm text-content-secondary">Abrindo painel…</div>;
-  if (!municipality && !territorialAccess.loading && !territorialAccess.error && territorialAccess.municipalities.length === 0 && pathname.startsWith(TERRITORIAL_BASE)) return <Outlet />;
+  if (!municipality && !territorialAccess.loading && !territorialAccess.error && territorialAccess.municipalities.length === 0 && (pathname.startsWith(TERRITORIAL_BASE) || (pathname === TREE_ADOPTION_MANAGEMENT_PATH && territorialAccess.canWrite('arborization')))) return <Outlet />;
   if (workspace.error) return <div className="page-shell-fluid space-y-4 py-12"><p className="text-sm">Conta: {user?.email}</p><p role="alert">{workspace.error}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Tentar novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
   if (!municipality || !home) return <div className="page-shell-fluid space-y-4 py-12"><h1 className="text-xl font-bold">Acesso municipal indisponível</h1><p className="text-sm">Conta: {user?.email}</p><p role="alert">{municipalAccessUnavailableReason(workspace)}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Verificar acesso novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
   if (pathname === '/prefeitura/visao-geral' && !workspace.canReadAttendance && homePath !== pathname) return <Navigate to={home} replace />;

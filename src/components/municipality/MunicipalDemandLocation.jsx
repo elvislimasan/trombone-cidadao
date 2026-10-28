@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
+import { cityStateUf } from '@/lib/cityLocation';
 import { demandReportLocations } from '@/lib/municipalDemand';
 import MunicipalDemandReportMarkers from '@/components/municipality/MunicipalDemandReportMarkers';
 
@@ -18,7 +19,7 @@ const parseCoordinate = (value, limit) => {
   return Number.isFinite(number) && Math.abs(number) <= limit ? number : null;
 };
 
-export default function MunicipalDemandLocation({ form, fieldErrors = {}, reports = [], municipality, editable, busy, onChange, onLocatingChange }) {
+export default function MunicipalDemandLocation({ form, fieldErrors = {}, reports = [], municipality, editable, busy, onChange, onLocatingChange, title = 'Local do serviço', description }) {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -187,14 +188,14 @@ export default function MunicipalDemandLocation({ form, fieldErrors = {}, report
     });
   };
 
-  return <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm" aria-label="Localização do serviço">
-    <div className="mb-3"><h2 className="flex items-center gap-2 text-sm font-bold"><span className="rounded-lg bg-brand-subtleBg p-2 text-brand"><MapPin className="h-4 w-4" /></span>Local do serviço</h2>
-      <p className="mt-1 text-xs text-content-secondary">{isLighting ? 'Selecione um poste cadastrado no mapa ou na busca para definir o local da ordem.' : locations.length ? 'Os pontos das solicitações vinculadas aparecem no mapa.' : editable ? 'Clique no mapa ou arraste o pino para localizar a demanda.' : 'Localização registrada para o serviço.'}</p>
+  return <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm" aria-label={title === 'Local do serviço' ? 'Localização do serviço' : title}>
+    <div className="mb-3"><h2 className="flex items-center gap-2 text-sm font-bold"><span className="rounded-lg bg-brand-subtleBg p-2 text-brand"><MapPin className="h-4 w-4" /></span>{title}</h2>
+      <p className="mt-1 text-xs text-content-secondary">{description || (isLighting ? 'Selecione um poste cadastrado no mapa ou na busca para definir o local da ordem.' : locations.length ? 'Os pontos das solicitações vinculadas aparecem no mapa.' : editable ? 'Clique no mapa ou arraste o pino para localizar a demanda.' : 'Localização registrada para o serviço.')}</p>
     </div>
     <div className="grid min-h-0 min-w-0 flex-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)]">
       <div className="relative isolate h-60 min-w-0 overflow-hidden rounded-lg border border-edge-subtle sm:h-72 xl:h-full xl:min-h-0" style={busy ? { pointerEvents: 'none' } : undefined}>
         <Suspense fallback={<div className="flex h-full items-center justify-center bg-surface-subtle"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>
-          <LocationPickerMap key={revision} initialPosition={position || locations.find((location) => location.position)?.position} focusPosition={mapFocus || selectedPolePosition} onViewportChange={isLighting ? updateViewport : undefined} onLocationChange={locate} showMarker={Boolean(position)} readOnly={!editable || busy} showLocateButton={editable} showSatelliteToggle={isLighting} initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: city.states?.uf } : null}
+          <LocationPickerMap key={revision} initialPosition={position || locations.find((location) => location.position)?.position} focusPosition={mapFocus || selectedPolePosition} onViewportChange={isLighting ? updateViewport : undefined} onLocationChange={locate} showMarker={Boolean(position)} readOnly={!editable || busy} showLocateButton={editable} showSatelliteToggle={isLighting} initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: cityStateUf(city) } : null}
             overlayMarkers={isLighting ? allPoles.filter(hasPolePosition).map((pole) => ({ id: pole.id, title: poleCode(pole.identifier || pole.plate || `Poste ${pole.id}`), location: { lat: Number(pole.latitude), lng: Number(pole.longitude) } })) : []}
             selectedOverlayMarkerId={form.pole_id} onOverlayMarkerSelect={(marker) => { if (!editable || busy) return false; selectPole(marker.id); }} snapToOverlayOnSelect>
             {locations.length > 0 && <MunicipalDemandReportMarkers locations={locations} servicePosition={position} selectedLocation={selectedLocation} />}

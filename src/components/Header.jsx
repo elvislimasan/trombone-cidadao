@@ -320,6 +320,21 @@ const Header = () => {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 2xl:gap-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleToggleTheme}
+            className="hidden shrink-0 rounded-full text-header-fg hover:bg-header-fg/10 hover:text-header-fg lg:inline-flex"
+            aria-label={nextThemeLabel}
+            title={nextThemeLabel}
+          >
+            {darkThemeActive ? (
+              <LucideIcons.Sun className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <LucideIcons.Moon className="h-5 w-5" aria-hidden="true" />
+            )}
+          </Button>
           {/* Pin da cidade ativa: substitui o chip com o nome da cidade. Abre a
               lista como sheet centralizado, que nao corta na borda da tela. */}
           {!['/', '/explorar'].includes(location.pathname) && <div className={location.pathname === '/feed' ? 'hidden lg:block' : ''}><FeedCitySelector iconOnly /></div>}
@@ -424,20 +439,6 @@ const Header = () => {
           </button>
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={handleToggleTheme}
-        className="fixed bottom-6 right-6 z-[1002] hidden h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-[rgb(var(--header-bg))] text-[rgb(var(--header-fg))] shadow-lg transition-[background-color,transform,box-shadow] hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 lg:inline-flex"
-        aria-label={nextThemeLabel}
-        title={nextThemeLabel}
-      >
-        {darkThemeActive ? (
-          <LucideIcons.Sun className="h-5 w-5" aria-hidden="true" />
-        ) : (
-          <LucideIcons.Moon className="h-5 w-5" aria-hidden="true" />
-        )}
-      </button>
 
       <AnimatePresence>
         {isOpen && (

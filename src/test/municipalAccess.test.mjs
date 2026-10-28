@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { municipalCapabilities, municipalHome, municipalRouteAllowed, municipalAccessUnavailableReason, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel } from '../lib/municipalAccess.js';
+import { municipalCapabilities, municipalHome, municipalRouteAllowed, municipalAccessUnavailableReason, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel, municipalTreeAdoptionAccess } from '../lib/municipalAccess.js';
+import { TREE_ADOPTION_MANAGEMENT_PATH } from '../lib/treeAdoption.js';
 const row = (atendimento = 'nenhum', canal_id = 'a', extra = {}) => ({ atendimento, canal_id, especialidades_execucao: [], inventario_iluminacao: false, ...extra });
 
 test('navegação do administrador não transporta secretaria para as páginas gerais', () => {
@@ -56,4 +57,25 @@ test('atendente não recebe despacho; administrador não recebe concessão técn
   assert.equal(admin.canExecute, false);
   assert.equal(municipalHome(admin), '/prefeitura/visao-geral');
   assert.equal(municipalRouteAllowed('/prefeitura/equipe', admin), true);
+});
+
+test('atendimento de árvores é exclusivo da equipe responsável, com cidade e secretaria preservadas', () => {
+  const scope = {
+    cityId: 64,
+    accesses: [{ city_id: 64, canal_id: 'trees', atendimento: 'atendente' }, { city_id: 64, canal_id: 'lighting', atendimento: 'gestor' }],
+    categoryChannels: [{ city_id: 64, canal_id: 'trees', category_id: 'poda' }],
+  };
+  assert.equal(municipalTreeAdoptionAccess(scope), true);
+  assert.equal(municipalTreeAdoptionAccess({ ...scope, activeChannelId: 'trees' }), true);
+  assert.equal(municipalTreeAdoptionAccess({ ...scope, activeChannelId: 'lighting' }), false);
+  assert.equal(municipalTreeAdoptionAccess({ ...scope, cityId: 65 }), false);
+  assert.equal(municipalTreeAdoptionAccess({ ...scope, accesses: [{ city_id: 64, canal_id: 'trees', atendimento: 'leitura' }] }), false);
+  assert.equal(municipalTreeAdoptionAccess({ cityId: 64, isAdministrator: true }), true);
+  assert.equal(municipalTreeAdoptionAccess({ isAdministrator: true }), false);
+  assert.equal(municipalTreeAdoptionAccess({ cityId: 64, inventories: [{ city_id: 64, canal_id: 'trees', module: 'arborization' }] }), true);
+  assert.equal(municipalTreeAdoptionAccess({ cityId: 64, inventories: [{ city_id: 65, canal_id: 'trees', module: 'arborization' }] }), false);
+  assert.equal(municipalRouteAllowed(TREE_ADOPTION_MANAGEMENT_PATH, { canReadAttendance: true }), false);
+  assert.equal(municipalRouteAllowed(TREE_ADOPTION_MANAGEMENT_PATH, { canAttendTreeAdoption: true }), true);
+  assert.equal(municipalWorkspaceChannel(TREE_ADOPTION_MANAGEMENT_PATH, true, 'lighting'), '');
+  assert.equal(municipalWorkspaceChannel(TREE_ADOPTION_MANAGEMENT_PATH, false, 'trees'), 'trees');
 });

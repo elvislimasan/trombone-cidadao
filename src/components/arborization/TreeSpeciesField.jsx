@@ -10,7 +10,7 @@ import { treeNameKey, uploadTreePhoto } from '@/lib/treeInventory';
 import { supabase } from '@/lib/customSupabaseClient';
 import { SIDEWALK_SUITABILITY, speciesAliases } from '@/lib/treeSpecies';
 
-export default function TreeSpeciesField({ species, value, onSelect, onCreated, onUpdated, cityId, label = 'Nome popular', disabled = false, loading = false, allowCreate = true, allowEdit = allowCreate, onCreatingChange }) {
+export default function TreeSpeciesField({ species, value, onSelect, onCreated, onUpdated, cityId, label = 'Nome popular', disabled = false, loading = false, allowCreate = true, allowEdit = allowCreate, allowUnknown = true, onCreatingChange, compact = false }) {
   const id = useId();
   const trigger = useRef(null);
   const savingRef = useRef(false);
@@ -97,17 +97,19 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
     finally { savingRef.current = false; setSaving(false); }
   };
 
-  return <div className="min-w-0 space-y-2" data-testid="tree-species-field">
+  return <div className={`min-w-0 space-y-2 ${compact ? 'tree-species-compact' : ''}`} data-testid="tree-species-field">
     <div className="flex flex-wrap items-center justify-between gap-2"><label id={`${id}-label`} className="text-sm font-medium">{label}</label>
       {!draft && <div className="flex flex-wrap gap-1">
         {allowEdit && selected && <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-primary" disabled={disabled || loading} onClick={edit}><Pencil className="h-3.5 w-3.5" />Editar espécie</Button>}
         {allowCreate && <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-primary" disabled={disabled || loading} onClick={() => create('')}><Plus className="h-3.5 w-3.5" />Nova espécie</Button>}
       </div>}
     </div>
-    <Popover open={open} onOpenChange={next => { setOpen(next); if (next) setSearch(''); }}>
+    {/* A lista usa um portal; seu próprio bloqueio de rolagem permite mouse e
+        toque mesmo quando o campo está dentro de um Dialog modal. */}
+    <Popover modal open={open} onOpenChange={next => { setOpen(next); if (next) setSearch(''); }}>
       <PopoverTrigger asChild><Button ref={trigger} type="button" role="combobox" aria-labelledby={`${id}-label`} aria-expanded={open} data-value={value || ''}
         variant="outline" className="h-11 w-full justify-between gap-2 bg-background px-3 font-normal" disabled={disabled || loading || !!draft}>
-        <span className="truncate">{loading ? 'Carregando espécies…' : selected?.common_name || 'Não identificada'}</span><ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{loading ? 'Carregando espécies…' : selected?.common_name || (allowUnknown ? 'Não identificada' : 'Selecione uma espécie')}</span><ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </Button></PopoverTrigger>
       <PopoverContent align="start" className="z-[10030] w-[var(--radix-popover-trigger-width)] min-w-[240px] max-w-[calc(100vw-2rem)] p-0" onKeyDown={event => event.key === 'Enter' && event.stopPropagation()}>
         <Command shouldFilter={false}>
@@ -115,7 +117,7 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
           <CommandList className="max-h-[240px]">
             <CommandEmpty>Nenhuma espécie encontrada.</CommandEmpty>
             <CommandGroup>
-              {!term && <CommandItem value="unknown" onSelect={() => choose(null)}><Check className={`mr-2 h-4 w-4 ${value ? 'opacity-0' : ''}`} />Não identificada</CommandItem>}
+              {allowUnknown && !term && <CommandItem value="unknown" onSelect={() => choose(null)}><Check className={`mr-2 h-4 w-4 ${value ? 'opacity-0' : ''}`} />Não identificada</CommandItem>}
               {filtered.map(item => <CommandItem key={item.id} value={item.id} data-species-id={item.id} onSelect={() => choose(item)}>
                 <Check className={`mr-2 h-4 w-4 shrink-0 ${value === item.id ? '' : 'opacity-0'}`} /><span className="min-w-0"><span className="block break-words font-medium">{item.common_name}</span>{item.scientific_name && <span className="block break-words text-xs italic text-muted-foreground">{item.scientific_name}</span>}</span>
               </CommandItem>)}
@@ -125,9 +127,9 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
         </Command>
       </PopoverContent>
     </Popover>
-    {selected?.scientific_name && <p className="break-words text-xs italic text-muted-foreground" data-testid="selected-species-info">{selected.scientific_name}</p>}
-    {!!selected?.aliases?.length && <p className="break-words text-xs text-muted-foreground">Também conhecida como: {selected.aliases.join(', ')}</p>}
-    {selected?.illustration_url && !draft && <figure className="space-y-1.5"><img src={selected.illustration_url} alt={`Imagem ilustrativa da espécie ${selected.common_name}`} className="h-28 w-full rounded-lg object-contain bg-surface-subtle" /><figcaption className="text-[11px] text-muted-foreground">Imagem ilustrativa da espécie {selected.common_name}.</figcaption></figure>}
+    {!compact && selected?.scientific_name && <p className="break-words text-xs italic text-muted-foreground" data-testid="selected-species-info">{selected.scientific_name}</p>}
+    {!compact && !!selected?.aliases?.length && <p className="break-words text-xs text-muted-foreground">Também conhecida como: {selected.aliases.join(', ')}</p>}
+    {!compact && selected?.illustration_url && !draft && <figure className="space-y-1.5"><img src={selected.illustration_url} alt={`Imagem ilustrativa da espécie ${selected.common_name}`} className="h-28 w-full rounded-lg object-contain bg-surface-subtle" /><figcaption className="text-[11px] text-muted-foreground">Imagem ilustrativa da espécie {selected.common_name}.</figcaption></figure>}
     {draft && <Dialog open onOpenChange={next => { if (!next && !savingRef.current) close(); }}>
       <DialogContent hideClose data-testid="tree-species-editor" className="z-[10040] flex max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-md flex-col gap-0 overflow-hidden rounded-xl p-0" overlayClassName="z-[10035] bg-black/50"
         onInteractOutside={event => event.preventDefault()} onEscapeKeyDown={event => { event.stopPropagation(); if (savingRef.current) event.preventDefault(); }}>

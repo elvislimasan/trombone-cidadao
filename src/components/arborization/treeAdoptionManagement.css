@@ -1,0 +1,189 @@
+.tree-adoption-management-page { display: flex; min-width: 0; flex-direction: column; gap: 12px; padding-block: 16px; }
+.tree-adoption-management-panel { min-width: 0; padding: 16px; }
+.tree-adoption-management-content { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.tree-availability-editor { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.tree-availability-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tree-availability-list { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.tree-availability-filters { display: grid; min-width: 0; gap: 8px; }
+.tree-availability-table-scroll { min-width: 0; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; }
+.tree-availability-table { width: 100%; table-layout: fixed; font-size: 13px; text-align: left; }
+.tree-availability-table th { position: sticky; top: 0; z-index: 1; background: rgb(var(--surface-subtle)); font-size: 11px; color: rgb(var(--text-secondary)); }
+.tree-availability-table th, .tree-availability-table td { padding: 12px; overflow-wrap: anywhere; }
+.tree-availability-table th:nth-child(1) { width: 22%; }
+.tree-availability-table th:nth-child(2) { width: 17%; }
+.tree-availability-table th:nth-child(3) { width: 19%; }
+.tree-availability-table th:nth-child(5) { width: 116px; }
+.tree-availability-table tbody tr + tr { border-top: 1px solid rgb(var(--border-subtle)); }
+.tree-availability-table td { vertical-align: top; }
+.tree-availability-table td:last-child button { white-space: nowrap; }
+.tree-availability-table td:last-child svg { flex-shrink: 0; }
+.tree-availability-status { display: inline-block; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; background: rgb(var(--surface-subtle)); }
+.tree-availability-status-available { background: rgb(var(--success-bg)); color: rgb(var(--success-fg)); }
+.tree-availability-status-unavailable { background: rgb(var(--danger-subtle-bg)); color: rgb(var(--danger-subtle-fg)); }
+.tree-availability-status-pending { background: rgb(var(--status-pending-bg)); color: rgb(var(--status-pending-fg)); }
+.tree-availability-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.tree-availability-body { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.tree-availability-selection { display: grid; min-width: 0; align-items: start; gap: 12px; }
+.tree-availability-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid rgb(var(--border-subtle)); }
+.tree-pickup-layout { display: grid; min-width: 0; gap: 12px; }
+.tree-pickup-location { display: flex; min-width: 0; flex-direction: column; gap: 12px; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; padding: 12px; }
+.tree-pickup-map { position: relative; isolation: isolate; height: 260px; min-width: 0; overflow: hidden; border: 1px solid rgb(var(--border-subtle)); border-radius: 8px; }
+.tree-pickup-schedule { min-width: 0; display: grid; align-content: start; gap: 10px; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; padding: 12px; }
+.tree-pickup-notes textarea { resize: vertical; }
+.tree-species-compact > div:first-child button { height: 24px; }
+.tree-adoption-management-page .tree-adoption-management-panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.adoption-citizen-requests { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+.adoption-workspace-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; border: 1px solid rgb(var(--border-subtle)); border-radius: 15px; background: rgb(var(--surface-raised)); }
+.adoption-workspace-title { display: flex; min-width: 0; gap: 13px; align-items: center; }
+.adoption-workspace-title h1, .adoption-workspace-title h2 { font-size: 20px; font-weight: 750; letter-spacing: -.025em; line-height: 1.3; }
+.adoption-workspace-title > div > p:last-child { margin-top: 4px; font-size: 12px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+.adoption-detail-eyebrow { margin-bottom: 5px; font-size: 9px; line-height: 1.2; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: rgb(var(--text-secondary)); }
+.adoption-request-icon { display: grid; flex-shrink: 0; place-items: center; width: 48px; height: 48px; border-radius: 14px; color: rgb(var(--brand)); background: rgb(var(--brand-subtle-bg)); }
+.adoption-workspace-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-self: flex-start; padding: 4px; border: 1px solid rgb(var(--border-subtle)); border-radius: 12px; background: rgb(var(--surface-raised)); }
+.adoption-workspace-tabs button { display: inline-flex; gap: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; color: rgb(var(--text-secondary)); }
+.adoption-workspace-tabs button[aria-current] { background: rgb(var(--brand-subtle-bg)); color: rgb(var(--brand)); box-shadow: inset 0 0 0 1px rgb(var(--brand) / .12); }
+.adoption-queue-toolbar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; padding: 4px 0; }
+.adoption-queue-toolbar > div > h3 { font-size: 15px; font-weight: 700; }
+.adoption-queue-toolbar > div > p { margin-top: 4px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.adoption-queue-toolbar > label { width: 290px; max-width: 100%; font-size: 11px; color: rgb(var(--text-secondary)); }
+.adoption-queue-toolbar select { min-height: 38px; background: rgb(var(--surface-raised)); font-size: 12px; color: rgb(var(--text-primary)); }
+.adoption-request-list { display: grid; min-width: 0; gap: 12px; }
+.adoption-request-card { display: grid; grid-template-columns: minmax(190px,.95fr) minmax(210px,1.2fr) minmax(180px,.8fr) auto; align-items: center; gap: 22px; padding: 20px; border: 1px solid rgb(var(--border-subtle)); border-radius: 14px; background: rgb(var(--surface-raised)); box-shadow: 0 2px 8px rgb(var(--text-primary) / .02); transition: box-shadow .15s, border-color .15s; }
+.adoption-request-card:hover { border-color: rgb(var(--border-strong)); box-shadow: 0 4px 16px rgb(var(--text-primary) / .04); }
+.adoption-request-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.adoption-request-protocol { font-size: 10px; font-weight: 600; letter-spacing: .06em; color: rgb(var(--text-secondary)); }
+.adoption-request-identity h3 { margin-top: 5px; overflow-wrap: anywhere; font-size: 16px; font-weight: 750; line-height: 1.3; }
+.adoption-request-type { margin-top: 4px; font-size: 11px; color: rgb(var(--text-secondary)); }
+.adoption-request-location { min-width: 0; }
+.adoption-request-location > p { display: flex; align-items: start; gap: 6px; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.adoption-request-location svg { flex-shrink: 0; margin-top: 2px; color: rgb(var(--text-secondary)); }
+.adoption-request-neighborhood { display: block; margin-left: 20px; font-size: 11px; color: rgb(var(--text-secondary)); }
+.adoption-request-location .adoption-request-provider { margin-top: 8px; color: rgb(var(--text-secondary)); font-size: 11px; }
+.adoption-request-location .adoption-request-caution { margin-top: 6px; color: rgb(var(--status-pending-fg)); font-size: 10px; }
+.adoption-status { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 5px 9px; border-radius: 7px; font-size: 10px; line-height: 1.4; font-weight: 650; }
+.adoption-status > span { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
+.adoption-status-pending { color: rgb(var(--status-pending-fg)); background: rgb(var(--status-pending-bg)); }
+.adoption-status-progress { color: rgb(var(--status-progress-fg)); background: rgb(var(--status-progress-bg)); }
+.adoption-status-success { color: rgb(var(--status-resolved-fg)); background: rgb(var(--status-resolved-bg)); }
+.adoption-status-muted { color: rgb(var(--text-secondary)); background: rgb(var(--surface-subtle)); }
+.adoption-request-state > p { margin-top: 7px; font-size: 11px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+.adoption-request-state > time { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 10px; color: rgb(var(--text-tertiary)); }
+.adoption-request-open { font-size: 11px; border-radius: 8px; }
+.adoption-queue-empty { display: grid; align-content: center; justify-items: center; min-height: 220px; padding: 32px 20px; gap: 14px; border: 1px dashed rgb(var(--border-default)); border-radius: 14px; text-align: center; background: rgb(var(--surface-raised)); }
+.adoption-queue-empty h3 { font-size: 15px; font-weight: 650; }
+.adoption-queue-empty > p { max-width: 440px; font-size: 12px; line-height: 1.65; color: rgb(var(--text-secondary)); }
+.adoption-request-dialog { border-radius: 18px; padding: 0; gap: 0; background: rgb(var(--surface-raised)); }
+.adoption-request-dialog .adoption-detail-header { display: flex; flex-wrap: wrap; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 48px 22px 22px; border-bottom: 1px solid rgb(var(--border-subtle)); text-align: left; }
+.adoption-detail-title { display: flex; align-items: center; min-width: 0; gap: 12px; }
+.adoption-detail-title h2 { font-size: 21px; letter-spacing: -.02em; }
+.adoption-detail-title p:last-child { margin-top: 5px; font-size: 12px; }
+.adoption-detail-layout { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr); gap: 22px; padding: 22px; align-items: start; }
+.adoption-detail-context { display: grid; min-width: 0; gap: 24px; }
+.adoption-detail-summary, .adoption-detail-history { display: grid; min-width: 0; gap: 16px; }
+.adoption-detail-summary > h3, .adoption-detail-history > h3 { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; }
+.adoption-detail-summary dt { font-size: 10px; }
+.adoption-detail-summary dd { font-size: 12px; line-height: 1.55; }
+.adoption-detail-summary > a { font-size: 11px; }
+.adoption-detail-notes { display: grid; gap: 7px; padding: 12px; border-radius: 9px; background: rgb(var(--surface-subtle)); }
+.adoption-detail-notes > p:first-child { font-size: 10px; font-weight: 700; color: rgb(var(--text-secondary)); }
+.adoption-detail-notes > p:last-child { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.65; }
+.adoption-detail-action { display: grid; min-width: 0; align-content: start; gap: 16px; padding: 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 13px; background: rgb(var(--surface-subtle) / .6); }
+.adoption-detail-action > h3 { font-size: 15px; font-weight: 700; }
+.adoption-detail-action fieldset { display: grid; gap: 16px; }
+.adoption-detail-action fieldset > * { margin-top: 0; }
+.adoption-detail-action label { font-size: 12px; }
+.adoption-detail-action fieldset > p { font-size: 12px; line-height: 1.6; }
+.adoption-detail-action textarea { min-height: 110px; border-radius: 9px; background: rgb(var(--surface-raised)); }
+.adoption-timeline { display: grid; gap: 0; padding-left: 7px; }
+.adoption-timeline li { position: relative; border-left: 1px solid rgb(var(--border-default)); padding: 0 0 22px 20px; }
+.adoption-timeline li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.adoption-timeline-dot { position: absolute; width: 9px; height: 9px; top: 7px; left: -5px; border: 2px solid rgb(var(--surface-raised)); border-radius: 50%; background: rgb(var(--brand)); box-shadow: 0 0 0 1px rgb(var(--border-default)); }
+.adoption-timeline li > p { margin-top: 8px; font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.adoption-timeline time { display: block; margin-top: 7px; font-size: 10px; color: rgb(var(--text-secondary)); }
+.tree-availability-list, .tree-availability-editor { border: 1px solid rgb(var(--border-subtle)); border-radius: 15px; background: rgb(var(--surface-raised)); padding: 18px; }
+.tree-availability-list > div:first-child h3, .tree-availability-summary h3 { font-size: 16px; font-weight: 750; letter-spacing: -.015em; }
+.tree-availability-table tbody tr:hover { background: rgb(var(--surface-subtle) / .5); }
+.tree-availability-table th { padding-block: 14px; letter-spacing: .02em; }
+.tree-availability-status { border-radius: 6px; }
+.tree-availability-summary { padding-bottom: 10px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.tree-pickup-location, .tree-pickup-schedule { background: rgb(var(--surface-subtle) / .4); }
+.tree-pickup-period { background: rgb(var(--surface-raised)); }
+@media (min-width: 980px) {
+  /* A altura vem da área de conteúdo do painel municipal, abaixo do header.
+     Ações ficam fixas; listas extensas de períodos rolam dentro da coluna. */
+  .tree-adoption-management-page { height: 100%; min-height: 0; padding-block: 12px; }
+  .tree-adoption-management-page > :first-child { flex-shrink: 0; }
+  .tree-adoption-management-panel { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; }
+  .tree-adoption-management-content[data-section="disponibilidade"] { height: 100%; min-height: 0; }
+  .tree-adoption-management-content > :not(.tree-availability-editor):not(.tree-availability-list) { flex-shrink: 0; }
+  .tree-availability-list { flex: 0 1 auto; min-height: 0; overflow: hidden; }
+  .tree-availability-list > :not(.tree-availability-table-scroll) { flex-shrink: 0; }
+  .tree-availability-table-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tree-availability-editor, .tree-availability-body { flex: 1; min-height: 0; overflow: hidden; }
+  .tree-availability-summary, .tree-availability-selection, .tree-availability-footer { flex-shrink: 0; }
+  .tree-availability-selection { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .tree-pickup-layout { flex: 1; min-height: 0; grid-template-columns: minmax(0,1.05fr) minmax(0,1fr); grid-template-rows: minmax(0,1fr) auto; }
+  .tree-pickup-location { grid-column: 1; grid-row: 1 / 3; min-height: 0; overflow-y: auto; }
+  .tree-pickup-map { flex: 1; min-height: 160px; height: auto; }
+  .tree-pickup-schedule { grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tree-pickup-notes { grid-column: 2; grid-row: 2; }
+  .tree-pickup-notes textarea { height: 64px; min-height: 48px; max-height: 96px; }
+}
+@media (max-width: 1350px) {
+  .adoption-request-card { grid-template-columns: minmax(190px,1fr) minmax(200px,1fr) minmax(150px,.85fr); gap: 16px; }
+  .adoption-request-open { grid-column: 3; justify-self: start; }
+  .adoption-request-state { grid-column: 3; grid-row: 1; }
+}
+@media (max-width: 979px) {
+  .adoption-request-card { grid-template-columns: minmax(0,1fr) auto; padding: 16px; }
+  .adoption-request-state { grid-column: 2; grid-row: 1; }
+  .adoption-request-state > p, .adoption-request-state > time { max-width: 170px; }
+  .adoption-request-location { grid-column: 1 / -1; }
+  .adoption-request-open { grid-column: 1 / -1; justify-self: stretch; }
+  .adoption-detail-layout { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 600px) {
+  .adoption-workspace-header { padding: 14px; align-items: start; }
+  .adoption-workspace-title > .adoption-request-icon { width: 38px; height: 38px; border-radius: 11px; }
+  .adoption-workspace-title h1, .adoption-workspace-title h2 { font-size: 17px; }
+  .adoption-workspace-header > button { margin-left: auto; }
+  .adoption-workspace-tabs { align-self: stretch; }
+  .adoption-workspace-tabs button { flex: 1; padding-inline: 8px; font-size: 11px; }
+  .adoption-request-card { grid-template-columns: minmax(0,1fr); }
+  .adoption-request-state { grid-column: 1; grid-row: auto; padding-top: 12px; border-top: 1px solid rgb(var(--border-subtle)); }
+  .adoption-request-state > p, .adoption-request-state > time { max-width: none; }
+  .adoption-queue-toolbar > label { width: 100%; }
+  .adoption-detail-layout { padding: 16px; gap: 20px; }
+  .adoption-request-dialog .adoption-detail-header { padding: 18px 40px 18px 16px; }
+  .tree-availability-editor, .tree-availability-list { padding: 12px; }
+  .tree-availability-summary h3 { font-size: 14px; }
+}
+@media (min-width: 768px) {
+  .tree-availability-filters { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr); }
+}
+@media (max-width: 767px) {
+  .tree-availability-table, .tree-availability-table tbody { display: block; }
+  .tree-availability-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tree-availability-table tbody tr { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; padding: 12px; }
+  .tree-availability-table td { padding: 0; min-width: 0; }
+  .tree-availability-table td:nth-child(1), .tree-availability-table td:nth-child(4) { grid-column: 1 / -1; }
+  .tree-availability-table td:nth-child(5) { grid-column: 1 / -1; }
+}
+@media (min-width: 980px) and (max-height: 850px) {
+  .adoption-workspace-header { padding: 11px 16px; }
+  .adoption-workspace-title h1, .adoption-workspace-title h2 { font-size: 18px; }
+  .adoption-workspace-title > div > p:last-child { font-size: 11px; margin-top: 3px; }
+  .adoption-workspace-tabs button { height: 34px; }
+  .tree-availability-editor { padding: 12px; gap: 10px; }
+  .tree-availability-body { gap: 10px; }
+  .tree-availability-summary { padding-bottom: 5px; }
+  .tree-availability-summary button { height: 28px; }
+  .tree-availability-selection { gap: 10px; }
+  .tree-availability-selection select, .tree-availability-selection [role="combobox"] { min-height: 36px; height: 36px; }
+  .tree-availability-selection label { font-size: 12px; gap: 4px; }
+  .tree-pickup-schedule { gap: 8px; padding: 10px; }
+  .tree-pickup-period { gap: 6px; padding: 6px; }
+  .tree-pickup-period > div:first-child > label { min-height: 28px; padding-block: 4px; }
+  .tree-pickup-schedule-help { display: none; }
+  .tree-pickup-notes > span { display: none; }
+}

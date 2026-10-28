@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronsLeft, Download, Filter, Leaf, List, Loader2, Map as MapIcon, MapPin, MoreHorizontal, Pencil, Plus, Scissors, Search, Sprout, Trees, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import TreeMap from '@/components/arborization/TreeMap';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreePhoto from '@/components/arborization/TreePhoto';
 import TreeMaintenanceDialog from '@/components/arborization/TreeMaintenanceDialog';
+import TreeAdoptionCard from '@/components/arborization/TreeAdoptionCard';
 import TreeNeighborhoodSidebar from '@/components/arborization/TreeNeighborhoodSidebar';
 import { CityViewProvider, useCityView } from '@/contexts/CityContext';
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
@@ -24,6 +25,8 @@ import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, filterTrees, 
 import { treeInventoryHighlights, withTreeSpecies } from '@/lib/treeSpecies';
 import { allTreeRows, treeNeighborhoodCounts, treeRequestCounts, uploadTreePhoto } from '@/lib/treeInventory';
 import { treeMaintenancePayload, treeMaintenanceSelection } from '@/lib/treeMaintenance';
+import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
+import { municipalContextPath } from '@/lib/municipalAccess';
 
 const EMPTY_FILTERS = { search: '', species: 'all', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
 const selectClass = 'arborization-select';
@@ -57,6 +60,7 @@ function StatusBadge({ status }) {
 }
 
 export function ArborizationContent({ management, embedded = false }) {
+  const location = useLocation();
   const { cityId, cityName, city, cities } = useCityView();
   const { canManage, loading: permissionsLoading } = useCanManageArborization(cityId);
   const [trees, setTrees] = useState([]);
@@ -104,7 +108,8 @@ export function ArborizationContent({ management, embedded = false }) {
   useEffect(() => {
     const refresh = () => setRevision(value => value + 1);
     window.addEventListener('reports-updated', refresh);
-    return () => window.removeEventListener('reports-updated', refresh);
+    window.addEventListener('tree-adoption-updated', refresh);
+    return () => { window.removeEventListener('reports-updated', refresh); window.removeEventListener('tree-adoption-updated', refresh); };
   }, []);
   useEffect(() => {
     let cancelled = false;
@@ -270,12 +275,15 @@ export function ArborizationContent({ management, embedded = false }) {
   );
 
   const Root = embedded ? 'div' : 'main';
-  return <Root className={`${embedded ? 'min-w-0 arborization-embedded' : 'page-shell-fluid'} arborization-page arborization-inventory-layout`} data-testid="arborization-page">
+  return <Root className={`${embedded ? 'min-w-0 arborization-embedded' : 'page-shell-fluid'} arborization-page arborization-inventory-layout`} style={embedded ? undefined : { paddingInline: 'clamp(1rem, 2vw, 2rem)' }} data-testid="arborization-page">
     <Helmet><title>{management ? 'Gerenciar arborização' : 'Mapa de arborização'} — Trombone Cidadão</title><meta name="description" content="Consulte o inventário de árvores da cidade, espécies, estado de conservação e necessidades de manejo." /></Helmet>
     {!embedded && <InventoryBackdrop />}
     {!embedded && <div className="arborization-header">
       <div className="arborization-intro"><span className="arborization-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><p className="arborization-eyebrow">Meio ambiente · {cityName || 'Todas as cidades'}{city?.state?.uf ? ` · ${city.state.uf}` : ''}</p><h1>{management ? 'Gerenciar arborização' : 'Mapa de arborização'}</h1><p className="arborization-subtitle">Conheça as árvores da cidade e acompanhe os cuidados com cada uma.</p></div></div>
-      <div className="arborization-city"><CitySelector /><ChevronDown className="arborization-city-chevron" aria-hidden="true" /></div>
+      <div className="arborization-header-tools">
+        <div className="arborization-city"><CitySelector /><ChevronDown className="arborization-city-chevron" aria-hidden="true" /></div>
+        {!management && <TreeAdoptionCard canManage={canManage} managementTo={municipalContextPath(TREE_ADOPTION_MANAGEMENT_PATH, cityId)} />}
+      </div>
     </div>}
     <div className="arborization-overview">
     <section aria-label="Indicadores do inventário filtrado" className="arborization-stats">

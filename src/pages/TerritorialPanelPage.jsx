@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams, useOutletContext } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { BarChart3, Building2, LayoutDashboard, LogOut, MapPin, Map as MapIcon, Menu, Moon, Route, Sun, Trees, X } from 'lucide-react';
+import { BarChart3, Building2, LayoutDashboard, LogOut, MapPin, Map as MapIcon, Menu, Moon, Route, Sprout, Sun, Trees, X } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { CityViewProvider, useCity } from '@/contexts/CityContext';
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { ArborizationContent } from '@/pages/ArborizationMapPage';
 import { PavementContent } from '@/pages/PavementMapPage';
 import { TERRITORIAL_BASE, territorialModules } from '@/lib/territorialAccess';
+import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
+import { municipalContextPath } from '@/lib/municipalAccess';
 
 const AREAS = { ruas: { title: 'Ruas e pavimentações', Icon: Route }, arborizacao: { title: 'Arborização', Icon: Trees } };
 
@@ -84,6 +86,7 @@ export default function TerritorialPanelPage() {
         {[['mapa','Mapa',MapIcon],['estatisticas','Estatísticas',BarChart3]].map(([section,label,Icon]) => <Link key={section} to={href('ruas',city,section)} aria-current={active==='ruas' && streetSection===section ? 'page' : undefined} className={`flex items-center gap-2 rounded-lg px-2 py-2 text-sm ${active==='ruas' && streetSection===section ? 'bg-brand-subtleBg font-semibold text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-subtle'}`}><Icon className="h-4 w-4" />{label}</Link>)}
       </nav>}
     </div>; })}
+    {modules.includes('arborizacao') && <Link className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm" to={municipalContextPath(TREE_ADOPTION_MANAGEMENT_PATH, city.id)}><Sprout className="h-4 w-4" />Adote uma árvore</Link>}
     {access.municipalities.length > 0 && <Link className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm" to="/prefeitura/demandas"><Building2 className="h-4 w-4" />Atendimento municipal</Link>}
   </>;
 

@@ -4,9 +4,9 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { enabledMunicipalCategories, filterMunicipalCategories } from '@/lib/municipalCategories';
 import { PERMISSIONS_CHANGED_EVENT, PERMISSIONS_STORAGE_KEY } from '@/lib/permissionUpdates';
-import { municipalCapabilities, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel } from '@/lib/municipalAccess';
+import { municipalCapabilities, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel, municipalTreeAdoptionAccess } from '@/lib/municipalAccess';
 
-const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
+const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), canAttendTreeAdoption: false, isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
 const WorkspaceContext = createContext(empty);
 export const WORKSPACE_EVENT = 'municipality-workspace-changed';
 const workspaceKey = userId => 'municipality-workspace:' + userId;
@@ -94,6 +94,7 @@ export function MunicipalityWorkspaceProvider({ children }) {
           categories: filterMunicipalCategories(categories.data, municipality).filter(category => categoryIds.includes(category.id)), enabledCategoryIds: categoryIds, reportCreationCategoryIds,
           categoryChannels: mappings.data || [], members: (members.data || []).map(member => ({ ...member, especialidades_execucao: (data.execution_team || []).find(row => row.user_id === member.user_id && row.canal_id === member.canal_id)?.especialidades_execucao || [] })), serviceRules: rules.data || [],
           inventoryModules: [...(data.inventories || []), ...(data.inventory_views || [])].filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)).map(row => row.module),
+          canAttendTreeAdoption: municipalTreeAdoptionAccess({ isAdministrator, cityId: municipality.city_id, activeChannelId: selectedChannel, accesses, inventories: data.inventories || [], categoryChannels: mappings.data || [] }),
           executionActivities: (data.execution_activities || []).filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)),
           ...caps, isAdministrator, isElectrician: caps.canExecuteLighting, canEdit: caps.canReceive,
           canViewLighting: categoryIds.includes('iluminacao') && (caps.canReadAttendance || caps.canEditLighting || caps.canExecuteLighting),
