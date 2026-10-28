@@ -375,7 +375,8 @@ function AppShell() {
   const { user, loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
   const isDesktopViewport = useIsDesktopViewport();
-  const adoptionDesktop = isDesktopViewport && location.pathname === '/adote-uma-arvore';
+  const adoptionDesktop = isDesktopViewport && location.pathname === '/adote-uma-arvore'
+    && ['solicitar', 'minhas'].includes(new URLSearchParams(location.search).get('aba'));
   const patrolBlockedOnDesktop = isPatrolBlockedOnDesktop({
     isNative,
     isDesktop: isDesktopViewport,

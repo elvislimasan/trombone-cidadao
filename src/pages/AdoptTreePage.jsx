@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Flower2, Leaf, Loader2, MapPin, ShieldCheck, Sprout, Sun, Trees } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TreeAdoptionHeader from '@/components/arborization/TreeAdoptionHeader';
+import TreeAdoptionIntroduction from '@/components/arborization/TreeAdoptionIntroduction';
 import TreeAdoptionRequests from '@/components/arborization/TreeAdoptionRequests';
 import TreeAdoptionLocation from '@/components/arborization/TreeAdoptionLocation';
 import TreeAdoptionSpecies from '@/components/arborization/TreeAdoptionSpecies';
@@ -70,7 +71,7 @@ function AdoptionForm({ cityId, city, cityLabel, onSubmitted, onShowRequests }) 
     } catch (err) { setError(err.message || 'Não foi possível enviar. Seus dados foram mantidos para tentar novamente.'); setNeedsLogin(Boolean(err.needsLogin)); if (err.code === '23514') catalog.refresh(); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const loginState = { from: { pathname: '/adote-uma-arvore', search: `?cidade=${cityId}` } };
+  const loginState = { from: { pathname: '/adote-uma-arvore', search: `?cidade=${cityId}&aba=solicitar` } };
   if (!user) return <section className="adoption-auth-panel"><span className="adoption-auth-icon"><Sprout className="h-8 w-8" /></span><h2 className="text-2xl font-bold">O primeiro passo para uma cidade mais verde</h2><p className="max-w-xl text-sm leading-relaxed text-content-secondary">Entre na sua conta para solicitar uma muda ou plantio, escolher uma espécie e acompanhar as orientações da equipe.</p><Button asChild><Link to="/login" state={loginState}>Entrar para solicitar</Link></Button></section>;
   if (success) return <section className="adoption-auth-panel adoption-success-panel" role="status"><CheckCircle2 className="h-10 w-10 text-primary" /><h2 className="text-2xl font-bold">Sua solicitação foi enviada</h2><div className="adoption-receipt"><span>Protocolo do pedido</span><strong>{adoptionProtocol(success)}</strong></div><p className="max-w-xl text-sm leading-relaxed text-content-secondary">A equipe de arborização de {cityLabel} avaliará o local e a espécie. Aguarde a confirmação antes de ir ao fornecedor.</p><div className="flex flex-wrap justify-center gap-3"><Button onClick={onShowRequests}>Acompanhar solicitação</Button><Button variant="outline" onClick={() => { setSuccess(null); setForm({ ...EMPTY_ADOPTION }); requestId.current = crypto.randomUUID(); move(0); }}>Fazer outra solicitação</Button></div></section>;
   const intro = <div className="adoption-form-intro"><span className="adoption-intro-step">Etapa {step + 1} de {STEPS.length}</span><h2 ref={headingRef} tabIndex={-1} className="font-bold outline-none">{STEPS[step].title}</h2><p className="text-content-secondary">{STEPS[step].description}</p></div>;
@@ -116,15 +117,28 @@ function AdoptionForm({ cityId, city, cityLabel, onSubmitted, onShowRequests }) 
 export function AdoptTreeContent() {
   const { cityId, city } = useCityView();
   const { user } = useAuth();
-  const [tab, setTab] = useState('solicitar');
+  const [params, setParams] = useSearchParams();
+  const tab = ['solicitar', 'minhas'].includes(params.get('aba')) ? params.get('aba') : 'programa';
+  const [formStarted, setFormStarted] = useState(tab === 'solicitar');
+  const setTab = nextTab => {
+    if (nextTab === 'solicitar') setFormStarted(true);
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      if (nextTab === 'programa') next.delete('aba'); else next.set('aba', nextTab);
+      return next;
+    });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
   const [revision, setRevision] = useState(0);
   const cityLabel = city ? [city.name, cityStateUf(city)].filter(Boolean).join(' · ') : '';
   const contextKey = `${cityId}:${user?.id || 'visitor'}`;
-  return <main className="tree-adoption-page page-shell-fluid">
+  return <main className={`tree-adoption-page page-shell-fluid${tab === 'programa' ? ' tree-adoption-overview-page' : ''}`}>
     <Helmet><title>Adote uma árvore</title><meta name="description" content="Solicite uma muda ou plantio, escolha uma espécie e acompanhe o atendimento da equipe de arborização da sua cidade." /></Helmet>
     <TreeAdoptionHeader cityId={cityId} city={city} tab={tab} onTabChange={setTab} />
-    {!cityId || !city ? <p className="rounded-xl border border-dashed p-6 text-sm text-content-secondary">Selecione a cidade do plantio para começar.</p> : <>
-      <div className="adoption-form-slot" hidden={tab !== 'solicitar'}><AdoptionForm key={contextKey} cityId={cityId} city={city} cityLabel={cityLabel} onSubmitted={() => setRevision(value => value + 1)} onShowRequests={() => setTab('minhas')} /></div>
+    {tab === 'programa' && <TreeAdoptionIntroduction city={city} onStart={() => setTab('solicitar')} />}
+    {tab !== 'programa' && (!cityId || !city) && <p className="rounded-xl border border-dashed p-6 text-sm text-content-secondary">Selecione a cidade do plantio para começar.</p>}
+    {cityId && city && <>
+      {(formStarted || tab === 'solicitar') && <div className="adoption-form-slot" hidden={tab !== 'solicitar'}><AdoptionForm key={contextKey} cityId={cityId} city={city} cityLabel={cityLabel} onSubmitted={() => setRevision(value => value + 1)} onShowRequests={() => setTab('minhas')} /></div>}
       {tab === 'minhas' && <div className="adoption-requests-panel"><TreeAdoptionRequests key={contextKey} cityId={cityId} revision={revision} /></div>}
     </>}
     <p className="adoption-page-note"><ShieldCheck className="h-4 w-4 shrink-0" />A equipe avalia cada pedido para garantir uma espécie adequada ao local e um plantio seguro.</p>

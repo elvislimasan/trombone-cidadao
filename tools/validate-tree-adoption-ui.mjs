@@ -53,7 +53,11 @@ const stubs = {
     }};return q;}};`,
 };
 await build({
-  stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import{MemoryRouter,Routes,Route}from'react-router-dom';import L from 'leaflet';import AdoptTreePage from '@/pages/AdoptTreePage';import Management from '@/pages/TreeAdoptionManagementPage';import Layout from '@/components/municipality/MunicipalityLayout';if(location.search.includes('dark'))document.documentElement.classList.add('dark');L.Map.addInitHook(function(){window.testMap=this;});const desktop=matchMedia('(min-width:980px)').matches,management=/(manager|attendant|reader)/.test(location.search);createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={management?['/prefeitura/adote-uma-arvore?cidade=64&secretaria=agri']:['/'+location.search]}>{management?<Routes><Route element={<Layout/>}><Route path="/prefeitura/adote-uma-arvore" element={<Management/>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações da cidade</h1>}/><Route path="/prefeitura/gestao-territorial/arborizacao" element={<h1>Inventário de árvores</h1>}/></Route></Routes>:<div className={'qa-app-root'+(desktop?' tree-adoption-app':'')}><header className="qa-site-header">Trombone Cidadão</header><main className={'qa-app-main'+(desktop?' tree-adoption-app-main':'')} style={{paddingTop:56,paddingBottom:desktop?0:80}}><div className="qa-route-outlet"><AdoptTreePage/></div></main></div>}</MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
+  stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import{MemoryRouter,Routes,Route,useLocation}from'react-router-dom';import L from 'leaflet';import AdoptTreePage from '@/pages/AdoptTreePage';import{TreeAdoptionHomeSection}from'@/components/arborization/TreeAdoptionIntroduction';import Management from '@/pages/TreeAdoptionManagementPage';import Layout from '@/components/municipality/MunicipalityLayout';
+    if(location.search.includes('dark'))document.documentElement.classList.add('dark');L.Map.addInitHook(function(){window.testMap=this;});
+    const desktop=matchMedia('(min-width:980px)').matches,management=/(manager|attendant|reader)/.test(location.search);
+    function CitizenShell(){const route=useLocation(),params=new URLSearchParams(route.search),bounded=desktop&&['solicitar','minhas'].includes(params.get('aba'));if(route.pathname==='/login')return <pre data-testid="login-return">{JSON.stringify(route.state?.from)}</pre>;return <div className={'qa-app-root'+(bounded?' tree-adoption-app':'')}><header className="qa-site-header">Trombone Cidadão</header><main className={'qa-app-main'+(bounded?' tree-adoption-app-main':'')} style={{paddingTop:56,paddingBottom:bounded?0:80}}><div className="qa-route-outlet">{params.has('home-preview')?<div className="page-shell-fluid" style={{padding:'24px clamp(16px,2vw,32px)'}}><TreeAdoptionHomeSection cityId={64}/></div>:<AdoptTreePage/>}</div></main></div>}
+    createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={management?['/prefeitura/adote-uma-arvore?cidade=64&secretaria=agri']:['/'+location.search]}>{management?<Routes><Route element={<Layout/>}><Route path="/prefeitura/adote-uma-arvore" element={<Management/>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações da cidade</h1>}/><Route path="/prefeitura/gestao-territorial/arborizacao" element={<h1>Inventário de árvores</h1>}/></Route></Routes>:<CitizenShell/>}</MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, jsx: 'automatic', loader: { '.png': 'dataurl' }, outfile: path.join(out, 'preview.js'),
   define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' }, alias: { '@': path.join(root, 'src') },
   plugins: [{ name: 'fixtures', setup(builder) {
@@ -64,6 +68,7 @@ await build({
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
 sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoption.css', 'utf8');
+sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionIntroduction.css', 'utf8');
 sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionManagement.css', 'utf8');
 // Mesma geometria do App real: header fixo de 56 px, main flexível e sem a
 // reserva inferior/rodapé institucional na rota desktop de adoção.
@@ -108,7 +113,11 @@ try {
   const input = (placeholder, value) => evaluate(`(()=>{const el=[...document.querySelectorAll('input')].find(el=>el.placeholder===${JSON.stringify(placeholder)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
   const timeInput = (label,value) => evaluate(`(()=>{const el=document.querySelector('input[aria-label="'+${JSON.stringify(label)}+'"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
   const textArea = value => evaluate(`(()=>{const el=document.querySelector('[role=dialog] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
-  const navigate = query => send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/${query || ''}` }, sessionId);
+  const navigate = query => {
+    const params = new URLSearchParams(query || '');
+    if (!/(manager|attendant|reader|overview|home-preview)/.test(query || '')) params.set('aba', 'solicitar');
+    return send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/?${params}` }, sessionId);
+  };
   const capture = async name => { await pause(200); const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId); await fs.writeFile(path.join(out, `${name}.png`), Buffer.from(shot.data, 'base64')); };
   const frame = async (stage,width,height) => {
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), `overflow horizontal ${stage} em ${width}x${height}`);
@@ -118,6 +127,32 @@ try {
     assert.ok(dimensions.footerBottom<=height&&dimensions.footerTop>=56,`ações fora da tela ${stage}: ${JSON.stringify(dimensions)}`);
     assert.ok(dimensions.bodyScroll<=dimensions.bodyHeight+1,`formulário não compacto ${stage}: ${JSON.stringify(dimensions)}`);
   };
+  for (const [width,height] of [[320,844],[390,844],[1440,900],[1920,1080]]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+    await navigate('?overview&visitor&cidade=64');await waitFor('document.querySelector("[data-testid=adoption-program]")');
+    assert.ok(await evaluate('!document.querySelector(".adoption-form")&&!document.body.innerText.includes("Entrar para solicitar")'),'Apresentação pública sem exigir login');
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Apresentação sem rolagem horizontal');
+    assert.ok(await evaluate('document.scrollingElement.scrollHeight>innerHeight'),'Seções podem rolar normalmente');
+    await evaluate('document.querySelector(".adoption-program-faq summary").click()');
+    assert.ok(await evaluate('document.querySelector(".adoption-program-faq details").open'),'Dúvidas acessíveis');
+    await capture(`programa-${width}`);
+    await click('Quero participar');await waitFor('document.body.innerText.includes("Entrar para solicitar")');
+    await evaluate('[...document.querySelectorAll("a")].find(a=>a.textContent==="Entrar para solicitar").click()');await waitFor('document.querySelector("[data-testid=login-return]")');
+    const login=await evaluate('JSON.parse(document.querySelector("[data-testid=login-return]").textContent)');
+    assert.equal(login.pathname,'/adote-uma-arvore');assert.equal(new URLSearchParams(login.search).get('aba'),'solicitar');assert.equal(new URLSearchParams(login.search).get('cidade'),'64');
+    await navigate('?overview&cidade=64');await waitFor('document.querySelector("[data-testid=adoption-program]")');
+    await click('Começar minha solicitação');await waitFor('document.querySelector(".adoption-request-layout")');
+    await radio('muda');await evaluate('document.querySelector("button.adoption-back-link").click()');
+    await waitFor('document.querySelector("[data-testid=adoption-program]")');await click('Quero participar');
+    assert.ok(await evaluate('document.querySelector("input[type=radio][value=muda]").checked'),'Voltar à apresentação preserva o preenchimento');
+    await evaluate('sessionStorage.clear()');
+    await navigate('?home-preview&visitor');await waitFor('document.querySelector(".adoption-home-section")');
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Chamada da home sem rolagem horizontal');
+    assert.ok(await evaluate('[...document.querySelectorAll(".adoption-home-section a")].every(a=>new URL(a.href).searchParams.get("cidade")==="64")'),'Chamada preserva a cidade');
+    await capture(`home-adote-${width}`);
+    await evaluate('[...document.querySelectorAll(".adoption-home-section a")].find(a=>a.textContent.includes("Conhecer o programa")).click()');await waitFor('document.querySelector("[data-testid=adoption-program]")');
+    console.log(`${width}px: apresentação pública, FAQ, acesso ao formulário, rascunho preservado e chamada da home OK`);
+  }
   for (const [width,height] of [[320,844],[390,844],[1366,768],[1440,768],[1440,900],[1920,1080],[1920,921]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
     await navigate(); await waitFor('document.querySelector(".adoption-request-layout")');

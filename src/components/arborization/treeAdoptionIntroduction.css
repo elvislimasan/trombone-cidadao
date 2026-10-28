@@ -1,0 +1,81 @@
+.adoption-program, .adoption-home-section { color: rgb(var(--text-primary)); }
+.adoption-program { display: grid; min-width: 0; gap: 48px; padding-block: 12px 32px; }
+.adoption-program-hero, .adoption-home-section { position: relative; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; min-width: 0; gap: 32px; overflow: hidden; border: 1px solid rgb(var(--border-subtle)); border-radius: 24px; background: linear-gradient(110deg, rgb(var(--surface-raised)) 30%, rgb(var(--success-bg) / .65)); }
+.adoption-program-hero-copy { padding: clamp(24px, 3.3vw, 56px); padding-right: 0; }
+.adoption-program-eyebrow { display: flex; align-items: center; gap: 7px; color: rgb(var(--brand)); font-size: 11px; line-height: 1.5; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.adoption-program-hero h2 { margin-top: 18px; font-size: clamp(34px, 3.4vw, 60px); line-height: 1.08; font-weight: 800; letter-spacing: -.045em; }
+.adoption-program-hero h2 > span { color: rgb(var(--success-fg)); }
+.adoption-program-hero-copy > p:not(.adoption-program-eyebrow):not(.adoption-program-note) { max-width: 53ch; margin-top: 20px; font-size: 15px; line-height: 1.8; color: rgb(var(--text-secondary)); }
+.adoption-program-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.adoption-program-actions > *, .adoption-program-options button, .adoption-program-final > button { min-height: 44px; height: auto; gap: 9px; border-radius: 10px; padding: 11px 18px; font-size: 13px; }
+.adoption-program-note { display: flex; align-items: start; gap: 7px; max-width: 55ch; margin-top: 16px; color: rgb(var(--text-secondary)); font-size: 11px; line-height: 1.6; }
+.adoption-program-note > svg { flex-shrink: 0; margin-top: 2px; }
+.adoption-program-hero-art { display: grid; justify-items: center; padding: 20px 28px 30px 0; }
+.adoption-growing-tree { display: block; width: 100%; max-height: 390px; }
+.adoption-program-art-caption { display: inline-flex; align-items: center; gap: 9px; padding: 10px 16px; border: 1px solid rgb(var(--success-border)); border-radius: 999px; background: rgb(var(--surface-raised) / .8); color: rgb(var(--success-fg)); font-size: 12px; font-weight: 650; }
+.adoption-program-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.adoption-program-benefits > article { padding: 6px 20px; border-left: 1px solid rgb(var(--border-subtle)); }
+.adoption-program-benefits > article:first-child { border-left: 0; }
+.adoption-program-icon { display: grid; place-items: center; flex-shrink: 0; width: 46px; height: 46px; border-radius: 14px; background: rgb(var(--success-bg)); color: rgb(var(--success-fg)); }
+.adoption-program-benefits h3, .adoption-program-options h3 { margin-top: 16px; font-size: 18px; line-height: 1.4; font-weight: 750; }
+.adoption-program-benefits p, .adoption-program-options p { max-width: 57ch; margin-top: 8px; color: rgb(var(--text-secondary)); font-size: 13px; line-height: 1.8; }
+.adoption-program-participate { scroll-margin-top: calc(var(--header-bar-height, 56px) + 24px); }
+.adoption-program-section-heading { margin-bottom: 24px; }
+.adoption-program-section-heading h2, .adoption-program-care h2 { margin-top: 8px; font-size: clamp(24px, 2.2vw, 34px); line-height: 1.25; font-weight: 750; letter-spacing: -.025em; }
+.adoption-program-section-heading > p:last-child:not(.adoption-program-eyebrow) { margin-top: 10px; font-size: 14px; line-height: 1.7; color: rgb(var(--text-secondary)); }
+.adoption-program-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.adoption-program-options > article { display: flex; align-items: start; flex-direction: column; min-width: 0; padding: 28px; border: 1px solid rgb(var(--border-subtle)); border-radius: 18px; background: rgb(var(--surface-raised)); }
+.adoption-program-options p { flex: 1; margin-bottom: 20px; }
+.adoption-program-options button { color: rgb(var(--brand)); }
+.adoption-program-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: 28px; }
+.adoption-program-steps li { display: flex; align-items: start; min-width: 0; gap: 12px; }
+.adoption-program-steps li > span { color: rgb(var(--brand)); font-size: 19px; font-weight: 750; line-height: 1.3; }
+.adoption-program-steps h3 { font-size: 13px; font-weight: 700; }
+.adoption-program-steps p { margin-top: 5px; color: rgb(var(--text-secondary)); font-size: 12px; line-height: 1.6; }
+.adoption-program-care { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 40px; padding: 32px; border-radius: 20px; background: rgb(var(--success-bg) / .7); }
+.adoption-program-care > div > p:last-child { max-width: 55ch; margin-top: 14px; color: rgb(var(--text-secondary)); font-size: 13px; line-height: 1.8; }
+.adoption-program-care ul { display: grid; gap: 20px; }
+.adoption-program-care li { display: flex; align-items: start; gap: 12px; font-size: 13px; line-height: 1.6; }
+.adoption-program-care li > svg { flex-shrink: 0; margin-top: 2px; color: rgb(var(--success-fg)); }
+.adoption-program-faq { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 40px; }
+.adoption-program-faq details { padding: 18px 0; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.adoption-program-faq details:first-child { padding-top: 0; }
+.adoption-program-faq summary { cursor: pointer; font-size: 14px; line-height: 1.5; font-weight: 650; }
+.adoption-program-faq summary:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 4px; border-radius: 4px; }
+.adoption-program-faq details p { max-width: 78ch; margin-top: 12px; color: rgb(var(--text-secondary)); font-size: 13px; line-height: 1.8; }
+.adoption-program-final { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; padding: 28px; border: 1px solid rgb(var(--brand) / .15); border-radius: 18px; background: rgb(var(--brand-subtle-bg)); }
+.adoption-program-final > div { flex: 1 1 320px; }
+.adoption-program-final h2 { font-size: 21px; line-height: 1.4; font-weight: 750; }
+.adoption-program-final p { margin-top: 6px; font-size: 13px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.adoption-program-final > .adoption-program-icon { background: rgb(var(--surface-raised)); color: rgb(var(--brand)); }
+.adoption-home-section { margin-top: 40px; gap: 24px; }
+.adoption-home-copy { padding: clamp(24px, 3vw, 48px); padding-right: 0; }
+.adoption-home-copy h2 { margin-top: 14px; font-size: clamp(28px, 2.6vw, 44px); line-height: 1.12; font-weight: 800; letter-spacing: -.035em; }
+.adoption-home-copy > p:not(.adoption-program-eyebrow) { max-width: 53ch; margin-top: 16px; color: rgb(var(--text-secondary)); font-size: 14px; line-height: 1.8; }
+.adoption-home-art { padding: 12px 24px 12px 0; }
+.adoption-home-art > svg { max-height: 300px; }
+@media (max-width: 979px) {
+  .adoption-program { gap: 32px; }
+  .adoption-program-hero, .adoption-home-section { gap: 12px; }
+  .adoption-program-hero-copy { padding: 24px; padding-right: 0; }
+  .adoption-program-hero-art { padding-right: 12px; }
+  .adoption-program-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adoption-program-care, .adoption-program-faq { gap: 24px; }
+}
+@media (max-width: 639px) {
+  .adoption-program-hero, .adoption-home-section { grid-template-columns: minmax(0, 1fr); }
+  .adoption-program-hero-copy, .adoption-home-copy { padding: 24px 22px 0; }
+  .adoption-program-hero-art { padding: 0 14px 22px; }
+  .adoption-growing-tree { max-height: 230px; }
+  .adoption-program-benefits, .adoption-program-options, .adoption-program-care, .adoption-program-faq { grid-template-columns: minmax(0, 1fr); }
+  .adoption-program-benefits { gap: 20px; }
+  .adoption-program-benefits > article { border: 0; padding: 0; }
+  .adoption-program-benefits h3 { margin-top: 10px; }
+  .adoption-program-options > article, .adoption-program-care, .adoption-program-final { padding: 22px; }
+  .adoption-program-steps { gap: 20px 14px; }
+  .adoption-program-section-heading { margin-bottom: 18px; }
+  .adoption-program-faq { gap: 4px; }
+  .adoption-program-final > div { flex-basis: 100%; }
+  .adoption-program-actions > *, .adoption-program-final > button { flex: 1 1 auto; }
+  .adoption-home-art { padding: 0 18px 12px; }
+}

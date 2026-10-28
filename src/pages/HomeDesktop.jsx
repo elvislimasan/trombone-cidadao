@@ -18,6 +18,7 @@ import { MapContainer, Marker } from 'react-leaflet';
 import { MapBaseLayer } from '@/components/map/MapDisplayControls';
 import { createPinIcon } from '@/components/map/pinIcon';
 import { BarraQueEnche, Contador, useRevelarAoRolar } from '@/components/home/animacoes';
+import { TreeAdoptionHomeSection } from '@/components/arborization/TreeAdoptionIntroduction';
 
 // A home do desktop.
 //
@@ -315,17 +316,9 @@ function HomeDesktop() {
         <meta name="description" content="Uma plataforma cidadã nacional para acompanhar cidades, registrar problemas, apoiar causas e transformar o Brasil." />
       </Helmet>
 
-      {/* A MESMA LARGURA DO MAPA DE PAVIMENTAÇÃO
-          `max-w-6xl` (72rem) deixava quase 400px de fundo vazio de cada lado num
-          1920. Aqui vale a régua que aquela tela já usa: 112rem com o respiro
-          crescendo por breakpoint — a página ocupa o monitor sem os blocos
-          encostarem na borda.
-
-          As colunas de texto continuam presas em `max-w-md`/`max-w-sm` dentro
-          das seções: largura de container é uma coisa, comprimento de linha
-          legível é outra, e esticar parágrafo até 1792px tornaria a leitura
-          pior, não melhor. */}
-      <div ref={areaRevelada} className="mx-auto w-full max-w-[100rem] px-5 py-10 md:px-8 lg:px-12">
+      {/* A página usa a largura disponível e gutters de até 64 px. Somente
+          colunas internas de texto limitam a largura para leitura. */}
+      <div ref={areaRevelada} className="page-shell-fluid py-10" style={{ paddingInline: 'clamp(1rem, 4vw, 4rem)' }}>
 
         {erroAoCarregar && <div role="alert" className="mb-5 rounded-xl border border-edge-subtle p-4 text-sm text-content-secondary">Não foi possível atualizar os dados da cidade. <button type="button" onClick={carregar} className="min-h-11 font-bold text-brand">Tentar novamente</button></div>}
         {/* ── Abertura ──────────────────────────────────────────────────── */}
@@ -757,6 +750,8 @@ function HomeDesktop() {
             ))}
           </div>
         </Secao>
+
+        <TreeAdoptionHomeSection cityId={cityId} />
 
         {/* O programa merece uma entrada própria: os embaixadores são quem leva
             a plataforma nacional para a rotina de cada município. */}
