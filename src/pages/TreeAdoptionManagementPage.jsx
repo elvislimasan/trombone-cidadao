@@ -15,7 +15,7 @@ export default function TreeAdoptionManagementPage() {
   const { user } = useAuth();
   const access = usePermissions();
   const { cities, loadingCities, activeCityId } = useCity();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const municipal = Boolean(workspace?.municipality);
   // Gestores do inventário sem vínculo municipal usam a mesma fila, limitada
   // às suas cidades. No painel, a prefeitura ativa define o escopo da tela.
@@ -35,7 +35,6 @@ export default function TreeAdoptionManagementPage() {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs font-semibold text-brand">Atendimento municipal · {cityLabel}</p>
       {(municipal ? workspace.inventoryModules?.includes('arborization') : allowedCities.length > 0) && <Button asChild variant="outline" size="sm"><Link to={municipalContextPath(`${TERRITORIAL_BASE}/arborizacao`, city.id, workspace?.activeChannelId)}>Voltar ao inventário</Link></Button>}
-      {!municipal && allowedCities.length > 1 && <label className="text-sm">Cidade do atendimento<select className="ml-2 rounded-md border bg-background px-3 py-2" value={city.id} onChange={event => setParams({ cidade: event.target.value })}>{allowedCities.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>}
     </div>
     <div className="tree-adoption-management-panel rounded-xl border border-edge-subtle bg-surface-raised">
       <TreeAdoptionRequests key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} city={city} management headingLevel={1} />

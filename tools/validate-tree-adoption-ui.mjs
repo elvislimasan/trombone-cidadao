@@ -12,7 +12,7 @@ import loadConfig from 'tailwindcss/loadConfig.js';
 const root = process.cwd(), out = path.join(root, '.tmp/tree-adoption-ui');
 await fs.mkdir(out, { recursive: true });
 const stubs = {
-  '@/contexts/SupabaseAuthContext': `export const useAuth=()=>({user:location.search.includes('visitor')?null:{id:'citizen',name:'Cidadã'},signOut:async()=>{}});`,
+  '@/contexts/SupabaseAuthContext': `export const useAuth=()=>({user:location.search.includes('visitor')?null:{id:'citizen',name:'Maria da Silva',phone:'87999999999',email:'maria@example.test'},signOut:async()=>{}});`,
   '@/hooks/usePermissions': `export const usePermissions=()=>({loading:false,error:false,isMaster:false,municipalities:[{city_id:64}],planningCityIds:[],treeAssignments:[{city_id:64}],canWrite:()=>location.search.includes('manager')});`,
   '@/components/Notifications': `export default function Notifications(){return null;}`,
   '@/contexts/CityContext': `import React,{useState,createContext,useContext} from 'react';
@@ -30,7 +30,7 @@ const stubs = {
     window.clearAvailability=()=>{availability=[]};window.restoreAvailability=()=>{availability=structuredClone(initialAvailability)};
     window.requests=/(manager|attendant)/.test(location.search)?[{id:'12345678-0000-0000-0000-000000000001',city_id:64,author_id:'citizen',species_id:'species1',request_type:'plantio',zone:'urbana',planting_place:'calcada',purpose:'sombra',overhead_wiring:'sim',provider:'viveiro_municipal',address:'Rua do Plantio, 20',neighborhood:'Centro',latitude:-8.6,longitude:-38.57,status:'solicitada',created_at:new Date().toISOString(),species:species[0]}]:[];
     if(location.search.includes('many-manager')){const base=window.requests[0];window.requests=Array.from({length:18},(_,i)=>({...base,id:'12345678-0000-0000-0000-'+String(i+1).padStart(12,'0'),status:['solicitada','em_analise','aguardando_informacao','aprovada'][i%4],address:'Rua de teste '+(i+1)+', Centro',request_type:i%2?'muda':'plantio'}));}
-    window.events=[];window.calls=[];window.alerts=[];window.mapQueries=[];
+    window.events=[];window.calls=[];window.alerts=[];window.mapQueries=[];window.availabilitySaves=[];
     export const supabase={auth:{getSession:async()=>({data:{session:window.missingSession?null:{access_token:'fixture',user:{id:'citizen'}}}}),refreshSession:async()=>{window.sessionRefreshes=(window.sessionRefreshes||0)+1;return {data:{session:window.missingSession?null:{access_token:'renewed-fixture',user:{id:'citizen'}}}};}},functions:{invoke:async()=>({data:{}})},rpc:async(name,args)=>{
       window.calls.push({name,args});
       if(name==='municipal_execution_workspace')return {data:{actor_user_id:'citizen',access_contract:2,execution_contract:1,memberships:[{papel:location.search.includes('manager')&&!location.search.includes('inventory')?'administrador':'colaborador',prefeitura:{id:'pref64',city_id:64,nome:'Prefeitura de Floresta',categorias_habilitadas:['poda'],cidade:location.search.includes('missing-city')||location.search.includes('no-city-metadata')?{}:{name:'Floresta',states:{uf:'PE'}}}}],channels:[{id:'agri',city_id:64,nome:'Meio ambiente'}],accesses:[{city_id:64,canal_id:'agri',atendimento:location.search.includes('inventory')?'nenhum':location.search.includes('reader')?'leitura':'atendente',especialidades_execucao:[]}],category_channels:[{city_id:64,canal_id:'agri',category_id:'poda'}],inventories:location.search.includes('manager')?[{city_id:64,canal_id:'agri',module:'arborization'}]:[],inventory_views:[]}};
@@ -44,7 +44,7 @@ const stubs = {
       return {data:[]};
     },from(table){const filters=[],excludes=[];let start=0,end=999,payload,newSpecies,one=false;const q={select(){return q},eq(k,v){filters.push([k,v]);return q},in(){return q},single(){one=true;return q},maybeSingle(){one=true;return q},not(k,op,v){excludes.push([k,v===null?[null,undefined]:v.slice(1,-1).split(',')]);return q},order(){return q},limit(n){end=n-1;return q},range(a,b){start=a;end=b;return q},insert(v){newSpecies=v;return q},upsert(v){payload=v;return q},then(ok,fail){
       if(newSpecies){const row={id:'created-species',...newSpecies};species.push(row);return Promise.resolve({data:row,error:null}).then(ok,fail);}
-      if(payload){if(window.failAvailabilitySave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);availability=availability.filter(r=>r.species_id!==payload.species_id||r.provider!==payload.provider);availability.push({...payload,updated_at:new Date().toISOString()});return Promise.resolve({data:payload}).then(ok,fail);}
+      if(payload){if(window.failAvailabilitySave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);window.availabilitySaves.push(payload);for(const row of Array.isArray(payload)?payload:[payload]){availability=availability.filter(r=>r.species_id!==row.species_id||r.provider!==row.provider);availability.push({...row,updated_at:new Date().toISOString()});}return Promise.resolve({data:payload}).then(ok,fail);}
       if(table==='tree_species_availability'&&window.failAvailabilityLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
       if(['city_trees','poles'].includes(table))window.mapQueries.push({table,filters});
       let rows=table==='city_trees'&&!location.search.includes('empty-map')?[{city_id:65,latitude:-8.05,longitude:-34.9},{city_id:64,latitude:-8.612345,longitude:-38.591234}]:table==='city_tree_species'?species:table==='tree_species_availability'?availability:table==='tree_adoption_availability_alerts'?window.alerts:table==='tree_adoption_requests'?window.requests:table==='tree_adoption_events'?window.events:table==='categories'?[{id:'poda',name:'Arborização'}]:[];
@@ -126,7 +126,44 @@ try {
     assert.ok(dimensions.scroll<=height+1,`rolagem da página ${stage} em ${width}x${height}: ${JSON.stringify(dimensions)}`);
     assert.ok(dimensions.footerBottom<=height&&dimensions.footerTop>=56,`ações fora da tela ${stage}: ${JSON.stringify(dimensions)}`);
     assert.ok(dimensions.bodyScroll<=dimensions.bodyHeight+1,`formulário não compacto ${stage}: ${JSON.stringify(dimensions)}`);
+    const shell = await evaluate(`(()=>{const panel=document.querySelector('.adoption-welcome'),form=document.querySelector('.adoption-form'),p=panel.getBoundingClientRect(),f=form.getBoundingClientRect();window.initialWelcome ||= panel;return {outside:panel.parentElement===form.parentElement&&!form.contains(panel),persistent:window.initialWelcome===panel,leftRight:p.right,rightLeft:f.left,panelTop:p.top,formTop:f.top,panelBottom:p.bottom,formBottom:f.bottom,panelWidth:p.width,panelScroll:panel.scrollHeight,panelHeight:panel.clientHeight,artHeight:panel.querySelector('.adoption-welcome-art > svg').getBoundingClientRect().height}})()`);
+    assert.ok(shell.outside && shell.persistent, `Coluna lateral externa deve persistir nas quatro etapas: ${JSON.stringify(shell)}`);
+    assert.ok(shell.leftRight<shell.rightLeft && Math.abs(shell.panelTop-shell.formTop)<=1 && Math.abs(shell.panelBottom-shell.formBottom)<=1, `Coluna lateral deve ficar fora e ao lado do formulário: ${JSON.stringify(shell)}`);
+    assert.ok(shell.panelWidth<=320 && shell.panelScroll<=shell.panelHeight+1 && shell.artHeight>=70, `Coluna lateral precisa preservar o espaço do formulário: ${JSON.stringify(shell)}`);
+    if (await evaluate('document.querySelector(".adoption-location-layout")!==null')) {
+      const ratio = await evaluate('(()=>{const root=document.querySelector(".adoption-location-layout"),fields=root.querySelector(".adoption-location-fields").getBoundingClientRect(),map=root.querySelector(".adoption-location-map").getBoundingClientRect();return map.width/(map.width+fields.width)})()');
+      assert.ok(ratio>=.59&&ratio<=.61, `Mapa deve ocupar 60% das colunas: ${ratio}`);
+      assert.ok(await evaluate('[...document.querySelectorAll(".adoption-location-fields select,.adoption-location-fields input:not([type=radio])")].every(el=>el.getBoundingClientRect().height>=40)'), 'Campos do local precisam ter altura confortável');
+      if (height>=900) assert.ok(await evaluate('(()=>{const fields=document.querySelector(".adoption-location-fields");return fields.scrollHeight<=fields.clientHeight+1})()'), 'Campos do local devem caber sem rolagem interna');
+    }
+    if (stage==='revisao' && height>=900) assert.ok(await evaluate('[...document.querySelectorAll(".adoption-review-column")].every(el=>el.scrollHeight<=el.clientHeight+1)'), 'Revisão resumida deve caber sem rolagem interna');
+    if (await evaluate('document.querySelector(".adoption-form").dataset.step==="0"')) assert.ok(await evaluate(`(()=>{const fields=document.querySelector('.adoption-request-form'),body=document.querySelector('.adoption-form-body'),f=fields.getBoundingClientRect(),b=body.getBoundingClientRect();return f.top>=b.top&&f.bottom<=b.bottom&&fields.scrollHeight<=fields.clientHeight+1})()`), 'Campos iniciais precisam caber na área do formulário');
   };
+  const layoutOnly = process.argv.includes('--layout-only');
+  if (layoutOnly) {
+    for (const [width,height] of [[390,844],[1366,768],[1440,768],[1440,900],[1920,1080],[1920,921]]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+      await evaluate('try { sessionStorage.clear(); } catch {}');
+      await navigate();await waitFor('document.querySelector(".adoption-request-layout")');
+      await capture(`duas-colunas-${width}-${height}`);await frame('pedido',width,height);
+      if (width >= 1200) assert.ok(await evaluate('(()=>{const el=document.querySelector(".tree-adoption-page"),r=el.getBoundingClientRect(),p=getComputedStyle(el);return r.left+parseFloat(p.paddingLeft)<=64&&innerWidth-r.right+parseFloat(p.paddingRight)<=64})()'));
+      await click('Continuar');await waitFor('document.querySelector(".adoption-form-error")');await frame('erro',width,height);
+      await radio('muda');await radio('sombra');await click('Continuar');await waitFor('document.querySelector(".adoption-location-layout")');await frame('local',width,height);
+      await capture(`coluna-externa-local-${width}-${height}`);
+      await radio('urbana');await select('Onde a árvore será plantada?','quintal');await select('Há fiação aérea acima do local?','nao');
+      await waitFor('window.testMap&&document.querySelector(".adoption-map-canvas .leaflet-container")');
+      await evaluate('void window.testMap.fire("click",{latlng:{lat:-8.6,lng:-38.57}})');await waitFor('[...document.querySelectorAll("input")].some(el=>el.value.includes("Rua do Plantio"))');
+      await click('Continuar');await waitFor('document.querySelector("[data-species-id=species1]")');await frame('catalogo',width,height);
+      await evaluate('document.querySelector("[data-species-id=species1] input").click()');await radio('viveiro_municipal');await capture(`coluna-externa-especies-${width}-${height}`);
+      await input('Busque pelo nome popular, regional ou científico','ipe');await waitFor('document.querySelector(".adoption-species-grid[data-single]")');
+      assert.ok(await evaluate('document.querySelector(".adoption-order-image")!==null'), 'Resumo deve mostrar a imagem da espécie');
+      await frame('especie-unica',width,height);await capture(`especie-card-horizontal-${width}-${height}`);
+      await click('Continuar');await waitFor('document.querySelector(".adoption-review-layout")');await frame('revisao',width,height);await capture(`coluna-externa-revisao-${width}-${height}`);
+      console.log(`${width}x${height}: coluna lateral externa nas quatro etapas, mapa 40/60, campos e ações visíveis OK.`);
+    }
+    await evaluate('sessionStorage.clear()');await navigate('?dark');await waitFor('document.querySelector(".adoption-request-layout")');await capture('duas-colunas-dark');
+  }
+  if (!process.argv.includes('--new-flows') && !layoutOnly) {
   for (const [width,height] of [[320,844],[390,844],[1440,900],[1920,1080]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
     await navigate('?overview&visitor&cidade=64');await waitFor('document.querySelector("[data-testid=adoption-program]")');
@@ -287,9 +324,9 @@ try {
     assert.ok(await evaluate('[...document.querySelectorAll("nav a")].some(a=>a.textContent.trim()==="Adote uma árvore"&&new URL(a.href).searchParams.get("cidade")==="64"&&a.getAttribute("aria-current")==="page")'),'Menu de atendimento com cidade e estado ativo');
     await click('Ver pedido e histórico'); await waitFor('document.querySelector("[role=dialog]")');await capture(`atendimento-${width}`);
     assert.ok(await evaluate('document.querySelector("[role=dialog]").getBoundingClientRect().width<=innerWidth'),'Detalhe fora da tela');
-    await select('Próxima ação', 'em_analise'); await textArea('Análise do local iniciada pela equipe de arborização.'); await click('Registrar atualização');
+    await select('Status da solicitação', 'em_analise'); await textArea('Análise do local iniciada pela equipe de arborização.'); await click('Registrar atualização');
     await waitFor('!document.querySelector("[role=dialog]")&&document.querySelector("article")?.innerText.includes("Em análise técnica")');
-    await click('Ver pedido e histórico'); await select('Próxima ação', 'aprovada'); await textArea('Espécie e fornecedor confirmados após avaliação do local.'); await click('Registrar atualização');
+    await click('Ver pedido e histórico'); await select('Status da solicitação', 'aprovada'); await textArea('Espécie e fornecedor confirmados após avaliação do local.'); await click('Registrar atualização');
     await waitFor('!document.querySelector("[role=dialog]")&&document.querySelector("article")?.innerText.includes("Aprovada")');
     await click('Disponibilidade de mudas'); await waitFor('document.querySelector(".tree-availability-table tbody tr")');
     assert.ok(await evaluate('!document.querySelector(".tree-availability-editor")'),'A aba deve começar pela consulta');
@@ -376,7 +413,7 @@ try {
   console.log('Disponibilidades: consulta, filtros, paginação, edição, inclusão, falha ao salvar, erro de carregamento e lista vazia OK.');
   await navigate('?attendant'); await waitFor('document.querySelector("article")'); await click('Ver pedido e histórico');
   assert.ok(await evaluate('![...document.querySelectorAll("[role=dialog] select option")].some(el=>["aprovada","concluida","recusada"].includes(el.value))'));
-  await select('Próxima ação', 'em_analise'); await textArea('Atendente iniciou a avaliação do local.'); await click('Registrar atualização');
+  await select('Status da solicitação', 'em_analise'); await textArea('Atendente iniciou a avaliação do local.'); await click('Registrar atualização');
   await waitFor('!document.querySelector("[role=dialog]")&&document.querySelector("article")?.innerText.includes("Em análise técnica")');
   await navigate('?inventory-manager'); await waitFor('document.querySelector("article")');
   assert.ok(await evaluate('![...document.querySelectorAll("nav a")].some(a=>a.textContent.includes("Ordens de serviço"))'),'Gestor do inventário não recebe atendimento genérico');
@@ -386,11 +423,65 @@ try {
   await evaluate(`document.querySelector('button[aria-label="Selecionar cidade"]').click()`); await waitFor('document.querySelector("[role=option]")');
   await evaluate('[...document.querySelectorAll("[role=option]")].find(el=>el.textContent.includes("Recife")).click()');
   await waitFor('document.body.innerText.includes("Recife")');
-  assert.ok(await evaluate('!document.querySelector("input[type=radio]:checked")'));
+  await waitFor('document.body.innerText.includes("ainda não tem convênio")');
+  assert.ok(await evaluate('!document.querySelector(".adoption-form")'));
   await navigate('?dark'); await waitFor('document.querySelector(".adoption-request-layout")'); await capture('pedido-dark-1920');
   await navigate('?cidade=65');await waitFor('document.querySelector(".adoption-city-selector")?.innerText.includes("Recife")');
   await navigate('?visitor'); await waitFor('document.body.innerText.includes("Entrar para solicitar")');
   assert.ok(await evaluate('!document.querySelector("form")'));
+  }
+  for (const [width,height] of layoutOnly ? [] : [[390,844],[1440,900],[1920,1080]]) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+    await navigate('?multi');await waitFor('document.querySelector(".adoption-form")?.dataset.step==="0"');
+    await evaluate(`sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',JSON.stringify({requestId:'95000000-0000-0000-0000-000000000001',step:2,form:{request_type:'plantio',purpose:'sombra',zone:'urbana',planting_place:'quintal',overhead_wiring:'nao',address:'Rua do Plantio, 20',latitude:-8.6,longitude:-38.57,requester_name:'Maria da Silva',requester_phone:'87999999999',requester_email:'maria@example.test',items:[],commitment:false}}))`);
+    await navigate('?resume-multi');await waitFor('document.querySelector("[data-species-id=species1]")');
+    await evaluate('document.querySelector("[data-species-id=species1] input").click()');
+    await timeInput('Quantidade de Ipê-amarelo','3');
+    await evaluate(`document.querySelector('button[aria-label="Aumentar quantidade de Ipê-amarelo"]').click()`);
+    assert.equal(await evaluate(`document.querySelector('input[aria-label="Quantidade de Ipê-amarelo"]').value`),'4');
+    await evaluate(`document.querySelector('button[aria-label="Diminuir quantidade de Ipê-amarelo"]').click()`);
+    assert.equal(await evaluate(`document.querySelector('input[aria-label="Quantidade de Ipê-amarelo"]').value`),'3');
+    await radio('viveiro_municipal');
+    await evaluate('document.querySelector("[data-species-id=extra0] input").click()');
+    await timeInput('Quantidade de Muda teste 01','0');await radio('viveiro_municipal');
+    await click('Continuar');await waitFor('document.querySelector(".adoption-form-error")');
+    await timeInput('Quantidade de Muda teste 01','2');await frame('multiplas-especies',width,height);await capture(`multiplas-especies-${width}`);
+    await navigate('?resume-multi');await waitFor(`document.querySelector('input[aria-label="Quantidade de Muda teste 01"]')`);
+    assert.equal(await evaluate(`document.querySelector('input[aria-label="Quantidade de Ipê-amarelo"]').value`),'3');
+    assert.equal(await evaluate(`document.querySelector('input[aria-label="Quantidade de Muda teste 01"]').value`),'2');
+    await click('Continuar');await waitFor('document.querySelector(".adoption-review-layout")');
+    assert.ok(await evaluate('document.querySelector(".adoption-review-layout").innerText.includes("Maria da Silva")&&document.querySelector(".adoption-review-layout").innerText.includes("3 × Ipê-amarelo")'));
+    await evaluate('document.querySelector(".adoption-commitment input").click()');await click('Enviar solicitação');await waitFor('window.requests.length===1');
+    assert.deepEqual(await evaluate('window.requests[0].items.map(item=>item.quantity)'),[3,2]);
+    assert.equal(await evaluate('window.requests[0].requester_phone'),'87999999999');
+    await navigate('?manager');await waitFor('document.querySelector("article")');
+    await evaluate(`Object.assign(window.requests[0],{requester_name:'Maria da Silva',requester_phone:'87999999999',items:[{species_id:'species1',quantity:3,provider:'viveiro_municipal'},{species_id:'extra0',quantity:2,provider:'viveiro_municipal'}]})`);
+    await click('Atualizar');await waitFor('document.querySelector("article").innerText.includes("Maria da Silva")');
+    await click('Ver pedido e histórico');await waitFor('document.querySelector("[role=dialog] select")');
+    assert.ok(await evaluate('![...document.querySelectorAll("button")].some(button=>button.textContent.trim()==="Solicitação atendida")'));
+    assert.deepEqual((await evaluate('[...document.querySelector("[role=dialog] select").options].map(option=>option.value).filter(Boolean)')).sort(), ['solicitada','em_analise','aguardando_informacao','aguardando_disponibilidade','aprovada','agendada','concluida','recusada','cancelada'].sort());
+    await select('Status da solicitação','agendada');
+    assert.ok(await evaluate('!!document.querySelector("[role=dialog] input[type=datetime-local]")'));
+    await select('Status da solicitação','concluida');
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").innerText.includes("5")&&document.querySelector("[role=dialog]").innerText.includes("87999999999")'));
+    await textArea('Cinco árvores plantadas e conferidas pela equipe.');await capture(`conclusao-direta-${width}`);await click('Registrar atualização');
+    await waitFor('!document.querySelector("[role=dialog]")&&window.requests[0].status==="concluida"');
+    assert.ok(await evaluate('window.calls.some(c=>c.name==="update_tree_adoption"&&c.args.p_expected_status==="solicitada"&&c.args.p_status==="concluida")'));
+    await click('Disponibilidade de mudas');await waitFor('document.querySelector(".tree-availability-table")');await click('Nova disponibilidade');
+    await select('Fornecedor','instituto_florestar');
+    await evaluate('[...document.querySelectorAll("label")].find(el=>el.textContent.includes("Adicionar várias espécies deste viveiro")).querySelector("input").click()');
+    await evaluate('[...document.querySelectorAll(".tree-availability-batch-options input")].slice(0,2).forEach(el=>el.click())');
+    await select('Disponibilidade','disponivel');
+    await input('Rua, número, bairro e referência de acesso','Rua do Viveiro, 10');
+    await evaluate('window.failAvailabilitySave=true');await click('Salvar disponibilidade');await waitFor('document.querySelector(".tree-availability-footer [role=alert]")');
+    assert.equal(await evaluate('document.querySelectorAll(".tree-availability-batch-options input:checked").length'),2);
+    await evaluate('window.failAvailabilitySave=false');await capture(`viveiro-lote-${width}`);await click('Salvar disponibilidade');
+    await waitFor('!document.querySelector(".tree-availability-editor")&&window.availabilitySaves.length===1');
+    assert.equal(await evaluate('window.availabilitySaves[0].length'),2);
+    assert.ok(await evaluate('window.availabilitySaves[0].every(row=>row.provider==="instituto_florestar"&&row.pickup_details.address==="Rua do Viveiro, 10")'));
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    console.log(`${width}px: múltiplas espécies/quantidades, contato, rascunho, conclusão direta e disponibilidade em lote OK.`);
+  }
   assert.deepEqual(errors, []);
   console.log('Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
 } finally { ws?.close(); chrome.kill(); server.close(); }

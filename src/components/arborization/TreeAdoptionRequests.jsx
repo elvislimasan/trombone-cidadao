@@ -14,7 +14,7 @@ import TreeAdoptionRequestCard, { AdoptionStatus } from './TreeAdoptionRequestCa
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { pickupDetails, pickupInstructions, pickupPayload, validatePickup } from '@/lib/treePickup';
 import './treeAdoptionManagement.css';
-import { ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, ADOPTION_PROVIDERS, ADOPTION_AVAILABILITY, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
+import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, ADOPTION_PROVIDERS, ADOPTION_AVAILABILITY, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
 
 const selectClass = 'min-h-[44px] w-full min-w-0 rounded-md border bg-background px-3 text-sm';
 const formatDate = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -29,7 +29,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
   const [events, setEvents] = useState([]);
   const [eventsError, setEventsError] = useState('');
   const [eventsLoading, setEventsLoading] = useState(true);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(manager ? request.status : '');
   const [message, setMessage] = useState('');
   const [speciesId, setSpeciesId] = useState(request.approved_species_id || request.species_id);
   const [provider, setProvider] = useState(request.confirmed_provider || request.provider);
@@ -40,10 +40,13 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const terminal = ADOPTION_TERMINAL.includes(request.status);
+  const items = adoptionItems(request);
   const requestedSpecies = request.species?.common_name || catalog.species.find(item => item.id === request.species_id)?.common_name || 'Espécie cadastrada';
   const confirmedSpecies = catalog.species.find(item => item.id === request.approved_species_id)?.common_name;
   const approvalSpecies = availableAdoptionSpecies(catalog.species, catalog.availability);
   const approvalProviders = availableAdoptionProviders(catalog.availability, speciesId);
+  const needsConfirmation = status !== request.status && (status === 'aprovada'
+    || (!request.approved_species_id && ['agendada', 'pronta_retirada', 'concluida'].includes(status)));
   useEffect(() => {
     let active = true;
     setEventsLoading(true);
@@ -55,7 +58,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
   const submit = async event => {
     event.preventDefault();
     if (busyRef.current) return;
-    if (status === 'aprovada' && !approvalProviders.some(item => item.provider === provider)) {
+    if (needsConfirmation && items.length === 1 && !approvalProviders.some(item => item.provider === provider)) {
       setError('Cadastre a disponibilidade da espécie no fornecedor antes de aprovar.'); return;
     }
     busyRef.current = true; setBusy(true); setError('');
@@ -69,14 +72,15 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
     } catch (err) { setError(err.message || 'Não foi possível atualizar. Seus dados foram mantidos.'); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  const options = manager ? [request.status, ...adoptionNextStatuses(request).filter(key => dispatcher || ['em_analise', 'aguardando_informacao', 'aguardando_disponibilidade'].includes(key)), ...(dispatcher || request.author_id === user?.id ? ['cancelada'] : [])]
+  const options = manager ? [request.status, ...adoptionNextStatuses(request).filter(key => dispatcher || ['solicitada', 'em_analise', 'aguardando_informacao', 'aguardando_disponibilidade'].includes(key) || (key === 'cancelada' && request.author_id === user?.id))]
     : [...(request.status === 'aguardando_informacao' ? [request.status] : []), 'cancelada'];
   return <Dialog open onOpenChange={open => { if (!open && !busyRef.current) onClose(); }}>
     <DialogContent className="adoption-request-dialog max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-5xl overflow-y-auto" onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
       <DialogHeader className="adoption-detail-header"><div className="adoption-detail-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Adote uma árvore</p><DialogTitle>{adoptionProtocol(request)}</DialogTitle><DialogDescription>{ADOPTION_TYPES[request.request_type]}</DialogDescription></div></div><AdoptionStatus status={request.status} /></DialogHeader>
       <div className="adoption-detail-layout"><div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
-        {[["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', ADOPTION_PROVIDERS[request.provider]], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', ADOPTION_PROVIDERS[request.confirmed_provider]], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
+        {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', ADOPTION_PROVIDERS[request.provider]], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', ADOPTION_PROVIDERS[request.confirmed_provider]], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
       </dl>
+      <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {ADOPTION_PROVIDERS[item.provider]}</li>)}</ul>
       {request.notes && <div className="adoption-detail-notes"><p>Observações do solicitante</p><p>{request.notes}</p></div>}
       <a className="text-sm font-semibold text-primary underline" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver local do plantio no mapa</a>
       {request.tree_id && <Link className="text-sm font-semibold text-primary underline" to={`/arborizacao/arvore/${request.tree_id}`}>Ver árvore plantada no inventário</Link>}
@@ -87,8 +91,9 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
         <h3 className="font-semibold">{manager ? 'Atender solicitação' : 'Falar com a equipe'}</h3>
         <fieldset disabled={busy} className="min-w-0">
           {!dispatcher && manager && <p className="text-sm text-content-secondary">Você pode receber, orientar e registrar pendências. O gestor aprova, agenda e confirma a conclusão.</p>}
-          <AdoptionSelect required label="Próxima ação" value={status} onChange={setStatus} options={Object.fromEntries(options.map(key => [key, key === request.status ? (manager ? 'Enviar orientação sem mudar a etapa' : 'Responder à informação solicitada') : ADOPTION_STATUSES[key]]))} />
-          {status === 'aprovada' && status !== request.status && <><p className="text-sm text-content-secondary">Confirme a disponibilidade cadastrada no fornecedor e a adequação da espécie ao espaço e à fiação. Explique qualquer alteração ao cidadão na mensagem.</p><AdoptionSelect required label="Espécie aprovada" value={speciesId} onChange={value => { setSpeciesId(value); setProvider(''); }} options={Object.fromEntries(approvalSpecies.map(item => [item.id, item.common_name]))} /><AdoptionSelect required label="Fornecedor confirmado" value={provider} onChange={setProvider} options={Object.fromEntries(approvalProviders.map(item => [item.provider, ADOPTION_PROVIDERS[item.provider]]))} /></>}
+          <AdoptionSelect required label={manager ? 'Status da solicitação' : 'Próxima ação'} value={status} onChange={setStatus} options={Object.fromEntries(options.map(key => [key, key === request.status ? (manager ? `${ADOPTION_STATUSES[key]} (atual)` : 'Responder à informação solicitada') : ADOPTION_STATUSES[key]]))} />
+          {manager && <p className="text-xs text-content-secondary">Escolha o status desejado diretamente. Para enviar apenas uma orientação, mantenha o status atual.</p>}
+          {needsConfirmation && <><p className="text-sm text-content-secondary">Confirme a disponibilidade e a adequação de todas as espécies e quantidades do pedido ao espaço e à fiação. O atendimento confirma o pedido completo.</p>{items.length === 1 ? <><AdoptionSelect required label="Espécie aprovada" value={speciesId} onChange={value => { setSpeciesId(value); setProvider(''); }} options={Object.fromEntries(approvalSpecies.map(item => [item.id, item.common_name]))} /><AdoptionSelect required label="Fornecedor confirmado" value={provider} onChange={setProvider} options={Object.fromEntries(approvalProviders.map(item => [item.provider, ADOPTION_PROVIDERS[item.provider]]))} /></> : <p className="text-sm text-content-secondary">As espécies, os viveiros e as quantidades listados no resumo serão confirmados em conjunto.</p>}</>}
           {status === 'agendada' && status !== request.status && <label className="grid gap-1.5 text-sm font-medium">Data e hora do plantio<Input required type="datetime-local" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)} /></label>}
           {status === 'pronta_retirada' && status !== request.status && <p className="text-sm text-content-secondary">Informe abaixo o endereço, os horários e as orientações para retirar a muda no fornecedor confirmado.</p>}
           {status === 'concluida' && <><label className="grid gap-1.5 text-sm font-medium">{request.request_type === 'muda' ? 'Data da entrega da muda' : 'Data do plantio realizado'}<Input required type="date" min={localDate(request.created_at)} max={localDate()} value={fulfilledOn} onChange={event => setFulfilledOn(event.target.value)} /></label><p className="text-sm text-content-secondary">{request.request_type === 'plantio' ? 'Confirme somente após a execução no ponto solicitado. A árvore será cadastrada no inventário com a espécie aprovada.' : 'Confirme somente após a entrega. A retirada de uma muda não comprova que ela foi plantada.'}</p></>}
@@ -105,6 +110,9 @@ function AvailabilityEditor({ catalog, cityId, city, initialRow, onClose, onSave
   const { canManage } = useCanManageArborization(cityId);
   const [speciesId, setSpeciesId] = useState(initialRow?.species_id || '');
   const [provider, setProvider] = useState(initialRow?.provider || 'viveiro_municipal');
+  const [batch, setBatch] = useState(false);
+  const [selectedSpecies, setSelectedSpecies] = useState([]);
+  const [searchSpecies, setSearchSpecies] = useState('');
   const [status, setStatus] = useState(initialRow?.status || '');
   const [pickup, setPickup] = useState(() => pickupDetails(initialRow));
   const loadedPair = useRef(initialRow ? `${initialRow.species_id}:${initialRow.provider}` : null);
@@ -120,35 +128,40 @@ function AvailabilityEditor({ catalog, cityId, city, initialRow, onClose, onSave
   const changePickup = patch => setPickup(current => ({ ...current, ...patch }));
   useEffect(() => {
     const pair = `${speciesId}:${provider}`;
-    if (catalog.loading || catalog.error || loadedPair.current === pair) return;
+    if (batch || catalog.loading || catalog.error || loadedPair.current === pair) return;
     loadedPair.current = pair;
     const row = catalog.availability.find(item => item.species_id === speciesId && item.provider === provider);
     setStatus(row?.status || ''); setPickup(pickupDetails(row)); setError('');
     setNotice(row ? 'Já existe disponibilidade para esta espécie e fornecedor. Os dados cadastrados foram carregados para edição.' : '');
-  }, [speciesId, provider, catalog.availability, catalog.loading, catalog.error]);
+  }, [speciesId, provider, catalog.availability, catalog.loading, catalog.error, batch]);
   const save = async event => {
     event.preventDefault();
     if (busyRef.current || creatingSpecies || locating) return;
     const validation = validatePickup(pickup);
     if (validation) { setError(validation); return; }
+    const ids = batch ? selectedSpecies : [speciesId];
+    if (!ids.length || !status || !Object.hasOwn(ADOPTION_PROVIDERS, provider)) { setError('Selecione o viveiro, as espécies e a disponibilidade.'); return; }
     busyRef.current = true; setBusy(true); setNotice(''); setError('');
     try {
-      const { error } = await supabase.from('tree_species_availability').upsert({ species_id: speciesId, provider, status, instructions: instructions.trim() || null, pickup_details: pickupPayload(pickup) }, { onConflict: 'species_id,provider' });
+      const rows = ids.map(id => ({ species_id: id, provider, status, instructions: instructions.trim() || null, pickup_details: pickupPayload(pickup) }));
+      const { error } = await supabase.from('tree_species_availability').upsert(batch ? rows : rows[0], { onConflict: 'species_id,provider' });
       if (error) throw error;
-      onSaved({ speciesName: species.find(item => item.id === speciesId)?.common_name || '', provider });
+      onSaved({ speciesName: batch ? '' : species.find(item => item.id === speciesId)?.common_name || '', provider, count: ids.length });
     } catch { setError('Não foi possível salvar a disponibilidade. Seus dados foram mantidos. Tente novamente.'); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  return <form onSubmit={save} className="tree-availability-editor" aria-label={initialRow ? 'Editar disponibilidade' : 'Nova disponibilidade'}>
+  return <form onSubmit={save} className={`tree-availability-editor${batch ? ' is-batch' : ''}`} aria-label={initialRow ? 'Editar disponibilidade' : 'Nova disponibilidade'}>
     <div className="tree-availability-summary"><h3 className="font-semibold">{initialRow ? 'Editar disponibilidade' : 'Nova disponibilidade'}</h3><Button type="button" size="sm" variant="ghost" disabled={busy || creatingSpecies} onClick={onClose}>Voltar à lista</Button></div>
     <fieldset disabled={busy || catalog.loading || Boolean(catalog.error)} className="tree-availability-body">
       <div className="tree-availability-selection">
-      <TreeSpeciesField compact label="Espécie" cityId={cityId} species={species} value={speciesId} allowUnknown={false} allowEdit={false} allowCreate={canManage && !initialRow} loading={catalog.loading} disabled={busy || Boolean(catalog.error) || Boolean(initialRow)} onSelect={item => setSpeciesId(item?.id || '')} onCreatingChange={setCreatingSpecies} onCreated={item => { setCreatedSpecies(current => [...current, item]); setSpeciesId(item.id); catalog.refresh(); setNotice('Espécie cadastrada. Informe o fornecedor e salve a disponibilidade para oferecê-la ao cidadão.'); }} />
       <AdoptionSelect required label="Fornecedor" value={provider} onChange={setProvider} options={ADOPTION_PROVIDERS} disabled={Boolean(initialRow)} />
+      {!initialRow && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={batch} onChange={event => { setBatch(event.target.checked); setSelectedSpecies(speciesId ? [speciesId] : []); }} />Adicionar várias espécies deste viveiro</label>}
+      {!batch && <TreeSpeciesField compact label="Espécie" cityId={cityId} species={species} value={speciesId} allowUnknown={false} allowEdit={false} allowCreate={canManage && !initialRow} loading={catalog.loading} disabled={busy || Boolean(catalog.error) || Boolean(initialRow)} onSelect={item => setSpeciesId(item?.id || '')} onCreatingChange={setCreatingSpecies} onCreated={item => { setCreatedSpecies(current => [...current, item]); setSpeciesId(item.id); catalog.refresh(); setNotice('Espécie cadastrada. Informe o fornecedor e salve a disponibilidade para oferecê-la ao cidadão.'); }} />}
+      {batch && <section className="tree-availability-batch" aria-label="Espécies do viveiro"><Input aria-label="Buscar espécies do viveiro" placeholder="Buscar espécies do viveiro" value={searchSpecies} onChange={event => setSearchSpecies(event.target.value)} /><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={() => setSelectedSpecies(current => [...new Set([...current, ...species.filter(item => item.common_name.toLocaleLowerCase('pt-BR').includes(searchSpecies.toLocaleLowerCase('pt-BR'))).map(item => item.id)])])}>Selecionar todas da busca</Button><Button type="button" variant="ghost" size="sm" onClick={() => setSelectedSpecies([])}>Limpar</Button></div><div className="tree-availability-batch-options">{species.filter(item => item.common_name.toLocaleLowerCase('pt-BR').includes(searchSpecies.toLocaleLowerCase('pt-BR'))).map(item => <label key={item.id} className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" checked={selectedSpecies.includes(item.id)} onChange={event => setSelectedSpecies(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))} />{item.common_name}</label>)}</div><p className="text-xs text-content-secondary">{selectedSpecies.length} espécies selecionadas. Situação e dados de retirada serão aplicados a todas, substituindo os dados já cadastrados neste viveiro.</p></section>}
       <AdoptionSelect required label="Disponibilidade" value={status} onChange={setStatus} options={ADOPTION_AVAILABILITY} />
       </div>
       <TreePickupFields key={`${cityId}:${speciesId}:${provider}`} value={pickup} onChange={changePickup} cityId={cityId} city={city} busy={busy || creatingSpecies} onLocatingChange={setLocating} />
-    </fieldset><div className="tree-availability-footer"><div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}{notice && <p role="status" className="text-xs text-content-secondary">{notice}</p>}</div><Button type="submit" disabled={busy || catalog.loading || Boolean(catalog.error) || !speciesId || !status || creatingSpecies || locating}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar disponibilidade</Button></div>
+    </fieldset><div className="tree-availability-footer"><div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}{notice && <p role="status" className="text-xs text-content-secondary">{notice}</p>}</div><Button type="submit" disabled={busy || catalog.loading || Boolean(catalog.error) || (batch ? !selectedSpecies.length : !speciesId) || !status || creatingSpecies || locating}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar disponibilidade</Button></div>
   </form>;
 }
 

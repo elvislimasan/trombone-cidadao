@@ -69,6 +69,20 @@
 .adoption-request-state > p { margin-top: 7px; font-size: 11px; line-height: 1.5; color: rgb(var(--text-secondary)); }
 .adoption-request-state > time { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 10px; color: rgb(var(--text-tertiary)); }
 .adoption-request-open { font-size: 11px; border-radius: 8px; }
+.adoption-request-actions { display: grid; min-width: 0; gap: 8px; }
+.adoption-request-actions > button { white-space: normal; height: auto; min-height: 40px; }
+.tree-availability-batch { grid-column: 1 / -1; display: grid; gap: 8px; min-width: 0; }
+.tree-availability-batch-options { max-height: 120px; overflow-y: auto; }
+@media (min-width: 980px) {
+  .tree-availability-editor.is-batch .tree-availability-body { overflow-y: auto; }
+  .tree-availability-editor.is-batch .tree-pickup-layout { flex-shrink: 0; min-height: 340px; }
+}
+@media (max-width: 1350px) {
+  .adoption-request-actions { grid-column: 3; }
+}
+@media (max-width: 979px) {
+  .adoption-request-actions { grid-column: 1 / -1; }
+}
 .adoption-queue-empty { display: grid; align-content: center; justify-items: center; min-height: 220px; padding: 32px 20px; gap: 14px; border: 1px dashed rgb(var(--border-default)); border-radius: 14px; text-align: center; background: rgb(var(--surface-raised)); }
 .adoption-queue-empty h3 { font-size: 15px; font-weight: 650; }
 .adoption-queue-empty > p { max-width: 440px; font-size: 12px; line-height: 1.65; color: rgb(var(--text-secondary)); }

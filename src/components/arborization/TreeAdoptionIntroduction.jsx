@@ -4,7 +4,7 @@ import { ArrowRight, Bird, Droplets, HeartHandshake, Leaf, MapPin, ShieldCheck, 
 import { Button } from '@/components/ui/button';
 import './treeAdoptionIntroduction.css';
 
-function GrowingTree() {
+export function GrowingTree() {
   return <svg className="adoption-growing-tree" viewBox="0 0 640 400" fill="none" role="img" aria-label="Uma árvore dando sombra a um banco e a pequenas plantas na cidade">
     <circle cx="455" cy="105" r="54" fill="rgb(var(--brand) / .09)" />
     <path d="M70 295h70v-76h61v76h27V183h75v112h35V231h80v64h29V196h66v99h43" stroke="rgb(var(--text-secondary) / .13)" strokeWidth="3" strokeLinejoin="round" />

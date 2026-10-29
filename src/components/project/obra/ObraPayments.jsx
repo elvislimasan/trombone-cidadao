@@ -880,6 +880,8 @@ export function ObraPayments({
               <div className="text-base font-bold text-foreground whitespace-nowrap">{formatCurrency(g.total)}</div>
             </div>
 
+            {g.count === 1 && <PaymentMeasurementDetails payment={g.items[0]} showNumber />}
+
             {portalUrl || descriptionText ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {portalUrl ? (

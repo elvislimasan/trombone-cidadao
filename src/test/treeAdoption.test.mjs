@@ -5,7 +5,7 @@ import { EMPTY_ADOPTION, adoptionPayload, adoptionNextStatuses, validateAdoption
 const species = [{ id: 'ipe', city_id: 64 }, { id: 'oiti', city_id: 65 }];
 const availability = [{ species_id: 'ipe', provider: 'viveiro_municipal', status: 'disponivel' }];
 const validate = (form, cityId, catalog, step = null) => validateAdoption(form, cityId, catalog, step, availability);
-const valid = { ...EMPTY_ADOPTION, request_type: 'plantio', zone: 'urbana', planting_place: 'calcada', purpose: 'sombra', overhead_wiring: 'sim', species_id: 'ipe', provider: 'viveiro_municipal', latitude: -8.6, longitude: -38.57, address: 'Rua da Praça, 10', commitment: true };
+const valid = { ...EMPTY_ADOPTION, requester_name: 'Maria da Silva', requester_phone: '(87) 99999-9999', requester_email: 'maria@example.test', request_type: 'plantio', zone: 'urbana', planting_place: 'calcada', purpose: 'sombra', overhead_wiring: 'sim', species_id: 'ipe', provider: 'viveiro_municipal', latitude: -8.6, longitude: -38.57, address: 'Rua da Praça, 10', commitment: true };
 test('pedido exige local, fiação explícita, espécie da cidade e compromisso', () => {
   assert.equal(validate(valid, 64, species), '');
   for (const patch of [{ overhead_wiring: '' }, { species_id: 'oiti' }, { commitment: false }, { latitude: '' }, { longitude: Infinity }, { address: '  ' }, { zone: 'inventada' }]) {
@@ -14,7 +14,7 @@ test('pedido exige local, fiação explícita, espécie da cidade e compromisso'
   assert.equal(validate({ ...valid, overhead_wiring: 'nao_sei' }, 64, species), '');
 });
 test('quatro etapas validam pedido, local, espécie e revisão separadamente', () => {
-  assert.equal(validate({ ...EMPTY_ADOPTION, request_type: 'muda', purpose: 'sombra' }, 64, species, 0), '');
+  assert.equal(validate({ ...valid, species_id: '', request_type: 'muda', purpose: 'sombra' }, 64, species, 0), '');
   assert.equal(validate({ ...valid, species_id: '', provider: '', commitment: false }, 64, species, 1), '');
   assert.ok(validate({ ...valid, latitude: '' }, 64, species, 1));
   assert.ok(validate({ ...valid, species_id: 'oiti' }, 64, species, 2));
@@ -40,8 +40,33 @@ test('retirada e plantio seguem caminhos diferentes e encerramento não reabre p
   assert.ok(adoptionNextStatuses({ status: 'aprovada', request_type: 'muda' }).includes('pronta_retirada'));
   assert.ok(!adoptionNextStatuses({ status: 'aprovada', request_type: 'muda' }).includes('agendada'));
   assert.ok(adoptionNextStatuses({ status: 'aprovada', request_type: 'plantio' }).includes('agendada'));
-  assert.ok(!adoptionNextStatuses({ status: 'solicitada', request_type: 'plantio' }).includes('concluida'));
+  assert.ok(adoptionNextStatuses({ status: 'solicitada', request_type: 'plantio' }).includes('concluida'));
   for (const status of ['concluida', 'recusada', 'cancelada']) assert.deepEqual(adoptionNextStatuses({ status }), []);
+});
+test('todos os status aplicáveis ficam disponíveis desde o envio, sem etapas intermediárias', () => {
+  const common = ['solicitada', 'em_analise', 'aguardando_informacao', 'aguardando_disponibilidade', 'aprovada', 'concluida', 'recusada', 'cancelada'];
+  for (const request_type of ['muda', 'plantio']) {
+    const statuses = [...common, request_type === 'muda' ? 'pronta_retirada' : 'agendada'];
+    for (const status of statuses.filter(status => !['concluida', 'recusada', 'cancelada'].includes(status))) {
+      assert.deepEqual(new Set(adoptionNextStatuses({ status, request_type })), new Set(statuses.filter(item => item !== status)));
+    }
+  }
+});
+test('múltiplas espécies preservam quantidades e fornecedores e validam cada linha', () => {
+  const catalog = [...species, { id: 'aroeira', city_id: 64 }];
+  const stock = [...availability, { species_id: 'aroeira', provider: 'instituto_florestar', status: 'disponivel' }];
+  const items = [{ species_id: 'ipe', provider: 'viveiro_municipal', quantity: 3 }, { species_id: 'aroeira', provider: 'instituto_florestar', quantity: 2 }];
+  const form = { ...valid, items };
+  assert.equal(validateAdoption(form, 64, catalog, null, stock), '');
+  assert.deepEqual(adoptionPayload(form, 64, 'pedido').items, items);
+  for (const quantity of [0, -1, 1.5, 'abc', 1001, '']) assert.ok(validateAdoption({ ...form, items: [{ ...items[0], quantity }] }, 64, catalog, 2, stock));
+  assert.ok(validateAdoption({ ...form, items: [items[0], items[0]] }, 64, catalog, 2, stock));
+  assert.ok(validateAdoption(form, 64, catalog, 2, availability));
+  assert.ok(validateAdoption({ ...form, items: items.map(item => ({ ...item, quantity: 600 })) }, 64, catalog, 2, stock));
+});
+test('contato obrigatório e e-mail opcional são validados antes do envio', () => {
+  for (const patch of [{ requester_name: '' }, { requester_phone: '' }, { requester_phone: '123' }, { requester_email: 'invalido' }]) assert.ok(validate({ ...valid, ...patch }, 64, species));
+  assert.equal(validate({ ...valid, requester_email: '' }, 64, species), '');
 });
 test('payload mantém chave idempotente e não aceita campos administrativos injetados', () => {
   const payload = adoptionPayload({ ...valid, status: 'concluida', author_id: 'outro', tree_id: 'falsa', address: ' Rua Nova ' }, 64, 'chave');

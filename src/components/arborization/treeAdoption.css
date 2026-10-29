@@ -30,15 +30,17 @@
 .adoption-form-intro > h2 { font-size: 20px; line-height: 1.3; }
 .adoption-form-intro > p { margin-top: 4px; font-size: 12px; line-height: 1.5; }
 .adoption-step-content { min-width: 0; }
-.adoption-request-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
-.adoption-request-layout > .adoption-choice-group { padding: 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 13px; background: rgb(var(--surface-subtle) / .4); }
-.adoption-request-layout > .adoption-choice-group > legend { float: left; width: 100%; margin-bottom: 14px; font-size: 14px; font-weight: 700; }
-.adoption-request-layout > .adoption-choice-group > div { clear: both; }
-.adoption-start-guide { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; padding: 18px 4px 4px; border-top: 1px solid rgb(var(--border-subtle)); }
-.adoption-start-guide > div { display: grid; grid-template-columns: 28px minmax(0,1fr); align-content: start; column-gap: 9px; row-gap: 4px; }
-.adoption-start-guide span { display: grid; place-items: center; grid-row: 1 / 3; align-self: start; width: 28px; height: 28px; border-radius: 9px; background: rgb(var(--surface-subtle)); color: rgb(var(--text-secondary)); font-size: 10px; font-weight: 700; }
-.adoption-start-guide h3 { font-size: 12px; font-weight: 700; }
-.adoption-start-guide p { font-size: 11px; line-height: 1.55; color: rgb(var(--text-secondary)); }
+.adoption-request-layout { display: grid; grid-template-columns: minmax(0,1fr); min-width: 0; gap: 22px; }
+.adoption-form-layout { width: 100%; min-width: 0; }
+.adoption-welcome { display: none; }
+.adoption-request-form { display: grid; min-width: 0; gap: 22px; }
+.adoption-request-form > .adoption-form-intro { margin-bottom: 0; }
+.adoption-contact-fields { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid rgb(var(--border-subtle)); }
+.adoption-contact-fields > h3 { font-size: 14px; }
+.adoption-contact-fields > h3 > span { display: block; margin-top: 3px; font-size: 11px; font-weight: 400; color: rgb(var(--text-secondary)); }
+.adoption-form-footer .adoption-start-error { margin: 0; padding: 0; border: 0; background: transparent; }
+.adoption-order-item { display: grid; grid-template-columns: minmax(0,1fr) 76px auto; align-items: center; gap: 8px; padding-block: 8px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.adoption-order-item > button { height: auto; min-height: 36px; padding: 6px; }
 .adoption-choice-group > legend { margin-bottom: 8px; font-size: 12px; }
 .adoption-choice-group > div { gap: 8px; }
 .adoption-choice { display: flex; position: relative; min-width: 0; align-items: center; gap: 12px; padding: 15px; border: 1px solid rgb(var(--border-default)); border-radius: 11px; background: rgb(var(--surface-raised)); cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; font-size: 13px; }
@@ -61,7 +63,7 @@
 .adoption-location-fields { display: grid; min-width: 0; gap: 14px; align-content: start; }
 .adoption-address-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-top: 1px solid rgb(var(--border-subtle)); padding-top: 12px; }
 .adoption-field { display: grid; min-width: 0; gap: 6px; font-size: 12px; font-weight: 600; }
-.adoption-field select, .adoption-field textarea { min-width: 0; width: 100%; border: 1px solid rgb(var(--border-default)); border-radius: 8px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); padding: 8px 10px; font-size: 12px; font-weight: 400; }
+.adoption-field select, .adoption-field textarea, .adoption-field input { min-width: 0; width: 100%; border: 1px solid rgb(var(--border-default)); border-radius: 8px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); padding: 8px 10px; font-size: 12px; font-weight: 400; }
 .adoption-field select { min-height: 38px; }
 .adoption-field input { height: 38px; font-size: 12px; border-radius: 8px; }
 .adoption-field select:focus-visible, .adoption-field textarea:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
@@ -232,8 +234,6 @@
   .adoption-species-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .adoption-species-details { padding: 16px; }
   .adoption-review-fields { gap: 14px; }
-  .adoption-start-guide { grid-template-columns: minmax(0,1fr); gap: 16px; }
-  .adoption-request-layout > .adoption-choice-group { padding: 14px; }
   .adoption-form-footer { padding: 14px 20px; gap: 10px; }
   .adoption-form-footer > div { max-width: 44%; }
   .adoption-form-footer > div > p { font-size: 10px; line-height: 1.5; }
@@ -242,8 +242,259 @@
 @media (min-width: 980px) and (max-height: 850px) {
   .adoption-intro-step { margin-bottom: 3px; font-size: 9px; }
   .adoption-request-layout { gap: 14px; }
-  .adoption-request-layout > .adoption-choice-group { padding: 12px; }
   .adoption-request-layout .adoption-choice { padding: 10px 12px; }
-  .adoption-start-guide { padding-top: 12px; }
   .adoption-location-fields { padding: 10px; gap: 9px; }
+}
+
+/* Controles do fluxo de adoção, preservando os tokens e a navegação do sistema. */
+.adoption-form .adoption-field input,
+.adoption-form .adoption-field select,
+.adoption-form .adoption-field textarea,
+.adoption-form .adoption-catalog input {
+  min-height: 44px; height: 44px; padding: 11px 14px; border: 1px solid rgb(var(--border-default)); border-radius: 10px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); font-size: 13px; line-height: 1.4; font-weight: 400; transition: border-color .15s,box-shadow .15s,background .15s;
+}
+.adoption-form .adoption-field textarea { height: auto; }
+.adoption-form input::placeholder, .adoption-form textarea::placeholder { color: rgb(var(--text-secondary) / .75); }
+.adoption-form .adoption-field { gap: 7px; font-size: 12px; font-weight: 600; }
+.adoption-form .adoption-field select { appearance: none; padding-right: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23818b99' stroke-width='1.7'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-position: right 14px center; background-repeat: no-repeat; }
+.adoption-form .adoption-field input:hover, .adoption-form .adoption-field select:hover, .adoption-form .adoption-field textarea:hover { border-color: rgb(var(--success-fg) / .5); }
+.adoption-form .adoption-field input:focus-visible, .adoption-form .adoption-field select:focus-visible, .adoption-form .adoption-field textarea:focus-visible, .adoption-form .adoption-catalog input:focus-visible { outline: none; border-color: rgb(var(--success-fg)); box-shadow: 0 0 0 3px rgb(var(--success-fg) / .12); }
+.adoption-form input:disabled, .adoption-form select:disabled, .adoption-form textarea:disabled { cursor: not-allowed; opacity: .6; background-color: rgb(var(--surface-subtle)); }
+.adoption-form .adoption-choice { border-radius: 12px; padding: 15px; gap: 12px; font-size: 13px; }
+.adoption-form .adoption-choice:hover, .adoption-form .adoption-species-card:hover, .adoption-form .adoption-provider:hover { border-color: rgb(var(--success-fg) / .6); }
+.adoption-form .adoption-choice.is-selected, .adoption-form .adoption-species-card.is-selected, .adoption-form .adoption-provider.is-selected { border-color: rgb(var(--success-fg)); background: rgb(var(--success-bg) / .55); box-shadow: 0 0 0 1px rgb(var(--success-fg) / .08); }
+.adoption-form .adoption-choice:has(input:focus-visible), .adoption-form .adoption-species-card:has(input:focus-visible), .adoption-form .adoption-provider:has(input:focus-visible) { outline-color: rgb(var(--success-fg)); }
+.adoption-form .is-selected .adoption-choice-icon { background: rgb(var(--success-fg) / .08); color: rgb(var(--success-fg)); }
+.adoption-form .is-selected .adoption-choice-check { border-color: rgb(var(--success-fg)); background: rgb(var(--success-fg)); color: rgb(var(--surface-raised)); }
+.adoption-form .adoption-choice-check { width: 20px; height: 20px; }
+.adoption-form .adoption-choice.is-compact .adoption-choice-check { display: grid; margin-left: auto; }
+.adoption-form input[type="radio"], .adoption-form input[type="checkbox"] { accent-color: rgb(var(--success-fg)); }
+.adoption-stepper { gap: 0; padding: 0 18px; background: transparent; }
+.adoption-step { position: relative; justify-content: center; gap: 9px; min-height: 56px; padding: 9px 6px 12px; border-bottom: 3px solid transparent; font-size: 12px; }
+.adoption-step.is-current { border-bottom-color: rgb(var(--brand)); }
+.adoption-step.is-complete { border-bottom-color: rgb(var(--success-fg)); color: rgb(var(--success-fg)); }
+.adoption-step-number { width: 30px; height: 30px; font-size: 12px; }
+.adoption-step.is-complete .adoption-step-number { border-color: rgb(var(--success-fg) / .25); background: rgb(var(--success-bg)); color: rgb(var(--success-fg)); }
+.adoption-form-intro > h2 { font-size: 23px; letter-spacing: -.03em; }
+.adoption-form-intro > p { font-size: 13px; line-height: 1.5; }
+.adoption-choice-group > legend { font-size: 13px; font-weight: 700; }
+.adoption-form-footer { padding: 10px 18px; background: rgb(var(--surface-raised)); }
+.adoption-form-footer button { min-height: 44px; height: 44px; gap: 8px; padding-inline: 20px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.adoption-form-footer button[type="submit"] { min-width: 132px; box-shadow: 0 3px 8px rgb(var(--brand) / .12); }
+.adoption-species-visual { position: relative; height: 92px; background: linear-gradient(145deg,rgb(var(--success-bg) / .6),rgb(var(--surface-subtle) / .4)); }
+.adoption-species-visual .adoption-species-photo { height: 100%; padding: 10px; background: transparent; }
+.adoption-generic-tree { display: flex; flex-direction: column; align-items: center; height: 100%; color: rgb(var(--success-fg)); }
+.adoption-generic-tree svg { flex: 1; min-height: 0; width: 100%; }
+.adoption-generic-tree > span { margin-bottom: 5px; font-size: 9px; color: rgb(var(--text-secondary)); }
+.adoption-species-available { position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid rgb(var(--success-fg) / .1); border-radius: 999px; background: rgb(var(--surface-raised) / .9); color: rgb(var(--success-fg)); font-size: 9px; font-weight: 650; }
+.adoption-species-available > span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.adoption-species-card { position: relative; border-radius: 14px; }
+.adoption-species-name { padding: 12px 14px 8px; }
+.adoption-species-suitability { display: block; padding: 0 14px 12px; color: rgb(var(--text-secondary)); font-size: 11px; line-height: 1.4; }
+.adoption-species-details { border-radius: 14px; background: rgb(var(--surface-subtle) / .35); }
+.adoption-order-item { grid-template-columns: minmax(0,1fr) 112px auto; gap: 10px; padding-block: 12px; }
+.adoption-order-species { justify-content: start; min-width: 0; height: auto; padding: 8px; white-space: normal; text-align: left; font-weight: 600; }
+.adoption-order-species[data-active] { color: rgb(var(--success-fg)); background: rgb(var(--success-bg)); }
+.adoption-quantity-field { display: grid; gap: 5px; font-size: 10px; font-weight: 500; }
+.adoption-quantity-control { display: grid; grid-template-columns: 30px minmax(0,1fr) 30px; height: 40px; overflow: hidden; border: 1px solid rgb(var(--border-default)); border-radius: 9px; background: rgb(var(--surface-raised)); }
+.adoption-quantity-control:focus-within { border-color: rgb(var(--success-fg)); box-shadow: 0 0 0 3px rgb(var(--success-fg) / .1); }
+.adoption-quantity-control > button { display: grid; place-items: center; color: rgb(var(--success-fg)); }
+.adoption-quantity-control > button:hover { background: rgb(var(--success-bg)); }
+.adoption-quantity-control > button:disabled { opacity: .35; cursor: not-allowed; }
+.adoption-quantity-control input { min-width: 0; height: 38px; padding: 2px; border: 0; border-radius: 0; text-align: center; font-size: 13px; box-shadow: none; appearance: textfield; }
+.adoption-quantity-control input::-webkit-inner-spin-button { appearance: none; }
+.adoption-provider { padding: 12px; border-radius: 11px; }
+.adoption-provider input { width: 18px; height: 18px; }
+.adoption-review-section { padding: 14px 16px; border-radius: 12px; }
+.adoption-review-heading { font-size: 13px; }
+.adoption-review-heading button, .adoption-review-map-heading button { color: rgb(var(--success-fg)); }
+.adoption-review-map { border-radius: 12px; }
+.adoption-review-map-heading { background: rgb(var(--success-bg) / .35); }
+.adoption-commitment { background: rgb(var(--success-bg) / .45); border: 1px solid rgb(var(--success-fg) / .12); }
+.adoption-review-contact { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgb(var(--border-subtle)); font-size: 11px; line-height: 1.5; }
+.adoption-review-contact > span { overflow-wrap: anywhere; color: rgb(var(--text-secondary)); }
+.adoption-review-order { display: grid; gap: 8px; }
+.adoption-review-order > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 16px; padding: 10px 12px; border-radius: 8px; background: rgb(var(--success-bg) / .4); font-size: 12px; }
+.adoption-review-address { margin-bottom: 10px; font-size: 12px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.adoption-footer-commitment { flex: 1; max-width: 850px; min-width: 0; padding: 8px 12px; font-size: 11px; line-height: 1.5; }
+.adoption-footer-commitment input { flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; }
+.adoption-footer-commitment small { display: block; margin-top: 2px; color: rgb(var(--text-secondary)); font-size: 10px; }
+@media (min-width: 980px) {
+  .adoption-form-layout { display: grid; height: 100%; min-height: 0; grid-template-columns: clamp(250px,20vw,310px) minmax(0,1fr); grid-template-rows: minmax(0,1fr); gap: 20px; }
+  .adoption-form { height: 100%; min-height: 0; }
+  .adoption-form-body { padding: 18px; }
+  .adoption-request-layout { height: 100%; min-height: 0; align-items: center; }
+  .adoption-request-form { width: 100%; max-width: 1100px; margin-inline: auto; gap: 20px; padding: 4px 12px; }
+  .adoption-request-form .adoption-form-intro { margin: 0; }
+  .adoption-request-form > .adoption-choice-group > div { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+  .adoption-request-form > .adoption-purpose-choices > div { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .adoption-request-form .adoption-choice { min-height: 78px; padding: 14px; }
+  .adoption-request-form .adoption-choice > .flex-1 > .text-sm { font-size: 12px; }
+  .adoption-contact-fields { grid-template-columns: 1.1fr 1fr 1.15fr; gap: 12px 16px; padding-top: 16px; }
+  .adoption-contact-fields > h3 { grid-column: 1 / -1; }
+  .adoption-contact-fields > h3 > span { display: inline; margin-left: 10px; font-size: 12px; }
+  .adoption-location-layout { grid-template-columns: minmax(0,2fr) minmax(0,3fr); gap: 14px 18px; }
+  .adoption-location-fields { gap: 12px; padding: 16px; background: rgb(var(--surface-raised)); }
+  .adoption-location-fields .adoption-choice { min-height: 44px; padding: 10px 12px; }
+  .adoption-address-fields { grid-template-columns: minmax(0,1fr); gap: 12px; border: 0; padding: 0; }
+  .adoption-map-heading { padding: 12px 14px; }
+  .adoption-map-heading h3, .adoption-review-map-heading h3 { color: rgb(var(--success-fg)); }
+  .adoption-map-status { padding: 8px 14px; }
+  .adoption-species-layout { grid-template-columns: minmax(0,1.8fr) minmax(320px,.9fr); gap: 20px; }
+  .adoption-catalog { gap: 12px; }
+  .adoption-form .adoption-catalog input { padding-left: 40px; }
+  .adoption-search-icon { top: 14px; }
+  .adoption-species-grid { gap: 12px; }
+  .adoption-species-name .text-sm { font-size: 14px; }
+  .adoption-species-name .text-xs { font-size: 11px; }
+  .adoption-species-details { gap: 12px; padding: 18px; }
+  .adoption-review-layout { grid-template-columns: minmax(0,.95fr) minmax(0,1.05fr); gap: 18px; }
+  .adoption-review-fields { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px 14px; }
+  .adoption-review-column { gap: 10px; }
+  .adoption-review-map { min-height: 230px; }
+  .adoption-form .adoption-review-column textarea { height: 48px; min-height: 48px; }
+}
+
+@media (min-width: 980px) and (max-height: 850px) {
+  .adoption-form-layout { gap: 16px; }
+  .adoption-step { min-height: 48px; padding-block: 7px 9px; }
+  .adoption-step-number { width: 27px; height: 27px; }
+  .adoption-form-body { padding: 12px 16px; }
+  .adoption-form-intro { margin-bottom: 10px; }
+  .adoption-form-intro > h2 { font-size: 21px; }
+  .adoption-form-intro > p { font-size: 12px; }
+  .adoption-form .adoption-field input, .adoption-form .adoption-field select, .adoption-form .adoption-catalog input { min-height: 40px; height: 40px; padding-block: 9px; }
+  .adoption-request-form { gap: 10px; padding-block: 0; }
+  .adoption-request-form .adoption-choice { min-height: 64px; padding: 10px 12px; }
+  .adoption-contact-fields { padding-top: 10px; gap: 8px 14px; }
+  .adoption-location-fields { gap: 9px; padding: 12px; }
+  .adoption-address-fields { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .adoption-location-layout { gap: 10px 16px; }
+  .adoption-map-heading { padding: 9px 12px; }
+  .adoption-map-status { padding: 6px 12px; }
+  .adoption-form-footer { padding-block: 8px; }
+  .adoption-form-footer button { min-height: 40px; height: 40px; }
+  .adoption-species-visual { height: 58px; }
+  .adoption-species-name { padding: 8px 10px 5px; }
+  .adoption-species-suitability { padding: 0 10px 8px; font-size: 10px; }
+  .adoption-species-available { top: 6px; left: 6px; padding: 3px 5px; font-size: 8px; }
+  .adoption-species-name .text-sm { font-size: 12px; }
+  .adoption-species-name .text-xs { font-size: 10px; }
+  .adoption-catalog { gap: 9px; }
+  .adoption-search-icon { top: 12px; }
+  .adoption-review-section { padding: 12px; }
+  .adoption-review-map { min-height: 220px; }
+}
+@media (max-width: 979px) {
+  .adoption-request-form { gap: 20px; }
+  .adoption-quantity-control { height: 44px; }
+  .adoption-quantity-control input { height: 42px; }
+  .adoption-order-item { grid-template-columns: minmax(0,1fr) 112px; }
+  .adoption-order-item > button:last-of-type { justify-self: start; }
+  .adoption-step { min-height: 54px; }
+  .adoption-footer-commitment { flex-basis: 100%; max-width: none; order: -1; }
+}
+@media (min-width: 980px) and (max-height: 980px) {
+  .adoption-address-fields { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .adoption-location-fields { gap: 10px; padding: 12px; }
+}
+
+/* Painel lateral independente, mantido nas quatro etapas. A largura é contida
+   para preservar a área dos mapas, do catálogo e do resumo do pedido. */
+.adoption-step.is-current { color: rgb(var(--success-fg)); border-bottom-color: transparent; }
+.adoption-step.is-current .adoption-step-number { border-color: rgb(var(--success-fg)); background: rgb(var(--success-fg)); color: rgb(var(--surface-raised)); box-shadow: 0 2px 6px rgb(var(--success-fg) / .15); }
+.adoption-step.is-complete { border-bottom-color: transparent; }
+.adoption-stepper { gap: 12px; }
+.adoption-step { justify-content: start; gap: 8px; padding-inline: 0; }
+.adoption-step::after { content: ''; flex: 1; height: 1px; margin-left: 7px; background: rgb(var(--border-default)); }
+.adoption-step:last-child::after { display: none; }
+.adoption-step.is-complete::after { background: rgb(var(--success-fg) / .3); }
+.adoption-intro-step, .adoption-form .adoption-eyebrow { color: rgb(var(--success-fg)); }
+.adoption-species-image { width: 100%; height: 100%; min-width: 0; overflow: hidden; }
+.adoption-species-image .adoption-species-photo { width: 100%; height: 100%; padding: 8px; background: transparent; }
+.adoption-species-facts { display: grid; gap: 6px; min-width: 0; padding: 0 12px 12px; font-size: 11px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+.adoption-species-facts > span { display: flex; align-items: start; gap: 7px; }
+.adoption-species-facts svg { flex-shrink: 0; margin-top: 1px; }
+.adoption-species-grid:not([data-single]) .adoption-species-facts > span:nth-child(2) { display: none; }
+.adoption-species-excerpt { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 12px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.adoption-species-grid[data-single] { grid-template-columns: minmax(0,1fr); }
+.adoption-species-grid[data-single] .adoption-species-card { display: grid; grid-template-columns: 140px minmax(0,1fr); gap: 10px 18px; padding: 18px 48px 18px 18px; align-content: start; }
+.adoption-species-grid[data-single] .adoption-species-visual { grid-column: 1; grid-row: 1 / span 3; height: 155px; align-self: start; border-radius: 10px; overflow: hidden; }
+.adoption-species-grid[data-single] .adoption-species-name { grid-column: 2; padding: 0; }
+.adoption-species-grid[data-single] .adoption-species-name .text-sm { font-size: 17px; }
+.adoption-species-grid[data-single] .adoption-species-name .text-xs { font-size: 12px; }
+.adoption-species-grid[data-single] .adoption-choice-check { position: absolute; top: 50%; right: 16px; width: 26px; height: 26px; transform: translateY(-50%); }
+.adoption-species-grid[data-single] .adoption-species-facts { grid-column: 2; padding: 0; }
+.adoption-species-grid[data-single] .adoption-species-excerpt { grid-column: 2; }
+.adoption-species-grid[data-single] .adoption-species-available { display: none; }
+.adoption-order-summary > h3 { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; font-size: 18px; font-weight: 700; }
+.adoption-order-summary > h3 > span { padding: 5px 9px; border: 1px solid rgb(var(--success-fg) / .15); border-radius: 999px; background: rgb(var(--success-bg)); color: rgb(var(--success-fg)); font-size: 11px; font-weight: 650; }
+.adoption-order-item { grid-template-columns: minmax(0,1fr) 106px auto; padding-block: 14px; align-items: center; }
+.adoption-order-species { display: flex; justify-content: start; gap: 10px; height: auto; padding: 4px 0; text-align: left; }
+.adoption-order-species[data-active] { color: rgb(var(--text-primary)); background: transparent; }
+.adoption-order-species:hover { background: rgb(var(--success-bg) / .5); }
+.adoption-order-species > span { min-width: 0; }
+.adoption-order-species strong { display: block; overflow-wrap: anywhere; font-size: 13px; }
+.adoption-order-species small { display: block; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; color: rgb(var(--text-secondary)); font-size: 11px; font-weight: 400; font-style: italic; }
+.adoption-order-image { flex-shrink: 0; width: 56px; height: 64px; border-radius: 9px; background: rgb(var(--success-bg) / .6); }
+.adoption-order-image .adoption-species-photo { padding: 4px; }
+.adoption-order-image .adoption-generic-tree > span { display: none; }
+.adoption-remove-species { padding: 6px 0; color: rgb(var(--brand)); font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
+.adoption-order-pending { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid rgb(var(--border-subtle)); color: rgb(var(--text-secondary)); font-size: 11px; line-height: 1.5; }
+.adoption-selected-heading h3 { margin-top: 5px; font-size: 17px; font-weight: 700; }
+.adoption-selected-heading .adoption-species-facts { padding: 10px 0 0; gap: 7px; }
+.adoption-provider-title { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; font-size: 12px; line-height: 1.5; }
+.adoption-provider-title > span { padding: 3px 7px; border-radius: 999px; background: rgb(var(--success-bg)); color: rgb(var(--success-fg)); font-size: 10px; font-weight: 600; }
+.adoption-provider { align-items: center; }
+@media (min-width: 980px) {
+  .adoption-welcome { display: flex; flex-direction: column; gap: 18px; min-width: 0; min-height: 0; padding: 24px 20px; border: 1px solid rgb(var(--success-fg) / .17); border-radius: 16px; background: radial-gradient(ellipse at 70% 35%,rgb(var(--success-fg) / .08),transparent 65%),linear-gradient(160deg,rgb(var(--success-bg) / .8),rgb(var(--surface-raised))); }
+  .adoption-welcome-heading, .adoption-welcome-guidance, .adoption-welcome-benefits, .adoption-welcome-note { flex-shrink: 0; }
+  .adoption-welcome-eyebrow { display: flex; align-items: center; gap: 6px; color: rgb(var(--success-fg)); font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+  .adoption-welcome h2 { margin-top: 15px; font-size: 28px; font-weight: 800; line-height: 1.14; letter-spacing: -.04em; }
+  .adoption-welcome h2 > span { color: rgb(var(--success-fg)); }
+  .adoption-welcome-heading > p:last-child { margin-top: 12px; color: rgb(var(--text-secondary)); font-size: 12px; line-height: 1.6; }
+  .adoption-welcome-art { display: flex; flex: 1; align-items: center; min-height: 0; }
+  .adoption-welcome-art > svg { width: 100%; height: 100%; min-height: 0; max-height: 260px; }
+  .adoption-welcome-guidance { padding: 14px; border: 1px solid rgb(var(--success-fg) / .1); border-radius: 12px; background: rgb(var(--surface-raised) / .75); }
+  .adoption-welcome-guidance > span { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--success-fg)); }
+  .adoption-welcome-guidance h3 { margin-top: 5px; font-size: 13px; font-weight: 700; }
+  .adoption-welcome-guidance > p { margin-top: 7px; font-size: 11px; line-height: 1.65; color: rgb(var(--text-secondary)); }
+  .adoption-welcome-benefits { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; padding-top: 16px; border-top: 1px solid rgb(var(--success-fg) / .15); }
+  .adoption-welcome-benefits > span { display: grid; justify-items: start; gap: 6px; font-size: 10px; font-weight: 600; }
+  .adoption-welcome-benefits svg { color: rgb(var(--success-fg)); }
+  .adoption-welcome-note { display: flex; align-items: start; gap: 7px; font-size: 10px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+  .adoption-welcome-note svg { flex-shrink: 0; margin-top: 1px; color: rgb(var(--success-fg)); }
+  .adoption-species-layout { grid-template-columns: minmax(0,1.3fr) minmax(340px,1fr); gap: 16px; }
+  .adoption-species-details { padding: 16px; }
+  .adoption-species-visual { height: 76px; }
+}
+@media (min-width: 1700px) {
+  .adoption-welcome h2 { font-size: 32px; }
+}
+@media (min-width: 980px) and (max-height: 850px) {
+  .adoption-welcome { gap: 12px; padding-block: 18px; }
+  .adoption-welcome h2 { margin-top: 10px; font-size: 26px; }
+  .adoption-welcome-heading > p:last-child { margin-top: 8px; }
+  .adoption-welcome-guidance { padding: 11px; }
+  .adoption-welcome-guidance > p { margin-top: 5px; }
+  .adoption-welcome-benefits { padding-top: 12px; }
+  .adoption-species-facts { font-size: 10px; padding-bottom: 8px; gap: 4px; }
+  .adoption-species-visual { height: 58px; }
+}
+@media (max-width: 979px) {
+  .adoption-stepper { gap: 8px; }
+  .adoption-step { justify-content: center; }
+  .adoption-step::after { margin-left: 0; }
+  .adoption-order-item { grid-template-columns: minmax(0,1fr) 106px; }
+  .adoption-order-item > .adoption-remove-species { grid-column: 2; justify-self: end; }
+}
+@media (max-width: 479px) {
+  .adoption-species-grid[data-single] .adoption-species-card { grid-template-columns: 90px minmax(0,1fr); padding: 12px 34px 12px 12px; gap: 10px; }
+  .adoption-species-grid[data-single] .adoption-species-visual { height: 120px; }
+  .adoption-species-grid[data-single] .adoption-species-name .text-sm { font-size: 14px; }
+  .adoption-species-grid[data-single] .adoption-choice-check { right: 9px; width: 20px; height: 20px; }
+  .adoption-order-image { width: 42px; height: 54px; }
+  .adoption-order-species { grid-column: 1 / -1; width: 100%; }
+  .adoption-order-item > .adoption-quantity-field { grid-column: 1; width: 120px; }
+  .adoption-order-item > .adoption-remove-species { grid-column: 2; grid-row: 2; }
 }

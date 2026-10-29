@@ -36,7 +36,8 @@ export function readAdoptionDraft(storage, cityId, userId) {
     const form = { ...EMPTY_ADOPTION };
     for (const field of Object.keys(form)) {
       const item = value.form[field];
-      const valid = field === 'commitment' ? typeof item === 'boolean'
+      const valid = field === 'items' ? Array.isArray(item) && item.length <= 50 && item.every(row => row && typeof row.species_id === 'string' && typeof row.provider === 'string' && (typeof row.quantity === 'string' || typeof row.quantity === 'number'))
+        : field === 'commitment' ? typeof item === 'boolean'
         : (typeof item === 'string' && item.length <= 3000) || (['latitude', 'longitude'].includes(field) && typeof item === 'number' && Number.isFinite(item));
       if (valid) form[field] = item;
     }

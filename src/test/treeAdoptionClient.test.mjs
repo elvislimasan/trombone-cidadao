@@ -49,11 +49,13 @@ test('recusa persistente vira mensagem de serviço; regra do banco não é repet
 test('rascunho guarda formulário, etapa e UUID por conta/cidade e é removido após envio', () => {
   const values = new Map();
   const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
-  const draft = { form: { ...EMPTY_ADOPTION, address: 'Rua do Plantio, 20', latitude: -8.6, commitment: true, author_id: 'injetado' }, step: 3, requestId: payload.id };
+  const draft = { form: { ...EMPTY_ADOPTION, requester_name: 'Maria da Silva', requester_phone: '87999999999', items: [{ species_id: 'ipe', provider: 'viveiro_municipal', quantity: 3 }, { species_id: 'oiti', provider: 'instituto_florestar', quantity: '2' }], address: 'Rua do Plantio, 20', latitude: -8.6, commitment: true, author_id: 'injetado' }, step: 3, requestId: payload.id };
   storeAdoptionDraft(storage, 64, userId, draft);
   const saved = readAdoptionDraft(storage, 64, userId);
   assert.equal(saved.form.address, draft.form.address); assert.equal(saved.step, 3); assert.equal(saved.requestId, payload.id);
   assert.equal(saved.form.author_id, undefined);
+  assert.deepEqual(saved.form.items, draft.form.items);
+  assert.equal(saved.form.requester_phone, '87999999999');
   assert.equal(readAdoptionDraft(storage, 65, userId), null); assert.equal(readAdoptionDraft(storage, 64, 'another'), null);
   storeAdoptionDraft(storage, 64, userId, null);
   assert.equal(readAdoptionDraft(storage, 64, userId), null);
