@@ -29,7 +29,8 @@ import {
   RefreshCcw,
   UserCheck,
   Camera,
-  Wrench
+  Wrench,
+  Sprout
 } from 'lucide-react';
 import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
@@ -55,6 +56,8 @@ const DEFAULT_PREFERENCES = {
   system: true,
   moderation_update: true,
   status_update: true,
+  tree_adoption_update: true,
+  community_tree_update: true,
   moderation_required: true,
   resolution_submission: true,
   work_update: true,
@@ -167,6 +170,20 @@ const NotificationPreferences = () => {
       name: 'Atualização de Status',
       description: 'Mudanças no status das suas broncas (pendente, em análise, resolvida)',
       icon: RefreshCcw,
+      adminOnly: false
+    },
+    {
+      id: 'tree_adoption_update',
+      name: 'Mudas e plantio',
+      description: 'Mudanças de status e orientações da equipe nos seus pedidos de árvores',
+      icon: Sprout,
+      adminOnly: false
+    },
+    {
+      id: 'community_tree_update',
+      name: 'Árvores que cuido',
+      description: 'Aprovação e orientações da equipe sobre as árvores que você cadastrou',
+      icon: Sprout,
       adminOnly: false
     },
     {

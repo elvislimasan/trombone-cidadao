@@ -25,6 +25,8 @@ const DEFAULT_PREFERENCES = {
   system: true,
   moderation_update: true,
   status_update: true,
+  tree_adoption_update: true,
+  community_tree_update: true,
   moderation_required: false,
   resolution_submission: true,
   work_update: true,
@@ -108,6 +110,8 @@ export const NotificationProvider = ({ children }) => {
     const titles = {
       'moderation_update': '📋 Status da Bronca',
       'status_update': '🔄 Atualização de Status',
+      'tree_adoption_update': '🌱 Adote uma árvore',
+      'community_tree_update': '🌳 Árvores que cuido',
       'moderation_required': '👮 Moderação Necessária',
       'resolution_submission': '📸 Resolução Enviada',
       'work_update': '🏗️ Atualização de Obra',
@@ -159,7 +163,7 @@ export const NotificationProvider = ({ children }) => {
         tag: notification.id
       };
 
-      new Notification(getNotificationTitle(notification.type), options);
+      new Notification(notification.title || getNotificationTitle(notification.type), options);
     } catch (error) {
       console.error('Erro ao mostrar notificação local:', error);
     }
@@ -177,7 +181,7 @@ export const NotificationProvider = ({ children }) => {
         navigator.serviceWorker.controller.postMessage({
           type: 'SHOW_PUSH_NOTIFICATION',
           notification: {
-            title: getNotificationTitle(notification.type),
+            title: notification.title || getNotificationTitle(notification.type),
             body: notification.message,
             icon: '/logo.png',
             badge: '/logo.png',
@@ -1568,11 +1572,11 @@ export const NotificationProvider = ({ children }) => {
       }
       
       // Usar evento customizado para navegação sem recarregar
-      if (window.location.pathname !== url) {
+      if (window.location.pathname + window.location.search + window.location.hash !== url) {
         window.dispatchEvent(new CustomEvent('navigate-to', { detail: { url } }));
         // Fallback: usar window.location apenas se o evento não for tratado
         setTimeout(() => {
-          if (!window.__BLOCK_NAVIGATION__ && window.location.pathname !== url) {
+          if (!window.__BLOCK_NAVIGATION__ && window.location.pathname + window.location.search + window.location.hash !== url) {
             window.location.href = url;
           }
         }, 100);
@@ -1595,10 +1599,10 @@ export const NotificationProvider = ({ children }) => {
             if (window.__BLOCK_NAVIGATION__) {
               return;
             }
-            if (window.location.pathname !== url) {
+            if (window.location.pathname + window.location.search + window.location.hash !== url) {
               window.dispatchEvent(new CustomEvent('navigate-to', { detail: { url } }));
               setTimeout(() => {
-                if (!window.__BLOCK_NAVIGATION__ && window.location.pathname !== url) {
+                if (!window.__BLOCK_NAVIGATION__ && window.location.pathname + window.location.search + window.location.hash !== url) {
                   window.location.href = url;
                 }
               }, 100);

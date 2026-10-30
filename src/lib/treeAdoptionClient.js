@@ -28,6 +28,22 @@ export async function submitAdoptionRequest(client, payload, userId) {
 
 const draftKey = (cityId, userId) => `tc_tree_adoption_draft:${cityId}:${userId}`;
 
+// A notificação abre o pedido mesmo que ele esteja em outra página ou já
+// tenha sido encerrado. Cidade, autoria e RLS continuam limitando a consulta.
+export async function loadAdoptionRequest(client, { requestId, cityId, userId }) {
+  if (!userId || !cityId || typeof requestId !== 'string' || !/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(requestId)) {
+    throw new Error('Solicitação indisponível. Confira o link recebido.');
+  }
+  const { data, error } = await client.from('tree_adoption_requests')
+    .select('*,species:city_tree_species!species_id(common_name)')
+    .eq('id', requestId).eq('city_id', cityId).eq('author_id', userId).maybeSingle();
+  if (error) throw new Error('Não foi possível abrir o pedido. Tente novamente.');
+  if (!data || data.id !== requestId || String(data.city_id) !== String(cityId) || data.author_id !== userId) {
+    throw new Error('Solicitação indisponível para esta conta e cidade.');
+  }
+  return data;
+}
+
 export function readAdoptionDraft(storage, cityId, userId) {
   if (!cityId || !userId) return null;
   try {

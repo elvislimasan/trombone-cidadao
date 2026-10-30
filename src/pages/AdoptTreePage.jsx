@@ -136,10 +136,16 @@ export function AdoptTreeContent() {
   const [params, setParams] = useSearchParams();
   const tab = ['solicitar', 'minhas'].includes(params.get('aba')) ? params.get('aba') : 'programa';
   const [formStarted, setFormStarted] = useState(tab === 'solicitar');
+  const closeRequest = () => setParams(current => {
+    const next = new URLSearchParams(current);
+    next.delete('pedido');
+    return next;
+  }, { replace: true });
   const setTab = nextTab => {
     if (nextTab === 'solicitar') setFormStarted(true);
     setParams(current => {
       const next = new URLSearchParams(current);
+      if (nextTab !== 'minhas') next.delete('pedido');
       if (nextTab === 'programa') next.delete('aba'); else next.set('aba', nextTab);
       return next;
     });
@@ -157,7 +163,7 @@ export function AdoptTreeContent() {
     {tab === 'solicitar' && cityId && city && !supportedCity && <div role="alert" className="rounded-xl border bg-surface-raised p-6 text-sm leading-relaxed"><h2 className="mb-2 text-lg font-semibold">Programa ainda não disponível em {city.name}</h2><p>{ADOPTION_CITY_NOTICE}</p></div>}
     {cityId && city && <>
       {supportedCity && (formStarted || tab === 'solicitar') && <div className="adoption-form-slot" hidden={tab !== 'solicitar'}><AdoptionForm key={contextKey} cityId={cityId} city={city} cityLabel={cityLabel} onSubmitted={() => setRevision(value => value + 1)} onShowRequests={() => setTab('minhas')} /></div>}
-      {tab === 'minhas' && <div className="adoption-requests-panel"><TreeAdoptionRequests key={contextKey} cityId={cityId} revision={revision} /></div>}
+      {tab === 'minhas' && <div className="adoption-requests-panel"><TreeAdoptionRequests key={contextKey} cityId={cityId} requestId={params.get('pedido')} onRequestClose={closeRequest} revision={revision} /></div>}
     </>}
   </main>;
 }

@@ -249,24 +249,31 @@ self.addEventListener('notificationclick', function(event) {
     clients.matchAll({ 
       type: 'window',
       includeUncontrolled: true 
-    }).then(windowClients => {
+    }).then(async windowClients => {
       // Check if there's already a window open with the target URL
       for (let client of windowClients) {
         const clientUrl = new URL(client.url);
         const targetUrl = new URL(urlToOpen, self.location.origin);
         
         if (clientUrl.pathname === targetUrl.pathname && 'focus' in client) {
+          // A cidade, aba e pedido fazem parte do destino. Focar apenas o
+          // pathname podia deixar o cidadão no programa ou no pedido anterior.
+          let activeClient = client;
+          if (clientUrl.href !== targetUrl.href) {
+            if (!('navigate' in client)) continue;
+            try { activeClient = await client.navigate(targetUrl.href); }
+            catch { continue; }
+            if (!activeClient) continue;
+          }
           // Mark notification as read if we have an ID
           if (notificationId) {
-            self.clients.get(client.id).then(activeClient => {
-              activeClient.postMessage({
-                type: 'MARK_NOTIFICATION_READ',
-                notificationId: notificationId
-              });
+            activeClient.postMessage({
+              type: 'MARK_NOTIFICATION_READ',
+              notificationId: notificationId
             });
           }
           
-          return client.focus();
+          return activeClient.focus();
         }
       }
       

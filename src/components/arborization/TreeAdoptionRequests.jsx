@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, Clock3, Leaf, Loader2, RefreshCw, Sprout } from 'lucide-react';
+import { ClipboardList, Clock3, Leaf, Loader2, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import useTreeAdoptionCatalog from '@/hooks/useTreeAdoptionCatalog';
+import { loadAdoptionRequest } from '@/lib/treeAdoptionClient';
 import TreeAdoptionRequestCard, { AdoptionStatus } from './TreeAdoptionRequestCard';
 import './treeAdoptionManagement.css';
 import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
@@ -101,7 +102,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
   </Dialog>;
 }
 
-export default function TreeAdoptionRequests({ cityId, city, management = false, headingLevel = 2, revision: externalRevision = 0 }) {
+export default function TreeAdoptionRequests({ cityId, city, management = false, headingLevel = 2, requestId = null, onRequestClose, revision: externalRevision = 0 }) {
   const Heading = headingLevel === 1 ? 'h1' : 'h2';
   const { user } = useAuth();
   const catalog = useTreeAdoptionCatalog(cityId);
@@ -116,8 +117,23 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
   const [filter, setFilter] = useState(management ? 'ativas' : 'todas');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const [openingRequest, setOpeningRequest] = useState(false);
+  const [requestError, setRequestError] = useState('');
+  const [requestAttempt, setRequestAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision(value => value + 1), []);
+  useEffect(() => {
+    let active = true;
+    setSelected(null); setRequestError(''); setOpeningRequest(false);
+    if (!requestId || !user?.id || !cityId || management) return;
+    setOpeningRequest(true);
+    loadAdoptionRequest(supabase, { requestId, cityId, userId: user.id }).then(row => {
+      if (active) setSelected(row);
+    }).catch(error => {
+      if (active) setRequestError(error.message);
+    }).finally(() => { if (active) setOpeningRequest(false); });
+    return () => { active = false; };
+  }, [requestId, cityId, user?.id, management, requestAttempt]);
   useEffect(() => {
     let active = true;
     setPermissionError(''); setPermissionLoading(management);
@@ -148,16 +164,17 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
     });
     return () => { active = false; };
   }, [user?.id, cityId, management, authorized, filter, page, revision, externalRevision]);
-  if (!user) return <p className="text-sm text-content-secondary">Entre na sua conta para acompanhar suas solicitações.</p>;
+  if (!user) return <div className="space-y-3 text-sm text-content-secondary"><p>Entre na sua conta para acompanhar suas solicitações.</p>{requestId && <Button asChild><Link to="/login" state={{ from: { pathname: '/adote-uma-arvore', search: `?${new URLSearchParams({ cidade: String(cityId), aba: 'minhas', pedido: requestId })}` } }}>Entrar para ver o pedido</Link></Button>}</div>;
   if (management && permissionLoading && !authorized) return <p role="status" className="text-sm">Verificando acesso à arborização…</p>;
   if (management && permissionError) return <div role="alert" className="text-sm"><p>{permissionError}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div>;
   if (management && !authorized) return <p className="text-sm text-content-secondary">Pedidos disponíveis para gestores e atendentes com responsabilidade de Arborização nesta cidade.</p>;
   return <section className={management ? 'tree-adoption-management-content' : 'adoption-citizen-requests'} data-section="pedidos" aria-label={management ? 'Atendimento Adote uma árvore' : 'Minhas solicitações de árvores'}>
-    {!management && <header className="adoption-workspace-header"><div className="adoption-workspace-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Seu acompanhamento</p><Heading>Minhas solicitações</Heading><p>Cada atualização da equipe aparece aqui, do pedido ao atendimento.</p></div></div><Button variant="outline" size="sm" onClick={() => { refresh(); catalog.refresh(); }} disabled={loading || catalog.loading}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button></header>}
     {catalog.error && <p role="alert" className="text-sm text-destructive">{catalog.error} <button className="underline" onClick={catalog.refresh}>Tentar novamente</button></p>}
+    {openingRequest && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Abrindo pedido da notificação…</p>}
+    {requestError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm"><p>{requestError}</p><Button variant="outline" size="sm" onClick={() => setRequestAttempt(value => value + 1)}>Tentar novamente</Button></div>}
       <div className="adoption-queue-toolbar"><div>{management ? <Heading className="text-xl font-bold tracking-tight">Solicitações</Heading> : <h3>Seus pedidos de árvores</h3>}<p>{loading ? 'Atualizando pedidos…' : error ? 'Consulta indisponível' : `${count} ${count === 1 ? 'solicitação neste filtro' : 'solicitações neste filtro'}`}</p></div><AdoptionSelect label="Filtrar solicitações" value={filter} placeholder={null} onChange={value => { setFilter(value); setPage(1); }} options={{ ativas: 'Em atendimento', todas: 'Todas as solicitações', ...ADOPTION_STATUSES }} /></div>
       {loading ? <div role="status" className="adoption-queue-empty"><Loader2 className="h-6 w-6 animate-spin" /><p>Carregando solicitações…</p></div> : error ? <div role="alert" className="adoption-queue-empty"><p>{error}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div> : !items.length ? <div className="adoption-queue-empty"><span className="adoption-request-icon"><Sprout size={28} /></span><h3>Nenhuma solicitação neste filtro e nesta cidade.</h3><p>{management ? 'Os pedidos de mudas e plantio aparecerão aqui quando forem enviados pelos cidadãos.' : 'Depois de enviar um pedido, você poderá consultar o histórico e as orientações da equipe aqui.'}</p></div> : <div className="adoption-request-list">{items.map(item => <TreeAdoptionRequestCard key={item.id} item={item} catalog={catalog} onOpen={() => setSelected(item)} />)}</div>}
       {count > 10 && <div className="flex flex-wrap items-center justify-end gap-3 text-sm"><Button variant="outline" disabled={loading || page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span>Página {page} de {Math.ceil(count / 10)}</span><Button variant="outline" disabled={loading || page * 10 >= count} onClick={() => setPage(value => value + 1)}>Próxima</Button></div>}
-    {selected && <RequestDetails key={selected.id} request={selected} manager={management && authorized} dispatcher={dispatcher} catalog={catalog} onClose={() => setSelected(null)} onUpdated={refresh} />}
+    {selected && <RequestDetails key={selected.id} request={selected} manager={management && authorized} dispatcher={dispatcher} catalog={catalog} onClose={() => { setSelected(null); onRequestClose?.(); }} onUpdated={refresh} />}
   </section>;
 }

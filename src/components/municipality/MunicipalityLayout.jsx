@@ -3,6 +3,7 @@ import { municipalHome, municipalRouteAllowed, municipalContextPath, municipalAc
 import { usePermissions } from '@/hooks/usePermissions';
 import { territorialModules, TERRITORIAL_BASE } from '@/lib/territorialAccess';
 import { TREE_ADOPTION_MANAGEMENT_PATH, TREE_ADOPTION_REQUESTS_PATH, TREE_NURSERIES_MANAGEMENT_PATH } from '@/lib/treeAdoption';
+import { COMMUNITY_REVIEW_PATH } from '@/lib/communityTrees';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -130,7 +131,7 @@ function MunicipalityLayoutContent() {
       return <div key={to} className="min-w-0">
         <button type="button" aria-expanded={adoptionOpen} aria-controls={submenuId} onClick={() => setAdoptionOpen(value => !value)} className={'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (active ? 'bg-brand-subtleBg text-brand-subtleFg ring-1 ring-inset ring-brand/20' : 'text-content-secondary hover:bg-surface-subtle hover:text-content-primary')}><Sprout className="h-4 w-4 shrink-0" /><span className="flex-1">{label}</span><ChevronDown className={'h-4 w-4 shrink-0 transition-transform ' + (adoptionOpen ? 'rotate-180' : '')} /></button>
         {adoptionOpen && <div id={submenuId} role="group" aria-label="Opções de Adote uma árvore" className="ml-3 mt-1 grid gap-0.5 rounded-r-xl border-l-2 border-brand/60 bg-surface-subtle/70 py-1 pl-2 pr-1">
-          {[[TREE_ADOPTION_REQUESTS_PATH, 'Solicitações', ClipboardList], [TREE_NURSERIES_MANAGEMENT_PATH, 'Viveiros e mudas', Leaf]].map(([href, title, SubIcon]) => {
+          {[[TREE_ADOPTION_REQUESTS_PATH, 'Solicitações', ClipboardList], [TREE_NURSERIES_MANAGEMENT_PATH, 'Viveiros e mudas', Leaf], [COMMUNITY_REVIEW_PATH, 'Árvores da comunidade', Sprout]].map(([href, title, SubIcon]) => {
             const current = pathname === href || (href === TREE_ADOPTION_REQUESTS_PATH && pathname === to);
             return <Link key={href} to={scopedHref(href)} aria-current={current ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (current ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><SubIcon className="h-4 w-4 shrink-0" />{title}</Link>;
           })}

@@ -40,7 +40,7 @@ export default function TreeAdoptionIntroduction({ city, onStart }) {
         <p>Solicite uma muda ou apoio para plantar em {city?.name || 'sua cidade'}.</p>
         <div className="adoption-program-actions">
           <Button onClick={onStart}>Começar solicitação<ArrowRight size={17} aria-hidden="true" /></Button>
-          <a className="adoption-how-link" href="#como-adotar-uma-arvore">Como funciona<ChevronDown size={16} aria-hidden="true" /></a>
+          <Button asChild variant="outline"><Link to={`/arvores-da-comunidade/nova${city?.id ? `?cidade=${city.id}` : ''}`}>Cadastrar minha árvore<Sprout size={17} aria-hidden="true" /></Link></Button>
         </div>
         <p className="adoption-program-note"><ShieldCheck size={15} aria-hidden="true" />Retirada e plantio após confirmação da equipe.</p>
       </div>

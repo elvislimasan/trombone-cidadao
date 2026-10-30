@@ -1,12 +1,44 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_ADOPTION } from '../lib/treeAdoption.js';
-import { readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '../lib/treeAdoptionClient.js';
+import { loadAdoptionRequest, readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '../lib/treeAdoptionClient.js';
 
 const userId = 'citizen';
 const session = { access_token: 'test-token', user: { id: userId } };
 const payload = { id: '90000000-0000-0000-0000-000000000001', city_id: 64 };
 const denied = { error: { code: '42501', message: 'permission denied for function submit_tree_adoption' } };
+function requestClient(result) {
+  const calls = [];
+  const query = {
+    select(value) { calls.push(['select', value]); return query; },
+    eq(key, value) { calls.push(['eq', key, value]); return query; },
+    async maybeSingle() { return result; },
+  };
+  return { calls, from(table) { calls.push(['from', table]); return query; } };
+}
+
+test('notificação abre diretamente um pedido encerrado fora da página atual, limitado à conta e cidade', async () => {
+  const row = { ...payload, author_id: userId, status: 'concluida' };
+  const api = requestClient({ data: row });
+  assert.deepEqual(await loadAdoptionRequest(api, { requestId: row.id, cityId: 64, userId }), row);
+  assert.deepEqual(api.calls.filter(call => call[0] === 'eq'), [['eq', 'id', row.id], ['eq', 'city_id', 64], ['eq', 'author_id', userId]]);
+});
+
+test('link de notificação inválido ou sem sessão não consulta pedidos', async () => {
+  for (const patch of [{ requestId: 'broken' }, { requestId: '../outro' }, { requestId: null }, { userId: null }, { cityId: null }]) {
+    const api = requestClient({ data: payload });
+    await assert.rejects(loadAdoptionRequest(api, { requestId: payload.id, cityId: 64, userId, ...patch }), /Solicitação indisponível/);
+    assert.equal(api.calls.length, 0);
+  }
+});
+
+test('pedido de outra conta/cidade e falha de rede não revelam dados ao abrir a notificação', async () => {
+  const row = { ...payload, author_id: userId };
+  for (const data of [null, { ...row, author_id: 'other' }, { ...row, city_id: 65 }, { ...row, id: 'other' }]) {
+    await assert.rejects(loadAdoptionRequest(requestClient({ data }), { requestId: row.id, cityId: 64, userId }), /Solicitação indisponível/);
+  }
+  await assert.rejects(loadAdoptionRequest(requestClient({ error: { message: 'private database detail' } }), { requestId: row.id, cityId: 64, userId }), /Não foi possível abrir o pedido/);
+});
 function client(results, current = session, renewed = session) {
   const calls = [], auth = { refreshes: 0 };
   auth.getSession = async () => ({ data: { session: current } });

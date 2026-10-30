@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 import * as adoption from '../lib/treeAdoption.js';
+import * as adoptionClient from '../lib/treeAdoptionClient.js';
 
 const require = createRequire(import.meta.url);
 const React = require('react');
@@ -20,6 +21,7 @@ const mocks = {
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: ({ status }) => React.createElement('span', {}, adoption.ADOPTION_STATUSES[status]) },
   './treeAdoptionManagement.css': {},
   '@/lib/treeAdoption': adoption,
+  '@/lib/treeAdoptionClient': adoptionClient,
 };
 // Exercise the private dialog with real icon imports, without changing its production API.
 const source = readFileSync(new URL('../components/arborization/TreeAdoptionRequests.jsx', import.meta.url), 'utf8') + '\nexport { RequestDetails };';

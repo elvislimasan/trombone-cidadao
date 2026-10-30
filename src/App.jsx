@@ -114,6 +114,9 @@ import PendingInviteBanner from '@/components/PendingInviteBanner';
 import { usePermissions, PermissionsProvider } from '@/hooks/usePermissions';
 import TerritorialPanelPage from '@/pages/TerritorialPanelPage';
 import TreeAdoptionManagementPage from '@/pages/TreeAdoptionManagementPage';
+import CommunityTreesPage from '@/pages/CommunityTreesPage';
+import CommunityTreeRegistrationPage from '@/pages/CommunityTreeRegistrationPage';
+import CommunityTreeProfilePage from '@/pages/CommunityTreeProfilePage';
 import { TERRITORIAL_BASE, territorialEntryRedirect } from '@/lib/territorialAccess';
 import ManagePermissionsPage from '@/pages/admin/ManagePermissionsPage';
 import ManageAgencyChannelsPage from '@/pages/admin/ManageAgencyChannelsPage';
@@ -803,6 +806,7 @@ function AppShell() {
                 <Route path="/prefeitura/adote-uma-arvore" element={<TreeAdoptionManagementPage />} />
                 <Route path="/prefeitura/adote-uma-arvore/solicitacoes" element={<TreeAdoptionManagementPage />} />
                 <Route path="/prefeitura/adote-uma-arvore/viveiros" element={<TreeAdoptionManagementPage section="nurseries" />} />
+                <Route path="/prefeitura/adote-uma-arvore/comunidade" element={<TreeAdoptionManagementPage section="community" />} />
                 <Route path="/prefeitura/executor" element={<ExecutorPanelPage />} />
                 <Route path="/prefeitura/executor/:activity" element={<ExecutorPanelPage />} />
                 <Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrderPage />} />
@@ -925,6 +929,10 @@ function AppShell() {
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/mapa-arborizacao" element={<ArborizationMapPage />} />
               <Route path="/adote-uma-arvore" element={<AdoptTreePage />} />
+              <Route path="/arvores-da-comunidade" element={<CommunityTreesPage />} />
+              <Route path="/arvores-da-comunidade/nova" element={<CommunityTreeRegistrationPage />} />
+              <Route path="/arvores-da-comunidade/:id/editar" element={<CommunityTreeRegistrationPage />} />
+              <Route path="/arvores-da-comunidade/:id" element={<CommunityTreeProfilePage />} />
               <Route path="/arborizacao/arvore/:id" element={<TreePage />} />
               <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/admin/arborizacao" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />

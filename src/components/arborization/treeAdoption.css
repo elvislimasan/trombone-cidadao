@@ -13,7 +13,7 @@
 .adoption-heading-invitation, .adoption-header-engagement, .adoption-header-share { display: none; }
 .adoption-header-actions { display: flex; align-items: center; justify-content: end; gap: 12px; min-width: 0; }
 .adoption-page-tabs { display: flex; justify-self: center; gap: 24px; }
-.adoption-page-tabs > button { display: flex; align-items: center; gap: 7px; min-height: 48px; padding: 0 2px; border-bottom: 2px solid transparent; font-size: 12px; font-weight: 600; color: rgb(var(--text-secondary)); }
+.adoption-page-tabs > :is(button,a) { display: flex; align-items: center; gap: 7px; min-height: 48px; padding: 0 2px; border-bottom: 2px solid transparent; font-size: 12px; font-weight: 600; color: rgb(var(--text-secondary)); }
 .adoption-page-tabs > button[aria-current] { color: rgb(var(--brand)); border-bottom-color: rgb(var(--brand)); }
 .adoption-page-tabs > button:focus-visible, .adoption-step:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 3px; border-radius: 4px; }
 .adoption-form, .adoption-requests-panel, .adoption-auth-panel { min-width: 0; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; background: rgb(var(--surface-raised)); box-shadow: 0 3px 16px rgb(var(--text-primary) / .025); }
