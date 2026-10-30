@@ -1,4 +1,6 @@
 export const TREE_ADOPTION_MANAGEMENT_PATH = '/prefeitura/adote-uma-arvore';
+export const TREE_ADOPTION_REQUESTS_PATH = `${TREE_ADOPTION_MANAGEMENT_PATH}/solicitacoes`;
+export const TREE_NURSERIES_MANAGEMENT_PATH = `${TREE_ADOPTION_MANAGEMENT_PATH}/viveiros`;
 export const ADOPTION_TYPES = { muda: 'Receber uma muda', plantio: 'Solicitar plantio pela equipe' };
 export const ADOPTION_ZONES = { urbana: 'Zona urbana', rural: 'Zona rural' };
 export const ADOPTION_PLACES = { calcada: 'Calçada', quintal: 'Quintal', praca: 'Praça', avenida: 'Avenida', outro: 'Outro local' };
@@ -14,6 +16,15 @@ export const ADOPTION_CITY_NOTICE = 'A prefeitura desta cidade ainda não tem co
 export const adoptionItems = form => Array.isArray(form.items) && form.items.length ? form.items : form.species_id ? [{ species_id: form.species_id, provider: form.provider, quantity: 1 }] : [];
 export const adoptionQuantity = form => adoptionItems(form).reduce((total, item) => total + Number(item.quantity || 0), 0);
 
+export function adoptionProviderLabel(provider, catalog = {}) {
+  if (!provider) return '';
+  return catalog.nurseries?.find(row => row.provider === provider)?.name
+    || catalog.availability?.find(row => row.provider === provider && row.nursery)?.nursery.name
+    || ADOPTION_PROVIDERS[provider] || 'Viveiro cadastrado';
+}
+
+const knownProvider = row => Boolean(row.nursery?.id && row.nursery.provider === row.provider) || Object.hasOwn(ADOPTION_PROVIDERS, row.provider);
+
 export function adoptionNextStatuses(request) {
   if (ADOPTION_TERMINAL.includes(request.status)) return [];
   return Object.keys(ADOPTION_STATUSES).filter(status => status !== request.status
@@ -22,11 +33,11 @@ export function adoptionNextStatuses(request) {
 }
 
 export function availableAdoptionProviders(availability, speciesId) {
-  return availability.filter(item => item.species_id === speciesId && item.status === 'disponivel' && Object.hasOwn(ADOPTION_PROVIDERS, item.provider));
+  return availability.filter(item => item.species_id === speciesId && item.status === 'disponivel' && knownProvider(item));
 }
 
 export function availableAdoptionSpecies(species, availability) {
-  const availableIds = new Set(availability.filter(item => item.status === 'disponivel' && Object.hasOwn(ADOPTION_PROVIDERS, item.provider)).map(item => item.species_id));
+  const availableIds = new Set(availability.filter(item => item.status === 'disponivel' && knownProvider(item)).map(item => item.species_id));
   return species.filter(item => availableIds.has(item.id));
 }
 
@@ -56,7 +67,7 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
     for (const item of items) {
       if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > 1000) return 'Informe uma quantidade inteira de 1 a 1.000 para cada espécie.';
       if (!species.some(species => species.id === item.species_id && String(species.city_id) === String(cityId))) return 'Escolha uma espécie cadastrada nesta cidade.';
-      if (!Object.hasOwn(ADOPTION_PROVIDERS, item.provider)) return 'Escolha o local de fornecimento de cada espécie.';
+      if (!item.provider) return 'Escolha o local de fornecimento de cada espécie.';
       if (!availableAdoptionProviders(availability, item.species_id).some(row => row.provider === item.provider)) return 'A espécie não tem disponibilidade confirmada neste fornecedor. Atualize o catálogo e escolha uma opção disponível.';
     }
     if (adoptionQuantity(form) > 1000) return 'O pedido pode ter até 1.000 mudas ou árvores no total.';

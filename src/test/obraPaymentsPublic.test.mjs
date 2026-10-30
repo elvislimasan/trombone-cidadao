@@ -110,3 +110,21 @@ test('administrador continua com acesso ao PDF e às ações de gerenciamento', 
     assert.match(node.textContent, /Editar/);
   }, { canAdd: true });
 });
+
+test('relatório fotográfico fica disponível na consulta pública sem depender do PDF do boletim', () => {
+  const reportUrl = 'https://example.com/fotos.pdf';
+  withPayments([{ ...payment, measurement_pdf_url: null, photo_report_pdf_url: reportUrl }], (node) => {
+    for (const scope of [node.querySelector('.md\\:hidden'), node.querySelector('table')]) {
+      const link = scope.querySelector(`a[href="${reportUrl}"]`);
+      assert.ok(link);
+      assert.match(link.textContent, /PDF do relatório fotográfico/);
+      assert.equal(link.target, '_blank');
+      assert.equal(link.rel, 'noopener noreferrer');
+    }
+    click(node, 'Cards');
+    assert.ok(node.querySelector('.md\\:grid').querySelector(`a[href="${reportUrl}"]`));
+  });
+  withPayments([{ ...payment, measurement_pdf_url: null, photo_report_pdf_url: 'javascript:alert(1)' }], (node) => {
+    assert.equal(node.querySelector('a'), null);
+  });
+});

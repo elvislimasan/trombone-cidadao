@@ -52,3 +52,14 @@ test('horários recusam dias ausentes, intervalos inválidos, sobreposição e c
   assert.equal(validatePickup({ ...base, latitude: 0, longitude: 0 }), '');
   assert.equal(validatePickup({ ...base, schedule: [{ days: [1], from: '08:00', to: '12:00' }, { days: [2], from: '08:00', to: '12:00' }] }), '');
 });
+
+test('espécies herdam o local e os horários atuais do viveiro, mesmo com cópia antiga na oferta', () => {
+  const nursery = { id: 'n1', pickup_details: { ...pickupDetails(), address: 'Rua do Viveiro, 50', schedule: [{ days: [1, 3, 5], from: '08:00', to: '12:00' }] } };
+  const rows = ['ipe', 'oiti'].map(species_id => ({ species_id, nursery, pickup_details: { address: 'Endereço antigo' } }));
+  for (const row of rows) assert.deepEqual(pickupDetails(row), nursery.pickup_details);
+  nursery.pickup_details = { ...nursery.pickup_details, address: 'Novo endereço do viveiro', schedule: [{ days: [2, 4], from: '13:00', to: '17:00' }] };
+  for (const row of rows) {
+    assert.equal(pickupDetails(row).address, 'Novo endereço do viveiro');
+    assert.match(pickupInstructions(pickupDetails(row)), /Ter, Qui · 13:00 às 17:00/);
+  }
+});

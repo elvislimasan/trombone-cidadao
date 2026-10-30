@@ -42,7 +42,7 @@ export function municipalCapabilities(rows, administrator = false, channelId = '
     canExecuteLighting: electricians.length > 0,
     executionSpecialties: specialties,
     canReview: administrator || managing.length > 0,
-    canEditLighting: scoped.some(row => row.inventario_iluminacao),
+    canEditLighting: administrator || scoped.some(row => row.inventario_iluminacao),
   };
 }
 
@@ -75,7 +75,8 @@ export function municipalTreeAdoptionAccess({ isAdministrator = false, cityId, a
 }
 
 export function municipalRouteAllowed(path, workspace) {
-  if (path.split('?')[0] === TREE_ADOPTION_MANAGEMENT_PATH) return Boolean(workspace.canAttendTreeAdoption);
+  const pathname = path.split('?')[0];
+  if (pathname === TREE_ADOPTION_MANAGEMENT_PATH || pathname.startsWith(`${TREE_ADOPTION_MANAGEMENT_PATH}/`)) return Boolean(workspace.canAttendTreeAdoption);
   if (path.startsWith('/prefeitura/gestao-territorial')) return true; // City/module guard in the inventory.
   if (path === '/prefeitura/executor') return workspace.canExecute;
   if (path.startsWith('/prefeitura/eletricista')) return workspace.canExecuteLighting;

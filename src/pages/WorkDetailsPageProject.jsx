@@ -13,7 +13,7 @@ import { getWorkShareUrl } from "@/lib/shareUtils";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { optimizeImageFile } from "@/lib/optimizeImage";
 import { optimizeStoredWorkImage } from "@/lib/optimizeStoredWorkImage";
-import { EMPTY_PAYMENT_MEASUREMENT, paymentMeasurementFields, resolvePaymentContractor, uploadPaymentMeasurementPdf } from '@/lib/workPaymentMeasurement';
+import { EMPTY_PAYMENT_MEASUREMENT, paymentMeasurementFields, resolvePaymentContractor, uploadPaymentMeasurementPdf, uploadPaymentPhotoReportPdf } from '@/lib/workPaymentMeasurement';
 import { PaymentMeasurementDetails } from '@/components/project/obra/PaymentMeasurementDetails';
 import { PaymentMeasurementFields } from '@/components/project/obra/PaymentMeasurementFields';
 import { ObraHeader } from "@/components/project/obra/ObraHeader";
@@ -363,6 +363,7 @@ export default function WorkDetailsPageProject() {
   const [isSavingCurrentPhase, setIsSavingCurrentPhase] = useState(false);
   const [currentPhaseContractors, setCurrentPhaseContractors] = useState([]);
   const [paymentPdfFile, setPaymentPdfFile] = useState(null);
+  const [photoReportPdfFile, setPhotoReportPdfFile] = useState(null);
   const [showContribDialog, setShowContribDialog] = useState(false);
   const [contribDescription, setContribDescription] = useState("");
   const [contribVideoUrl, setContribVideoUrl] = useState("");
@@ -1865,6 +1866,7 @@ export default function WorkDetailsPageProject() {
     const defaultCreditorName = defaultMeasurement?.contractor?.name || "";
     setEditingPaymentId(null);
     setPaymentPdfFile(null);
+    setPhotoReportPdfFile(null);
     setIsEditingCommitmentDate(false);
     setIsEditingCommitmentType(false);
     setPaymentForm({
@@ -1895,12 +1897,14 @@ export default function WorkDetailsPageProject() {
       const numericValue = Number(raw?.value ?? payment?.value ?? 0);
       setEditingPaymentId(id);
       setPaymentPdfFile(null);
+      setPhotoReportPdfFile(null);
       setIsEditingCommitmentDate(false);
       setIsEditingCommitmentType(false);
       setPaymentForm({
         ...EMPTY_PAYMENT_MEASUREMENT,
         contractor_id: resolvePaymentContractor(raw, currentPhaseContractors, null),
         measurement_pdf_url: raw?.measurement_pdf_url || '',
+        photo_report_pdf_url: raw?.photo_report_pdf_url || '',
         measurement_date: raw?.measurement_date || '',
         execution_start_date: raw?.execution_start_date || '',
         execution_end_date: raw?.execution_end_date || '',
@@ -2022,14 +2026,23 @@ export default function WorkDetailsPageProject() {
     }
 
     setIsSavingPayment(true);
-    let uploadedPdfPath = null;
+    const uploadedPdfPaths = [];
     let paymentPersisted = false;
     try {
-      const metadata = paymentMeasurementFields({ ...paymentForm, measurement_pdf_url: paymentPdfFile ? '' : paymentForm.measurement_pdf_url }, currentPhaseContractors);
+      const metadata = paymentMeasurementFields({
+        ...paymentForm,
+        measurement_pdf_url: paymentPdfFile ? '' : paymentForm.measurement_pdf_url,
+        photo_report_pdf_url: photoReportPdfFile ? '' : paymentForm.photo_report_pdf_url,
+      }, currentPhaseContractors);
       const pdf = await uploadPaymentMeasurementPdf(supabase, paymentForm.measurement_id, paymentPdfFile);
       if (pdf) {
-        uploadedPdfPath = pdf.path;
+        uploadedPdfPaths.push(pdf.path);
         metadata.measurement_pdf_url = pdf.url;
+      }
+      const photoReport = await uploadPaymentPhotoReportPdf(supabase, paymentForm.measurement_id, photoReportPdfFile);
+      if (photoReport) {
+        uploadedPdfPaths.push(photoReport.path);
+        metadata.photo_report_pdf_url = photoReport.url;
       }
       const previousPayment = editingPaymentId
         ? allPayments.find((p) => p.id === editingPaymentId) || null
@@ -2114,9 +2127,10 @@ export default function WorkDetailsPageProject() {
       setShowPaymentDialog(false);
       setEditingPaymentId(null);
       setPaymentPdfFile(null);
+      setPhotoReportPdfFile(null);
       await loadData();
     } catch (e) {
-      if (uploadedPdfPath && !paymentPersisted) await supabase.storage.from('work-media').remove([uploadedPdfPath]);
+      if (uploadedPdfPaths.length && !paymentPersisted) await supabase.storage.from('work-media').remove(uploadedPdfPaths);
       showAppError("Erro ao salvar pagamento", {
         description: e?.message || "Tente novamente.",
         variant: "destructive",
@@ -2133,6 +2147,7 @@ export default function WorkDetailsPageProject() {
     allPayments,
     currentPhaseContractors,
     paymentPdfFile,
+    photoReportPdfFile,
   ]);
 
   const handleDeletePayment = useCallback(
@@ -3008,7 +3023,8 @@ export default function WorkDetailsPageProject() {
 
             <div className="mt-4">
               <PaymentMeasurementFields form={paymentForm} onChange={setPaymentForm}
-                pdfFile={paymentPdfFile} onPdfFileChange={setPaymentPdfFile} disabled={isSavingPayment} />
+                pdfFile={paymentPdfFile} onPdfFileChange={setPaymentPdfFile}
+                photoReportPdfFile={photoReportPdfFile} onPhotoReportPdfFileChange={setPhotoReportPdfFile} disabled={isSavingPayment} />
             </div>
 
             <div className="grid gap-2 mt-4">

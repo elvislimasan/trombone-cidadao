@@ -4,7 +4,7 @@ import { allTreeRows } from '@/lib/treeInventory';
 import { availableAdoptionSpecies } from '@/lib/treeAdoption';
 
 export default function useTreeAdoptionCatalog(cityId, availableOnly = false) {
-  const [state, setState] = useState({ loading: true, species: [], availability: [], error: '' });
+  const [state, setState] = useState({ loading: true, species: [], availability: [], nurseries: [], error: '' });
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision(value => value + 1), []);
   useEffect(() => {
@@ -15,23 +15,25 @@ export default function useTreeAdoptionCatalog(cityId, availableOnly = false) {
   }, [refresh, availableOnly]);
   useEffect(() => {
     let active = true;
-    setState({ loading: Boolean(cityId), species: [], availability: [], error: '' });
+    setState({ loading: Boolean(cityId), species: [], availability: [], nurseries: [], error: '' });
     if (!cityId) return;
     (async () => {
       try {
         const species = await allTreeRows(supabase, 'city_tree_species', query => query.eq('city_id', cityId));
+        const nurseries = await allTreeRows(supabase, 'tree_nurseries', query => query.eq('city_id', cityId));
+        const nurseryById = new Map(nurseries.map(row => [row.id, row]));
         // A junção limita a consulta de disponibilidade à cidade selecionada.
         const availability = [];
         for (let start = 0; ; start += 1000) {
           const { data, error } = await supabase.from('tree_species_availability').select('*,species:city_tree_species!inner(city_id)').eq('species.city_id', cityId).order('species_id').order('provider').range(start, start + 999);
           if (error) throw error;
-          availability.push(...(data || []));
+          availability.push(...(data || []).map(row => ({ ...row, nursery: nurseryById.get(row.nursery_id) })));
           if (!data || data.length < 1000) break;
         }
         const catalogSpecies = availableOnly ? availableAdoptionSpecies(species, availability) : species;
-        if (active) setState({ loading: false, species: catalogSpecies.sort((a, b) => a.common_name.localeCompare(b.common_name, 'pt-BR')), availability, error: '' });
+        if (active) setState({ loading: false, species: catalogSpecies.sort((a, b) => a.common_name.localeCompare(b.common_name, 'pt-BR')), availability, nurseries: nurseries.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), error: '' });
       } catch {
-        if (active) setState({ loading: false, species: [], availability: [], error: 'Não foi possível carregar as espécies e a disponibilidade. Tente novamente em alguns instantes.' });
+        if (active) setState({ loading: false, species: [], availability: [], nurseries: [], error: 'Não foi possível carregar os viveiros, as espécies e a disponibilidade. Tente novamente em alguns instantes.' });
       }
     })();
     return () => { active = false; };

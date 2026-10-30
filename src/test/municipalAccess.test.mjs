@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { municipalCapabilities, municipalHome, municipalRouteAllowed, municipalAccessUnavailableReason, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel, municipalTreeAdoptionAccess } from '../lib/municipalAccess.js';
-import { TREE_ADOPTION_MANAGEMENT_PATH } from '../lib/treeAdoption.js';
+import { municipalCapabilities, municipalHome, municipalRouteAllowed, municipalAccessUnavailableReason, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel, municipalTreeAdoptionAccess, municipalContextPath } from '../lib/municipalAccess.js';
+import { TREE_ADOPTION_MANAGEMENT_PATH, TREE_ADOPTION_REQUESTS_PATH, TREE_NURSERIES_MANAGEMENT_PATH } from '../lib/treeAdoption.js';
 const row = (atendimento = 'nenhum', canal_id = 'a', extra = {}) => ({ atendimento, canal_id, especialidades_execucao: [], inventario_iluminacao: false, ...extra });
 
 test('navegação do administrador não transporta secretaria para as páginas gerais', () => {
@@ -50,13 +50,21 @@ test('atendimento e execução acumulam, mantendo o escopo da secretaria', () =>
   assert.equal(municipalCapabilities(rows, false, 'b').canDispatch, false);
   assert.equal(municipalCapabilities(rows, false, 'b').canReadAttendance, false);
 });
-test('atendente não recebe despacho; administrador não recebe concessão técnica', () => {
+test('administrador pode gerir postes sem concessão de inventário e continua sem execução de campo', () => {
   assert.equal(municipalCapabilities([row('atendente')]).canDispatch, false);
   const admin = { ...municipalCapabilities([], true), isAdministrator: true };
-  assert.equal(admin.canEditLighting, false);
+  assert.equal(admin.canEditLighting, true);
   assert.equal(admin.canExecute, false);
+  assert.equal(admin.canExecuteLighting, false);
   assert.equal(municipalHome(admin), '/prefeitura/visao-geral');
   assert.equal(municipalRouteAllowed('/prefeitura/equipe', admin), true);
+  assert.equal(municipalRouteAllowed('/prefeitura/iluminacao', admin), true);
+  assert.equal(municipalRouteAllowed('/prefeitura/eletricista', admin), false);
+  assert.equal(municipalCapabilities([row('gestor')]).canEditLighting, false);
+  assert.equal(municipalCapabilities([row('leitura')]).canEditLighting, false);
+  const assigned = [row('nenhum', 'lighting', { inventario_iluminacao: true })];
+  assert.equal(municipalCapabilities(assigned, false, 'lighting').canEditLighting, true);
+  assert.equal(municipalCapabilities(assigned, false, 'agriculture').canEditLighting, false);
 });
 
 test('atendimento de árvores é exclusivo da equipe responsável, com cidade e secretaria preservadas', () => {
@@ -76,6 +84,11 @@ test('atendimento de árvores é exclusivo da equipe responsável, com cidade e 
   assert.equal(municipalTreeAdoptionAccess({ cityId: 64, inventories: [{ city_id: 65, canal_id: 'trees', module: 'arborization' }] }), false);
   assert.equal(municipalRouteAllowed(TREE_ADOPTION_MANAGEMENT_PATH, { canReadAttendance: true }), false);
   assert.equal(municipalRouteAllowed(TREE_ADOPTION_MANAGEMENT_PATH, { canAttendTreeAdoption: true }), true);
+  for (const path of [TREE_ADOPTION_REQUESTS_PATH, TREE_NURSERIES_MANAGEMENT_PATH]) {
+    assert.equal(municipalRouteAllowed(path, { canReadAttendance: true }), false);
+    assert.equal(municipalRouteAllowed(`${path}?cidade=64`, { canAttendTreeAdoption: true }), true);
+    assert.equal(municipalContextPath(path, 64, 'trees'), `${path}?cidade=64&secretaria=trees`);
+  }
   assert.equal(municipalWorkspaceChannel(TREE_ADOPTION_MANAGEMENT_PATH, true, 'lighting'), '');
   assert.equal(municipalWorkspaceChannel(TREE_ADOPTION_MANAGEMENT_PATH, false, 'trees'), 'trees');
 });

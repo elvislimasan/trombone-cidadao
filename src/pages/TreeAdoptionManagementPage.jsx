@@ -2,6 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import TreeAdoptionRequests from '@/components/arborization/TreeAdoptionRequests';
+import TreeNurseriesManagement from '@/components/arborization/TreeNurseriesManagement';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
@@ -10,7 +11,7 @@ import { cityStateUf } from '@/lib/cityLocation';
 import { municipalContextPath } from '@/lib/municipalAccess';
 import { TERRITORIAL_BASE } from '@/lib/territorialAccess';
 
-export default function TreeAdoptionManagementPage() {
+export default function TreeAdoptionManagementPage({ section = 'requests' }) {
   const workspace = useOutletContext();
   const { user } = useAuth();
   const access = usePermissions();
@@ -31,13 +32,13 @@ export default function TreeAdoptionManagementPage() {
 
   const cityLabel = [city.name, cityStateUf(city)].filter(Boolean).join(' · ');
   return <main className="tree-adoption-management-page page-shell-fluid" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
-    <Helmet><title>Adote uma árvore · Atendimento | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
+    <Helmet><title>{section === 'nurseries' ? 'Viveiros e mudas' : 'Solicitações'} · Adote uma árvore | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-xs font-semibold text-brand">Atendimento municipal · {cityLabel}</p>
       {(municipal ? workspace.inventoryModules?.includes('arborization') : allowedCities.length > 0) && <Button asChild variant="outline" size="sm"><Link to={municipalContextPath(`${TERRITORIAL_BASE}/arborizacao`, city.id, workspace?.activeChannelId)}>Voltar ao inventário</Link></Button>}
     </div>
     <div className="tree-adoption-management-panel rounded-xl border border-edge-subtle bg-surface-raised">
-      <TreeAdoptionRequests key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} city={city} management headingLevel={1} />
+      {section === 'nurseries' ? <TreeNurseriesManagement key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} city={city} /> : <TreeAdoptionRequests key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} city={city} management headingLevel={1} />}
     </div>
   </main>;
 }

@@ -2,7 +2,7 @@ import { executorActivityForPath, executorHome, executionActivity } from '@/lib/
 import { municipalHome, municipalRouteAllowed, municipalContextPath, municipalAccessUnavailableReason, municipalWorkspaceChannel } from '@/lib/municipalAccess';
 import { usePermissions } from '@/hooks/usePermissions';
 import { territorialModules, TERRITORIAL_BASE } from '@/lib/territorialAccess';
-import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
+import { TREE_ADOPTION_MANAGEMENT_PATH, TREE_ADOPTION_REQUESTS_PATH, TREE_NURSERIES_MANAGEMENT_PATH } from '@/lib/treeAdoption';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -24,6 +24,7 @@ import {
   Map as MapIcon,
   Plus,
   Sprout,
+  Leaf,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -36,10 +37,10 @@ import ElectricianLayout, { ExecutorLayout } from '@/components/municipality/Ele
 const navigation = [
   { to: '/prefeitura/visao-geral', label: 'Visão geral', icon: LayoutDashboard, adminOnly: false },
   { to: TERRITORIAL_BASE, label: 'Ruas e arborização', icon: MapIcon, territorial: true },
-  { to: TREE_ADOPTION_MANAGEMENT_PATH, label: 'Adote uma árvore', icon: Sprout, adminOnly: false },
   { to: '/prefeitura/broncas', label: 'Solicitações da cidade', icon: MessageSquare, adminOnly: false },
   { to: '/prefeitura/demandas', label: 'Ordens de serviço', icon: ClipboardList, adminOnly: false },
   { to: '/prefeitura/iluminacao', label: 'Iluminação pública', icon: LampDesk, adminOnly: false },
+  { to: TREE_ADOPTION_MANAGEMENT_PATH, label: 'Adote uma árvore', icon: Sprout, adminOnly: false },
   { to: '/prefeitura/secretarias', label: 'Secretarias', icon: Settings2, adminOnly: true },
   { to: '/prefeitura/equipe', label: 'Equipe', icon: Users, adminOnly: true },
   { to: '/prefeitura/configuracoes', label: 'Regras de atendimento', icon: Settings2, adminOnly: true },
@@ -72,6 +73,7 @@ function MunicipalityLayoutContent() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(() => pathname.startsWith('/prefeitura/demandas'));
   const [lightingOpen, setLightingOpen] = useState(() => pathname.startsWith('/prefeitura/iluminacao'));
+  const [adoptionOpen, setAdoptionOpen] = useState(() => pathname.startsWith(TREE_ADOPTION_MANAGEMENT_PATH));
   const [branding, setBranding] = useState({ name: 'Trombone Cidadão', logo: '/logo.png' });
   const { resolved: theme, setPreference } = useTheme();
 
@@ -83,6 +85,7 @@ function MunicipalityLayoutContent() {
   useEffect(() => {
     if (pathname.startsWith('/prefeitura/demandas')) setOrdersOpen(true);
     if (pathname.startsWith('/prefeitura/iluminacao')) setLightingOpen(true);
+    if (pathname.startsWith(TREE_ADOPTION_MANAGEMENT_PATH)) setAdoptionOpen(true);
   }, [pathname]);
 
   useEffect(() => {
@@ -121,6 +124,19 @@ function MunicipalityLayoutContent() {
   const ordersListActive = pathname === '/prefeitura/demandas';
   const scopedHref = href => municipalContextPath(href, municipality?.city_id, municipalWorkspaceChannel(href, isAdministrator, workspace.activeChannelId));
   const renderNavigation = (mobile = false) => visibleNavigation.map(({ to, label, icon: Icon }) => {
+    if (to === TREE_ADOPTION_MANAGEMENT_PATH) {
+      const submenuId = mobile ? 'municipality-mobile-adoption' : 'municipality-desktop-adoption';
+      const active = pathname === to || pathname.startsWith(`${to}/`);
+      return <div key={to} className="min-w-0">
+        <button type="button" aria-expanded={adoptionOpen} aria-controls={submenuId} onClick={() => setAdoptionOpen(value => !value)} className={'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (active ? 'bg-brand-subtleBg text-brand-subtleFg ring-1 ring-inset ring-brand/20' : 'text-content-secondary hover:bg-surface-subtle hover:text-content-primary')}><Sprout className="h-4 w-4 shrink-0" /><span className="flex-1">{label}</span><ChevronDown className={'h-4 w-4 shrink-0 transition-transform ' + (adoptionOpen ? 'rotate-180' : '')} /></button>
+        {adoptionOpen && <div id={submenuId} role="group" aria-label="Opções de Adote uma árvore" className="ml-3 mt-1 grid gap-0.5 rounded-r-xl border-l-2 border-brand/60 bg-surface-subtle/70 py-1 pl-2 pr-1">
+          {[[TREE_ADOPTION_REQUESTS_PATH, 'Solicitações', ClipboardList], [TREE_NURSERIES_MANAGEMENT_PATH, 'Viveiros e mudas', Leaf]].map(([href, title, SubIcon]) => {
+            const current = pathname === href || (href === TREE_ADOPTION_REQUESTS_PATH && pathname === to);
+            return <Link key={href} to={scopedHref(href)} aria-current={current ? 'page' : undefined} onClick={mobile ? () => setMenuOpen(false) : undefined} className={'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (current ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary hover:bg-surface-raised hover:text-content-primary')}><SubIcon className="h-4 w-4 shrink-0" />{title}</Link>;
+          })}
+        </div>}
+      </div>;
+    }
     if (to === '/prefeitura/iluminacao') {
       const submenuId = mobile ? 'municipality-mobile-lighting' : 'municipality-desktop-lighting';
       const active = pathname.startsWith(to);
@@ -163,7 +179,7 @@ function MunicipalityLayoutContent() {
   };
 
   if (workspace.loading) return <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base text-sm text-content-secondary">Abrindo painel…</div>;
-  if (!municipality && !territorialAccess.loading && !territorialAccess.error && territorialAccess.municipalities.length === 0 && (pathname.startsWith(TERRITORIAL_BASE) || (pathname === TREE_ADOPTION_MANAGEMENT_PATH && territorialAccess.canWrite('arborization')))) return <Outlet />;
+  if (!municipality && !territorialAccess.loading && !territorialAccess.error && territorialAccess.municipalities.length === 0 && (pathname.startsWith(TERRITORIAL_BASE) || (pathname.startsWith(TREE_ADOPTION_MANAGEMENT_PATH) && territorialAccess.canWrite('arborization')))) return <Outlet />;
   if (workspace.error) return <div className="page-shell-fluid space-y-4 py-12"><p className="text-sm">Conta: {user?.email}</p><p role="alert">{workspace.error}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Tentar novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
   if (!municipality || !home) return <div className="page-shell-fluid space-y-4 py-12"><h1 className="text-xl font-bold">Acesso municipal indisponível</h1><p className="text-sm">Conta: {user?.email}</p><p role="alert">{municipalAccessUnavailableReason(workspace)}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Verificar acesso novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
   if (pathname === '/prefeitura/visao-geral' && !workspace.canReadAttendance && homePath !== pathname) return <Navigate to={home} replace />;

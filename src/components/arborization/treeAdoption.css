@@ -68,7 +68,7 @@
 .adoption-field input { height: 38px; font-size: 12px; border-radius: 8px; }
 .adoption-field select:focus-visible, .adoption-field textarea:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
 .adoption-location-map { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; background: rgb(var(--surface-raised)); }
-.adoption-map-heading { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.adoption-map-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid rgb(var(--border-subtle)); }
 .adoption-map-canvas { position: relative; isolation: isolate; min-width: 0; height: 330px; background: rgb(var(--surface-subtle)); }
 .adoption-map-status { display: grid; gap: 5px; padding: 8px 12px; line-height: 1.4; }
 .adoption-species-layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .8fr); gap: 24px; align-items: start; }

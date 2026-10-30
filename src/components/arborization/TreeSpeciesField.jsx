@@ -10,7 +10,7 @@ import { treeNameKey, uploadTreePhoto } from '@/lib/treeInventory';
 import { supabase } from '@/lib/customSupabaseClient';
 import { SIDEWALK_SUITABILITY, speciesAliases } from '@/lib/treeSpecies';
 
-export default function TreeSpeciesField({ species, value, onSelect, onCreated, onUpdated, cityId, label = 'Nome popular', disabled = false, loading = false, allowCreate = true, allowEdit = allowCreate, allowUnknown = true, onCreatingChange, compact = false }) {
+export default function TreeSpeciesField({ species, value, onSelect, onCreated, onUpdated, cityId, label = 'Nome popular', disabled = false, loading = false, allowCreate = true, allowEdit = allowCreate, allowUnknown = true, onCreatingChange, compact = false, creationOnly = false }) {
   const id = useId();
   const trigger = useRef(null);
   const savingRef = useRef(false);
@@ -106,7 +106,7 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
     </div>
     {/* A lista usa um portal; seu próprio bloqueio de rolagem permite mouse e
         toque mesmo quando o campo está dentro de um Dialog modal. */}
-    <Popover modal open={open} onOpenChange={next => { setOpen(next); if (next) setSearch(''); }}>
+    {!creationOnly && <Popover modal open={open} onOpenChange={next => { setOpen(next); if (next) setSearch(''); }}>
       <PopoverTrigger asChild><Button ref={trigger} type="button" role="combobox" aria-labelledby={`${id}-label`} aria-expanded={open} data-value={value || ''}
         variant="outline" className="h-11 w-full justify-between gap-2 bg-background px-3 font-normal" disabled={disabled || loading || !!draft}>
         <span className="truncate">{loading ? 'Carregando espécies…' : selected?.common_name || (allowUnknown ? 'Não identificada' : 'Selecione uma espécie')}</span><ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -126,7 +126,7 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
           {allowCreate && <div className="border-t p-2"><Button type="button" variant="ghost" className="h-auto min-h-[40px] w-full justify-start gap-2 whitespace-normal text-left text-primary" onClick={() => create(search.trim().slice(0, 160))}><Plus className="h-4 w-4 shrink-0" />{term ? `Cadastrar “${search.trim()}”` : 'Cadastrar nova espécie'}</Button></div>}
         </Command>
       </PopoverContent>
-    </Popover>
+    </Popover>}
     {!compact && selected?.scientific_name && <p className="break-words text-xs italic text-muted-foreground" data-testid="selected-species-info">{selected.scientific_name}</p>}
     {!compact && !!selected?.aliases?.length && <p className="break-words text-xs text-muted-foreground">Também conhecida como: {selected.aliases.join(', ')}</p>}
     {!compact && selected?.illustration_url && !draft && <figure className="space-y-1.5"><img src={selected.illustration_url} alt={`Imagem ilustrativa da espécie ${selected.common_name}`} className="h-28 w-full rounded-lg object-contain bg-surface-subtle" /><figcaption className="text-[11px] text-muted-foreground">Imagem ilustrativa da espécie {selected.common_name}.</figcaption></figure>}

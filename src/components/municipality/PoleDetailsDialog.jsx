@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CalendarDays, History, LampDesk, Lightbulb, MapPin, Plus, Zap } from 'lucide-react';
+import { ArrowRight, CalendarDays, History, LampDesk, Lightbulb, Loader2, MapPin, Plus, Trash2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { lightingStatus } from '@/components/municipality/MunicipalLightingMap';
@@ -22,7 +22,7 @@ function DetailsGrid({ entries }) {
   return <dl className="grid grid-cols-1 gap-x-4 gap-y-3 min-[420px]:grid-cols-2">{entries.filter(([, value]) => value != null && value !== '').map(([label, value]) => <div key={label} className={'min-w-0 ' + (['Qualidade', 'Observações'].includes(label) ? 'min-[420px]:col-span-2' : '')}><dt className="text-[11px] leading-4 text-content-secondary">{label}</dt><dd className="mt-0.5 break-words text-sm font-medium leading-5">{value}</dd></div>)}</dl>;
 }
 
-export default function PoleDetailsDialog({ open, onOpenChange, pole, city, related, canEdit, canEditLighting, editingLoading, onEdit }) {
+export default function PoleDetailsDialog({ open, onOpenChange, pole, city, related, canEdit, canEditLighting, editingLoading, saving = false, onEdit, onRemove }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   if (!pole) return null;
 
@@ -40,8 +40,10 @@ export default function PoleDetailsDialog({ open, onOpenChange, pole, city, rela
   ];
   const hasTechnical = fields.some(([, value]) => value != null && value !== '') || Boolean(technical?.luminaires?.length || technical?.source_address);
   const status = lightingStatus(pole);
+  const canRemove = canEditLighting && pole.lighting_status !== 'removido' && Boolean(onRemove);
+  const busy = editingLoading || saving;
 
-  return <Dialog open={open} onOpenChange={(value) => { if (!value) setHistoryOpen(false); onOpenChange(value); }}>
+  return <Dialog open={open} onOpenChange={(value) => { if (saving) return; if (!value) setHistoryOpen(false); onOpenChange(value); }}>
     <DialogContent aria-label="Poste selecionado" className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg gap-0 overflow-x-hidden overflow-y-auto rounded-2xl border-edge-subtle bg-surface-raised p-0">
       <div className="p-5 sm:p-6">
         <div className="border-b border-edge-subtle pb-4">
@@ -73,10 +75,11 @@ export default function PoleDetailsDialog({ open, onOpenChange, pole, city, rela
         </div></details>}
 
         <div className={'mt-5 grid gap-2 border-t border-edge-subtle pt-4 ' + (canEditLighting ? 'grid-cols-2' : 'grid-cols-1')}>
-          {canEditLighting && <Button variant="outline" size="sm" disabled={editingLoading} onClick={() => onEdit(0)} className="text-xs">{editingLoading ? 'Abrindo…' : 'Editar poste'}<ArrowRight className="ml-1 h-3.5 w-3.5" /></Button>}
+          {canEditLighting && <Button variant="outline" size="sm" disabled={busy} onClick={() => onEdit(0)} className="text-xs">{editingLoading ? 'Abrindo…' : 'Editar poste'}<ArrowRight className="ml-1 h-3.5 w-3.5" /></Button>}
+          {canRemove && <Button variant="outline" size="sm" disabled={busy} onClick={onRemove} className="border-danger-subtleFg/30 text-xs text-danger-subtleFg hover:bg-danger-subtleBg hover:text-danger-subtleFg">{saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}{saving ? 'Removendo…' : 'Remover poste'}</Button>}
           <Button variant="outline" size="sm" aria-expanded={historyOpen} onClick={() => setHistoryOpen((value) => !value)} className="text-xs"><History className="mr-1 h-3.5 w-3.5" />Histórico</Button>
+          {canEditLighting && <Button variant="ghost" size="sm" disabled={busy} onClick={() => onEdit(1)} title="Corrigir localização e identificador no mapa" aria-label="Corrigir localização e identificador no mapa" className={'text-xs ' + (!canRemove ? 'col-span-2' : '')}><MapPin className="mr-1 h-3.5 w-3.5" />Corrigir localização</Button>}
         </div>
-        {canEditLighting && <Button variant="ghost" size="sm" disabled={editingLoading} onClick={() => onEdit(1)} className="mt-2 w-full text-xs">Corrigir localização e identificador no mapa</Button>}
         {canEdit && pole.lighting_status !== 'removido' && <Button asChild size="sm" className="mt-2 w-full"><Link to={`/prefeitura/demandas/nova?poste=${pole.id}`}><Plus className="mr-2 h-3.5 w-3.5" />Gerar ordem de serviço</Link></Button>}
 
         {historyOpen && <section className="mt-4 space-y-3 border-t border-edge-subtle pt-3"><h3 className="text-xs font-semibold">Últimas alterações</h3>{related.loading ? <p className="text-xs text-content-secondary">Carregando histórico…</p> : related.error ? <p role="alert" className="text-xs text-danger">{related.error}</p> : related.history.length ? related.history.map((entry) => <div key={entry.id} className="border-l-2 border-status-progressBorder pl-3"><p className="text-[11px] text-content-secondary">{formatDate(entry.changed_at)}</p><p className="mt-1 text-xs font-medium">{STATUS[entry.new_status] || entry.new_status} · {formatPower(entry.new_power_w)}{entry.new_lamp_type && ' · ' + entry.new_lamp_type}</p>{coordinateChange(entry) && <p className="mt-1 break-words text-xs text-content-secondary">{coordinateChange(entry)}</p>}{entry.descricao_servico && <p className="mt-1 whitespace-pre-line text-xs text-content-secondary">{entry.descricao_servico}</p>}</div>) : <p className="text-xs text-content-secondary">Nenhuma alteração registrada para este poste.</p>}</section>}

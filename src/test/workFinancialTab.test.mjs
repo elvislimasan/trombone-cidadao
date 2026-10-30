@@ -15,7 +15,7 @@ const React = require('react');
 const { createRoot } = require('react-dom/client');
 const { flushSync } = require('react-dom');
 const contractors = [{ id: 'c1', name: 'Construtora cadastrada', cnpj: '12345678000100' }];
-let payments, saved, uploadCalls, removed, errors, writeError;
+let payments, saved, uploadCalls, removed, errors, writeError, photoReportUploadError;
 const supabase = {
   from(table) {
     let write;
@@ -36,7 +36,10 @@ const supabase = {
     return query;
   },
   storage: { from() { return {
-    async upload(path, file) { uploadCalls.push({ path, file }); return { error: null }; },
+    async upload(path, file) {
+      uploadCalls.push({ path, file });
+      return { error: path.endsWith('-relatorio-fotografico.pdf') ? photoReportUploadError : null };
+    },
     getPublicUrl(path) { return { data: { publicUrl: `https://example.com/${path}` } }; },
     async remove(paths) { removed.push(...paths); return { error: null }; },
   }; } },
@@ -82,7 +85,7 @@ function fill(selector, value) {
   });
 }
 async function withTab(run) {
-  payments = []; saved = []; uploadCalls = []; removed = []; errors = []; writeError = null;
+  payments = []; saved = []; uploadCalls = []; removed = []; errors = []; writeError = null; photoReportUploadError = null;
   const node = document.createElement('div'); document.body.appendChild(node);
   const root = createRoot(node);
   try {
@@ -110,6 +113,7 @@ test('Financeiro de Editar Obra exibe e grava o boletim sem exigir número de em
     fill('#admin-execution-start', '2026-09-01');
     fill('#admin-execution-end', '2026-09-30');
     fill('#admin-measurement-pdf-url', 'https://example.com/boletim.pdf');
+    fill('#admin-photo-report-pdf-url', 'https://example.com/fotos.pdf');
     click('Boletim de medição');
     assert.equal(document.querySelector('#admin-measurement-fields').hidden, true);
     click('Boletim de medição');
@@ -125,6 +129,8 @@ test('Financeiro de Editar Obra exibe e grava o boletim sem exigir número de em
     assert.equal(saved[0].execution_start_date, '2026-09-01');
     assert.equal(saved[0].execution_end_date, '2026-09-30');
     assert.equal(saved[0].measurement_pdf_url, 'https://example.com/boletim.pdf');
+    assert.equal(saved[0].photo_report_pdf_url, 'https://example.com/fotos.pdf');
+    assert.ok(document.querySelector('a[href="https://example.com/fotos.pdf"]'));
     assert.ok(document.querySelector('a[href="https://example.com/boletim.pdf"]'));
     flushSync(() => document.querySelector('button[aria-label="Editar pagamento"]').click());
     assert.equal(document.querySelector('#admin-measurement-fields').hidden, false);
@@ -132,6 +138,7 @@ test('Financeiro de Editar Obra exibe e grava o boletim sem exigir número de em
     assert.equal(document.querySelector('#admin-measurement-date').value, '2026-10-12');
     assert.equal(document.querySelector('#admin-execution-end').value, '2026-09-30');
     assert.equal(document.querySelector('#admin-measurement-pdf-url').value, 'https://example.com/boletim.pdf');
+    assert.equal(document.querySelector('#admin-photo-report-pdf-url').value, 'https://example.com/fotos.pdf');
     assert.deepEqual(errors, []);
   });
 });
@@ -166,9 +173,57 @@ test('pagamento sem boletim mantém os campos opcionais vazios e o painel recolh
     click('Salvar Pagamento'); await settle();
     assert.equal(saved[0].installment, null);
     assert.equal(saved[0].measurement_pdf_url, null);
+    assert.equal(saved[0].photo_report_pdf_url, null);
     assert.equal(saved[0].measurement_date, null);
     assert.equal(saved[0].execution_start_date, null);
     assert.equal(saved[0].execution_end_date, null);
     assert.deepEqual(errors, []);
   });
+});
+
+function selectPdf(selector, name) {
+  const input = document.querySelector(selector);
+  const file = new win.File(['%PDF-1.4'], name, { type: 'application/pdf' });
+  Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+  flushSync(() => input.dispatchEvent(new win.Event('change', { bubbles: true })));
+}
+
+test('relatório fotográfico pode ser enviado, removido da seleção e reaberto após salvar', async () => {
+  await withTab(async () => {
+    fill('input[inputmode="decimal"]', '10000');
+    click('Adicionar boletim de medição');
+    selectPdf('#admin-photo-report-pdf', 'fotos.pdf');
+    assert.equal(document.querySelector('#admin-photo-report-pdf-url').disabled, true);
+    assert.equal(document.querySelector('#admin-measurement-pdf-url').disabled, false);
+    flushSync(() => document.querySelector('button[aria-label="Remover PDF selecionado do relatório fotográfico"]').click());
+    assert.equal(document.querySelector('#admin-photo-report-pdf-url').disabled, false);
+    selectPdf('#admin-photo-report-pdf', 'fotos.pdf');
+    click('Salvar Pagamento'); await settle();
+    assert.equal(uploadCalls.length, 1);
+    assert.equal(saved[0].photo_report_pdf_url, `https://example.com/${uploadCalls[0].path}`);
+    assert.equal(saved[0].measurement_pdf_url, null);
+    flushSync(() => document.querySelector('button[aria-label="Editar pagamento"]').click());
+    assert.equal(document.querySelector('#admin-measurement-fields').hidden, false);
+    assert.equal(document.querySelector('#admin-photo-report-pdf-url').value, saved[0].photo_report_pdf_url);
+    assert.deepEqual(errors, []);
+  });
+});
+
+test('falhas no segundo upload ou no pagamento removem os PDFs enviados nesta tentativa', async () => {
+  for (const failUpload of [true, false]) {
+    await withTab(async () => {
+      fill('input[inputmode="decimal"]', '10000');
+      click('Adicionar boletim de medição');
+      selectPdf('#admin-measurement-pdf', 'boletim.pdf');
+      selectPdf('#admin-photo-report-pdf', 'fotos.pdf');
+      if (failUpload) photoReportUploadError = new Error('Upload recusado');
+      else writeError = new Error('Gravação recusada');
+      click('Salvar Pagamento'); await settle();
+      assert.equal(uploadCalls.length, 2);
+      assert.deepEqual(removed, uploadCalls.slice(0, failUpload ? 1 : 2).map(({ path }) => path));
+      assert.equal(saved.length, failUpload ? 0 : 1);
+      assert.equal(errors[0].description, failUpload ? 'Upload recusado' : 'Gravação recusada');
+      assert.ok(document.querySelector('#admin-photo-report-pdf'));
+    });
+  }
 });

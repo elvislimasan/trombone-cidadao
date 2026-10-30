@@ -23,6 +23,8 @@ export async function loadPickupMapCenter(client, cityId) {
 }
 
 export function pickupDetails(row) {
+  // O viveiro é a fonte dos dados de retirada para todas as espécies vinculadas.
+  if (row?.nursery) return pickupDetails(row.nursery);
   if (row?.pickup_details) return { address: '', latitude: null, longitude: null, schedule: [], notes: '', legacy_hours: '', ...row.pickup_details };
   const lines = (row?.instructions || '').split(/\r?\n/);
   const address = lines[0]?.startsWith(ADDRESS_LABEL) ? lines.shift().slice(ADDRESS_LABEL.length) : '';

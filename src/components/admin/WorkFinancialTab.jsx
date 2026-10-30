@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { showAppError } from '@/lib/appError';
-import { EMPTY_PAYMENT_MEASUREMENT, paymentMeasurementFields, resolvePaymentContractor, uploadPaymentMeasurementPdf } from '@/lib/workPaymentMeasurement';
+import { EMPTY_PAYMENT_MEASUREMENT, paymentMeasurementFields, resolvePaymentContractor, uploadPaymentMeasurementPdf, uploadPaymentPhotoReportPdf } from '@/lib/workPaymentMeasurement';
 import { PaymentMeasurementFields } from '@/components/project/obra/PaymentMeasurementFields';
 import { PaymentMeasurementDetails } from '@/components/project/obra/PaymentMeasurementDetails';
 
@@ -27,6 +27,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   const [paymentsQuery, setPaymentsQuery] = useState('');
   const [contractors, setContractors] = useState([]);
   const [paymentPdfFile, setPaymentPdfFile] = useState(null);
+  const [photoReportPdfFile, setPhotoReportPdfFile] = useState(null);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
   const commitmentTypeOptions = ['Estimativo', 'Extra Orçamentário', 'Global', 'Ordinário'];
 
@@ -161,6 +162,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
   // Payment Handlers
   const handleEditPayment = (measurementId, payment = null) => {
     setPaymentPdfFile(null);
+    setPhotoReportPdfFile(null);
     setCurrentMeasurement({ id: measurementId }); // Store which measurement we're adding to
     setIsEditingCommitmentDate(false);
     setIsEditingCommitmentType(false);
@@ -170,6 +172,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         ...EMPTY_PAYMENT_MEASUREMENT,
         contractor_id: resolvePaymentContractor(payment, contractors),
         measurement_pdf_url: payment.measurement_pdf_url || '',
+        photo_report_pdf_url: payment.photo_report_pdf_url || '',
         measurement_date: payment.measurement_date || '',
         execution_start_date: payment.execution_start_date || '',
         execution_end_date: payment.execution_end_date || '',
@@ -206,7 +209,7 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
 
   const handleSavePayment = async () => {
     if (isSavingPayment) return;
-    let uploadedPdfPath = null;
+    const uploadedPdfPaths = [];
     let paymentPersisted = false;
     try {
       if (!paymentForm.payment_date || !paymentForm.value) {
@@ -220,12 +223,21 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
         return;
       }
 
-      const metadata = paymentMeasurementFields({ ...paymentForm, measurement_pdf_url: paymentPdfFile ? '' : paymentForm.measurement_pdf_url }, contractors);
+      const metadata = paymentMeasurementFields({
+        ...paymentForm,
+        measurement_pdf_url: paymentPdfFile ? '' : paymentForm.measurement_pdf_url,
+        photo_report_pdf_url: photoReportPdfFile ? '' : paymentForm.photo_report_pdf_url,
+      }, contractors);
       setIsSavingPayment(true);
       const pdf = await uploadPaymentMeasurementPdf(supabase, currentMeasurement.id, paymentPdfFile);
       if (pdf) {
-        uploadedPdfPath = pdf.path;
+        uploadedPdfPaths.push(pdf.path);
         metadata.measurement_pdf_url = pdf.url;
+      }
+      const photoReport = await uploadPaymentPhotoReportPdf(supabase, currentMeasurement.id, photoReportPdfFile);
+      if (photoReport) {
+        uploadedPdfPaths.push(photoReport.path);
+        metadata.photo_report_pdf_url = photoReport.url;
       }
       const payload = {
         ...metadata,
@@ -268,10 +280,11 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
 
       setIsEditingPayment(false);
       setPaymentPdfFile(null);
+      setPhotoReportPdfFile(null);
       if (onEditingChange) onEditingChange(false);
       fetchFinancialData();
     } catch (error) {
-      if (uploadedPdfPath && !paymentPersisted) await supabase.storage.from('work-media').remove([uploadedPdfPath]);
+      if (uploadedPdfPaths.length && !paymentPersisted) await supabase.storage.from('work-media').remove(uploadedPdfPaths);
       showAppError({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } finally {
       setIsSavingPayment(false);
@@ -438,7 +451,9 @@ export function WorkFinancialTab({ workId, onEditingChange }) {
           </div>
 
           <PaymentMeasurementFields form={paymentForm} onChange={setPaymentForm}
-            pdfFile={paymentPdfFile} onPdfFileChange={setPaymentPdfFile} idPrefix="admin-" disabled={isSavingPayment} />
+            pdfFile={paymentPdfFile} onPdfFileChange={setPaymentPdfFile}
+            photoReportPdfFile={photoReportPdfFile} onPhotoReportPdfFileChange={setPhotoReportPdfFile}
+            idPrefix="admin-" disabled={isSavingPayment} />
 
           <div className="grid gap-3 border-t border-edge-subtle pt-3 sm:grid-cols-2">
           <div className="grid content-start gap-1.5">

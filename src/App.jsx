@@ -801,6 +801,8 @@ function AppShell() {
               <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
                 <Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<TerritorialPanelPage />} />
                 <Route path="/prefeitura/adote-uma-arvore" element={<TreeAdoptionManagementPage />} />
+                <Route path="/prefeitura/adote-uma-arvore/solicitacoes" element={<TreeAdoptionManagementPage />} />
+                <Route path="/prefeitura/adote-uma-arvore/viveiros" element={<TreeAdoptionManagementPage section="nurseries" />} />
                 <Route path="/prefeitura/executor" element={<ExecutorPanelPage />} />
                 <Route path="/prefeitura/executor/:activity" element={<ExecutorPanelPage />} />
                 <Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrderPage />} />

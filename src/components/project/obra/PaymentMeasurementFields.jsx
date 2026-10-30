@@ -6,9 +6,49 @@ import { Label } from '@/components/ui/label';
 import { showAppError } from '@/lib/appError';
 import { validateMeasurementPdf } from '@/lib/workPaymentMeasurement';
 
-export function PaymentMeasurementFields({ form, onChange, pdfFile, onPdfFileChange, idPrefix = '', disabled = false }) {
+function PaymentPdfFields({ inputId, label, documentLabel, pdfFile, onPdfFileChange, urlField, urlLabel, linkLabel, disabled }) {
   const fileRef = useRef(null);
-  const hasMeasurement = Boolean(form.installment || form.measurement_date || form.execution_start_date || form.execution_end_date || form.measurement_pdf_url || pdfFile);
+  return (
+    <>
+      <div className="grid min-w-0 content-start gap-1.5">
+        <Label htmlFor={inputId} className="text-xs">{label}</Label>
+        <Input ref={fileRef} id={inputId} type="file" accept=".pdf,application/pdf" className="sr-only" tabIndex={-1}
+          onChange={(event) => {
+            const file = event.target.files?.[0] || null;
+            try { validateMeasurementPdf(file, documentLabel); onPdfFileChange(file); }
+            catch (error) {
+              event.target.value = '';
+              onPdfFileChange(null);
+              showAppError({ title: 'PDF inválido', description: error.message, variant: 'destructive' });
+            }
+          }} />
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Button type="button" variant="outline" className="h-10 min-w-0 flex-1 justify-start gap-2 px-3 text-xs font-normal"
+            aria-label={`Escolher PDF do ${documentLabel}`} onClick={() => fileRef.current?.click()}>
+            <Upload className="h-4 w-4 shrink-0 text-content-secondary" />
+            <span className="truncate">{pdfFile?.name || 'Escolher PDF'}</span>
+          </Button>
+          {pdfFile && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+            aria-label={`Remover PDF selecionado do ${documentLabel}`} title="Remover PDF selecionado" onClick={() => {
+              onPdfFileChange(null);
+              if (fileRef.current) fileRef.current.value = '';
+            }}><X className="h-4 w-4" /></Button>}
+        </div>
+        <p className="text-xs text-muted-foreground">PDF de até 20 MB.</p>
+      </div>
+      <div className="grid min-w-0 content-start gap-1.5">
+        <Label htmlFor={`${inputId}-url`} className="text-xs">{urlLabel}</Label>
+        <Input id={`${inputId}-url`} type="url" className="h-10 text-xs" placeholder="https://..." {...urlField} disabled={disabled || Boolean(pdfFile)} />
+        {!pdfFile && /^https?:\/\//i.test(urlField.value) && (
+          <a href={urlField.value} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">{linkLabel}</a>
+        )}
+      </div>
+    </>
+  );
+}
+
+export function PaymentMeasurementFields({ form, onChange, pdfFile, onPdfFileChange, photoReportPdfFile, onPhotoReportPdfFileChange, idPrefix = '', disabled = false }) {
+  const hasMeasurement = Boolean(form.installment || form.measurement_date || form.execution_start_date || form.execution_end_date || form.measurement_pdf_url || pdfFile || form.photo_report_pdf_url || photoReportPdfFile);
   const [expanded, setExpanded] = useState(hasMeasurement);
   const id = (name) => `${idPrefix}${name}`;
   const field = (name) => ({
@@ -47,39 +87,12 @@ export function PaymentMeasurementFields({ form, onChange, pdfFile, onPdfFileCha
           <Label htmlFor={id('execution-end')} className="text-xs">Fim da execução (opcional)</Label>
           <Input id={id('execution-end')} type="date" className="h-9" min={form.execution_start_date || undefined} {...field('execution_end_date')} />
         </div>
-        <div className="grid content-start gap-1.5 min-w-0">
-          <Label htmlFor={id('measurement-pdf')} className="text-xs">PDF do boletim (opcional)</Label>
-          <Input ref={fileRef} id={id('measurement-pdf')} type="file" accept=".pdf,application/pdf" className="sr-only" tabIndex={-1}
-            onChange={(event) => {
-              const file = event.target.files?.[0] || null;
-              try { validateMeasurementPdf(file); onPdfFileChange(file); }
-              catch (error) {
-                event.target.value = '';
-                onPdfFileChange(null);
-                showAppError({ title: 'PDF inválido', description: error.message, variant: 'destructive' });
-              }
-            }} />
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Button type="button" variant="outline" className="h-10 min-w-0 flex-1 justify-start gap-2 px-3 text-xs font-normal"
-              onClick={() => fileRef.current?.click()}>
-              <Upload className="h-4 w-4 shrink-0 text-content-secondary" />
-              <span className="truncate">{pdfFile?.name || 'Escolher PDF'}</span>
-            </Button>
-            {pdfFile && <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0"
-              aria-label="Remover PDF selecionado" title="Remover PDF selecionado" onClick={() => {
-                onPdfFileChange(null);
-                if (fileRef.current) fileRef.current.value = '';
-              }}><X className="h-4 w-4" /></Button>}
-          </div>
-          <p className="text-xs text-muted-foreground">PDF de até 20 MB.</p>
-        </div>
-      <div className="grid content-start gap-1.5 min-w-0">
-        <Label htmlFor={id('measurement-pdf-url')} className="text-xs">Ou link do PDF</Label>
-        <Input id={id('measurement-pdf-url')} type="url" className="h-10 text-xs" placeholder="https://..." {...field('measurement_pdf_url')} disabled={disabled || Boolean(pdfFile)} />
-        {!pdfFile && /^https?:\/\//i.test(form.measurement_pdf_url || '') && (
-          <a href={form.measurement_pdf_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Abrir PDF vinculado</a>
-        )}
-      </div>
+        <PaymentPdfFields inputId={id('measurement-pdf')} label="PDF do boletim (opcional)" documentLabel="boletim de medição"
+          pdfFile={pdfFile} onPdfFileChange={onPdfFileChange} urlField={field('measurement_pdf_url')}
+          urlLabel="Ou link do PDF" linkLabel="Abrir PDF vinculado" disabled={disabled} />
+        <PaymentPdfFields inputId={id('photo-report-pdf')} label="PDF do relatório fotográfico (opcional)" documentLabel="relatório fotográfico"
+          pdfFile={photoReportPdfFile} onPdfFileChange={onPhotoReportPdfFileChange} urlField={field('photo_report_pdf_url')}
+          urlLabel="Ou link do relatório fotográfico" linkLabel="Abrir relatório fotográfico vinculado" disabled={disabled} />
       </div>
       </fieldset>
       </div>

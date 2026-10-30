@@ -235,3 +235,29 @@ test('administrador não recebe categoria desabilitada pela prefeitura no cadast
     assert.deepEqual(view.workspace.reportCreationCategoryIds, ['iluminacao']);
   } finally { view.close(); }
 });
+
+test('dono da prefeitura edita e remove postes sem vínculo de inventário na secretaria', async () => {
+  const view = fixture({ path: '/prefeitura/iluminacao' });
+  try {
+    await waitFor(() => !view.workspace.loading);
+    assert.equal(view.workspace.isAdministrator, true);
+    assert.equal(view.workspace.accesses.some(row => row.inventario_iluminacao), false);
+    assert.equal(view.workspace.canViewLighting, true);
+    assert.equal(view.workspace.canEditLighting, true);
+    assert.equal(view.workspace.canExecuteLighting, false);
+  } finally { view.close(); }
+});
+
+test('edição de postes respeita categoria habilitada, secretaria e cargo municipal', async () => {
+  for (const options of [
+    { path: '/prefeitura/iluminacao', categories: ['poda'] },
+    { path: '/prefeitura/iluminacao', query: '?cidade=64&secretaria=agriculture' },
+    { path: '/prefeitura/iluminacao', role: 'colaborador' },
+  ]) {
+    const view = fixture(options);
+    try {
+      await waitFor(() => !view.workspace.loading);
+      assert.equal(view.workspace.canEditLighting, false);
+    } finally { view.close(); }
+  }
+});

@@ -1,20 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, Clock3, Leaf, Loader2, RefreshCw, Sprout } from 'lucide-react';
+import { Clock3, Loader2, RefreshCw, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import useTreeAdoptionCatalog from '@/hooks/useTreeAdoptionCatalog';
-import TreeSpeciesField from './TreeSpeciesField';
-import TreePickupFields from './TreePickupFields';
-import TreeAdoptionAvailabilityList from './TreeAdoptionAvailabilityList';
 import TreeAdoptionRequestCard, { AdoptionStatus } from './TreeAdoptionRequestCard';
-import { useCanManageArborization } from '@/hooks/useCanManageArborization';
-import { pickupDetails, pickupInstructions, pickupPayload, validatePickup } from '@/lib/treePickup';
 import './treeAdoptionManagement.css';
-import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, ADOPTION_PROVIDERS, ADOPTION_AVAILABILITY, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
+import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
 
 const selectClass = 'min-h-[44px] w-full min-w-0 rounded-md border bg-background px-3 text-sm';
 const formatDate = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -78,9 +73,9 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
     <DialogContent className="adoption-request-dialog max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-5xl overflow-y-auto" onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
       <DialogHeader className="adoption-detail-header"><div className="adoption-detail-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Adote uma árvore</p><DialogTitle>{adoptionProtocol(request)}</DialogTitle><DialogDescription>{ADOPTION_TYPES[request.request_type]}</DialogDescription></div></div><AdoptionStatus status={request.status} /></DialogHeader>
       <div className="adoption-detail-layout"><div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
-        {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', ADOPTION_PROVIDERS[request.provider]], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', ADOPTION_PROVIDERS[request.confirmed_provider]], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
+        {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', adoptionProviderLabel(request.provider, catalog)], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
       </dl>
-      <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {ADOPTION_PROVIDERS[item.provider]}</li>)}</ul>
+      <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {adoptionProviderLabel(item.provider, catalog)}</li>)}</ul>
       {request.notes && <div className="adoption-detail-notes"><p>Observações do solicitante</p><p>{request.notes}</p></div>}
       <a className="text-sm font-semibold text-primary underline" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver local do plantio no mapa</a>
       {request.tree_id && <Link className="text-sm font-semibold text-primary underline" to={`/arborizacao/arvore/${request.tree_id}`}>Ver árvore plantada no inventário</Link>}
@@ -93,7 +88,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
           {!dispatcher && manager && <p className="text-sm text-content-secondary">Você pode receber, orientar e registrar pendências. O gestor aprova, agenda e confirma a conclusão.</p>}
           <AdoptionSelect required label={manager ? 'Status da solicitação' : 'Próxima ação'} value={status} onChange={setStatus} options={Object.fromEntries(options.map(key => [key, key === request.status ? (manager ? `${ADOPTION_STATUSES[key]} (atual)` : 'Responder à informação solicitada') : ADOPTION_STATUSES[key]]))} />
           {manager && <p className="text-xs text-content-secondary">Escolha o status desejado diretamente. Para enviar apenas uma orientação, mantenha o status atual.</p>}
-          {needsConfirmation && <><p className="text-sm text-content-secondary">Confirme a disponibilidade e a adequação de todas as espécies e quantidades do pedido ao espaço e à fiação. O atendimento confirma o pedido completo.</p>{items.length === 1 ? <><AdoptionSelect required label="Espécie aprovada" value={speciesId} onChange={value => { setSpeciesId(value); setProvider(''); }} options={Object.fromEntries(approvalSpecies.map(item => [item.id, item.common_name]))} /><AdoptionSelect required label="Fornecedor confirmado" value={provider} onChange={setProvider} options={Object.fromEntries(approvalProviders.map(item => [item.provider, ADOPTION_PROVIDERS[item.provider]]))} /></> : <p className="text-sm text-content-secondary">As espécies, os viveiros e as quantidades listados no resumo serão confirmados em conjunto.</p>}</>}
+          {needsConfirmation && <><p className="text-sm text-content-secondary">Confirme a disponibilidade e a adequação de todas as espécies e quantidades do pedido ao espaço e à fiação. O atendimento confirma o pedido completo.</p>{items.length === 1 ? <><AdoptionSelect required label="Espécie aprovada" value={speciesId} onChange={value => { setSpeciesId(value); setProvider(''); }} options={Object.fromEntries(approvalSpecies.map(item => [item.id, item.common_name]))} /><AdoptionSelect required label="Fornecedor confirmado" value={provider} onChange={setProvider} options={Object.fromEntries(approvalProviders.map(item => [item.provider, adoptionProviderLabel(item.provider, catalog)]))} /></> : <p className="text-sm text-content-secondary">As espécies, os viveiros e as quantidades listados no resumo serão confirmados em conjunto.</p>}</>}
           {status === 'agendada' && status !== request.status && <label className="grid gap-1.5 text-sm font-medium">Data e hora do plantio<Input required type="datetime-local" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)} /></label>}
           {status === 'pronta_retirada' && status !== request.status && <p className="text-sm text-content-secondary">Informe abaixo o endereço, os horários e as orientações para retirar a muda no fornecedor confirmado.</p>}
           {status === 'concluida' && <><label className="grid gap-1.5 text-sm font-medium">{request.request_type === 'muda' ? 'Data da entrega da muda' : 'Data do plantio realizado'}<Input required type="date" min={localDate(request.created_at)} max={localDate()} value={fulfilledOn} onChange={event => setFulfilledOn(event.target.value)} /></label><p className="text-sm text-content-secondary">{request.request_type === 'plantio' ? 'Confirme somente após a execução no ponto solicitado. A árvore será cadastrada no inventário com a espécie aprovada.' : 'Confirme somente após a entrega. A retirada de uma muda não comprova que ela foi plantada.'}</p></>}
@@ -104,73 +99,6 @@ function RequestDetails({ request, manager, dispatcher, catalog, onClose, onUpda
       </form> : <aside className="adoption-detail-action"><span className="adoption-request-icon"><ClipboardList size={24} /></span><h3>Atendimento encerrado</h3><p className="text-sm text-content-secondary">O resultado e as orientações ficam registrados no histórico deste pedido.</p></aside>}</div>
     </DialogContent>
   </Dialog>;
-}
-
-function AvailabilityEditor({ catalog, cityId, city, initialRow, onClose, onSaved }) {
-  const { canManage } = useCanManageArborization(cityId);
-  const [speciesId, setSpeciesId] = useState(initialRow?.species_id || '');
-  const [provider, setProvider] = useState(initialRow?.provider || 'viveiro_municipal');
-  const [batch, setBatch] = useState(false);
-  const [selectedSpecies, setSelectedSpecies] = useState([]);
-  const [searchSpecies, setSearchSpecies] = useState('');
-  const [status, setStatus] = useState(initialRow?.status || '');
-  const [pickup, setPickup] = useState(() => pickupDetails(initialRow));
-  const loadedPair = useRef(initialRow ? `${initialRow.species_id}:${initialRow.provider}` : null);
-  const [createdSpecies, setCreatedSpecies] = useState([]);
-  const [creatingSpecies, setCreatingSpecies] = useState(false);
-  const [locating, setLocating] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
-  const [notice, setNotice] = useState('');
-  const instructions = pickupInstructions(pickup);
-  const species = [...catalog.species, ...createdSpecies.filter(item => !catalog.species.some(row => row.id === item.id))];
-  const changePickup = patch => setPickup(current => ({ ...current, ...patch }));
-  useEffect(() => {
-    const pair = `${speciesId}:${provider}`;
-    if (batch || catalog.loading || catalog.error || loadedPair.current === pair) return;
-    loadedPair.current = pair;
-    const row = catalog.availability.find(item => item.species_id === speciesId && item.provider === provider);
-    setStatus(row?.status || ''); setPickup(pickupDetails(row)); setError('');
-    setNotice(row ? 'Já existe disponibilidade para esta espécie e fornecedor. Os dados cadastrados foram carregados para edição.' : '');
-  }, [speciesId, provider, catalog.availability, catalog.loading, catalog.error, batch]);
-  const save = async event => {
-    event.preventDefault();
-    if (busyRef.current || creatingSpecies || locating) return;
-    const validation = validatePickup(pickup);
-    if (validation) { setError(validation); return; }
-    const ids = batch ? selectedSpecies : [speciesId];
-    if (!ids.length || !status || !Object.hasOwn(ADOPTION_PROVIDERS, provider)) { setError('Selecione o viveiro, as espécies e a disponibilidade.'); return; }
-    busyRef.current = true; setBusy(true); setNotice(''); setError('');
-    try {
-      const rows = ids.map(id => ({ species_id: id, provider, status, instructions: instructions.trim() || null, pickup_details: pickupPayload(pickup) }));
-      const { error } = await supabase.from('tree_species_availability').upsert(batch ? rows : rows[0], { onConflict: 'species_id,provider' });
-      if (error) throw error;
-      onSaved({ speciesName: batch ? '' : species.find(item => item.id === speciesId)?.common_name || '', provider, count: ids.length });
-    } catch { setError('Não foi possível salvar a disponibilidade. Seus dados foram mantidos. Tente novamente.'); }
-    finally { busyRef.current = false; setBusy(false); }
-  };
-  return <form onSubmit={save} className={`tree-availability-editor${batch ? ' is-batch' : ''}`} aria-label={initialRow ? 'Editar disponibilidade' : 'Nova disponibilidade'}>
-    <div className="tree-availability-summary"><h3 className="font-semibold">{initialRow ? 'Editar disponibilidade' : 'Nova disponibilidade'}</h3><Button type="button" size="sm" variant="ghost" disabled={busy || creatingSpecies} onClick={onClose}>Voltar à lista</Button></div>
-    <fieldset disabled={busy || catalog.loading || Boolean(catalog.error)} className="tree-availability-body">
-      <div className="tree-availability-selection">
-      <AdoptionSelect required label="Fornecedor" value={provider} onChange={setProvider} options={ADOPTION_PROVIDERS} disabled={Boolean(initialRow)} />
-      {!initialRow && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={batch} onChange={event => { setBatch(event.target.checked); setSelectedSpecies(speciesId ? [speciesId] : []); }} />Adicionar várias espécies deste viveiro</label>}
-      {!batch && <TreeSpeciesField compact label="Espécie" cityId={cityId} species={species} value={speciesId} allowUnknown={false} allowEdit={false} allowCreate={canManage && !initialRow} loading={catalog.loading} disabled={busy || Boolean(catalog.error) || Boolean(initialRow)} onSelect={item => setSpeciesId(item?.id || '')} onCreatingChange={setCreatingSpecies} onCreated={item => { setCreatedSpecies(current => [...current, item]); setSpeciesId(item.id); catalog.refresh(); setNotice('Espécie cadastrada. Informe o fornecedor e salve a disponibilidade para oferecê-la ao cidadão.'); }} />}
-      {batch && <section className="tree-availability-batch" aria-label="Espécies do viveiro"><Input aria-label="Buscar espécies do viveiro" placeholder="Buscar espécies do viveiro" value={searchSpecies} onChange={event => setSearchSpecies(event.target.value)} /><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" size="sm" onClick={() => setSelectedSpecies(current => [...new Set([...current, ...species.filter(item => item.common_name.toLocaleLowerCase('pt-BR').includes(searchSpecies.toLocaleLowerCase('pt-BR'))).map(item => item.id)])])}>Selecionar todas da busca</Button><Button type="button" variant="ghost" size="sm" onClick={() => setSelectedSpecies([])}>Limpar</Button></div><div className="tree-availability-batch-options">{species.filter(item => item.common_name.toLocaleLowerCase('pt-BR').includes(searchSpecies.toLocaleLowerCase('pt-BR'))).map(item => <label key={item.id} className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" checked={selectedSpecies.includes(item.id)} onChange={event => setSelectedSpecies(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))} />{item.common_name}</label>)}</div><p className="text-xs text-content-secondary">{selectedSpecies.length} espécies selecionadas. Situação e dados de retirada serão aplicados a todas, substituindo os dados já cadastrados neste viveiro.</p></section>}
-      <AdoptionSelect required label="Disponibilidade" value={status} onChange={setStatus} options={ADOPTION_AVAILABILITY} />
-      </div>
-      <TreePickupFields key={`${cityId}:${speciesId}:${provider}`} value={pickup} onChange={changePickup} cityId={cityId} city={city} busy={busy || creatingSpecies} onLocatingChange={setLocating} />
-    </fieldset><div className="tree-availability-footer"><div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}{notice && <p role="status" className="text-xs text-content-secondary">{notice}</p>}</div><Button type="submit" disabled={busy || catalog.loading || Boolean(catalog.error) || (batch ? !selectedSpecies.length : !speciesId) || !status || creatingSpecies || locating}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar disponibilidade</Button></div>
-  </form>;
-}
-
-function AvailabilityManager({ catalog, cityId, city }) {
-  const [editor, setEditor] = useState(null);
-  const [notice, setNotice] = useState('');
-  const [savedAvailability, setSavedAvailability] = useState(null);
-  if (editor) return <AvailabilityEditor catalog={catalog} cityId={cityId} city={city} initialRow={editor.row} onClose={() => setEditor(null)} onSaved={saved => { setEditor(null); setSavedAvailability(saved); setNotice('Disponibilidade atualizada.'); catalog.refresh(); }} />;
-  return <TreeAdoptionAvailabilityList catalog={catalog} notice={notice} savedAvailability={savedAvailability} onNew={() => { setNotice(''); setSavedAvailability(null); setEditor({ row: null }); }} onEdit={row => { setNotice(''); setSavedAvailability(null); setEditor({ row }); }} />;
 }
 
 export default function TreeAdoptionRequests({ cityId, city, management = false, headingLevel = 2, revision: externalRevision = 0 }) {
@@ -186,7 +114,6 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState(management ? 'ativas' : 'todas');
-  const [section, setSection] = useState('pedidos');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
   const [revision, setRevision] = useState(0);
@@ -225,15 +152,12 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
   if (management && permissionLoading && !authorized) return <p role="status" className="text-sm">Verificando acesso à arborização…</p>;
   if (management && permissionError) return <div role="alert" className="text-sm"><p>{permissionError}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div>;
   if (management && !authorized) return <p className="text-sm text-content-secondary">Pedidos disponíveis para gestores e atendentes com responsabilidade de Arborização nesta cidade.</p>;
-  return <section className={management ? 'tree-adoption-management-content' : 'adoption-citizen-requests'} data-section={section} aria-label={management ? 'Atendimento Adote uma árvore' : 'Minhas solicitações de árvores'}>
-    <header className="adoption-workspace-header"><div className="adoption-workspace-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">{management ? 'Arborização · Atendimento' : 'Seu acompanhamento'}</p><Heading>{management ? 'Adote uma árvore · Atendimento' : 'Minhas solicitações'}</Heading><p>{management ? 'Organize os pedidos e acompanhe cada entrega ou plantio.' : 'Cada atualização da equipe aparece aqui, do pedido ao atendimento.'}</p></div></div><Button variant="outline" size="sm" onClick={() => { refresh(); catalog.refresh(); }} disabled={loading || catalog.loading}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button></header>
-    {management && <nav className="adoption-workspace-tabs" aria-label="Área de atendimento"><Button variant="ghost" aria-current={section === 'pedidos' ? 'page' : undefined} onClick={() => setSection('pedidos')}><ClipboardList className="h-4 w-4" />Solicitações</Button><Button variant="ghost" aria-current={section === 'disponibilidade' ? 'page' : undefined} onClick={() => setSection('disponibilidade')}><Leaf className="h-4 w-4" />Disponibilidade de mudas</Button></nav>}
+  return <section className={management ? 'tree-adoption-management-content' : 'adoption-citizen-requests'} data-section="pedidos" aria-label={management ? 'Atendimento Adote uma árvore' : 'Minhas solicitações de árvores'}>
+    {!management && <header className="adoption-workspace-header"><div className="adoption-workspace-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Seu acompanhamento</p><Heading>Minhas solicitações</Heading><p>Cada atualização da equipe aparece aqui, do pedido ao atendimento.</p></div></div><Button variant="outline" size="sm" onClick={() => { refresh(); catalog.refresh(); }} disabled={loading || catalog.loading}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button></header>}
     {catalog.error && <p role="alert" className="text-sm text-destructive">{catalog.error} <button className="underline" onClick={catalog.refresh}>Tentar novamente</button></p>}
-    {section === 'disponibilidade' ? <AvailabilityManager catalog={catalog} cityId={cityId} city={city} /> : <>
-      <div className="adoption-queue-toolbar"><div><h3>{management ? 'Fila de solicitações' : 'Seus pedidos de árvores'}</h3><p>{loading ? 'Atualizando pedidos…' : error ? 'Consulta indisponível' : `${count} ${count === 1 ? 'solicitação neste filtro' : 'solicitações neste filtro'}`}</p></div><AdoptionSelect label="Filtrar solicitações" value={filter} placeholder={null} onChange={value => { setFilter(value); setPage(1); }} options={{ ativas: 'Em atendimento', todas: 'Todas as solicitações', ...ADOPTION_STATUSES }} /></div>
-      {loading ? <div role="status" className="adoption-queue-empty"><Loader2 className="h-6 w-6 animate-spin" /><p>Carregando solicitações…</p></div> : error ? <div role="alert" className="adoption-queue-empty"><p>{error}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div> : !items.length ? <div className="adoption-queue-empty"><span className="adoption-request-icon"><Sprout size={28} /></span><h3>Nenhuma solicitação neste filtro e nesta cidade.</h3><p>{management ? 'Os pedidos de mudas e plantio aparecerão aqui quando forem enviados pelos cidadãos.' : 'Depois de enviar um pedido, você poderá consultar o histórico e as orientações da equipe aqui.'}</p></div> : <div className="adoption-request-list">{items.map(item => <TreeAdoptionRequestCard key={item.id} item={item} onOpen={() => setSelected(item)} />)}</div>}
+      <div className="adoption-queue-toolbar"><div>{management ? <Heading className="text-xl font-bold tracking-tight">Solicitações</Heading> : <h3>Seus pedidos de árvores</h3>}<p>{loading ? 'Atualizando pedidos…' : error ? 'Consulta indisponível' : `${count} ${count === 1 ? 'solicitação neste filtro' : 'solicitações neste filtro'}`}</p></div><AdoptionSelect label="Filtrar solicitações" value={filter} placeholder={null} onChange={value => { setFilter(value); setPage(1); }} options={{ ativas: 'Em atendimento', todas: 'Todas as solicitações', ...ADOPTION_STATUSES }} /></div>
+      {loading ? <div role="status" className="adoption-queue-empty"><Loader2 className="h-6 w-6 animate-spin" /><p>Carregando solicitações…</p></div> : error ? <div role="alert" className="adoption-queue-empty"><p>{error}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div> : !items.length ? <div className="adoption-queue-empty"><span className="adoption-request-icon"><Sprout size={28} /></span><h3>Nenhuma solicitação neste filtro e nesta cidade.</h3><p>{management ? 'Os pedidos de mudas e plantio aparecerão aqui quando forem enviados pelos cidadãos.' : 'Depois de enviar um pedido, você poderá consultar o histórico e as orientações da equipe aqui.'}</p></div> : <div className="adoption-request-list">{items.map(item => <TreeAdoptionRequestCard key={item.id} item={item} catalog={catalog} onOpen={() => setSelected(item)} />)}</div>}
       {count > 10 && <div className="flex flex-wrap items-center justify-end gap-3 text-sm"><Button variant="outline" disabled={loading || page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span>Página {page} de {Math.ceil(count / 10)}</span><Button variant="outline" disabled={loading || page * 10 >= count} onClick={() => setPage(value => value + 1)}>Próxima</Button></div>}
-    </>}
     {selected && <RequestDetails key={selected.id} request={selected} manager={management && authorized} dispatcher={dispatcher} catalog={catalog} onClose={() => setSelected(null)} onUpdated={refresh} />}
   </section>;
 }

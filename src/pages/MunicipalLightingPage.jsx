@@ -383,6 +383,35 @@ export default function MunicipalLightingPage() {
     }
   };
 
+  const removePole = async () => {
+    if (!context.canEditLighting || !selected?.id || selected.lighting_status === 'removido' || saveLock.current || editingLoading) return;
+    const pole = selected;
+    const generation = ++saveGeneration.current;
+    saveLock.current = true;
+    setSaving(true);
+    try {
+      const confirmed = await confirmApp({ title: `Remover ${poleDisplayLabel(pole)}?`, description: 'O poste sairá do mapa ativo. O cadastro e o histórico serão mantidos.', confirmLabel: 'Remover poste', destructive: true });
+      if (!confirmed || generation !== saveGeneration.current) return;
+      const { error: removeError, data } = await supabase.rpc('gerir_iluminacao_municipal_detalhado', {
+        p_city_id: cityId, p_action: 'removed', p_pole_id: pole.id,
+        p_number: null, p_address: null, p_lat: null, p_lng: null,
+        p_lamp_type: null, p_power_w: null, p_status: 'removido', p_details: null,
+      });
+      if (generation !== saveGeneration.current) return;
+      if (removeError) throw removeError;
+      showAppNotice({ title: 'Poste removido do mapa ativo', description: `Registro ${data} salvo no histórico de iluminação.` });
+      setSelected(null);
+      setDetailsOpen(false);
+      setDrawerOpen(false);
+      setRevision(value => value + 1);
+    } catch (cause) {
+      if (generation === saveGeneration.current) showAppError({ title: 'Não foi possível remover o poste', description: cause.message, variant: 'destructive' });
+    } finally {
+      saveLock.current = false;
+      setSaving(false);
+    }
+  };
+
   const exportChanges = async (format) => {
     if (!cityId || exporting) return;
     if (fromDate && toDate && fromDate > toDate) {
@@ -464,13 +493,13 @@ export default function MunicipalLightingPage() {
       <LightingPendingPanel municipalityId={context.municipality.id} cityId={cityId} revision={revision} showHeading={false} />
     </MunicipalDrawer>
     <BulkLampDialog open={bulkOpen} onClose={() => setBulkOpen(false)} cityId={cityId} onSaved={() => setRevision((value) => value + 1)} />
-    <PoleDetailsDialog open={detailsOpen && Boolean(selected)} onOpenChange={setDetailsOpen} pole={selected} city={context.municipality.cidade} related={related} canEdit={context.canEdit} canEditLighting={context.canEditLighting} editingLoading={editingLoading} onEdit={beginEditPole} />
+    <PoleDetailsDialog open={detailsOpen && Boolean(selected)} onOpenChange={setDetailsOpen} pole={selected} city={context.municipality.cidade} related={related} canEdit={context.canEdit} canEditLighting={context.canEditLighting} editingLoading={editingLoading} saving={saving} onEdit={beginEditPole} onRemove={removePole} />
     <MunicipalDrawer open={drawerOpen} onClose={closePoleForm} busy={saving} variant="lighting" placement="center" bodyScroll={formStep !== 1}
       title={creating ? 'Novo poste' : selected ? poleDisplayLabel(selected) : 'Poste'}
       description={creating ? 'Cadastre a lâmpada e a localização.' : 'Atualize a lâmpada e a localização.'}
       activeSection={formStep}
       navigation={<div aria-label="Etapas do cadastro do poste"><div className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-brand">Etapa {formStep + 1} de {POLE_FORM_STEPS.length}</span><span className="font-medium text-content-secondary">{POLE_FORM_STEPS[formStep]}</span></div><ol className="mt-2 grid grid-cols-2 gap-1.5">{POLE_FORM_STEPS.map((label, index) => <li key={label} aria-current={index === formStep ? 'step' : undefined} aria-label={`${index + 1}. ${label}`} className={'h-1.5 rounded-full ' + (index <= formStep ? 'bg-brand' : 'bg-surface-subtle')} />)}</ol></div>}
-      footer={<div className="flex items-center justify-between gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => formStep === 0 ? closePoleForm() : setFormStep((step) => step - 1)}>{formStep === 0 ? 'Cancelar' : 'Voltar'}</Button><div className="flex items-center gap-2">{formStep === POLE_FORM_STEPS.length - 1 && selected && context.canEditLighting && selected.lighting_status !== 'removido' && <Button type="button" variant="outline" disabled={saving} onClick={async () => { if (await confirmApp({ title: 'Remover este poste?', description: 'O poste sairá do mapa ativo. O histórico será mantido.', confirmLabel: 'Remover poste', destructive: true })) save('removed'); }}><Trash2 className="mr-1.5 h-4 w-4" />Remover</Button>}{context.canEditLighting && <Button type="button" disabled={saving || (formStep === POLE_FORM_STEPS.length - 1 && (locatingAddress || coordinatesPending))} onClick={() => formStep === POLE_FORM_STEPS.length - 1 ? save(creating ? 'created' : 'updated') : continuePoleForm()}>{saving ? 'Salvando…' : formStep === POLE_FORM_STEPS.length - 1 ? 'Salvar poste' : 'Continuar'}</Button>}</div></div>}>
+      footer={<div className="flex items-center justify-between gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => formStep === 0 ? closePoleForm() : setFormStep((step) => step - 1)}>{formStep === 0 ? 'Cancelar' : 'Voltar'}</Button><div className="flex items-center gap-2">{formStep === POLE_FORM_STEPS.length - 1 && selected && context.canEditLighting && selected.lighting_status !== 'removido' && <Button type="button" variant="outline" disabled={saving} onClick={removePole}><Trash2 className="mr-1.5 h-4 w-4" />Remover</Button>}{context.canEditLighting && <Button type="button" disabled={saving || (formStep === POLE_FORM_STEPS.length - 1 && (locatingAddress || coordinatesPending))} onClick={() => formStep === POLE_FORM_STEPS.length - 1 ? save(creating ? 'created' : 'updated') : continuePoleForm()}>{saving ? 'Salvando…' : formStep === POLE_FORM_STEPS.length - 1 ? 'Salvar poste' : 'Continuar'}</Button>}</div></div>}>
       <MunicipalPoleFormSteps key={form.id ?? 'new'} step={formStep} form={form} setForm={setForm} creating={creating} selected={selected} saving={saving} canEditLocation={context.canEditLighting} onCoordinatesPendingChange={setCoordinatesPending} locatingAddress={locatingAddress} addressLookupFailed={addressLookupFailed} center={center} city={context.municipality.cidade} onLocationChange={setPoleLocation} onAddressChange={updatePoleAddress} />
     </MunicipalDrawer>
   </div>;

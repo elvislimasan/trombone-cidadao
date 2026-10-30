@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { parse } from '@babel/parser';
 import generatorPackage from '@babel/generator';
 import { polePosition } from '../lib/poleAddress.js';
+import { poleDisplayLabel } from '../lib/poleDisplay.js';
 const generate = generatorPackage.default || generatorPackage;
 const page = parse(fs.readFileSync(new URL('../pages/MunicipalLightingPage.jsx',import.meta.url),'utf8'),{sourceType:'module',plugins:['jsx']});
 const body = page.program.body.find((node)=>node.type==='ExportDefaultDeclaration').declaration.body.body;
@@ -68,4 +69,75 @@ test('endereço digitado durante geocodificação prevalece sobre resposta atras
   action('updatePoleAddress',scope)('Rua José do Carmo, conferida no mapa');
   finish({data:{address:'Rua João Ernesto'}}); await lookup;
   assert.equal(scope.form.address,'Rua José do Carmo, conferida no mapa');
+});
+
+function removalState(overrides = {}) {
+  const current = state();
+  const { scope, calls } = current;
+  Object.assign(scope, {
+    selected: { id: 815475, identifier: 'S815475', lighting_status: 'aceso' },
+    editingLoading: false, poleDisplayLabel,
+    confirmApp: async options => { calls.push({ confirmation: options }); return true; },
+    setDetailsOpen: value => calls.push({ detailsOpen: value }),
+    setSelected: value => { scope.selected = value; },
+    setRevision: () => calls.push({ refreshed: true }),
+    ...overrides,
+  });
+  return current;
+}
+
+test('remoção direta confirma o poste selecionado e preserva dados sem abrir o editor', async () => {
+  const { scope, calls } = removalState();
+  await action('removePole', scope)();
+  assert.match(calls[0].confirmation.title, /S815475/);
+  assert.equal(calls[0].confirmation.destructive, true);
+  const rpc = calls.find(call => call.name);
+  assert.equal(rpc.name, 'gerir_iluminacao_municipal_detalhado');
+  assert.equal(rpc.params.p_pole_id, 815475, 'Não pode remover o poste de um formulário antigo');
+  assert.equal(rpc.params.p_city_id, 64);
+  assert.equal(rpc.params.p_action, 'removed');
+  for (const field of ['p_number', 'p_address', 'p_lat', 'p_lng', 'p_lamp_type', 'p_power_w', 'p_details']) assert.equal(rpc.params[field], null);
+  assert.equal(scope.selected, null);
+  assert.ok(calls.some(call => call.detailsOpen === false));
+  assert.ok(calls.some(call => call.refreshed));
+  assert.equal(scope.saveLock.current, false);
+});
+
+test('cancelar remoção mantém o poste e não chama o servidor', async () => {
+  const { scope, calls } = removalState({ confirmApp: async () => false });
+  await action('removePole', scope)();
+  assert.equal(calls.length, 0);
+  assert.equal(scope.selected.id, 815475);
+  assert.equal(scope.saveLock.current, false);
+});
+
+test('remoção direta bloqueia falta de permissão, poste removido, seleção ausente e operações concorrentes', async () => {
+  for (const overrides of [{ context: { canEditLighting: false } }, { selected: null },
+    { selected: { id: 1, lighting_status: 'removido' } }, { saveLock: { current: true } }, { editingLoading: true }]) {
+    const { scope, calls } = removalState(overrides);
+    await action('removePole', scope)();
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('confirmação duplicada ou troca de cidade não remove um poste no contexto anterior', async () => {
+  let confirm;
+  const { scope, calls } = removalState({ confirmApp: () => new Promise(resolve => { confirm = resolve; }) });
+  const remove = action('removePole', scope);
+  const pending = remove();
+  await remove();
+  scope.saveGeneration.current++;
+  confirm(true); await pending;
+  assert.equal(calls.length, 0);
+  assert.equal(scope.selected.id, 815475);
+  assert.equal(scope.saveLock.current, false);
+});
+
+test('erro ao remover preserva a seleção para consultar ou tentar novamente', async () => {
+  const { scope, calls } = removalState({ supabase: { rpc: async () => ({ error: { message: 'Sem permissão nesta cidade' } }) } });
+  await action('removePole', scope)();
+  assert.equal(scope.selected.id, 815475);
+  assert.ok(calls.some(call => call.error?.title === 'Não foi possível remover o poste'));
+  assert.equal(calls.some(call => call.refreshed), false);
+  assert.equal(scope.saveLock.current, false);
 });
