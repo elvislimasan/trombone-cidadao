@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronDown, MapPin, ShieldCheck, Sprout } from 'lucide-react';
+import { ArrowRight, Leaf, MapPin, PlayCircle, ShieldCheck, Sprout, Trees } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AdoptionCareActions, AdoptionExistingTree, AdoptionProgramFaq, AdoptionProgramSteps, BotanicalAccent } from './AdoptionPortalSections';
+import TreeProgramPhoto from './TreeProgramPhoto';
+import { cityStateUf } from '@/lib/cityLocation';
 import './treeAdoptionIntroduction.css';
 
 export function GrowingTree() {
@@ -33,39 +36,32 @@ export function TreeAdoptionHomeSection({ cityId }) {
 }
 
 export default function TreeAdoptionIntroduction({ city, onStart }) {
-  return <div className="adoption-program" data-testid="adoption-program">
+  const cityLabel = city ? [city.name, cityStateUf(city)].filter(Boolean).join(' · ') : 'Sua cidade';
+  // The program presentation has an intentional 1800px cap, following the
+  // approved visual direction. The request form and map keep fluid layouts.
+  return <div className="adoption-program adoption-portal" data-testid="adoption-program">
     <section className="adoption-program-hero" aria-labelledby="adoption-program-title">
       <div className="adoption-program-hero-copy">
-        <h2 id="adoption-program-title">Uma muda hoje.<br /><span>Mais vida amanhã.</span></h2>
-        <p>Solicite uma muda ou apoio para plantar em {city?.name || 'sua cidade'}.</p>
-        <div className="adoption-program-actions">
-          <Button onClick={onStart}>Começar solicitação<ArrowRight size={17} aria-hidden="true" /></Button>
-          <Button asChild variant="outline"><Link to={`/arvores-da-comunidade/nova${city?.id ? `?cidade=${city.id}` : ''}`}>Cadastrar minha árvore<Sprout size={17} aria-hidden="true" /></Link></Button>
+        <BotanicalAccent className="adoption-hero-leaves" />
+        <div className="adoption-program-hero-text">
+          <p className="adoption-program-eyebrow"><Sprout size={17} aria-hidden="true" />Programa de arborização<span>·</span>{cityLabel}</p>
+          <h2 id="adoption-program-title">Plante uma árvore.<br /><span>Transforme sua cidade.</span></h2>
+          <p>Escolha as espécies disponíveis em {city?.name || 'sua cidade'}, informe o local de plantio e acompanhe a avaliação da equipe. Mais sombra e uma cidade melhor para todos.</p>
+          <div className="adoption-program-actions">
+            <Button onClick={onStart}>Solicitar uma muda<ArrowRight size={19} aria-hidden="true" /></Button>
+            <Button asChild variant="outline"><a href="#como-adotar-uma-arvore"><PlayCircle size={20} aria-hidden="true" />Como funciona</a></Button>
+          </div>
+          <ul className="adoption-program-benefits" aria-label="Um cuidado para toda a cidade"><li><Leaf size={20} aria-hidden="true" />Mais áreas verdes</li><li><Trees size={21} aria-hidden="true" />Cuidado com a cidade</li><li><Sprout size={20} aria-hidden="true" />Um futuro melhor</li></ul>
+          <p className="adoption-program-note"><ShieldCheck size={14} aria-hidden="true" />Retirada e plantio após confirmação da equipe.</p>
         </div>
-        <p className="adoption-program-note"><ShieldCheck size={15} aria-hidden="true" />Retirada e plantio após confirmação da equipe.</p>
       </div>
-      <div className="adoption-program-hero-art" aria-hidden="true"><GrowingTree /></div>
+      <div className="adoption-program-hero-visual">
+        <TreeProgramPhoto name="tree" alt="Mudas de árvores em uma área urbana, iluminadas pelo sol." className="adoption-program-cover" sizes="(max-width: 767px) calc(100vw - 64px), (max-width: 1920px) 50vw, 900px" loading="eager" />
+        <div className="adoption-photo-location"><MapPin size={19} aria-hidden="true" /><span><strong>{cityLabel}</strong><small>Mais verde para nossa cidade</small></span></div>
+      </div>
     </section>
-
-    <section className="adoption-program-participate" id="como-adotar-uma-arvore" aria-labelledby="adoption-participate-title">
-      <h2 id="adoption-participate-title">Como funciona</h2>
-      <ol className="adoption-program-steps">{[
-        { Icon: MapPin, title: 'Faça seu pedido', text: 'Indique o local e escolha as espécies.' },
-        { Icon: ShieldCheck, title: 'Aguarde a confirmação', text: 'A equipe avalia o pedido e orienta você.' },
-        { Icon: Sprout, title: 'Plante e cuide', text: 'Retire a muda ou acompanhe o plantio agendado.' },
-      ].map(({ Icon, title, text }, index) => <li key={title}>
-        <div className="adoption-program-step-mark"><span className="adoption-program-step-icon"><Icon size={25} aria-hidden="true" /></span><span className="adoption-program-step-number">0{index + 1}</span></div>
-        <h3>{title}</h3><p>{text}</p>
-      </li>)}</ol>
-    </section>
-
-    <section className="adoption-program-faq" aria-labelledby="adoption-faq-title">
-      <h2 id="adoption-faq-title">Dúvidas rápidas</h2>
-      <div>{[
-        ['Quem pode participar?', 'Entre na sua conta para solicitar e acompanhar o pedido. O atendimento depende da disponibilidade na cidade selecionada.'],
-        ['Quando posso retirar ou plantar?', 'Aguarde a confirmação da equipe. Em calçadas, praças e outros espaços públicos, o plantio precisa de autorização.'],
-        ['E depois do plantio?', 'Você se compromete a cuidar da muda e seguir as orientações de rega e manutenção.'],
-      ].map(([question, answer]) => <details key={question}><summary>{question}<ChevronDown size={17} aria-hidden="true" /></summary><p>{answer}</p></details>)}</div>
-    </section>
+    <AdoptionProgramSteps />
+    <div className="adoption-program-secondary"><AdoptionExistingTree cityId={city?.id} /><AdoptionCareActions cityId={city?.id} /></div>
+    <AdoptionProgramFaq cityName={city?.name} />
   </div>;
 }

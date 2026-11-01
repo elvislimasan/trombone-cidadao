@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Compass, PlusCircle, Map, User } from 'lucide-react';
 import Avatar from 'react-nice-avatar';
@@ -44,6 +44,23 @@ const BottomNav = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [showReportModal, setShowReportModal] = useState(false);
+  const navRef = useRef(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const root = document.documentElement;
+    const measure = () => {
+      if (getComputedStyle(nav).display === 'none') { root.style.removeProperty('--bottom-nav-occupied-height'); return; }
+      const top = Math.min(nav.getBoundingClientRect().top, nav.querySelector('[aria-label="Registrar bronca"]')?.getBoundingClientRect().top ?? Infinity);
+      root.style.setProperty('--bottom-nav-occupied-height', `${Math.ceil(Math.max(0, window.innerHeight - top) + 12)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    window.addEventListener('resize', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); window.visualViewport?.removeEventListener('resize', measure); root.style.removeProperty('--bottom-nav-occupied-height'); };
+  }, []);
   // A PRIMEIRA ABA É "INÍCIO" PARA TODO MUNDO, INCLUSIVE ADMIN
   //
   // Ela chegou a virar o painel do papel — /admin, /embaixador, /painel-usuario.
@@ -91,6 +108,8 @@ const BottomNav = () => {
   return (
     <>
       <div
+        ref={navRef}
+        data-bottom-nav
         className="fixed left-0 right-0 bg-surface-raised border-t border-edge-subtle z-[1000] lg:hidden"
         /* Sem minHeight: a altura vem do conteudo (h-16) mais a safe area. O
            4.5rem antigo deixava meia rem de fundo sobrando abaixo dos itens,

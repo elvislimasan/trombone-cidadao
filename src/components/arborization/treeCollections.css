@@ -1,0 +1,126 @@
+/* Collection pages share the environmental presentation, while the municipal
+   request queue keeps its existing operational layout. */
+.tree-collection-scope { --collection-forest: 30 78 43; --collection-paper: 247 249 241; --collection-wash: 238 244 231; --collection-leaf: 120 150 90; min-width: 0; }
+.dark .tree-collection-scope { --collection-forest: 180 216 160; --collection-paper: 26 37 29; --collection-wash: 32 45 34; --collection-leaf: 147 176 125; }
+.adoption-requests-panel.tree-collection-scope { width: 100%; margin-inline: auto; }
+.community-page.tree-collection-scope.page-shell-fluid { width: calc(100% - clamp(32px,5vw,96px)); max-width: none; padding-inline: 0; margin-inline: auto; }
+/* Collection titles live inside the photograph, avoiding stacked introductions. */
+.tree-collection-page, .community-page.tree-collection-scope { display: flex; flex-direction: column; gap: 18px; }
+.tree-collection-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; }
+.tree-collection-toolbar > a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: rgb(var(--text-secondary)); font-size: 13px; }
+.tree-collection-intro { position: relative; isolation: isolate; min-width: 0; min-height: 264px; overflow: hidden; border-radius: 18px; background: #163e29; }
+.tree-collection-intro-photo { position: absolute; inset: 0; height: 100%; margin: 0; z-index: -2; }
+.tree-collection-intro-photo > img { width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: center 58%; }
+.tree-collection-intro.is-rega .tree-collection-intro-photo > img { object-position: center 64%; }
+.tree-collection-intro::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg,rgba(10,41,25,.94),rgba(10,41,25,.72) 37%,rgba(10,41,25,.08) 75%); }
+.tree-collection-intro-copy { position: relative; min-width: 0; padding: 36px 40px; color: #fff; }
+.tree-collection-intro-copy > p { display: flex; align-items: center; gap: 7px; margin: 0 0 12px; color: #dcebc8; font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.tree-collection-intro h1 { max-width: 23ch; font-family: Georgia,'Times New Roman',serif; font-size: clamp(34px,3vw,52px); font-weight: 700; line-height: 1.08; letter-spacing: -.04em; color: #fff; }
+.tree-collection-intro-copy > span { display: block; margin-top: 12px; max-width: 46ch; font-size: 14px; line-height: 1.5; color: #e1ebdf; }
+.tree-collection-intro-action { margin-top: 22px; }
+.tree-collection-intro-action > :is(a,button) { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; height: auto; padding: 12px 18px; border-radius: 9px; font-size: 13px; box-shadow: 0 3px 12px rgb(0 0 0 / .12); }
+.tree-collection-intro-photo > figcaption { position: absolute; right: 12px; bottom: 10px; margin: 0; padding: 3px 6px; border-radius: 4px; color: #fff; background: rgb(0 0 0 / .45); font-size: 9px; }
+.tree-collection-scope > .tree-journey-nav { margin-top: -2px; }
+.tree-collection-listbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; }
+.tree-collection-listbar h2 { font-size: 19px; font-weight: 650; letter-spacing: -.025em; }
+.tree-collection-listbar > button { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 12px; color: rgb(var(--collection-forest)); }
+.tree-collection-scope .community-eyebrow { color: rgb(var(--collection-forest)); }
+.tree-collection-scope .community-directory-toolbar { padding: 16px 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 12px; background: rgb(var(--surface-raised)); }
+.tree-collection-scope .community-tabs { border: 0; background: transparent; padding: 0; }
+.tree-collection-scope .community-tabs [aria-current] { background: rgb(var(--collection-wash)); color: rgb(var(--collection-forest)); }
+.tree-collection-scope .community-tree-grid { grid-template-columns: repeat(auto-fill,minmax(min(100%,320px),1fr)); gap: 22px; }
+.tree-collection-scope .community-tree-card { border-radius: 14px; }
+.tree-collection-scope .community-tree-card-photo { background: linear-gradient(140deg,rgb(var(--collection-wash)),rgb(var(--collection-paper))); }
+.tree-collection-scope .community-card-no-photo > svg { color: rgb(var(--collection-forest)); }
+.tree-collection-scope .community-tree-card-copy { padding: 20px; gap: 8px; }
+.tree-collection-scope .community-tree-card-copy h2 { font-size: 18px; }
+.tree-collection-scope .community-tree-card-cta { border-color: rgb(var(--collection-leaf) / .2); color: rgb(var(--collection-forest)); background: rgb(var(--collection-wash) / .7); }
+.tree-collection-scope .community-empty, .tree-collection-scope .adoption-queue-empty { border-color: rgb(var(--collection-leaf) / .3); border-radius: 14px; background: rgb(var(--surface-raised)); }
+.adoption-citizen-filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.adoption-citizen-filter-tabs > button { min-height: 44px; padding: 10px 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 8px; background: rgb(var(--surface-raised)); color: rgb(var(--text-secondary)); font-size: 13px; }
+.adoption-citizen-filter-tabs > button[aria-pressed=true] { border-color: rgb(var(--collection-forest)); background: rgb(var(--collection-wash)); color: rgb(var(--collection-forest)); font-weight: 600; }
+.adoption-citizen-requests .adoption-queue-toolbar { padding: 16px 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 12px; background: rgb(var(--surface-raised)); }
+.adoption-citizen-requests .adoption-queue-toolbar select { min-height: 44px; border-radius: 8px; font-size: 13px; }
+.adoption-citizen-requests .adoption-queue-toolbar > label { width: 260px; font-size: 12px; }
+.adoption-citizen-requests .adoption-request-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: stretch; gap: 20px; }
+.adoption-request-card.is-citizen { display: flex; flex-direction: column; align-items: stretch; gap: 18px; min-width: 0; padding: 22px; border-radius: 14px; }
+.adoption-request-card.is-citizen > header { display: flex; align-items: start; gap: 13px; }
+.adoption-citizen-icon { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: rgb(var(--collection-wash)); color: rgb(var(--collection-forest)); }
+.adoption-request-card.is-citizen header > div { min-width: 0; }
+.adoption-request-card.is-citizen h3 { margin-top: 5px; font-size: 18px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.adoption-request-card.is-citizen header > div > p:last-child { margin-top: 5px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.adoption-request-card.is-citizen > .adoption-status { align-self: start; }
+.adoption-citizen-location { display: flex; align-items: start; gap: 8px; font-size: 13px; line-height: 1.65; color: rgb(var(--text-secondary)); }
+.adoption-citizen-location > svg { flex-shrink: 0; margin-top: 3px; }
+.adoption-citizen-next { padding: 14px; border-radius: 9px; background: rgb(var(--collection-paper)); }
+.adoption-citizen-next strong { font-size: 11px; font-weight: 650; color: rgb(var(--collection-forest)); }
+.adoption-citizen-next p { margin-top: 6px; font-size: 13px; line-height: 1.6; }
+.adoption-request-card.is-citizen > footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-top: auto; padding-top: 4px; }
+.adoption-request-card.is-citizen time { display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgb(var(--text-secondary)); }
+.adoption-request-card.is-citizen footer > button { min-height: 44px; gap: 8px; border-radius: 8px; font-size: 13px; }
+.tree-collection-scope .tree-planting-next { border-color: rgb(var(--collection-leaf) / .25); background: rgb(var(--collection-paper)); }
+@media (min-width: 1700px) { .adoption-citizen-requests .adoption-request-list { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 979px) { .adoption-citizen-requests .adoption-request-list { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 599px) {
+  .community-page.tree-collection-scope.page-shell-fluid { width: 100%; max-width: none; padding-inline: 16px; }
+  .tree-collection-page, .community-page.tree-collection-scope { gap: 14px; padding-top: 10px; }
+  .tree-collection-intro { min-height: 224px; border-radius: 14px; }
+  .tree-collection-intro-copy { padding: 25px 22px; }
+  .tree-collection-intro-copy > p { margin-bottom: 10px; font-size: 9px; }
+  .tree-collection-intro h1 { max-width: 12ch; font-size: 36px; }
+  .tree-collection-intro-copy > span { max-width: 25ch; font-size: 12px; }
+  .tree-collection-intro-action { margin-top: 18px; }
+  .tree-collection-intro-action > :is(a,button) { min-height: 44px; padding: 11px 14px; font-size: 12px; }
+  .tree-collection-intro::before { background: linear-gradient(90deg,rgba(10,41,25,.92),rgba(10,41,25,.62) 52%,rgba(10,41,25,.12)); }
+  .tree-collection-intro-photo > img { object-position: 68% center; }
+  .tree-collection-intro.is-rega .tree-collection-intro-photo > img { object-position: 62% center; }
+  .tree-collection-listbar h2 { font-size: 18px; }
+  .tree-collection-listbar > button { font-size: 11px; }
+  .tree-collection-scope .community-directory-toolbar { padding: 14px; }
+  .adoption-citizen-filter-tabs { gap: 7px; }
+  .adoption-citizen-filter-tabs > button { padding-inline: 12px; font-size: 12px; }
+  .adoption-citizen-requests .adoption-queue-toolbar { padding: 16px; }
+  .adoption-citizen-requests .adoption-queue-toolbar > label { width: 100%; }
+  .adoption-citizen-requests .adoption-queue-toolbar select { font-size: 16px; }
+  .adoption-request-card.is-citizen { padding: 20px; }
+  .adoption-request-card.is-citizen footer > button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .tree-collection-scope * { transition: none; } }
+
+/* Tree cards: a visual cover, one care action and a separate social row. */
+.tree-collection-scope .community-tree-card { box-shadow: 0 4px 16px rgb(21 58 34 / .035); transition: box-shadow .18s,transform .18s; }
+@media (hover:hover) { .tree-collection-scope .community-tree-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgb(21 58 34 / .09); } }
+.community-tree-card-media { position: relative; overflow: hidden; }
+.tree-collection-scope .community-tree-card-photo { height: auto; aspect-ratio: 1.65; background: #eaf1e2; }
+.community-tree-illustration { display: block; width: 100%; height: 100%; }
+.community-tree-card-media > .community-status { position: absolute; top: 14px; left: 14px; box-shadow: 0 2px 8px rgb(0 0 0 / .06); }
+.community-card-cover-button { position: absolute; right: 12px; bottom: 12px; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgb(255 255 255 / .8); border-radius: 50%; color: #254c31; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .09); }
+.community-card-illustration-label { position: absolute; bottom: 12px; left: 14px; padding: 3px 6px; border-radius: 4px; background: #eaf1e2; color: #45633f; font-size: 9px; }
+.tree-collection-scope .community-tree-card-copy { gap: 0; padding: 20px; }
+.community-card-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.community-card-title > a:first-child { flex: 1; min-width: 0; }
+.community-card-title h3 { font-size: 21px; font-weight: 700; line-height: 1.25; letter-spacing: -.03em; overflow-wrap: anywhere; }
+.community-card-title > a:last-child { display: grid; place-items: center; min-width: 30px; min-height: 30px; color: rgb(var(--collection-forest)); }
+.tree-collection-scope .community-card-species { margin-top: 6px; font-size: 13px; }
+.community-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; margin-block: 17px; color: rgb(var(--text-secondary)); }
+.community-card-meta > span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.tree-collection-scope .community-tree-card-cta { display: flex; justify-content: center; gap: 8px; min-height: 46px; margin-top: auto; padding: 11px; border: 0; border-radius: 8px; color: rgb(var(--collection-forest)); background: rgb(var(--collection-wash)); font-size: 13px; font-weight: 600; }
+.tree-collection-scope .community-tree-card-cta > svg:last-child { margin-left: auto; }
+.community-card-social { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.community-card-social > :is(a,button,span) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 8px 3px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.community-card-social > span, .community-card-social > button:disabled { opacity: .6; }
+.community-card-social > :is(a,button):hover:not(:disabled) { color: rgb(var(--collection-forest)); }
+.tree-collection-scope .community-tree-card-copy > .community-owner-actions { margin-top: 6px; padding-top: 12px; }
+@media (max-width: 599px) { .tree-collection-scope .community-tree-card-copy { padding: 18px; } .tree-collection-scope .community-tree-card-photo { aspect-ratio: 1.8; } }
+@media (prefers-reduced-motion:reduce) { .tree-collection-scope .community-tree-card:hover { transform: none; } }
+
+.adoption-citizen-requests .adoption-queue-toolbar { padding: 0 0 4px; border: 0; background: transparent; }
+.adoption-citizen-requests .adoption-queue-toolbar h3 { font-size: 19px; font-weight: 650; letter-spacing: -.025em; }
+.adoption-citizen-requests .adoption-queue-toolbar > label { width: 220px; }
+@media (max-width:599px) {
+  .adoption-citizen-filter-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .adoption-citizen-filter-tabs > button { white-space: nowrap; flex-shrink: 0; min-height: 40px; }
+  .adoption-citizen-requests .adoption-queue-toolbar { flex-wrap: nowrap; gap: 12px; align-items: center; }
+  .adoption-citizen-requests .adoption-queue-toolbar > label { width: 170px; max-width: 54%; font-size: 10px; }
+  .adoption-citizen-requests .adoption-queue-toolbar select { font-size: 16px; padding-inline: 8px; }
+}

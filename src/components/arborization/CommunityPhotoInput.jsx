@@ -25,7 +25,7 @@ function NativePhotoActions({ onPhoto, onBusyChange, galleryRef, disabled }) {
   return <><Button type="button" variant="outline" disabled={disabled || !cam.canAdd} onClick={cam.handleCamera}>{cam.addingPhoto ? <Loader2 size={17} className="animate-spin" /> : <Camera size={17} />}Tirar foto</Button><Button type="button" variant="outline" disabled={disabled || !cam.canAdd} onClick={cam.handleGallery}><GalleryIcon size={17} />Galeria</Button></>;
 }
 
-export default function CommunityPhotoInput({ file, onChange, initialUrl, optional = false, onBusyChange, disabled = false }) {
+export default function CommunityPhotoInput({ file, onChange, initialUrl, optional = false, onBusyChange, disabled = false, onRemoveInitial }) {
   const id = useId(), galleryRef = useRef(null), cameraRef = useRef(null);
   const [preview, setPreview] = useState(''), [error, setError] = useState('');
   const [cameraOpen, setCameraOpen] = useState(false), [nativeBusy, setNativeBusy] = useState(false);
@@ -56,14 +56,15 @@ export default function CommunityPhotoInput({ file, onChange, initialUrl, option
     setCameraOpen(true);
   };
   return <div className="community-photo-input">
-    <div className="community-photo-picker">{preview || initialUrl ? <img src={preview || initialUrl} alt="Prévia da foto escolhida" /> : <span className="community-photo-placeholder"><Camera size={32} /><strong>Fotografe a planta</strong><span>{optional ? 'Opcional · ' : ''}JPG, PNG ou WebP · até 5 MB</span></span>}</div>
-    <input id={id} ref={galleryRef} aria-label="Escolher foto da planta na galeria" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectFile} disabled={disabled || busy} />
+    <div className="community-photo-picker">{preview || initialUrl ? <img src={preview || initialUrl} alt="Prévia da foto escolhida" /> : <span className="community-photo-placeholder"><Camera size={32} /><strong>Foto da árvore</strong><span>{optional ? 'Opcional · ' : ''}JPG, PNG ou WebP · até 5 MB</span></span>}</div>
+    <input id={id} ref={galleryRef} aria-label="Escolher foto da árvore na galeria" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectFile} disabled={disabled || busy} />
     <input ref={cameraRef} aria-label="Câmera do aparelho" className="sr-only" type="file" accept="image/*" capture="environment" onChange={selectFile} disabled={disabled || busy} />
     <div className="community-photo-actions">{Capacitor.isNativePlatform() ? <NativePhotoActions onPhoto={accept} onBusyChange={setNativeBusy} galleryRef={galleryRef} disabled={disabled} /> : <><Button type="button" variant="outline" disabled={disabled || busy} onClick={takePhoto}><Camera size={17} />Tirar foto</Button><Button type="button" variant="outline" disabled={disabled || busy} onClick={() => galleryRef.current?.click()}><GalleryIcon size={17} />Galeria</Button></>}
       {file && optional && <button type="button" className="community-text-button" disabled={disabled || busy} onClick={() => { onChange(null); setError(''); }}>Remover foto</button>}
+      {!file && initialUrl && optional && onRemoveInitial && <button type="button" className="community-text-button" disabled={disabled || busy} onClick={onRemoveInitial}>Remover foto atual</button>}
     </div>
     {nativeBusy && <p role="status" className="community-muted"><Loader2 size={16} className="animate-spin" />Preparando foto…</p>}
     {error && <p role="alert" className="community-error">{error}</p>}
-    <Dialog open={cameraOpen} onOpenChange={setCameraOpen}><DialogContent hideClose className="community-camera-dialog"><DialogTitle className="sr-only">Tirar foto da planta</DialogTitle><DialogDescription className="sr-only">Enquadre a planta e toque em Capturar foto. Você também pode fechar para voltar ao formulário.</DialogDescription><Suspense fallback={<p role="status" className="community-camera-loading"><Loader2 className="animate-spin" />Abrindo câmera…</p>}><WebCameraCapture initialMode="photo" allowDeviceCamera={!prefersBrowserCamera()} onClose={() => setCameraOpen(false)} onCapture={({ file: photo }) => { accept(new File([photo], `planta-${Date.now()}.jpg`, { type: photo.type || 'image/jpeg' })); setCameraOpen(false); }} /></Suspense></DialogContent></Dialog>
+    <Dialog open={cameraOpen} onOpenChange={setCameraOpen}><DialogContent hideClose className="community-camera-dialog"><DialogTitle className="sr-only">Tirar foto da árvore</DialogTitle><DialogDescription className="sr-only">Enquadre a árvore e toque em Capturar foto. Você também pode fechar para voltar ao formulário.</DialogDescription><Suspense fallback={<p role="status" className="community-camera-loading"><Loader2 className="animate-spin" />Abrindo câmera…</p>}><WebCameraCapture initialMode="photo" allowDeviceCamera={!prefersBrowserCamera()} onClose={() => setCameraOpen(false)} onCapture={({ file: photo }) => { accept(new File([photo], `planta-${Date.now()}.jpg`, { type: photo.type || 'image/jpeg' })); setCameraOpen(false); }} /></Suspense></DialogContent></Dialog>
   </div>;
 }

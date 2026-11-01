@@ -12,7 +12,7 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const panel = ({ children, className }) => React.createElement('div', { className }, children);
 const mocks = {
   'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
-  '@/components/ui/button': { Button: ({ variant, size, ...props }) => React.createElement('button', props) },
+  '@/components/ui/button': { Button: ({ variant, size, asChild, children, ...props }) => asChild ? React.cloneElement(children, props) : React.createElement('button', props, children) },
   '@/components/ui/input': { Input: props => React.createElement('input', props) },
   '@/components/ui/dialog': Object.fromEntries(['Dialog', 'DialogContent', 'DialogDescription', 'DialogHeader', 'DialogTitle'].map(name => [name, panel])),
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user: { id: 'citizen' } }) },
@@ -20,9 +20,14 @@ const mocks = {
   '@/hooks/useTreeAdoptionCatalog': { __esModule: true, default: () => ({}) },
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: ({ status }) => React.createElement('span', {}, adoption.ADOPTION_STATUSES[status]) },
   './treeAdoptionManagement.css': {},
+  './TreeProgramPhoto': { __esModule: true, default: () => null },
   '@/lib/treeAdoption': adoption,
   '@/lib/treeAdoptionClient': adoptionClient,
 };
+const journeyCode = ts.transpileModule(readFileSync(new URL('../components/arborization/TreeJourney.jsx', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
+const journey = { exports: {} };
+new Function('require', 'module', 'exports', journeyCode)(name => name.endsWith('.css') ? {} : mocks[name] || require(name), journey, journey.exports);
+mocks['./TreeJourney'] = journey.exports;
 // Exercise the private dialog with real icon imports, without changing its production API.
 const source = readFileSync(new URL('../components/arborization/TreeAdoptionRequests.jsx', import.meta.url), 'utf8') + '\nexport { RequestDetails };';
 const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
@@ -36,6 +41,7 @@ for (const scenario of [
   { label: 'atendimento municipal', manager: true, status: 'solicitada', action: 'Atender solicitação' },
   { label: 'pedido encerrado', manager: true, status: 'concluida', action: 'Atendimento encerrado' },
   { label: 'acompanhamento do cidadão', manager: false, status: 'solicitada', action: 'Falar com a equipe' },
+  { label: 'pedido concluído do cidadão', manager: false, status: 'concluida', action: 'Comece o diário' },
 ]) {
   test(`resumo do pedido renderiza ícones e dados no ${scenario.label}`, () => {
     const html = renderToStaticMarkup(React.createElement(RequestDetails, { request: { ...request, status: scenario.status }, catalog, manager: scenario.manager, dispatcher: true, onClose() {}, onUpdated() {} }));
@@ -43,7 +49,8 @@ for (const scenario of [
     assert.match(html, /lucide-leaf/);
     assert.match(html, /Maria da Silva/);
     assert.match(html, /Ipê/);
-    assert.ok(html.includes(scenario.action));
+    assert.ok(html.toLocaleLowerCase('pt-BR').includes(scenario.action.toLocaleLowerCase('pt-BR')));
+    if (!scenario.manager && scenario.status === 'concluida') assert.match(html, /arvores-da-comunidade\/nova/);
     if (scenario.status === 'concluida') assert.match(html, /lucide-clipboard-list/);
   });
 }

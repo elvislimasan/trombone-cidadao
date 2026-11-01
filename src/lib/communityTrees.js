@@ -103,6 +103,65 @@ export async function recordCommunityCare(client, form, file, userId) {
   } catch (error) { await cleanupPhoto(client, uploaded); throw error; }
 }
 
+export async function updateCommunityTree(client, form, file, userId, previous) {
+  const validation = validateCommunityTree(form);
+  if (validation) throw new Error(validation);
+  if (!userId || !previous?.is_owner || previous.id !== form.id) throw new Error('Entre na conta responsável por esta árvore.');
+  if (!previous.updated_at) throw new Error('Atualize a página antes de editar a árvore.');
+  let uploaded;
+  try {
+    uploaded = file ? await uploadCommunityPhoto(client, file, form.id, userId) : null;
+    const photo = uploaded || form.cover_photo;
+    if (!photo) throw new Error('Adicione uma foto da árvore.');
+    const id = await communityRpc(client, 'update_community_tree', { p_expected_updated_at: previous.updated_at, p_tree: {
+      id: form.id, city_id: previous.city_id, name: form.name.trim(), species_id: form.species_id || null,
+      latitude: form.latitude, longitude: form.longitude, address: form.address?.trim() || null, planted_on: form.planted_on || null,
+      cover_photo: photo, public_profile: form.public_profile, location_visibility: form.location_visibility,
+    } });
+    if (uploaded && previous.cover_photo !== uploaded) await cleanupPhoto(client, previous.cover_photo);
+    return id;
+  } catch (error) { await cleanupPhoto(client, uploaded); throw error; }
+}
+
+export async function updateCommunityCare(client, form, file, userId, previous, removePhoto = false) {
+  const validation = validateCommunityCare(form);
+  if (validation) throw new Error(validation);
+  if (!userId || !previous?.updated_at || previous.id !== form.id || previous.tree_id !== form.tree_id) throw new Error('Atualize a página antes de editar o cuidado.');
+  let uploaded;
+  try {
+    uploaded = file ? await uploadCommunityPhoto(client, file, form.tree_id, userId) : null;
+    const photo = uploaded || (removePhoto ? null : previous.photo_path || null);
+    const id = await communityRpc(client, 'update_community_tree_care', { p_expected_updated_at: previous.updated_at, p_care: {
+      id: form.id, tree_id: form.tree_id, action: form.action, performed_on: form.performed_on,
+      notes: form.notes?.trim() || null, photo_path: photo, is_public: form.is_public,
+    } });
+    if (photo !== previous.photo_path) await cleanupPhoto(client, previous.photo_path);
+    return id;
+  } catch (error) { await cleanupPhoto(client, uploaded); throw error; }
+}
+
+export async function deleteCommunityRecord(client, { type, record, userId, treeId }) {
+  if (!['tree', 'care'].includes(type) || !userId || !record?.id || !record.updated_at) throw new Error('Atualize a página antes de excluir.');
+  const paths = await communityRpc(client, type === 'tree' ? 'delete_community_tree' : 'delete_community_tree_care', { p_id: record.id, p_expected_updated_at: record.updated_at });
+  const prefix = `${userId}/${type === 'tree' ? record.id : treeId}/`;
+  const ownPaths = [...new Set((Array.isArray(paths) ? paths : []).filter(item => typeof item === 'string' && item.startsWith(prefix) && !item.includes('..')))];
+  let cleanupPending = false;
+  if (ownPaths.length) {
+    try { const { error } = await client.storage.from(COMMUNITY_PHOTO_BUCKET).remove(ownPaths); cleanupPending = Boolean(error); }
+    catch { cleanupPending = true; }
+  }
+  return { cleanupPending };
+}
+
+export function communityPhotoGallery(tree, care) {
+  const photos = tree.photo_url ? [{ id: 'cover', url: tree.photo_url, label: 'Foto de capa', date: tree.created_at }] : [];
+  for (const entry of care) {
+    if (!entry.photo_url || entry.is_hidden || (!tree.is_owner && !tree.can_review && !entry.is_public)) continue;
+    photos.push({ id: entry.id, url: entry.photo_url, label: COMMUNITY_CARE_ACTIONS[entry.action] || 'Foto da árvore', date: entry.performed_on });
+  }
+  return photos;
+}
+
 export async function hydrateCommunityPhotos(client, rows) {
   const paths = [...new Set(rows.flatMap(row => [row.cover_photo, row.photo_path]).filter(Boolean))];
   if (!paths.length) return rows;

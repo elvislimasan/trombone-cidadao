@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Copy, Download, Eye, Flag, Loader2, Share2, ShieldCheck } from 'lucide-react';
+import { Camera, Check, Copy, Download, Eye, Flag, Image, Loader2, Share2, ShieldCheck, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/lib/customSupabaseClient';
+import { Link } from 'react-router-dom';
 import { communityRpc } from '@/lib/communityTrees';
 import { CommunityPrivacyFields, useCommunityAction } from './CommunityTreeForms';
 
-function Frame({ open, onClose, title, description, busy, children, wide = false }) {
-  return <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}><DialogContent className={`community-dialog ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>{children}</DialogContent></Dialog>;
+function Frame({ open, onClose, title, description, busy, children, wide = false, className = '' }) {
+  return <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}><DialogContent className={`community-dialog tree-form-theme ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} ${className}`} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>{children}</DialogContent></Dialog>;
 }
 
 export function CommunityPrivacyDialog({ tree, onClose, onSaved }) {
@@ -41,25 +42,35 @@ export function CommunityReportReviewDialog({ report, onClose, onSaved }) {
 
 export function CommunityShareDialog({ tree, care, onClose }) {
   const [card, setCard] = useState(null), [loading, setLoading] = useState(true), [failure, setFailure] = useState(''), [revision, setRevision] = useState(0), [notice, setNotice] = useState('');
+  const [format, setFormat] = useState('story'), [selection, setSelection] = useState({}), [photos, setPhotos] = useState([]);
   const action = useCommunityAction();
   useEffect(() => {
-    let active = true; setLoading(true); setFailure('');
-    import('@/lib/communityTreeShare').then(({ generateCommunityTreeCard }) => generateCommunityTreeCard(supabase, tree, care)).then(result => { if (active) setCard(result); }).catch(error => { if (active) setFailure(error.message); }).finally(() => { if (active) setLoading(false); });
+    let active = true; setLoading(true); setFailure(''); setNotice('');
+    import('@/lib/communityTreeShare').then(({ generateCommunityTreeCard }) => generateCommunityTreeCard(supabase, tree, care, { format, ...selection })).then(result => { if (active) { setCard(result); setPhotos(result.photos); } }).catch(error => { if (active) { setFailure(error.message); if (error.photos) setPhotos(error.photos); } }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [tree.id, revision]);
+  }, [tree.id, revision, format, selection.beforeId, selection.afterId]);
   const download = async () => {
     const { Capacitor } = await import('@capacitor/core');
     if (Capacitor.isNativePlatform()) { const { salvarImagemNaGaleria } = await import('@/lib/nativeDownload'); await salvarImagemNaGaleria({ base64: card.dataUrl.split(',')[1], fileName: card.fileName }); }
     else { const anchor = document.createElement('a'); anchor.href = card.dataUrl; anchor.download = card.fileName; document.body.appendChild(anchor); anchor.click(); anchor.remove(); }
-    setNotice('Imagem pronta para compartilhar.');
+    setNotice('Imagem salva no formato escolhido.');
   };
   const share = () => action.run(async () => {
     const { compartilharImagem } = await import('@/lib/nativeDownload');
     try { const shared = await compartilharImagem({ dataUrl: card.dataUrl, base64: card.dataUrl.split(',')[1], fileName: card.fileName, texto: `Acompanhe os cuidados com ${tree.name} no Trombone Cidadão.`, url: card.url }); if (!shared) await download(); }
     catch (error) { if (!/cancel|abort/i.test(`${error.name} ${error.message}`)) throw error; }
   });
-  return <Frame open wide onClose={onClose} title="Compartilhar evolução" description="O cartão usa apenas informações e fotos públicas. Endereço e dados pessoais não são incluídos." busy={action.busy}>
-    {loading ? <p role="status" className="community-loading"><Loader2 size={24} className="animate-spin" />Preparando seu cartão…</p> : failure ? <div role="alert" className="community-field-stack"><p>{failure}</p><Button variant="outline" onClick={() => setRevision(current => current + 1)}>Tentar novamente</Button></div> : card && <><img className="community-share-preview" src={card.dataUrl} alt={`Cartão com a evolução de ${tree.name}`} /><div className="community-share-actions"><Button disabled={action.busy} onClick={share}><Share2 size={17} />Compartilhar imagem</Button><Button variant="outline" disabled={action.busy} onClick={() => action.run(download)}><Download size={17} />Baixar PNG</Button><Button variant="ghost" disabled={action.busy} onClick={() => action.run(async () => { await navigator.clipboard.writeText(card.url); setNotice('Link copiado.'); })}><Copy size={17} />Copiar link</Button></div><input aria-label="Link público da árvore" className="community-link-input" readOnly value={card.url} onFocus={event => event.target.select()} /></>}
+  const label = entry => `${entry.label} · ${new Date(`${entry.date.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')}`;
+  return <Frame open wide className="community-share-dialog" onClose={onClose} title="Compartilhar evolução" description="Stories e feed com fotos da sua árvore." busy={action.busy}>
+    <div className="community-share-brand"><img src="/logo.png" alt="" width={32} height={29} /><strong>Trombone Cidadão</strong><span>Arborização</span></div>
+    <div className="community-share-formats" role="group" aria-label="Formato da imagem">{[['story', 'Stories', '9:16', Smartphone], ['feed', 'Feed', '4:5', Image]].map(([key, title, ratio, Icon]) => <button key={key} type="button" disabled={action.busy || loading} aria-pressed={format === key} onClick={() => setFormat(key)}><Icon size={19} /><span>{title}<small>{ratio}</small></span></button>)}</div>
+    {photos.length > 1 && <details className="community-share-photo-options"><summary><Camera size={16} />Escolher fotos do antes e depois</summary><div>{[['beforeId', 'Antes'], ['afterId', 'Depois']].map(([key, title]) => <label key={key}>{title}<select value={selection[key] || card?.[key] || ''} disabled={action.busy || loading} onChange={event => setSelection(current => ({ ...current, [key]: event.target.value }))}>{photos.map(entry => <option key={entry.id} value={entry.id}>{label(entry)}</option>)}</select></label>)}</div></details>}
+    {loading ? <div role="status" className="community-story-loading"><Loader2 size={25} className="animate-spin" /><span>Preparando sua história…</span></div> : failure ? <div role="alert" className="community-field-stack"><p>{failure}</p><Button variant="outline" onClick={() => setRevision(current => current + 1)}>Tentar novamente</Button>{tree.is_owner && <Button asChild variant="outline"><Link to={`/arvores-da-comunidade/${encodeURIComponent(tree.id)}?acao=foto`} onClick={onClose}><Camera size={17} />Adicionar foto ao diário</Link></Button>}</div> : card && <>
+      <div className={`community-story-preview is-${format}`}><img src={card.dataUrl} alt={`${format === 'story' ? 'Story vertical' : 'Imagem para feed'} com ${card.comparison ? 'antes e depois' : 'o primeiro registro'} de ${tree.name}`} /><span>{card.width} × {card.height} px</span></div>
+      {!card.comparison && <p className="community-share-single-note">Primeiro registro. Com outra foto pública, você poderá criar o antes e depois.</p>}
+      <div className="community-share-actions"><Button disabled={action.busy} onClick={share}><Share2 size={17} />{format === 'story' ? 'Compartilhar story' : 'Compartilhar imagem'}</Button><Button variant="outline" disabled={action.busy} onClick={() => action.run(download)}><Download size={17} />Baixar PNG</Button></div>
+      <div className="community-share-link-row"><Button variant="ghost" disabled={action.busy} onClick={() => action.run(async () => { await navigator.clipboard.writeText(card.url); setNotice('Link copiado.'); })}><Copy size={16} />Copiar link da árvore</Button><small>Fotos públicas · Sem endereço pessoal</small></div>
+    </>}
     {(notice || action.error) && <p role={action.error ? 'alert' : 'status'} className={action.error ? 'community-error' : 'community-muted'}>{action.error || notice}</p>}
   </Frame>;
 }

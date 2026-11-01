@@ -56,17 +56,6 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
   const correct = (field, value) => { edits.current[field]++; onChange({ [field]: value }); };
   return <div className="adoption-location-layout">
     {intro}
-    <div className="adoption-location-fields">
-      <AdoptionChoiceGroup legend="Zona" value={form.zone} onChange={zone => onChange({ zone })} compact options={[
-        { value: 'urbana', label: 'Urbana', icon: Building2 }, { value: 'rural', label: 'Rural', icon: Trees },
-      ]} />
-      <label className="adoption-field">Tipo de espaço<select value={form.planting_place} onChange={event => onChange({ planting_place: event.target.value })}><option value="">Selecione</option>{Object.entries(ADOPTION_PLACES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-      <div className="adoption-address-fields">
-        <label className="adoption-field">{form.zone === 'rural' ? 'Propriedade ou referência' : 'Endereço e número'}<Input maxLength={300} placeholder={form.zone === 'rural' ? 'Ex.: Sítio, comunidade e estrada de acesso' : 'Rua, número ou ponto de referência'} value={form.address} onChange={event => correct('address', event.target.value)} /></label>
-        <label className="adoption-field">Bairro ou localidade<Input maxLength={160} placeholder="Informe o bairro ou a comunidade" value={form.neighborhood} onChange={event => correct('neighborhood', event.target.value)} /></label>
-      </div>
-      <label className="adoption-field"><span className="flex items-center gap-2"><Zap className="h-4 w-4 text-content-secondary" />Fiação aérea acima do local</span><select value={form.overhead_wiring} onChange={event => onChange({ overhead_wiring: event.target.value })}><option value="">Selecione</option>{Object.entries(ADOPTION_WIRING).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-    </div>
     <section className="adoption-location-map" aria-label="Mapa do local de plantio">
       <div className="adoption-map-heading"><p className="flex min-w-0 items-center gap-2 text-xs text-content-secondary"><MapPin className="h-4 w-4 shrink-0 text-primary" />Marque o local no mapa</p><Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={`Centralizar mapa em ${cityLabel}`} title={`Centralizar em ${cityLabel}`} onClick={() => setRecenter({ name: city.name, uf, nonce: Date.now() })}><Navigation className="h-4 w-4" /></Button></div>
       <div className="adoption-map-canvas" style={busy ? { pointerEvents: 'none' } : undefined}>
@@ -77,5 +66,18 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
         {position && <details><summary className="cursor-pointer font-medium">Ver coordenadas</summary><p className="mt-1 tabular-nums">{position.lat.toFixed(6)}, {position.lng.toFixed(6)}</p></details>}
       </div>}
     </section>
+    <div className="adoption-location-fields">
+      <div className="tree-form-location-heading"><h3>Confira o local</h3><p>Endereço preenchido pelo mapa. Ajuste se precisar.</p></div>
+      <div className="adoption-address-fields">
+        <label className="adoption-field">{form.zone === 'rural' ? 'Propriedade ou referência' : 'Endereço e número'}<Input maxLength={300} placeholder={form.zone === 'rural' ? 'Ex.: Sítio, comunidade e estrada de acesso' : 'Rua, número ou ponto de referência'} value={form.address} onChange={event => correct('address', event.target.value)} /></label>
+        <label className="adoption-field">Bairro ou localidade<Input maxLength={160} placeholder="Informe o bairro ou a comunidade" value={form.neighborhood} onChange={event => correct('neighborhood', event.target.value)} /></label>
+      </div>
+      <AdoptionChoiceGroup legend="Zona" value={form.zone} onChange={zone => onChange({ zone })} compact options={[
+        { value: 'urbana', label: 'Urbana', icon: Building2 }, { value: 'rural', label: 'Rural', icon: Trees },
+      ]} />
+      <label className="adoption-field">Tipo de espaço<select value={form.planting_place} onChange={event => onChange({ planting_place: event.target.value })}><option value="">Selecione</option>{Object.entries(ADOPTION_PLACES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+
+      <label className="adoption-field"><span className="flex items-center gap-2"><Zap className="h-4 w-4 text-content-secondary" />Fiação aérea acima do local</span><select value={form.overhead_wiring} onChange={event => onChange({ overhead_wiring: event.target.value })}><option value="">Selecione</option>{Object.entries(ADOPTION_WIRING).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+    </div>
   </div>;
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Loader2, MapPin, Minus, Plus, Search, ShieldCheck, Sprout, Trees } from 'lucide-react';
+import { Check, ChevronDown, Loader2, MapPin, Minus, Plus, Search, ShieldCheck, Sprout, Trees } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import TreePhoto from './TreePhoto';
@@ -8,7 +8,7 @@ import TreeAdoptionAvailabilityAlert from './TreeAdoptionAvailabilityAlert';
 import { treeNameKey } from '@/lib/treeInventory';
 import { SIDEWALK_SUITABILITY } from '@/lib/treeSpecies';
 import { TREE_ORIGINS } from '@/lib/arborization';
-import { adoptionProviderLabel, ADOPTION_AVAILABILITY, availableAdoptionProviders, adoptionItems, adoptionQuantity } from '@/lib/treeAdoption';
+import { adoptionProviderLabel, availableAdoptionProviders, adoptionItems, adoptionQuantity } from '@/lib/treeAdoption';
 import { pickupDetails, pickupInstructions } from '@/lib/treePickup';
 
 function SpeciesImage({ species, className = '' }) {
@@ -22,81 +22,54 @@ function SpeciesFacts({ species }) {
   </span>;
 }
 
-function QuantityInput({ item, name, onChange }) {
+function SeedlingQuantity({ item, name, onChange }) {
   const quantity = Number(item.quantity) || 0;
-  return <label className="adoption-quantity-field">Quantidade<span className="adoption-quantity-control">
-    <button type="button" aria-label={`Diminuir quantidade de ${name}`} disabled={quantity <= 1} onClick={() => onChange(Math.max(1, quantity - 1))}><Minus size={14} aria-hidden="true" /></button>
-    <Input aria-label={`Quantidade de ${name}`} type="number" min={1} max={1000} step={1} value={item.quantity} onChange={event => onChange(event.target.value)} />
-    <button type="button" aria-label={`Aumentar quantidade de ${name}`} disabled={quantity >= 1000} onClick={() => onChange(Math.min(1000, quantity + 1))}><Plus size={14} aria-hidden="true" /></button>
-  </span></label>;
+  return <label className="tree-seedling-quantity">Quantidade<span className="tree-seedling-counter"><button type="button" aria-label={`Diminuir quantidade de ${name}`} disabled={quantity <= 1} onClick={() => onChange(Math.max(1, quantity - 1))}><Minus size={18} aria-hidden="true" /></button><Input aria-label={`Quantidade de ${name}`} type="number" inputMode="numeric" min={1} max={1000} step={1} value={item.quantity} onChange={event => onChange(event.target.value)} /><button type="button" aria-label={`Aumentar quantidade de ${name}`} disabled={quantity >= 1000} onClick={() => onChange(Math.min(1000, quantity + 1))}><Plus size={18} aria-hidden="true" /></button></span></label>;
+}
+
+function SeedlingCard({ species, item, providers, catalog, requestType, onToggle, onChange }) {
+  const selected = Boolean(item);
+  const provider = providers.find(row => row.provider === item?.provider);
+  const pickup = provider ? pickupDetails(provider) : null;
+  const directions = pickup ? pickupInstructions({ ...pickup, latitude: null, longitude: null }) : '';
+  return <article className={`tree-seedling-card${selected ? ' is-selected' : ''}`} data-species-id={species.id}>
+    <label className="tree-seedling-select"><input className="sr-only" type="checkbox" name="adoption-species" value={species.id} checked={selected} onChange={onToggle} /><SpeciesImage species={species} className="tree-seedling-photo" /><span className="tree-seedling-identity"><strong>{species.common_name}</strong><small>{selected ? 'Selecionada' : 'Disponível para solicitar'}</small></span><span className="tree-seedling-check" aria-hidden="true">{selected && <Check size={16} />}</span></label>
+    {selected && <div className="tree-seedling-controls"><SeedlingQuantity item={item} name={species.common_name} onChange={quantity => onChange({ quantity })} /><label className="tree-seedling-provider">{requestType === 'plantio' ? 'Fornecedor' : 'Retirar em'}<select required aria-label={`Fornecedor de ${species.common_name}`} value={item.provider} onChange={event => onChange({ provider: event.target.value })}><option value="">Escolha o viveiro</option>{providers.map(row => <option key={row.provider} value={row.provider}>{adoptionProviderLabel(row.provider, catalog)}</option>)}</select></label></div>}
+    <details className="tree-seedling-details"><summary>Espécie e orientações<ChevronDown size={16} aria-hidden="true" /></summary><div>{species.scientific_name && <p className="italic">{species.scientific_name}</p>}<SpeciesFacts species={species} />{species.summary && <p>{species.summary}</p>}{species.planting_guidance && <p>{species.planting_guidance}</p>}{directions && <p className="whitespace-pre-wrap">{directions}</p>}{pickup?.latitude != null && pickup.longitude != null && <a href={`https://www.google.com/maps/search/?api=1&query=${pickup.latitude},${pickup.longitude}`} target="_blank" rel="noreferrer"><MapPin size={15} aria-hidden="true" />Ver local de retirada</a>}</div></details>
+  </article>;
 }
 
 export default function TreeAdoptionSpecies({ catalog, form, onChange, cityId }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
+  const [selectedOnly, setSelectedOnly] = useState(false);
   const items = adoptionItems(form);
-  const updateItem = (speciesId, patch) => onChange({ items: items.map(item => item.species_id === speciesId ? { ...item, ...patch } : item), ...(speciesId === form.species_id && patch.provider ? { provider: patch.provider } : {}) });
-  const toggle = speciesId => {
-    const exists = items.some(item => item.species_id === speciesId);
-    const next = exists ? items.filter(item => item.species_id !== speciesId) : [...items, { species_id: speciesId, quantity: 1, provider: '' }];
+  const total = adoptionQuantity(form);
+  const unavailable = items.filter(item => !catalog.species.some(species => species.id === item.species_id));
+  const removeUnavailable = () => {
+    const next = items.filter(item => catalog.species.some(species => species.id === item.species_id));
+    onChange({ items: next, species_id: next[0]?.species_id || '', provider: next[0]?.provider || '' });
+  };
+  const updateItem = (id, patch) => onChange({ items: items.map(item => item.species_id === id ? { ...item, ...patch } : item), ...(id === form.species_id && patch.provider ? { provider: patch.provider } : {}) });
+  const toggle = id => {
+    const providers = availableAdoptionProviders(catalog.availability, id);
+    const exists = items.some(item => item.species_id === id);
+    const next = exists ? items.filter(item => item.species_id !== id) : [...items, { species_id: id, quantity: 1, provider: providers.length === 1 ? providers[0].provider : '' }];
     const focus = exists ? next[0] : next[next.length - 1];
     onChange({ items: next, species_id: focus?.species_id || '', provider: focus?.provider || '' });
   };
-  const selected = catalog.species.find(item => item.id === form.species_id);
-  const selectedItem = items.find(item => item.species_id === selected?.id);
-  const total = adoptionQuantity(form);
-  const unit = form.request_type === 'plantio' ? (total === 1 ? 'árvore' : 'árvores') : (total === 1 ? 'muda' : 'mudas');
-  const filtered = catalog.species.filter(item => treeNameKey([item.common_name, item.scientific_name, ...(item.aliases || [])].join(' ')).includes(treeNameKey(search)));
-  const pageSize = 6;
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const filtered = catalog.species.filter(species => (!selectedOnly || items.some(item => item.species_id === species.id)) && treeNameKey([species.common_name, species.scientific_name, ...(species.aliases || [])].join(' ')).includes(treeNameKey(search)));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / 6));
   const currentPage = Math.min(page, pageCount - 1);
-  if (catalog.loading) return <p role="status" className="flex items-center gap-2 py-8"><Loader2 className="h-4 w-4 animate-spin" />Carregando espécies…</p>;
+  if (catalog.loading) return <p role="status" className="flex items-center gap-2 py-8"><Loader2 size={20} className="animate-spin" />Carregando mudas…</p>;
   if (catalog.error) return <div role="alert" className="space-y-3 py-6"><p className="text-sm text-destructive">{catalog.error}</p><Button type="button" variant="outline" onClick={catalog.refresh}>Tentar novamente</Button></div>;
-  if (!catalog.species.length) return <div className="adoption-catalog-empty"><span className="adoption-empty-icon"><Sprout size={30} /></span><h3>As próximas mudas começam por aqui</h3><p role="status">Nenhuma espécie com disponibilidade confirmada nesta cidade. As opções aparecerão quando a equipe cadastrar mudas disponíveis em um fornecedor.</p><TreeAdoptionAvailabilityAlert key={cityId} cityId={cityId} onAvailable={catalog.refresh} /><Button type="button" variant="outline" onClick={catalog.refresh}>Atualizar catálogo</Button></div>;
-  return <div className="adoption-species-layout">
-    <section className="adoption-catalog" aria-label="Catálogo de espécies">
-      <label className="relative block"><span className="sr-only">Buscar espécie</span><Search className="adoption-search-icon pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-secondary" /><Input className="h-10 pl-10" placeholder="Busque pelo nome popular, regional ou científico" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-content-secondary"><p>{filtered.length} {filtered.length === 1 ? 'espécie no catálogo' : 'espécies no catálogo'}</p>{items.length > 0 && <span>{items.length} {items.length === 1 ? 'selecionada' : 'selecionadas'}</span>}</div>
-      <div className="adoption-species-grid" data-single={filtered.length === 1 || undefined} role="group" aria-label="Espécies desejadas">{filtered.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(item => <label key={item.id} data-species-id={item.id} className={`adoption-species-card ${items.some(row => row.species_id === item.id) ? 'is-selected' : ''}`}>
-        <input type="checkbox" name="adoption-species" value={item.id} checked={items.some(row => row.species_id === item.id)} onChange={() => toggle(item.id)} className="sr-only" />
-        <div className="adoption-species-visual"><SpeciesImage species={item} /><span className="adoption-species-available"><span />Disponível</span></div>
-        <span className="adoption-species-name"><span className="min-w-0 flex-1"><span className="block break-words text-sm font-semibold">{item.common_name}</span>{item.scientific_name && <span className="mt-1 block break-words text-xs italic text-content-secondary">{item.scientific_name}</span>}</span><span className="adoption-choice-check" aria-hidden="true">{items.some(row => row.species_id === item.id) && <Check className="h-3 w-3" />}</span></span>
-        <SpeciesFacts species={item} />
-        {filtered.length === 1 && item.summary && <span className="adoption-species-excerpt">{item.summary}</span>}
-      </label>)}</div>
-      {!filtered.length && <p className="rounded-xl border border-dashed p-6 text-sm text-content-secondary">Nenhuma espécie encontrada. Tente outro nome.</p>}
-      {pageCount > 1 && <nav className="adoption-catalog-pagination" aria-label="Páginas do catálogo"><span>Página {currentPage + 1} de {pageCount}</span><Button type="button" size="sm" variant="outline" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Anteriores</Button><Button type="button" size="sm" variant="outline" disabled={currentPage === pageCount - 1} onClick={() => setPage(currentPage + 1)}>Próximas</Button></nav>}
-    </section>
-    <aside className="adoption-species-details" aria-label="Espécie e fornecedor selecionados">
-      {items.length > 0 && <section className="adoption-order-summary" aria-label="Espécies no pedido">
-        <h3>Seu pedido <span>{total} {unit}</span></h3>
-        {items.map(item => {
-          const species = catalog.species.find(row => row.id === item.species_id);
-          const name = species?.common_name || 'Espécie indisponível';
-          return <div key={item.species_id} className="adoption-order-item">
-            <Button type="button" variant="ghost" data-active={form.species_id === item.species_id || undefined} className="adoption-order-species" onClick={() => onChange({ species_id: item.species_id, provider: item.provider })}>
-              <SpeciesImage species={species} className="adoption-order-image" /><span><strong>{name}</strong>{species?.scientific_name && <small>{species.scientific_name}</small>}</span>
-            </Button>
-            <QuantityInput item={item} name={name} onChange={quantity => updateItem(item.species_id, { quantity })} />
-            <button type="button" className="adoption-remove-species" aria-label={`Remover ${name}`} onClick={() => toggle(item.species_id)}>Remover</button>
-            {!item.provider && <p className="adoption-order-pending">Escolha o viveiro para esta espécie.</p>}
-          </div>;
-        })}
-      </section>}
-      {!selected ? <div className="adoption-species-placeholder"><span className="adoption-empty-icon"><Sprout size={30} /></span><p className="mt-2 text-sm leading-relaxed text-content-secondary">Selecione uma espécie para ver os viveiros.</p></div> : <>
-        <div className="adoption-selected-heading"><h3>{selected.common_name}</h3><SpeciesFacts species={selected} /></div>
-        {(selected.summary || selected.planting_guidance) && <details className="adoption-species-guidance"><summary>Sobre a espécie e cuidados</summary>{selected.summary && <p>{selected.summary}</p>}{selected.planting_guidance && <p>{selected.planting_guidance}</p>}</details>}
-        <fieldset className="adoption-providers"><legend className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4" />Onde solicitar?</legend>{availableAdoptionProviders(catalog.availability, selected.id).map(row => {
-          const key = row.provider;
-          const pickup = pickupDetails(row);
-          const directions = pickupInstructions({ ...pickup, latitude: null, longitude: null });
-          return <label key={key} className={`adoption-provider ${selectedItem?.provider === key ? 'is-selected' : ''}`}>
-            <input type="radio" name="provider" value={key} checked={selectedItem?.provider === key} onChange={() => updateItem(selected.id, { provider: key })} className="mt-1 shrink-0 accent-primary" />
-            <span className="min-w-0"><span className="adoption-provider-title"><strong>{adoptionProviderLabel(key, catalog)}</strong><span>{ADOPTION_AVAILABILITY[row.status]}</span></span>{directions && <span className="mt-2 block whitespace-pre-wrap break-words text-xs leading-relaxed text-content-secondary">{directions}</span>}{pickup.latitude != null && pickup.longitude != null && <a href={`https://www.google.com/maps/search/?api=1&query=${pickup.latitude},${pickup.longitude}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-semibold text-primary underline">Ver local de retirada no mapa</a>}</span>
-          </label>;
-        })}</fieldset>
-        <p className="text-xs leading-relaxed text-content-secondary">Aguarde a confirmação da equipe antes de ir ao fornecedor.</p>
-      </>}
-    </aside>
-  </div>;
+  if (!catalog.species.length) return <div className="adoption-catalog-empty"><Sprout size={30} /><h3>Nenhuma muda disponível agora</h3><p>Ative um aviso para saber quando houver disponibilidade.</p><TreeAdoptionAvailabilityAlert key={cityId} cityId={cityId} onAvailable={catalog.refresh} /><Button type="button" variant="outline" onClick={catalog.refresh}>Atualizar catálogo</Button>{items.length > 0 && <Button type="button" variant="ghost" onClick={removeUnavailable}>Limpar seleção anterior</Button>}</div>;
+  return <section className="tree-seedling-picker" aria-label="Escolher mudas e fornecedores">
+    {unavailable.length > 0 && <div className="tree-seedling-unavailable" role="status"><p>Uma seleção anterior não está mais disponível.</p><Button type="button" variant="outline" onClick={removeUnavailable}>Remover indisponíveis</Button></div>}
+    <div className="tree-seedling-toolbar"><label className="tree-seedling-search"><Search size={19} aria-hidden="true" /><span className="sr-only">Buscar espécie</span><Input placeholder="Buscar espécie" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label><button type="button" className="tree-seedling-filter" aria-pressed={selectedOnly} onClick={() => { setSelectedOnly(value => !value); setPage(0); }}>{selectedOnly ? 'Ver todas' : `Escolhidas (${items.length})`}</button></div>
+    <div className="tree-seedling-caption"><span>{filtered.length} {filtered.length === 1 ? 'espécie disponível' : 'espécies disponíveis'}</span><span aria-live="polite">{total} {total === 1 ? 'muda no pedido' : 'mudas no pedido'}</span></div>
+    <div className="tree-seedling-grid">{filtered.slice(currentPage * 6, (currentPage + 1) * 6).map(species => <SeedlingCard key={species.id} species={species} item={items.find(item => item.species_id === species.id)} providers={availableAdoptionProviders(catalog.availability, species.id)} catalog={catalog} requestType={form.request_type} onToggle={() => toggle(species.id)} onChange={patch => updateItem(species.id, patch)} />)}</div>
+    {!filtered.length && <p className="tree-seedling-empty">{selectedOnly ? 'Nenhuma muda selecionada neste filtro.' : 'Nenhuma espécie encontrada. Tente outro nome.'}</p>}
+    {pageCount > 1 && <nav className="tree-seedling-pagination" aria-label="Páginas do catálogo"><span>{currentPage + 1} de {pageCount}</span><Button type="button" variant="outline" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Anterior</Button><Button type="button" variant="outline" disabled={currentPage === pageCount - 1} onClick={() => setPage(currentPage + 1)}>Próxima</Button></nav>}
+  </section>;
 }

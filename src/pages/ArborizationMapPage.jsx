@@ -25,8 +25,6 @@ import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, filterTrees, 
 import { treeInventoryHighlights, withTreeSpecies } from '@/lib/treeSpecies';
 import { allTreeRows, treeNeighborhoodCounts, treeRequestCounts, uploadTreePhoto } from '@/lib/treeInventory';
 import { treeMaintenancePayload, treeMaintenanceSelection } from '@/lib/treeMaintenance';
-import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
-import { municipalContextPath } from '@/lib/municipalAccess';
 
 const EMPTY_FILTERS = { search: '', species: 'all', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
 const selectClass = 'arborization-select';
@@ -282,7 +280,7 @@ export function ArborizationContent({ management, embedded = false }) {
       <div className="arborization-intro"><span className="arborization-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><p className="arborization-eyebrow">Meio ambiente · {cityName || 'Todas as cidades'}{city?.state?.uf ? ` · ${city.state.uf}` : ''}</p><h1>{management ? 'Gerenciar arborização' : 'Mapa de arborização'}</h1><p className="arborization-subtitle">Conheça as árvores da cidade e acompanhe os cuidados com cada uma.</p></div></div>
       <div className="arborization-header-tools">
         <div className="arborization-city"><CitySelector /><ChevronDown className="arborization-city-chevron" aria-hidden="true" /></div>
-        {!management && <TreeAdoptionCard canManage={canManage} managementTo={municipalContextPath(TREE_ADOPTION_MANAGEMENT_PATH, cityId)} />}
+        {!management && <TreeAdoptionCard cityId={cityId} />}
       </div>
     </div>}
     <div className="arborization-overview">

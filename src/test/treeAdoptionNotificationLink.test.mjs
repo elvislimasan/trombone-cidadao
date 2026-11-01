@@ -32,6 +32,7 @@ const mocks = {
   '@/lib/treeAdoption': adoption,
   '@/lib/treeAdoptionClient': adoptionClient,
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: () => null },
+  './TreeJourney': { TreePlantingNextStep: () => null },
   './treeAdoptionManagement.css': {},
 };
 const source = readFileSync(new URL('../components/arborization/TreeAdoptionRequests.jsx', import.meta.url), 'utf8');

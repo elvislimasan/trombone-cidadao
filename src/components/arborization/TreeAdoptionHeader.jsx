@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, ClipboardList, HeartHandshake, Leaf, Loader2, Plus, Share2, Sprout, Sun, X } from 'lucide-react';
+import { ArrowLeft, Check, HeartHandshake, Leaf, Loader2, Share2, Sprout, Sun, X } from 'lucide-react';
 import CitySelector from '@/components/CitySelector';
+import { TreeJourneyNav } from './TreeJourney';
 
 export default function TreeAdoptionHeader({ cityId, city, tab, onTabChange }) {
   const [busy, setBusy] = useState(false);
@@ -20,6 +21,13 @@ export default function TreeAdoptionHeader({ cityId, city, tab, onTabChange }) {
     const invitation = { title: 'Adote uma árvore', text: `Vamos deixar ${city?.name || 'nossa cidade'} mais verde? Solicite uma muda ou plantio e acompanhe a avaliação da equipe.`, url: url.href };
     setBusy(true); setFeedback(''); setManualLink('');
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        const { Share } = await import('@capacitor/share');
+        try { await Share.share(invitation); if (token === operation.current) setFeedback('Convite compartilhado'); }
+        catch (error) { if (!/cancel|abort|dismiss/i.test(`${error.name} ${error.message}`)) throw error; }
+        return;
+      }
       if (navigator.share) {
         try {
           await navigator.share(invitation);
@@ -34,9 +42,9 @@ export default function TreeAdoptionHeader({ cityId, city, tab, onTabChange }) {
     } finally { if (token === operation.current) setBusy(false); }
   };
   return <header className="adoption-page-header">
-    <div className="adoption-heading">{tab === 'programa' ? <Link to="/mapa-arborizacao" className="adoption-back-link" aria-label="Voltar ao mapa de arborização" title="Mapa de arborização"><ArrowLeft className="h-4 w-4" /></Link> : <button type="button" className="adoption-back-link" aria-label="Conhecer o programa Adote uma árvore" title="Sobre o programa" onClick={() => onTabChange('programa')}><ArrowLeft className="h-4 w-4" /></button>}<span className="adoption-heading-mark" aria-hidden="true"><Sprout size={22} /></span><div className="min-w-0"><h1 className="adoption-page-title">Adote uma árvore</h1><p className="adoption-heading-invitation" title={city?.name ? `Mais sombra e vida para ${city.name}.` : undefined}>{city?.name ? `Mais sombra e vida para ${city.name}.` : 'Uma cidade mais verde começa com você.'}</p></div></div>
+    <div className="adoption-heading">{tab === 'programa' ? <Link to="/mapa-arborizacao" className="adoption-back-link" aria-label="Voltar ao mapa de arborização" title="Mapa de arborização"><ArrowLeft className="h-4 w-4" /></Link> : <button type="button" className="adoption-back-link" aria-label="Conhecer o programa Adote uma árvore" title="Sobre o programa" onClick={() => onTabChange('programa')}><ArrowLeft className="h-4 w-4" /></button>}<span className="adoption-heading-mark" aria-hidden="true"><Sprout size={22} /></span><div className="min-w-0"><h1 className="adoption-page-title">{tab === 'minhas' ? 'Meus pedidos' : 'Adote uma árvore'}</h1><p className="adoption-heading-invitation" title={city?.name ? `Mais sombra e vida para ${city.name}.` : undefined}>{city?.name ? `Mais sombra e vida para ${city.name}.` : 'Uma cidade mais verde começa com você.'}</p></div></div>
     {tab !== 'programa' && <div className="adoption-header-engagement" aria-label="Por uma cidade mais verde"><span><Sun size={15} />Mais sombra</span><span><Leaf size={15} />Mais vida</span><span className="adoption-header-care"><HeartHandshake size={15} />Cuidado coletivo</span></div>}
-    <nav className="adoption-page-tabs" aria-label="Adote uma árvore">{tab !== 'programa' && <button type="button" aria-current={tab === 'solicitar' ? 'page' : undefined} onClick={() => onTabChange('solicitar')}><Plus className="h-4 w-4" />Nova solicitação</button>}<button type="button" aria-current={tab === 'minhas' ? 'page' : undefined} onClick={() => onTabChange('minhas')}><ClipboardList className="h-4 w-4" />Minhas solicitações</button><Link to={`/arvores-da-comunidade?aba=minhas${cityId ? `&cidade=${cityId}` : ''}`}><Sprout className="h-4 w-4" />Minhas árvores</Link></nav>
     <div className="adoption-header-actions"><div className="adoption-header-share"><button type="button" className="adoption-invite-button" onClick={share} disabled={busy} aria-label="Convidar alguém para adotar uma árvore" title="Compartilhar o programa nesta cidade">{busy ? <Loader2 size={15} className="animate-spin" /> : feedback ? <Check size={15} /> : <Share2 size={15} />}<span>{feedback || 'Convide alguém'}</span></button><span className="sr-only" role="status">{feedback}</span>{manualLink && <div className="adoption-share-fallback"><div><p role="status">Copie o link e convide alguém:</p><button type="button" aria-label="Fechar link de convite" onClick={() => setManualLink('')}><X size={15} /></button></div><input aria-label="Link para convidar alguém" readOnly value={manualLink} onFocus={event => event.target.select()} /></div>}</div><div className="adoption-city-selector"><span className="sr-only">Cidade do plantio</span><CitySelector /></div></div>
+    <TreeJourneyNav cityId={cityId} active={tab === 'minhas' ? 'requests' : 'adopt'} />
   </header>;
 }

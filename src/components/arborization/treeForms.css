@@ -1,0 +1,242 @@
+/* Environmental accents are scoped to these citizen forms. Primary actions
+   continue to use the application's institutional red. */
+.tree-form-theme { --tree-forest: 30 78 43; --tree-wash: 239 244 233; --tree-paper: 248 250 245; --tree-leaf: 119 151 88; min-width: 0; }
+.dark .tree-form-theme { --tree-forest: 179 215 158; --tree-wash: 30 44 34; --tree-paper: 25 35 29; --tree-leaf: 146 175 123; }
+.tree-form-progress { padding: 14px 24px; border-bottom: 1px solid rgb(var(--border-subtle)); border-radius: 14px 14px 0 0; background: rgb(var(--tree-paper)); }
+.tree-form-progress > ol { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tree-form-progress li { display: flex; align-items: center; flex: 1; min-width: 0; }
+.tree-form-progress li:not(:last-child)::after { content: ''; flex: 1; height: 1px; margin-left: 12px; background: rgb(var(--border-default)); }
+.tree-form-progress li.is-complete::after { background: rgb(var(--tree-leaf) / .5); }
+.tree-form-progress button { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 44px; padding: 0; text-align: left; font-size: 12px; font-weight: 500; color: rgb(var(--text-secondary)); }
+.tree-form-progress button:disabled { cursor: default; }
+.tree-form-progress button:focus-visible { outline: 2px solid rgb(var(--tree-forest)); outline-offset: 4px; border-radius: 5px; }
+.tree-form-step-number { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid rgb(var(--border-default)); border-radius: 50%; background: rgb(var(--surface-raised)); font-size: 12px; }
+.tree-form-progress [aria-current] button { color: rgb(var(--tree-forest)); font-weight: 650; }
+.tree-form-progress [aria-current] .tree-form-step-number { border-color: rgb(var(--tree-forest)); background: rgb(var(--tree-forest)); color: rgb(var(--surface-raised)); box-shadow: 0 0 0 4px rgb(var(--tree-leaf) / .1); }
+.tree-form-progress .is-complete .tree-form-step-number { border-color: rgb(var(--tree-leaf) / .35); background: rgb(var(--tree-wash)); color: rgb(var(--tree-forest)); }
+.tree-form-theme .tree-form-heading { min-width: 0; margin-bottom: 22px; }
+.tree-form-theme .tree-form-heading .tree-form-kicker { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: rgb(var(--tree-forest)); font-size: 11px; line-height: 1.5; font-weight: 600; }
+.tree-form-theme .tree-form-heading > h2 { margin: 0; font-size: clamp(22px,1.8vw,28px); font-weight: 650; line-height: 1.25; letter-spacing: -.03em; outline: none; scroll-margin-block-start: 110px; }
+.tree-form-theme .tree-form-heading > p:last-child { max-width: 70ch; margin-top: 8px; font-size: 13px; line-height: 1.7; color: rgb(var(--text-secondary)); }
+.tree-form-theme .adoption-form, .community-form.tree-form-theme { border-color: rgb(var(--border-subtle)); border-radius: 14px; box-shadow: 0 3px 15px rgb(var(--text-primary) / .025); background: rgb(var(--surface-raised)); }
+.tree-form-theme .adoption-form-body, .community-form.tree-form-theme .community-form-body { padding: 28px; }
+.tree-form-theme .adoption-form .adoption-choice { min-height: 74px; border-radius: 10px; }
+.tree-form-theme .adoption-form .adoption-choice.is-compact { min-height: 44px; }
+.tree-form-theme .adoption-form .adoption-choice.is-selected, .tree-form-theme .adoption-form .adoption-species-card.is-selected, .tree-form-theme .adoption-form .adoption-provider.is-selected { border-color: rgb(var(--tree-forest) / .7); background: rgb(var(--tree-wash) / .65); box-shadow: 0 0 0 1px rgb(var(--tree-leaf) / .08); }
+.tree-form-theme .adoption-form .is-selected .adoption-choice-icon { background: rgb(var(--tree-leaf) / .1); color: rgb(var(--tree-forest)); }
+.tree-form-theme .adoption-form .is-selected .adoption-choice-check { border-color: rgb(var(--tree-forest)); background: rgb(var(--tree-forest)); color: rgb(var(--surface-raised)); }
+.tree-form-theme .adoption-form .adoption-choice:has(input:focus-visible), .tree-form-theme .adoption-form .adoption-species-card:has(input:focus-visible), .tree-form-theme .adoption-form .adoption-provider:has(input:focus-visible) { outline-color: rgb(var(--tree-forest)); }
+.tree-form-theme .adoption-form input[type=radio], .tree-form-theme .adoption-form input[type=checkbox], .tree-form-theme input[type=radio], .tree-form-theme input[type=checkbox] { accent-color: rgb(var(--tree-forest)); }
+.tree-form-theme .adoption-form .adoption-field input, .tree-form-theme .adoption-form .adoption-field select, .tree-form-theme .adoption-form .adoption-field textarea, .tree-form-theme .community-field-stack input:not([type=checkbox]):not([type=radio]):not([type=file]), .tree-form-theme .community-field-stack select, .tree-form-theme .community-field-stack textarea { min-height: 46px; border-radius: 8px; font-size: 14px; }
+.tree-form-theme .adoption-form .adoption-field input:focus-visible, .tree-form-theme .adoption-form .adoption-field select:focus-visible, .tree-form-theme .adoption-form .adoption-field textarea:focus-visible, .tree-form-theme .community-field-stack input:focus-visible, .tree-form-theme .community-field-stack select:focus-visible, .tree-form-theme .community-field-stack textarea:focus-visible { border-color: rgb(var(--tree-forest)); outline: none; box-shadow: 0 0 0 3px rgb(var(--tree-leaf) / .15); }
+.tree-form-section-label { grid-column: 1 / -1; }
+.tree-form-section-label h3 { font-size: 14px; font-weight: 650; }
+.tree-form-section-label p { margin-top: 5px; font-size: 12px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.tree-form-theme .adoption-welcome { border-color: rgb(var(--tree-leaf) / .2); background: linear-gradient(155deg,rgb(var(--tree-wash)),rgb(var(--surface-raised)) 80%); border-radius: 14px; }
+.tree-form-theme .adoption-welcome .adoption-welcome-heading h2 { color: rgb(var(--tree-forest)); font-family: Georgia,'Times New Roman',serif; font-size: 24px; letter-spacing: -.035em; }
+.tree-form-theme .adoption-welcome-summary svg, .tree-form-theme .adoption-welcome .adoption-welcome-guidance > span { color: rgb(var(--tree-forest)); }
+.tree-form-theme .adoption-location-fields { border-radius: 10px; background: rgb(var(--tree-paper)); }
+.tree-form-theme .adoption-location-layout { grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); grid-template-rows: auto auto; align-items: start; gap: 20px; }
+.tree-form-theme .adoption-location-layout > .adoption-form-intro { grid-column: 1 / -1; grid-row: 1; }
+.tree-form-theme .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
+.tree-form-theme .adoption-location-layout > .adoption-location-fields { grid-column: 2; grid-row: 2; }
+.tree-form-location-heading h3 { font-size: 14px; font-weight: 650; color: rgb(var(--tree-forest)); }
+.tree-form-location-heading p { margin-top: 6px; font-size: 12px; line-height: 1.65; color: rgb(var(--text-secondary)); }
+.tree-form-theme .community-location-grid { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 24px; }
+.tree-form-theme .adoption-map-heading { background: rgb(var(--tree-paper)); }
+.tree-form-theme .adoption-form .adoption-map-heading h3, .tree-form-theme .adoption-map-heading p > svg { color: rgb(var(--tree-forest)); }
+.tree-form-theme .adoption-species-visual { background: rgb(var(--tree-paper)); }
+.tree-form-theme .adoption-species-details { border-color: rgb(var(--tree-leaf) / .2); background: rgb(var(--tree-paper)); }
+.tree-form-theme .adoption-form .adoption-footer-commitment { border-color: rgb(var(--tree-leaf) / .2); background: rgb(var(--tree-wash) / .6); }
+.tree-form-theme .adoption-form-footer, .community-form.tree-form-theme .community-form-footer { padding: 18px 28px; border-radius: 0 0 14px 14px; background: rgb(var(--surface-raised)); }
+.tree-form-theme .adoption-form-footer button, .tree-form-theme .community-form-footer button { min-height: 46px; border-radius: 8px; }
+.tree-form-theme .adoption-form-error, .tree-form-theme .community-error { scroll-margin-block: 110px; }
+.tree-registration-layout { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 24px; align-items: start; }
+.tree-form-help { position: sticky; top: calc(var(--header-bar-height,64px) + 20px); min-width: 0; overflow: hidden; border: 1px solid rgb(var(--tree-leaf) / .22); border-radius: 14px; background: rgb(var(--tree-paper)); }
+.tree-form-help > .tree-program-photo { position: relative; margin: 12px 12px 0; }
+.tree-form-help > .tree-program-photo img { height: 146px; border-radius: 8px; }
+.tree-form-help > .tree-program-photo figcaption { position: absolute; bottom: 7px; left: 8px; margin: 0; padding: 3px 5px; border-radius: 3px; color: #fff; background: rgb(0 0 0 / .5); font-size: 9px; }
+.tree-form-help > div { padding: 20px; }
+.tree-form-help-eyebrow { display: flex; align-items: center; gap: 7px; color: rgb(var(--tree-forest)); font-size: 11px; }
+.tree-form-help h2 { margin-top: 10px; color: rgb(var(--tree-forest)); font-family: Georgia,'Times New Roman',serif; font-size: 25px; line-height: 1.15; font-weight: 700; letter-spacing: -.035em; }
+.tree-form-help ul { display: grid; gap: 18px; margin-top: 22px; }
+.tree-form-help li { display: flex; align-items: start; gap: 9px; }
+.tree-form-help li > svg { flex-shrink: 0; color: rgb(var(--tree-forest)); margin-top: 2px; }
+.tree-form-help strong { display: block; font-size: 12px; font-weight: 650; }
+.tree-form-help small { display: block; margin-top: 5px; font-size: 12px; line-height: 1.65; color: rgb(var(--text-secondary)); }
+.tree-form-help-privacy { display: flex; align-items: start; gap: 8px; margin-top: 22px; padding-top: 16px; border-top: 1px solid rgb(var(--tree-leaf) / .2); font-size: 11px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.tree-form-help-privacy svg { flex-shrink: 0; margin-top: 2px; }
+.community-form.tree-form-theme .community-form-body { gap: 0; }
+.community-form.tree-form-theme .community-registration-grid { grid-template-columns: minmax(230px,.85fr) minmax(0,1.15fr); gap: 28px; }
+.tree-form-theme .community-photo-picker { border-color: rgb(var(--tree-leaf) / .5); background: rgb(var(--tree-paper)); border-radius: 11px; }
+.tree-form-theme .community-photo-placeholder { color: rgb(var(--tree-forest)); }
+.tree-form-theme .community-photo-placeholder strong { font-size: 15px; }
+.tree-form-theme .community-photo-actions > button { min-height: 44px; border-radius: 8px; }
+.tree-form-theme .community-check-row { padding: 16px; border-radius: 10px; background: rgb(var(--surface-raised)); }
+.tree-form-theme .community-check-row:has(input:checked) { border-color: rgb(var(--tree-leaf) / .4); background: rgb(var(--tree-wash) / .55); }
+.tree-form-theme .community-privacy-options .is-selected { border-color: rgb(var(--tree-forest) / .7); background: rgb(var(--tree-wash) / .55); }
+.tree-form-theme .community-form-notice { color: rgb(var(--tree-forest)); background: rgb(var(--tree-wash)); border-radius: 10px; }
+.community-dialog:has(.tree-care-form) { padding: 26px; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; background: rgb(var(--surface-raised)); }
+.community-dialog:has(.tree-care-form) > div:first-child { padding-right: 20px; }
+.tree-care-form { gap: 20px; }
+.tree-care-form .community-care-legend { margin-bottom: 12px; font-size: 13px; }
+.tree-care-form .community-care-choices label { min-height: 84px; padding: 14px 8px; border-radius: 10px; background: rgb(var(--surface-raised)); }
+.tree-care-form .community-care-choices .is-selected { border-color: rgb(var(--tree-forest)); color: rgb(var(--tree-forest)); background: rgb(var(--tree-wash)); }
+.tree-care-form .community-care-choices label:focus-within { outline-color: rgb(var(--tree-forest)); }
+.tree-care-form .community-photo-picker { height: 150px; }
+.tree-care-form .community-photo-placeholder { min-height: 120px; gap: 9px; padding: 18px; }
+.tree-care-form .community-field-stack { gap: 18px; }
+.tree-care-form .community-check-row input { width: 19px; height: 19px; }
+.tree-care-form .community-check-row strong { font-size: 12px; }
+.tree-care-form .community-check-row small { font-size: 11px; }
+.community-dialog .tree-care-form .community-form-footer { position: sticky; bottom: -26px; padding: 16px 0 max(16px,env(safe-area-inset-bottom)); background: rgb(var(--surface-raised)); }
+@media (min-width: 1600px) { .tree-registration-layout { grid-template-columns: minmax(0,1fr) 320px; } }
+@media (max-width: 1199px) { .tree-registration-layout { grid-template-columns: minmax(0,1fr); } .tree-form-help { display: none; } }
+@media (max-width: 767px) {
+  .tree-form-progress { padding: 10px 12px; }
+  .tree-form-progress > ol { gap: 5px; }
+  .tree-form-progress li { justify-content: center; }
+  .tree-form-progress li::after { display: none; }
+  .tree-form-progress button { flex-direction: column; justify-content: center; gap: 7px; min-height: 62px; width: 100%; font-size: 10px; text-align: center; }
+  .tree-form-step-number { width: 29px; height: 29px; }
+  .tree-form-theme .adoption-form-body, .community-form.tree-form-theme .community-form-body { padding: 22px 18px; }
+  .tree-form-theme .tree-form-heading { margin-bottom: 22px; }
+  .tree-form-theme .tree-form-heading > h2 { font-size: 23px; }
+  .tree-form-theme .tree-form-heading > p:last-child { font-size: 13px; }
+  .tree-form-theme .adoption-location-layout, .tree-form-theme .community-location-grid { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .tree-form-theme .adoption-location-layout > .adoption-form-intro { grid-column: 1; grid-row: 1; }
+  .tree-form-theme .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
+  .tree-form-theme .adoption-location-layout > .adoption-location-fields { grid-column: 1; grid-row: 3; }
+  .tree-form-theme .adoption-form .adoption-field input, .tree-form-theme .adoption-form .adoption-field select, .tree-form-theme .adoption-form .adoption-field textarea, .tree-form-theme .community-field-stack input:not([type=checkbox]):not([type=radio]):not([type=file]), .tree-form-theme .community-field-stack select, .tree-form-theme .community-field-stack textarea { font-size: 16px; }
+  .community-form.tree-form-theme .community-registration-grid { grid-template-columns: minmax(0,1fr); gap: 24px; }
+  .tree-form-theme .community-photo-picker { height: 225px; }
+  .tree-form-theme .adoption-form-footer, .community-form.tree-form-theme .community-form-footer { padding: 16px 18px max(16px,env(safe-area-inset-bottom)); }
+  .tree-form-theme .community-form-footer > button[type=submit] { flex: 1; }
+  .community-dialog:has(.tree-care-form) { width: calc(100% - 24px); max-height: calc(100dvh - max(24px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom))); padding: 22px 18px; border-radius: 15px; }
+  .community-dialog .tree-care-form .community-form-footer { bottom: -22px; }
+  .tree-care-form .community-photo-picker { height: 138px; }
+  .tree-care-form .community-care-choices label { min-height: 80px; padding-inline: 5px; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) { .tree-form-theme * { transition: none; scroll-behavior: auto; } }
+
+/* Request steps: one decision per section and one card per selected species. */
+.tree-form-progress-mobile { display: none; }
+.adoption-form-layout.tree-form-theme { grid-template-columns: minmax(0,1fr) 260px; gap: 24px; }
+.tree-form-theme .adoption-form-body { padding: 30px; }
+.tree-form-theme .adoption-form-intro .tree-form-kicker { display: none; }
+.tree-form-theme .adoption-form-intro > h2 { font-size: 27px; }
+.tree-form-theme .adoption-form-intro > p:last-child { margin-top: 7px; }
+.tree-form-theme .adoption-request-form { gap: 26px; }
+.tree-form-theme .adoption-contact-fields { gap: 18px; padding-top: 24px; }
+.tree-form-theme .adoption-form .adoption-field { gap: 9px; font-size: 14px; }
+.tree-form-theme .adoption-form .adoption-field input, .tree-form-theme .adoption-form .adoption-field select { min-height: 48px; height: 48px; }
+.tree-form-theme .adoption-location-fields { padding: 20px; gap: 20px; }
+.tree-form-theme .adoption-form .adoption-footer-commitment { margin-top: 22px; font-size: 13px; padding: 16px; }
+.tree-form-theme .adoption-form .adoption-footer-commitment small { font-size: 12px; margin-top: 7px; }
+.tree-seedling-picker { display: grid; gap: 16px; min-width: 0; }
+.tree-seedling-toolbar { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tree-seedling-search { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 48px; padding: 0 13px; border: 1px solid rgb(var(--border-default)); border-radius: 9px; background: rgb(var(--surface-raised)); }
+.tree-seedling-search > svg { flex-shrink: 0; color: rgb(var(--text-secondary)); }
+.tree-seedling-search:focus-within { border-color: rgb(var(--tree-forest)); box-shadow: 0 0 0 3px rgb(var(--tree-leaf) / .13); }
+.tree-seedling-search input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 0; font-size: 15px; background: transparent; outline: none; box-shadow: none; }
+.tree-seedling-search input:focus-visible { outline: none; box-shadow: none; }
+.tree-seedling-filter { flex-shrink: 0; min-height: 46px; padding: 9px 12px; border: 1px solid rgb(var(--border-subtle)); border-radius: 8px; color: rgb(var(--text-secondary)); background: rgb(var(--surface-raised)); font-size: 12px; }
+.tree-seedling-filter[aria-pressed=true] { border-color: rgb(var(--tree-forest)); color: rgb(var(--tree-forest)); background: rgb(var(--tree-wash)); }
+.tree-seedling-caption { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-seedling-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; min-width: 0; align-items: start; }
+.tree-seedling-card { min-width: 0; overflow: hidden; border: 1px solid rgb(var(--border-default)); border-radius: 12px; background: rgb(var(--surface-raised)); }
+.tree-seedling-card.is-selected { border-color: rgb(var(--tree-forest) / .7); box-shadow: 0 0 0 1px rgb(var(--tree-leaf) / .08); }
+.tree-seedling-select { display: grid; grid-template-columns: 60px minmax(0,1fr) 22px; align-items: center; gap: 12px; min-width: 0; min-height: 96px; padding: 16px; cursor: pointer; }
+.tree-seedling-select:has(input:focus-visible) { outline: 2px solid rgb(var(--tree-forest)); outline-offset: -4px; border-radius: 12px; }
+.tree-seedling-photo { width: 60px; height: 64px; overflow: hidden; border-radius: 8px; background: rgb(var(--tree-paper)); }
+.tree-seedling-photo .adoption-species-photo { height: 100%; padding: 4px; }
+.tree-seedling-photo .adoption-generic-tree > span { display: none; }
+.tree-seedling-identity { min-width: 0; }
+.tree-seedling-identity strong { display: block; font-size: 16px; line-height: 1.4; font-weight: 650; overflow-wrap: anywhere; }
+.tree-seedling-identity small { display: block; margin-top: 6px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.is-selected .tree-seedling-identity small { color: rgb(var(--tree-forest)); }
+.tree-seedling-check { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid rgb(var(--border-default)); border-radius: 6px; }
+.is-selected .tree-seedling-check { border-color: rgb(var(--tree-forest)); color: rgb(var(--surface-raised)); background: rgb(var(--tree-forest)); }
+.tree-seedling-controls { display: grid; grid-template-columns: 146px minmax(0,1fr); align-items: end; gap: 16px; margin: 0 16px; padding: 18px 0; border-top: 1px solid rgb(var(--border-subtle)); }
+.tree-seedling-quantity, .tree-seedling-provider { display: grid; min-width: 0; gap: 9px; font-size: 13px; font-weight: 600; }
+.tree-seedling-counter { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; height: 48px; overflow: hidden; border: 1px solid rgb(var(--border-default)); border-radius: 8px; background: rgb(var(--surface-raised)); }
+.tree-seedling-counter button { display: grid; place-items: center; min-width: 0; min-height: 46px; color: rgb(var(--tree-forest)); }
+.tree-seedling-counter button:hover { background: rgb(var(--tree-wash)); }
+.tree-seedling-counter button:disabled { opacity: .35; }
+.tree-seedling-counter input { width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 0; background: transparent; text-align: center; font-size: 16px; box-shadow: none; appearance: textfield; }
+.tree-seedling-counter input::-webkit-inner-spin-button { appearance: none; }
+.tree-seedling-provider select { width: 100%; min-width: 0; min-height: 48px; padding: 10px; border: 1px solid rgb(var(--border-default)); border-radius: 8px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); font-size: 14px; font-weight: 400; }
+.tree-seedling-details { padding: 0 16px; border-top: 1px solid rgb(var(--border-subtle)); }
+.tree-seedling-details summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; cursor: pointer; list-style: none; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-seedling-details summary::-webkit-details-marker { display: none; }
+.tree-seedling-details[open] summary > svg { transform: rotate(180deg); }
+.tree-seedling-details > div { display: grid; gap: 12px; padding: 0 0 18px; font-size: 13px; line-height: 1.7; color: rgb(var(--text-secondary)); }
+.tree-seedling-details .adoption-species-facts { padding: 0; font-size: 12px; }
+.tree-seedling-details a { display: inline-flex; align-items: center; gap: 6px; color: rgb(var(--brand)); }
+.tree-seedling-empty { padding: 24px; border: 1px dashed rgb(var(--border-default)); border-radius: 9px; font-size: 14px; color: rgb(var(--text-secondary)); text-align: center; }
+.tree-seedling-unavailable { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; border: 1px solid rgb(var(--border-default)); border-radius: 9px; background: rgb(var(--surface-subtle)); font-size: 13px; }
+.tree-seedling-pagination { display: flex; align-items: center; justify-content: end; gap: 12px; font-size: 13px; }
+.tree-seedling-pagination button { min-height: 44px; }
+.tree-review-summary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; min-width: 0; }
+.tree-review-summary .adoption-review-section { padding: 20px; border-radius: 10px; }
+.tree-review-summary .adoption-review-heading { margin-bottom: 16px; font-size: 14px; }
+.tree-review-summary .adoption-review-heading > button { min-height: 32px; font-size: 13px; }
+.tree-review-summary .adoption-review-fields { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.tree-review-summary .adoption-review-fields dt { font-size: 12px; }
+.tree-review-summary .adoption-review-fields dd { font-size: 14px; line-height: 1.5; }
+.tree-review-items { display: grid; gap: 14px; }
+.tree-review-items li { display: flex; align-items: start; gap: 12px; }
+.tree-review-quantity { display: grid; place-items: center; min-width: 36px; height: 34px; border-radius: 7px; background: rgb(var(--tree-wash)); color: rgb(var(--tree-forest)); font-weight: 650; font-size: 14px; }
+.tree-review-items strong { display: block; font-size: 15px; font-weight: 600; }
+.tree-review-items small { display: block; margin-top: 5px; font-size: 13px; color: rgb(var(--text-secondary)); }
+.tree-review-address { margin-bottom: 16px; font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.tree-review-contact { display: grid; gap: 9px; font-size: 14px; overflow-wrap: anywhere; }
+.tree-review-note { grid-column: 1 / -1; }
+.tree-review-note summary { min-height: 44px; padding: 10px 0; font-size: 14px; cursor: pointer; }
+.tree-review-note textarea { margin-top: 8px; }
+.tree-review-privacy { grid-column: 1 / -1; display: flex; align-items: start; gap: 8px; font-size: 12px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.tree-review-privacy svg { flex-shrink: 0; margin-top: 1px; }
+@media (min-width: 1700px) { .tree-seedling-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 1199px) { .adoption-form-layout.tree-form-theme { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 979px) { .tree-seedling-grid { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 767px) {
+  .tree-form-progress { padding: 14px 18px; }
+  .tree-form-progress > ol { display: none; }
+  .tree-form-progress-mobile { display: block; }
+  .tree-form-progress-mobile > div:first-child { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+  .tree-form-progress-mobile strong { font-weight: 650; color: rgb(var(--tree-forest)); }
+  .tree-form-progress-mobile > div:first-child > span { color: rgb(var(--text-secondary)); }
+  .tree-form-progress-track { display: flex; gap: 5px; margin-top: 10px; }
+  .tree-form-progress-track > span { flex: 1; height: 3px; border-radius: 9px; background: rgb(var(--border-default)); }
+  .tree-form-progress-track > .is-filled { background: rgb(var(--tree-forest)); }
+  .tree-form-theme .adoption-form-body { padding: 24px 20px; }
+  .tree-form-theme .adoption-form-intro > h2 { font-size: 25px; }
+  .tree-form-theme .adoption-form-intro > p:last-child { font-size: 14px; }
+  .tree-form-theme .adoption-request-form { gap: 26px; }
+  .tree-form-theme .adoption-form .adoption-choice { padding: 16px; min-height: 76px; }
+  .tree-form-theme .adoption-form .adoption-purpose-choices .adoption-choice { flex-direction: column; justify-content: center; gap: 10px; min-height: 86px; padding: 12px 6px; text-align: center; }
+  .tree-form-theme .adoption-purpose-choices > div { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .tree-form-theme .adoption-purpose-choices .adoption-choice-icon { width: 26px; height: 26px; background: transparent; }
+  .tree-form-theme .adoption-purpose-choices .adoption-choice-check { position: absolute; top: 6px; right: 6px; width: 14px; height: 14px; }
+  .tree-form-theme .adoption-purpose-choices .adoption-choice-check:empty { display: none; }
+  .tree-form-theme .adoption-purpose-choices .adoption-choice > .flex-1 { flex: none; font-size: 12px; }
+  .tree-form-theme .adoption-location-fields { padding: 18px; gap: 22px; }
+  .tree-form-theme .adoption-map-canvas { min-height: 270px; height: 270px; }
+  /* Por escolha de layout, as ações ficam no fluxo do formulário, sem barra fixa sobre o menu. */
+  .tree-form-theme .adoption-form-footer { position: static; padding: 16px 20px; box-shadow: none; }
+  .tree-form-theme .adoption-form-footer button { min-height: 48px; font-size: 14px; }
+  .tree-form-theme .adoption-form-footer > div:has(.adoption-draft-note) { display: none; }
+  .tree-seedling-picker { gap: 15px; }
+  .tree-seedling-toolbar { gap: 8px; }
+  .tree-seedling-search { padding-inline: 10px; gap: 8px; }
+  .tree-seedling-search input, .tree-seedling-provider select { font-size: 16px; }
+  .tree-seedling-filter { padding-inline: 9px; font-size: 11px; }
+  .tree-seedling-select { grid-template-columns: 56px minmax(0,1fr) 22px; padding: 16px; gap: 12px; }
+  .tree-seedling-photo { width: 56px; height: 60px; }
+  .tree-seedling-controls { grid-template-columns: minmax(0,1fr); gap: 20px; padding-block: 20px; }
+  .tree-seedling-quantity { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 14px; }
+  .tree-seedling-counter { width: 146px; flex-shrink: 0; }
+  .tree-seedling-provider { font-size: 14px; }
+  .tree-review-summary { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .tree-review-summary .adoption-review-section { padding: 18px; }
+}
