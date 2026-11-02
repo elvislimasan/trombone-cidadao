@@ -78,7 +78,7 @@ test('troca de conta remove dados do pedido e login preserva o link recebido', a
     assert.equal(node.querySelector('.adoption-request-dialog'), null);
     const login = node.querySelector('a[href="/login"]'); assert.ok(login);
     const destination = JSON.parse(login.getAttribute('data-return'));
-    assert.equal(destination.pathname, '/adote-uma-arvore');
+    assert.equal(destination.pathname, '/adoteumaarvore');
     assert.equal(new URLSearchParams(destination.search).get('pedido'), row.id);
     assert.equal(new URLSearchParams(destination.search).get('cidade'), '64');
   });

@@ -91,7 +91,8 @@
 .adoption-home-copy h2 { margin-top: 12px; font-size: 26px; line-height: 1.25; font-weight: 700; letter-spacing: -.025em; }
 .adoption-home-copy > p:not(.adoption-program-eyebrow) { max-width: 64ch; margin-top: 12px; color: rgb(var(--text-secondary)); font-size: 14px; line-height: 1.7; }
 .adoption-home-copy .adoption-program-actions > a { color: inherit; }
-.adoption-home-copy .adoption-program-actions > a:first-child { color: hsl(var(--primary-foreground)); }
+.adoption-home-copy .adoption-program-actions > a:first-child { color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); }
+.adoption-home-copy .adoption-program-actions > a:first-child:hover { background: rgb(var(--brand-hover)); }
 .adoption-home-art { padding: 20px; }
 .adoption-growing-tree { display: block; width: 100%; max-height: 240px; }
 @media (max-width: 1199px) {

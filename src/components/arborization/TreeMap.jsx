@@ -62,7 +62,7 @@ function MapTools({ layer, onLayerChange, onReframe, picking, toolbar }) {
     <CurrentLocationMarker position={currentLocation} />
     {toolbar && <div ref={toolbarRef} className="arborization-map-toolbar absolute left-3 top-3 z-[850]">{toolbar}</div>}
     <div ref={controlsRef} className="tree-map-tools absolute right-3 top-24 z-[800] flex flex-col gap-2">
-      {picking ? <MapLayerToggle layer={layer} onLayerChange={onLayerChange} /> : <>
+      {picking ? <MapLayerToggle layer={layer} onLayerChange={onLayerChange} showLabel /> : <>
         <MapDisplayControls mapRef={mapRef} layer={layer} onLayerChange={onLayerChange} onLocated={setCurrentLocation} />
         <button type="button" className={BOTAO_DE_MAPA} onClick={onReframe}
           aria-label="Reenquadrar árvores no mapa" title="Reenquadrar árvores no mapa">

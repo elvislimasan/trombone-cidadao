@@ -144,7 +144,7 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const profile = path.join(out, `chrome-${Date.now()}`);
-const chrome = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--disable-gpu', '--disable-extensions', '--no-first-run', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { windowsHide: true });
+const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--disable-gpu', '--disable-extensions', '--no-first-run', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { windowsHide: true });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let ws;
 try {
@@ -367,7 +367,40 @@ try {
     await navigate('?public');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
   };
-  if(process.argv.includes('--mobile-profile')){
+  if(process.argv.includes('--most-planted')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?improvements');await waitFor('document.querySelectorAll(".tree-map-pin").length===4');
+      await waitFor('document.querySelector("[data-testid=most-planted-count]")');
+      assert.equal(await evaluate('document.querySelector("[data-testid=most-planted-count]").textContent'),'2 árvores vivas');
+      assert.ok(await evaluate('(()=>{const p=document.querySelector("[data-testid=most-planted-count]");return p.getBoundingClientRect().height>0&&getComputedStyle(p).display!=="none"&&p.closest(".arborization-stat").innerText.includes("Ipê-amarelo")})()'));
+      await capture('most-planted-'+width);
+      await select('Situação','living');await select('Bairro','Centro');
+      await waitFor('document.querySelector("[data-testid=most-planted-count]")?.textContent==="1 árvore viva"');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=arborization-page]").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'));
+      results.push({width,visibleSpeciesCount:true,followsFilters:true,singularAndPlural:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--satellite')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?satellite');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await click('Cadastrar árvore');await waitFor('document.querySelector(".tree-entry-dialog .tree-map-tools button")');
+      const toggle='document.querySelector(`.tree-entry-dialog button[aria-label="Usar mapa de satélite"]`)';
+      assert.equal(await evaluate(toggle+'.textContent.trim()'),'Satélite');
+      await evaluate(toggle+'.click()');
+      await waitFor('document.querySelector(`.tree-entry-dialog button[aria-label="Usar mapa padrão"][aria-pressed="true"]`)');
+      assert.ok(await evaluate('Object.values(window.testMap._layers).some(l=>l._url?.includes("World_Imagery"))'));
+      await evaluate('(()=>{window.testMap.fire("click",{latlng:{lat:-8.6,lng:-38.57}})})()');
+      await waitFor('document.querySelector(".tree-map-current-point")');
+      const points=await evaluate('Object.values(window.testMap._layers).filter(l=>l.options?.icon?.options?.className==="tree-map-current-point").map(l=>l.getLatLng())');
+      await evaluate('document.querySelector(`.tree-entry-dialog button[aria-label="Usar mapa padrão"]`).click()');
+      await waitFor('document.querySelector(`.tree-entry-dialog button[aria-label="Usar mapa de satélite"][aria-pressed="false"]`)');
+      assert.deepEqual(await evaluate('Object.values(window.testMap._layers).filter(l=>l.options?.icon?.options?.className==="tree-map-current-point").map(l=>l.getLatLng())'),points);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture('registration-satellite-'+width);results.push({width,satelliteToggle:true,pickedPointPreserved:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--mobile-profile')){
     for(const [width,height] of [[320,640],[390,844],[430,932],[767,1024]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       await navigate('?detail&species-info');await waitFor('document.querySelector(".tree-profile-history-disclosure")&&document.body.innerText.includes("Resumo público da espécie.")');

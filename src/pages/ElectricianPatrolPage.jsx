@@ -21,6 +21,8 @@ import { useNavVoice } from '@/hooks/useNavVoice';
 import { poleDisplayLabel } from '@/lib/poleDisplay';
 import { patrolTravelModeFromSearch, readStoredPatrolTravelMode, storePatrolTravelMode } from '@/lib/patrolTravelMode';
 import { storePatrolAvatar, toElectricianPatrolAvatar } from '@/lib/patrolAvatarConfig';
+import { DEFAULT_PATROL_FILTERS, PATROL_SERVICE_TYPES, patrolFiltersFromSearch, patrolSearch } from '@/lib/electricianPatrol';
+import { supabase } from '@/lib/customSupabaseClient';
 
 const MapView = lazy(() => import('@/components/MapView'));
 const ROOT = '/prefeitura/eletricista';
@@ -30,11 +32,34 @@ export default function ElectricianPatrolPage({ running = false }) {
   const { municipality } = useOutletContext();
   const { search } = useLocation();
   const mode = patrolTravelModeFromSearch(search);
-  if (running && !mode) return <Navigate to={`${ROOT}/patrulha`} replace />;
-  return running ? <PatrolSession key={municipality.id} municipality={municipality} mode={mode} /> : <Preparation />;
+  const filters = useMemo(() => patrolFiltersFromSearch(search), [search]);
+  if (running && !mode) return <Navigate to={`${ROOT}/patrulha${search}`} replace />;
+  return running ? <PatrolSession key={municipality.id} municipality={municipality} mode={mode} filters={filters} /> : <Preparation key={municipality.id} municipality={municipality} />;
 }
 
-function Preparation() {
+function Preparation({ municipality }) {
+  const { search } = useLocation();
+  const [filters, setFilters] = useState(() => patrolFiltersFromSearch(search));
+  const [neighborhoods, setNeighborhoods] = useState([]);
+  const [neighborhoodError, setNeighborhoodError] = useState(false);
+  const [loadingNeighborhoods, setLoadingNeighborhoods] = useState(true);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadingNeighborhoods(true); setNeighborhoodError(false);
+    (async () => {
+      const rows = [];
+      for (let offset = 0; !controller.signal.aborted; offset += 500) {
+        const { data, error } = await supabase.from('bairros').select('id,name').eq('city_id', municipality.city_id).order('name').order('id').range(offset, offset + 499).abortSignal(controller.signal);
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < 500) break;
+      }
+      if (!controller.signal.aborted) setNeighborhoods([...new Set(rows.map(row => row.name).filter(Boolean))]);
+    })().catch(() => { if (!controller.signal.aborted) setNeighborhoodError(true); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingNeighborhoods(false); });
+    return () => controller.abort();
+  }, [municipality.city_id, retry]);
   const avatarProfile = usePatrolAvatar();
   const [avatar, setAvatar] = useState(null);
   const professionalAvatar = toElectricianPatrolAvatar(avatar || avatarProfile);
@@ -45,18 +70,29 @@ function Preparation() {
     <div className="page-shell-fluid pt-[max(1.5rem,env(safe-area-inset-top))] pb-28">
       <Link to={`${ROOT}/perfil`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold"><ArrowLeft size={18} />Voltar ao perfil</Link>
       <h1 className="mt-4 font-display text-3xl font-extrabold">Patrulha de iluminação</h1>
+      <section aria-labelledby="patrol-filters-title" className="mt-6 rounded-2xl border border-edge-subtle bg-surface-raised p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="patrol-filters-title" className="font-bold">Filtros da patrulha</h2><Button type="button" variant="ghost" size="sm" onClick={() => setFilters({ ...DEFAULT_PATROL_FILTERS })}>Limpar filtros</Button></div>
+        <div className="mt-3 grid min-w-0 gap-4 md:grid-cols-3">
+          <label className="min-w-0 space-y-1.5 text-sm font-semibold"><span>Bairro</span><select aria-label="Bairro da patrulha" value={filters.neighborhood} onChange={event => setFilters(current => ({ ...current, neighborhood: event.target.value }))} className="block min-h-11 w-full min-w-0 rounded-lg border border-edge-default bg-surface-base px-3"><option value="">Todos os bairros</option>{[...new Set([...neighborhoods, filters.neighborhood].filter(Boolean))].map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+          <label className="min-w-0 space-y-1.5 text-sm font-semibold"><span>Tipo de serviço</span><select aria-label="Tipo de serviço da patrulha" value={filters.serviceType} onChange={event => setFilters(current => ({ ...current, serviceType: event.target.value }))} className="block min-h-11 w-full min-w-0 rounded-lg border border-edge-default bg-surface-base px-3">{PATROL_SERVICE_TYPES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+          <label className="min-w-0 space-y-1.5 text-sm font-semibold"><span>Priorizar</span><select aria-label="Prioridade da patrulha" value={filters.order} onChange={event => setFilters(current => ({ ...current, order: event.target.value }))} className="block min-h-11 w-full min-w-0 rounded-lg border border-edge-default bg-surface-base px-3"><option value="nearest">Mais próximos</option><option value="oldest">Mais antigos</option></select></label>
+        </div>
+        {loadingNeighborhoods && <p role="status" className="mt-2 text-sm text-content-secondary">Carregando bairros…</p>}
+        {neighborhoodError && <p role="alert" className="mt-2 text-sm text-danger">Não foi possível carregar os bairros. <button type="button" className="min-h-11 underline" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button></p>}
+        <p className="mt-3 text-sm text-content-secondary">O mapa e os alertas seguem os filtros escolhidos. “Mais antigos” prioriza a solicitação aberta há mais tempo entre os postes próximos, dentro do raio de alerta.</p>
+      </section>
       <div className="mt-6 min-w-0">
         <PatrolTravelModePicker value={mode} onChange={(next) => { setMode(next); try { storePatrolTravelMode(localStorage, next); } catch {} }} avatar={professionalAvatar} onEscolherBoneco={() => setStudio(true)} />
       </div>
     </div>
     <footer className="fixed inset-x-0 bottom-0 z-[1000] border-t border-edge-subtle bg-surface-raised pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-      <div className="page-shell-fluid flex items-center justify-between gap-3"><span className="min-w-0 text-sm font-bold">Iluminação pública</span><Button asChild className="min-h-12 shrink-0"><Link to={`${ROOT}/patrulha/ativa?modo=${mode}`}><Radar className="mr-2 h-5 w-5" />Iniciar patrulha</Link></Button></div>
+      <div className="page-shell-fluid flex items-center justify-between gap-3"><span className="min-w-0 text-sm font-bold">Iluminação pública</span><Button asChild className="min-h-12 shrink-0"><Link to={`${ROOT}/patrulha/ativa${patrolSearch(search, mode, filters)}`}><Radar className="mr-2 h-5 w-5" />Iniciar patrulha</Link></Button></div>
     </footer>
     {studio && <PatrolAvatarStudio electrician avatar={avatar || avatarProfile} modo={mode} onFechar={() => setStudio(false)} onChange={(next) => { setAvatar(next); try { storePatrolAvatar(localStorage, next); } catch {} }} />}
   </div>;
 }
 
-function PatrolSession({ municipality, mode }) {
+function PatrolSession({ municipality, mode, filters }) {
   const navigate = useNavigate();
   const profileAvatar = usePatrolAvatar();
   const avatar = useMemo(() => toElectricianPatrolAvatar(profileAvatar), [profileAvatar]);
@@ -73,7 +109,7 @@ function PatrolSession({ municipality, mode }) {
   const { posicao, erro, sinalFraco, velocidadeKmh } = useNavigationGps({ ativo: accepted && phase === 'running' && !selected, restart });
   const recorder = usePatrolRecorder(phase === 'running' && !erro && !sinalFraco ? posicao : null, { cityId: municipality.city_id, travelMode: mode, lighting: true });
   const { registrarPostePassado, registrarPosteAtualizado } = recorder;
-  const { alert, dismiss, poles } = useElectricianPatrol({ enabled: accepted && phase !== 'summary', cityId: municipality.city_id, position: posicao, paused: phase !== 'running' || Boolean(selected) || Boolean(erro), revision });
+  const { alert, dismiss, poles, error: patrolError } = useElectricianPatrol({ enabled: accepted && phase !== 'summary', cityId: municipality.city_id, municipalityId: municipality.id, filters, position: posicao, paused: phase !== 'running' || Boolean(selected) || Boolean(erro), revision });
   const { anunciar, preparar, mudo, alternarMudo, suportada } = useNavVoice();
   const announced = useRef(null);
   useEffect(() => { if (posicao && !selected && phase === 'running') setMapPosition(posicao); }, [posicao, selected, phase]);
@@ -111,7 +147,8 @@ function PatrolSession({ municipality, mode }) {
     <Helmet><title>Patrulha de iluminação | Eletricista</title><meta name="robots" content="noindex" /></Helmet>
     {mapPosition && <Suspense fallback={null}><MapView clusters={clusters} initialCenter={mapPosition} navMode navPosition={mapPosition} navTravelMode={mode} navAvatar={avatar} navGpsAtivo={!sinalFraco && !erro} navTrail={recorder.rastro} showLegend={false} showModeToggle={false} interactive={false} onReportClick={(item) => { if (phase === 'running' && item.pole) { dismiss(); setSelected(item.pole); } }} onUpvote={noop} onUpdateClick={noop} onBoundsChange={noop} onRecenter={noop} /></Suspense>}
     {accepted && phase === 'running' && !selected && <>
-      <PatrolHud categoriaNome="Iluminação · Eletricista" modoDeslocamento={mode} velocidadeKmh={velocidadeKmh} rua={municipality.cidade?.name || 'Patrulha de iluminação'} sinalFraco={sinalFraco || Boolean(erro)} totalNaFila={0} cardVisivel={Boolean(alert)} mudo={mudo} onAlternarSom={alternarMudo} somSuportado={suportada} emMovimento={posicao?.emMovimento} onSair={() => setPhase('exit')} />
+      <PatrolHud categoriaNome="Iluminação · Eletricista" modoDeslocamento={mode} velocidadeKmh={velocidadeKmh} rua={[filters.neighborhood || municipality.cidade?.name, PATROL_SERVICE_TYPES.find(([id]) => id === filters.serviceType)?.[1], filters.order === 'oldest' ? 'Mais antigos' : 'Mais próximos'].filter(Boolean).join(' · ')} sinalFraco={sinalFraco || Boolean(erro)} totalNaFila={0} cardVisivel={Boolean(alert)} mudo={mudo} onAlternarSom={alternarMudo} somSuportado={suportada} emMovimento={posicao?.emMovimento} onSair={() => setPhase('exit')} />
+      {patrolError && !erro && posicao && <p role="alert" className="absolute inset-x-4 top-32 z-[1100] rounded-2xl bg-surface-raised p-4 text-center text-sm">{patrolError}</p>}
       {!posicao && !erro && <p role="status" className="absolute inset-x-4 top-32 z-[1100] rounded-2xl bg-surface-raised p-4 text-center"><Loader2 className="mx-auto mb-2 animate-spin" />Obtendo sua localização…</p>}
       {erro && <div role="alert" className="absolute inset-x-4 top-32 z-[1100] rounded-2xl bg-surface-raised p-4 text-center"><p>{erro === 'negado' ? 'Permita o acesso à localização para patrulhar.' : 'Não foi possível obter sua localização.'}</p><Button className="mt-3" onClick={() => setRestart((value) => value + 1)}>Tentar GPS novamente</Button></div>}
       {alert && <ElectricianPatrolAlert alert={alert} onDismiss={dismiss} onUpdate={(pole) => { dismiss(); setSelected(pole); }} />}

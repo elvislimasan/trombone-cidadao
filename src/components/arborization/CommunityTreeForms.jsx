@@ -9,8 +9,9 @@ import { COMMUNITY_CARE_ACTIONS, communityToday, recordCommunityCare, submitComm
 import TreeSpeciesField from './TreeSpeciesField';
 import CommunityPhotoInput from './CommunityPhotoInput';
 import { TreeFormHeading, TreeFormProgress } from './TreeFormLayout';
-export { CommunityPhotoInput };
 import './communityTrees.css';
+
+export { CommunityPhotoInput };
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 
@@ -80,7 +81,7 @@ export function CommunityTreeRegistrationForm({ cities, initialCityId, initial, 
           {speciesError && <p className="community-muted">{speciesError}</p>}
           <label>Data do plantio <small>Opcional</small><Input type="date" max={communityToday()} value={form.planted_on} onChange={event => change({ planted_on: event.target.value })} /></label>
         </div></div>}
-        {step === 1 && <div className="community-location-grid"><div className="community-registration-map"><Suspense fallback={<Loader2 className="animate-spin" />}><LocationPickerMap key={form.city_id} initialPosition={form.latitude != null ? { lat: form.latitude, lng: form.longitude } : center} focusPosition={form.latitude != null ? { lat: form.latitude, lng: form.longitude } : null} fallbackCityCenter={{ name: city?.name || '', uf: cityStateUf(city) }} initialZoom={15} showMarker={form.latitude != null} showLocateButton onLocationChange={point => change({ latitude: point.lat, longitude: point.lng })} /></Suspense></div><div className="community-field-stack"><p className="community-location-city"><MapPin size={18} />{city?.name}</p><p className="community-muted">Toque no mapa para marcar a árvore. A equipe terá acesso ao ponto para revisar o cadastro.</p><label>Endereço ou referência <small>Opcional</small><Input maxLength={300} value={form.address} placeholder="Rua, número ou referência" onChange={event => change({ address: event.target.value })} /></label>{form.latitude != null && <p className="community-inline-success"><Check size={17} />Local marcado</p>}</div></div>}
+        {step === 1 && <div className="community-location-grid"><div className="community-registration-map"><Suspense fallback={<Loader2 className="animate-spin" />}><LocationPickerMap key={form.city_id} initialPosition={form.latitude != null ? { lat: form.latitude, lng: form.longitude } : center} focusPosition={form.latitude != null ? { lat: form.latitude, lng: form.longitude } : null} fallbackCityCenter={{ name: city?.name || '', uf: cityStateUf(city) }} initialZoom={15} showMarker={form.latitude != null} showLocateButton showSatelliteToggle onLocationChange={point => change({ latitude: point.lat, longitude: point.lng })} /></Suspense></div><div className="community-field-stack"><p className="community-location-city"><MapPin size={18} />{city?.name}</p><p className="community-muted">Toque no mapa para marcar a árvore. A equipe terá acesso ao ponto para revisar o cadastro.</p><label>Endereço ou referência <small>Opcional</small><Input maxLength={300} value={form.address} placeholder="Rua, número ou referência" onChange={event => change({ address: event.target.value })} /></label>{form.latitude != null && <p className="community-inline-success"><Check size={17} />Local marcado</p>}</div></div>}
         {step === 2 && <><CommunityPrivacyFields value={form} onChange={change} /><p className="community-form-notice"><Eye size={18} />O cadastro e as fotos ficarão disponíveis apenas para você e a equipe até a aprovação.</p></>}
       </fieldset>
       {action.error && <p ref={action.errorRef} tabIndex={-1} role="alert" className="community-error">{action.error}</p>}

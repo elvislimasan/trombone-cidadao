@@ -8,8 +8,8 @@ import './treeJourney.css';
 export function TreeJourneyNav({ cityId, active }) {
   const city = cityId ? `cidade=${encodeURIComponent(cityId)}` : '';
   const links = [
-    { key: 'adopt', label: 'Adotar uma árvore', description: 'Conheça e solicite', Icon: Sprout, to: `/adote-uma-arvore${city ? `?${city}` : ''}` },
-    { key: 'requests', label: 'Meus pedidos', description: 'Acompanhe a equipe', Icon: ClipboardList, to: `/adote-uma-arvore?aba=minhas${city ? `&${city}` : ''}` },
+    { key: 'adopt', label: 'Adotar uma árvore', description: 'Conheça e solicite', Icon: Sprout, to: `/adoteumaarvore${city ? `?${city}` : ''}` },
+    { key: 'requests', label: 'Meus pedidos', description: 'Acompanhe a equipe', Icon: ClipboardList, to: `/adoteumaarvore?aba=minhas${city ? `&${city}` : ''}` },
     { key: 'care', label: 'Minhas árvores', description: 'Cuide e veja crescer', Icon: HeartHandshake, to: `/arvores-da-comunidade?aba=minhas${city ? `&${city}` : ''}` },
   ];
   return <nav className="tree-journey-nav" aria-label="Adotar e cuidar de árvores">{links.map(({ key, label, Icon, to }) => <Link key={key} to={to} aria-current={active === key ? 'page' : undefined}><Icon size={17} aria-hidden="true" /><span>{label}</span></Link>)}</nav>;

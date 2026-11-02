@@ -124,9 +124,10 @@ function LightingMarkers({ items, onSelect }) {
   });
 }
 
-export default function MunicipalLightingMap({ center, focus, coordinateTarget, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullBleed = false, showCurrentLocation = false, mapLabel = "Mapa de iluminação pública", itemLabel = "postes", legendEntries, children, animateZoom = true }) {
+export default function MunicipalLightingMap({ center, focus, coordinateTarget, items, selected, loading, count, onBounds, onSelect, onPoint, placing, onCancelPlacing, onFilters, fullscreen: controlledFullscreen, onFullscreenChange, fullBleed = false, showCurrentLocation = false, mapLabel = "Mapa de iluminação pública", itemLabel = "postes", legendEntries, children, animateZoom = true }) {
   const frameRef = useRef(null);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [nativeFullscreen, setFullscreen] = useState(false);
+  const fullscreen = controlledFullscreen ?? nativeFullscreen;
   const [satellite, setSatellite] = useState(false);
   useEffect(() => {
     const changed = () => setFullscreen(document.fullscreenElement === frameRef.current);
@@ -134,13 +135,14 @@ export default function MunicipalLightingMap({ center, focus, coordinateTarget, 
     return () => document.removeEventListener('fullscreenchange', changed);
   }, []);
   const toggleFullscreen = async () => {
+    if (onFullscreenChange) { onFullscreenChange(!fullscreen); return; }
     try {
       if (document.fullscreenElement === frameRef.current) await document.exitFullscreen();
       else await frameRef.current.requestFullscreen();
     } catch { showAppError({ title: 'Não foi possível ampliar o mapa', description: 'Tente novamente no seu navegador.' }); }
   };
   const located = items.filter((item) => Number.isFinite(item.cluster_lat) && Number.isFinite(item.cluster_lng));
-  return <section aria-label={mapLabel} ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
+  return <section aria-label={mapLabel} ref={frameRef} className={'municipal-lighting-map relative isolate min-w-0 overflow-hidden bg-surface-subtle ' + (fullBleed || fullscreen ? 'h-full min-h-0 w-full' : 'h-[58dvh] min-h-[26rem] rounded-2xl border border-edge-default shadow-sm xl:h-[calc(100dvh-20rem)] xl:min-h-[36rem]')}>
     {center ? <MapContainer zoomAnimation={animateZoom} center={center} zoom={center[0] === -14.2 && center[1] === -51.9 ? 4 : 14} zoomControl={false} className="h-full w-full" scrollWheelZoom>
       {satellite ? <SatelliteTileLayer /> : <ThemedTileLayer />}<ZoomControl position="topleft" /><ScaleControl position="bottomright" imperial={false} />
       <MapFrame center={center} focus={focus} focusZoom={coordinateTarget ? 18 : 16} onBounds={onBounds} onPoint={onPoint} satellite={satellite} onSatellite={() => setSatellite((value) => !value)} showCurrentLocation={showCurrentLocation} />

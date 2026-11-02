@@ -16,7 +16,7 @@ export default function TreeAdoptionHeader({ cityId, city, tab, onTabChange }) {
   const share = async () => {
     if (busy) return;
     const token = ++operation.current;
-    const url = new URL('/adote-uma-arvore', window.location.origin);
+    const url = new URL('/adoteumaarvore', window.location.origin);
     if (cityId) url.searchParams.set('cidade', cityId);
     const invitation = { title: 'Adote uma árvore', text: `Vamos deixar ${city?.name || 'nossa cidade'} mais verde? Solicite uma muda ou plantio e acompanhe a avaliação da equipe.`, url: url.href };
     setBusy(true); setFeedback(''); setManualLink('');

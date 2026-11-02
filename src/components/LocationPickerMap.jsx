@@ -473,6 +473,8 @@ const LocationPickerMap = ({
         <button
           type="button"
           onClick={handleLayerToggle}
+          aria-label={mapLayer === 'satellite' ? 'Usar mapa padrão' : 'Usar mapa de satélite'}
+          aria-pressed={mapLayer === 'satellite'}
           className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[9999] bg-white/95 backdrop-blur-sm border border-edge-subtle shadow-lg rounded-full px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 hover:bg-surface-raised transition-all active:scale-95 select-none"
         >
           <Layers className="w-3.5 h-3.5 text-content-secondary" />

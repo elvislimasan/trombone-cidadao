@@ -27,10 +27,10 @@ export function GrowingTree() {
 export function TreeAdoptionHomeSection({ cityId }) {
   const url = new URLSearchParams();
   if (cityId) url.set('cidade', String(cityId));
-  const overviewTo = '/adote-uma-arvore' + (url.size ? `?${url}` : '');
+  const overviewTo = '/adoteumaarvore' + (url.size ? `?${url}` : '');
   url.set('aba', 'solicitar');
   return <section className="adoption-home-section" aria-label="Programa Adote uma árvore">
-    <div className="adoption-home-copy"><p className="adoption-program-eyebrow"><Sprout size={16} aria-hidden="true" />Adote uma árvore</p><h2>Uma muda hoje.<br />Mais vida para a cidade.</h2><p>Mais sombra, espaços acolhedores e um cuidado que cresce com você. Conheça o programa e solicite uma muda ou apoio no plantio na sua cidade.</p><div className="adoption-program-actions"><Button asChild><Link to={overviewTo}>Conhecer o programa<ArrowRight size={16} aria-hidden="true" /></Link></Button><Button asChild variant="outline"><Link to={`/adote-uma-arvore?${url}`}>Fazer uma solicitação</Link></Button></div><span className="adoption-program-note">Você pode conhecer o programa sem entrar na sua conta.</span></div>
+    <div className="adoption-home-copy"><p className="adoption-program-eyebrow"><Sprout size={16} aria-hidden="true" />Adote uma árvore</p><h2>Uma muda hoje.<br />Mais vida para a cidade.</h2><p>Mais sombra, espaços acolhedores e um cuidado que cresce com você. Conheça o programa e solicite uma muda ou apoio no plantio na sua cidade.</p><div className="adoption-program-actions"><Button asChild><Link to={overviewTo}>Conhecer o programa<ArrowRight size={16} aria-hidden="true" /></Link></Button><Button asChild variant="outline"><Link to={`/adoteumaarvore?${url}`}>Fazer uma solicitação</Link></Button></div><span className="adoption-program-note">Você pode conhecer o programa sem entrar na sua conta.</span></div>
     <div className="adoption-home-art"><GrowingTree /></div>
   </section>;
 }

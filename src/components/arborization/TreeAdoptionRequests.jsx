@@ -165,7 +165,7 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
     });
     return () => { active = false; };
   }, [user?.id, cityId, management, authorized, filter, page, revision, externalRevision]);
-  if (!user) return <div className="adoption-queue-empty"><span className="adoption-request-icon"><ClipboardList size={28} /></span><h3>Seus pedidos, em um só lugar</h3><p>Entre para acompanhar a análise e as orientações da equipe.</p><Button asChild><Link to="/login" state={{ from: { pathname: '/adote-uma-arvore', search: `?${new URLSearchParams({ cidade: String(cityId), aba: 'minhas', ...(requestId ? { pedido: requestId } : {}) })}` } }}>Entrar para acompanhar</Link></Button></div>;
+  if (!user) return <div className="adoption-queue-empty"><span className="adoption-request-icon"><ClipboardList size={28} /></span><h3>Seus pedidos, em um só lugar</h3><p>Entre para acompanhar a análise e as orientações da equipe.</p><Button asChild><Link to="/login" state={{ from: { pathname: '/adoteumaarvore', search: `?${new URLSearchParams({ cidade: String(cityId), aba: 'minhas', ...(requestId ? { pedido: requestId } : {}) })}` } }}>Entrar para acompanhar</Link></Button></div>;
   if (management && permissionLoading && !authorized) return <p role="status" className="text-sm">Verificando acesso à arborização…</p>;
   if (management && permissionError) return <div role="alert" className="text-sm"><p>{permissionError}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div>;
   if (management && !authorized) return <p className="text-sm text-content-secondary">Pedidos disponíveis para gestores e atendentes com responsabilidade de Arborização nesta cidade.</p>;

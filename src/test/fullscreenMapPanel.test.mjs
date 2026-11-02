@@ -25,13 +25,17 @@ const mocks = {
     DialogContent: ({ hideClose, onInteractOutside, ...props }) => {
       const open = React.useContext(DialogContext);
       const [mounted, setMounted] = React.useState(false);
+      const contentRef = React.useRef(null);
+      React.useEffect(() => {
+        if (open && mounted && contentRef.current) return require('aria-hidden').hideOthers(contentRef.current);
+      }, [open, mounted]);
       // O portal real pode montar depois do efeito do painel que o abriu.
       React.useEffect(() => {
         const timer = setTimeout(() => setMounted(open), 0);
         return () => clearTimeout(timer);
       }, [open]);
       return open && mounted
-        ? createPortal(React.createElement('div', { ...props, role: 'dialog' }), document.body) : null;
+        ? createPortal(React.createElement('div', { ...props, ref: contentRef, role: 'dialog' }), document.body) : null;
     },
     DialogTitle: (props) => React.createElement('h2', props),
   },
@@ -72,6 +76,51 @@ for (const withHeader of [false, true]) test(`portal com montagem adiada preserv
     assert.equal(document.querySelector('[role="dialog"] #map-fixture'), mapNode);
     assert.equal(mapNode.textContent, 'Zoom 17');
     assert.equal(mounts, 1);
+  } finally {
+    flushSync(() => root.unmount());
+    node.remove();
+  }
+});
+
+test('tela cheia controlada mantém busca e filtros junto ao mapa sem duplicar o botão de expansão', async () => {
+  function Tools() {
+    const [status, setStatus] = React.useState('all');
+    return React.createElement('aside', null,
+      React.createElement('input', { id: 'lighting-search-fixture', defaultValue: 'X159189' }),
+      React.createElement('button', { id: 'lighting-filter-fixture', onClick: () => setStatus('apagado') }, status),
+      React.createElement('div', { 'aria-live': 'polite' }, 'Resultados de postes'));
+  }
+  function Page() {
+    const [expanded, setExpanded] = React.useState(false);
+    return React.createElement(React.Fragment, null,
+      React.createElement('button', { id: 'expand-lighting-fixture', onClick: () => setExpanded(true) }, 'Ampliar mapa'),
+      React.createElement(module.exports.default, { title: 'Mapa de iluminação', open: expanded, onOpenChange: setExpanded, hideExpandButton: true },
+        React.createElement('div', { id: 'lighting-map-fixture' }, 'Mapa'), React.createElement(Tools)));
+  }
+  const node = document.createElement('div');
+  document.body.appendChild(node);
+  const root = createRoot(node);
+  try {
+    flushSync(() => root.render(React.createElement(Page)));
+    assert.equal(node.querySelector('button[aria-label="Expandir mapa de iluminação para tela cheia"]'), null);
+    const search = document.querySelector('#lighting-search-fixture');
+    const map = document.querySelector('#lighting-map-fixture');
+    search.value = 'Rua de teste';
+    flushSync(() => document.querySelector('#expand-lighting-fixture').click());
+    await new Promise(resolve => setTimeout(resolve, 40));
+    const dialog = document.querySelector('[role="dialog"]');
+    assert.ok(dialog.contains(search));
+    assert.ok(dialog.contains(map));
+    assert.equal(map.closest('[aria-hidden="true"]'), null);
+    assert.equal(search.closest('[aria-hidden="true"]'), null);
+    flushSync(() => dialog.querySelector('#lighting-filter-fixture').click());
+    assert.equal(dialog.querySelector('#lighting-filter-fixture').textContent, 'apagado');
+    const close = [...dialog.querySelectorAll('button')].find(button => button.textContent.trim() === 'Sair da tela cheia');
+    flushSync(() => close.click());
+    assert.equal(node.querySelector('#lighting-search-fixture'), search);
+    assert.equal(search.value, 'Rua de teste');
+    assert.equal(node.querySelector('#lighting-filter-fixture').textContent, 'apagado');
+    assert.equal(node.querySelector('#lighting-map-fixture'), map);
   } finally {
     flushSync(() => root.unmount());
     node.remove();

@@ -72,6 +72,8 @@ import ReportTreePicker from '@/components/report/ReportTreePicker';
 import { useReportMapTrees } from '@/hooks/useReportMapTrees';
 import { treeReportSelection } from '@/lib/treeInventory';
 import { treeLabel } from '@/lib/arborization';
+import MunicipalRequesterFields from '@/components/municipality/MunicipalRequesterFields';
+import { municipalRequesterErrors } from '@/lib/municipalReportCreation';
 
 const LocationPickerMap = lazy(() => import("@/components/LocationPickerMap"));
 
@@ -117,6 +119,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    requester_name: "",
+    requester_phone: "",
     category: "",
     address: "",
     reference_point: "",
@@ -138,6 +142,14 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     is_public: false,
   });
   const [errors, setErrors] = useState({});
+  const updateRequester = useCallback((patch) => {
+    setFormData(current => ({ ...current, ...patch }));
+    setErrors(current => {
+      const next = { ...current };
+      for (const field of Object.keys(patch)) delete next[field];
+      return next;
+    });
+  }, []);
   const [treeViewport, setTreeViewport] = useState(null);
   const treeNearby = useReportMapTrees(formData.category, treeViewport, formData.city_id);
   const handleTreeViewportChange = useCallback(bounds => {
@@ -2707,6 +2719,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     location: 1,
     address: 1,
     photos: 2,
+    requester_name: 0,
+    requester_phone: 0,
   };
 
   const validateStep = (stepToValidate = wizardStep) => {
@@ -2714,6 +2728,11 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     let hasErrors = false;
 
     if (stepToValidate === 0) {
+      if (municipalMode) {
+        const contactErrors = municipalRequesterErrors(formData);
+        Object.assign(newErrors, contactErrors);
+        if (Object.keys(contactErrors).length) hasErrors = true;
+      }
       if (!formData.title) {
         newErrors.title = reportCopy("Por favor, preencha o título da bronca.");
         hasErrors = true;
@@ -2838,6 +2857,11 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
     const newErrors = {};
     let hasErrors = false;
+    if (municipalMode) {
+      const contactErrors = municipalRequesterErrors(formData);
+      Object.assign(newErrors, contactErrors);
+      if (Object.keys(contactErrors).length) hasErrors = true;
+    }
 
     if (!formData.title || !formData.category) {
       if (!formData.title)
@@ -3044,6 +3068,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         setFormData({
           title: "",
           description: "",
+          requester_name: "",
+          requester_phone: "",
           category: "",
           address: "",
           reference_point: "",
@@ -3867,6 +3893,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     />
                   </div>
 
+                  {municipalMode && <MunicipalRequesterFields value={formData} errors={errors} onChange={updateRequester} />}
                 </>
               )}
 
@@ -4821,6 +4848,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   placeholder="Descreva detalhadamente o problema..."
                 />
               </div>
+
+              {municipalMode && <MunicipalRequesterFields value={formData} errors={errors} onChange={updateRequester} />}
 
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">

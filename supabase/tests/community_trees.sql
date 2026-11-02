@@ -114,5 +114,5 @@ set test.user_id='00000000-0000-0000-0000-000000000002';
 select public.submit_community_tree(public.test_community_payload()||'{"name":"Ipê com cadastro corrigido"}');
 select public.test_assert((select status='pending' and review_note is null from public.community_trees where id='b1000000-0000-0000-0000-000000000001'),'Correção não voltou à análise');
 reset role;
-select public.test_assert(public.is_username_reserved('arvores-da-comunidade') and public.is_username_reserved('adote-uma-arvore') and not public.is_username_reserved('pessoa-comum'),'Reserva da nova rota alterou nomes existentes');
+select public.test_assert(public.is_username_reserved('arvores-da-comunidade') and public.is_username_reserved('adote-uma-arvore') and public.is_username_reserved('adoteumaarvore') and not public.is_username_reserved('pessoa-comum'),'Reserva da nova rota alterou nomes existentes');
 select 'Comunidade: aprovação, privacidade de dados e fotos, cuidados, denúncias, idempotência, revisão municipal e reenvio OK';

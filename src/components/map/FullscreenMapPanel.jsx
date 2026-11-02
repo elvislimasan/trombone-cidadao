@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
-export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', header, actions, autoExpand = false, open, onOpenChange }) {
+export default function FullscreenMapPanel({ children, title = 'Mapa', className = '', buttonClassName = 'left-3 top-3', buttonLabel = 'Tela cheia', header, actions, autoExpand = false, open, onOpenChange, hideExpandButton = false }) {
   const [internalExpanded, setInternalExpanded] = useState(autoExpand);
   const expanded = open ?? internalExpanded;
   const setExpanded = next => {
@@ -22,6 +22,12 @@ export default function FullscreenMapPanel({ children, title = 'Mapa', className
     node.className = 'relative h-full w-full';
     return node;
   });
+  const mountExpandedHost = useCallback((node) => {
+    // Move antes dos efeitos modais: regiões aria-live do mapa não podem
+    // fazer o diálogo ocultar os controles na árvore de acessibilidade.
+    if (node && mapMount) node.appendChild(mapMount);
+    setExpandedHost(node);
+  }, [mapMount]);
   useLayoutEffect(() => {
     // O portal do diálogo pode montar em um commit posterior à abertura.
     const destination = expanded ? expandedHost : inlineRef.current;
@@ -37,10 +43,10 @@ export default function FullscreenMapPanel({ children, title = 'Mapa', className
   </Button>;
   return (
     <div className={`relative h-full w-full ${header ? 'flex flex-col' : ''} ${className}`}>
-      {header && <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 pb-3">{header}{expandButton}</div>}
+      {header && <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 pb-3">{header}{!hideExpandButton && expandButton}</div>}
       <div ref={inlineRef} className={header ? 'relative min-h-0 w-full flex-1 overflow-hidden rounded-lg' : 'h-full w-full'} />
       {mapMount ? createPortal(children, mapMount) : children}
-      {!header && expandButton}
+      {!header && !hideExpandButton && expandButton}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent hideClose aria-describedby={undefined}
           onInteractOutside={(event) => {
@@ -57,7 +63,7 @@ export default function FullscreenMapPanel({ children, title = 'Mapa', className
               </Button>
             </div>
           </div>
-          <div ref={setExpandedHost} className="relative min-h-0 flex-1 pb-[env(safe-area-inset-bottom)]" />
+          <div ref={mountExpandedHost} className="relative min-h-0 flex-1 pb-[env(safe-area-inset-bottom)]" />
         </DialogContent>
       </Dialog>
     </div>

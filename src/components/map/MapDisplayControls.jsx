@@ -51,19 +51,20 @@ export const BOTAO_DE_MAPA =
  * a outra. A fonte de satélite é compartilhada em `SatelliteTileLayer`,
  * usada por `MapBaseLayer` e pelos mapas municipais.
  */
-export function MapLayerToggle({ layer, onLayerChange, className = '' }) {
+export function MapLayerToggle({ layer, onLayerChange, className = '', showLabel = false }) {
   const satellite = layer === MAP_LAYER.SATELLITE;
 
   return (
     <button
       type="button"
-      className={`${BOTAO_DE_MAPA} ${className}`}
+      className={`${BOTAO_DE_MAPA} ${showLabel ? '!w-auto gap-2 px-3 text-sm font-semibold' : ''} ${className}`}
       onClick={() => onLayerChange?.(satellite ? MAP_LAYER.STANDARD : MAP_LAYER.SATELLITE)}
       aria-label={satellite ? 'Usar mapa padrão' : 'Usar mapa de satélite'}
       aria-pressed={satellite}
       title={satellite ? 'Mapa padrão' : 'Satélite'}
     >
       <Layers className="h-5 w-5" aria-hidden="true" />
+      {showLabel && <span>{satellite ? 'Mapa padrão' : 'Satélite'}</span>}
     </button>
   );
 }

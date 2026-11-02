@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { activeMunicipalMembershipId } from '@/lib/municipalReportCreation';
+import { activeMunicipalMembershipId, municipalRequesterErrors, saveMunicipalRequesterContact } from '@/lib/municipalReportCreation';
 import { useMissionProgress } from '@/contexts/MissionProgressContext';
 import { uploadTreePhoto } from '@/lib/treeInventory';
 
@@ -40,6 +40,10 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
     async (newReportData, uploadMediaCallback, { signal } = {}) => {
       throwIfAborted(signal);
       if (!user) throw new Error(`Sua sessão expirou. Entre novamente para enviar a ${municipalMode ? 'solicitação' : 'bronca'}.`);
+      if (municipalMode) {
+        const contactErrors = municipalRequesterErrors(newReportData);
+        if (Object.keys(contactErrors).length) throw new Error(Object.values(contactErrors)[0]);
+      }
       const {
         title, description, category, address, reference_point, location,
         pole_number, pole_id, reported_pole_distance_m,
@@ -127,6 +131,10 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
 
       try {
         throwIfAborted(signal);
+        if (municipalMode) {
+          await saveMunicipalRequesterContact(supabase, data.id, newReportData, signal);
+          throwIfAborted(signal);
+        }
         if (uploadMediaCallback) {
           await uploadMediaCallback(data.id, { signal });
           throwIfAborted(signal);

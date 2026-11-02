@@ -378,7 +378,7 @@ function AppShell() {
   const { user, loading: authLoading } = useAuth();
   const { isNative, isInteractive } = useNativeUIMode();
   const isDesktopViewport = useIsDesktopViewport();
-  const adoptionDesktop = isDesktopViewport && location.pathname === '/adote-uma-arvore'
+  const adoptionDesktop = isDesktopViewport && location.pathname === '/adoteumaarvore'
     && ['solicitar', 'minhas'].includes(new URLSearchParams(location.search).get('aba'));
   const patrolBlockedOnDesktop = isPatrolBlockedOnDesktop({
     isNative,
@@ -928,7 +928,8 @@ function AppShell() {
               <Route path="/mapa-pavimentacao/rua/:streetId" element={<PavementStreetPage />} />
               <Route path="/mapa-pavimentacao" element={<PavementMapPage />} />
               <Route path="/mapa-arborizacao" element={<ArborizationMapPage />} />
-              <Route path="/adote-uma-arvore" element={<AdoptTreePage />} />
+              <Route path="/adoteumaarvore" element={<AdoptTreePage />} />
+              <Route path="/adote-uma-arvore" element={<Navigate replace to={{ pathname: "/adoteumaarvore", search: location.search, hash: location.hash }} />} />
               <Route path="/arvores-da-comunidade" element={<CommunityTreesPage />} />
               <Route path="/arvores-da-comunidade/nova" element={<CommunityTreeRegistrationPage />} />
               <Route path="/arvores-da-comunidade/:id/editar" element={<CommunityTreeRegistrationPage />} />

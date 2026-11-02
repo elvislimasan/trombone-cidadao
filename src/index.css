@@ -635,7 +635,8 @@
   right: 6px;
 }
 .municipal-lighting-map .leaflet-control-zoom,
-.tree-map-canvas .leaflet-control-zoom {
+.tree-map-canvas .leaflet-control-zoom,
+.municipal-lighting-map .leaflet-control-zoom {
   overflow: hidden;
   border: 1px solid rgb(var(--border-default));
   border-radius: 10px;

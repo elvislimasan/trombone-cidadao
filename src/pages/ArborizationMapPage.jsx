@@ -287,12 +287,12 @@ export function ArborizationContent({ management, embedded = false }) {
     <section aria-label="Indicadores do inventário filtrado" className="arborization-stats">
       {[
         [Trees, 'Árvores no inventário', stats.total, 'green', 'Total de árvores cadastradas na cidade'],
-        [Leaf, 'Espécie mais plantada', stats.mostPlanted?.name || 'Não identificada', 'blue', stats.mostPlanted ? `${stats.mostPlanted.count.toLocaleString('pt-BR')} árvores vivas desta espécie` : 'Nenhuma espécie identificada no resultado'],
+        [Leaf, 'Espécie mais plantada', stats.mostPlanted?.name || 'Não identificada', 'blue', stats.mostPlanted ? `${stats.mostPlanted.count.toLocaleString('pt-BR')} árvores vivas desta espécie` : 'Nenhuma espécie identificada no resultado', stats.mostPlanted?.count],
         [MapPin, 'Bairro menos arborizado', stats.leastWooded?.name || 'Não identificado', 'orange', stats.leastWooded ? `${stats.leastWooded.count.toLocaleString('pt-BR')} árvores vivas cadastradas · menor quantidade` : 'Nenhum bairro disponível'],
         [Sprout, `Plantadas em ${new Date().getFullYear()}`, stats.plantedThisYear, 'green', 'Conforme a data de plantio informada'],
-      ].map(([Icon, label, value, tone, description]) => <div key={label} className="arborization-stat">
+      ].map(([Icon, label, value, tone, description, count]) => <div key={label} className="arborization-stat">
         <span className={`arborization-stat-icon arborization-tone-${tone}`}><Icon aria-hidden="true" /></span>
-        <div className="min-w-0"><p className="arborization-stat-value break-words" style={typeof value === 'string' ? { fontSize: 'clamp(1rem, 1.3vw, 1.5rem)' } : undefined}>{loading || value == null ? '—' : value.toLocaleString('pt-BR')}</p><p className="arborization-stat-label">{label}</p><p className="arborization-stat-description">{description}</p></div>
+        <div className="min-w-0"><p className="arborization-stat-value break-words" style={typeof value === 'string' ? { fontSize: 'clamp(1rem, 1.3vw, 1.5rem)' } : undefined}>{loading || value == null ? '—' : value.toLocaleString('pt-BR')}</p>{!loading && count != null && <p className="mt-1 text-xs font-semibold text-content-secondary" data-testid="most-planted-count">{count.toLocaleString('pt-BR')} {count === 1 ? 'árvore viva' : 'árvores vivas'}</p>}<p className="arborization-stat-label">{label}</p><p className="arborization-stat-description">{description}</p></div>
       </div>)}
     </section>
     <div className="arborization-actions">

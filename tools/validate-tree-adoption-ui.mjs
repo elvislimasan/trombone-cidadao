@@ -176,7 +176,7 @@ try {
     await click('Quero participar');await waitFor('document.body.innerText.includes("Entrar para solicitar")');
     await evaluate('[...document.querySelectorAll("a")].find(a=>a.textContent==="Entrar para solicitar").click()');await waitFor('document.querySelector("[data-testid=login-return]")');
     const login=await evaluate('JSON.parse(document.querySelector("[data-testid=login-return]").textContent)');
-    assert.equal(login.pathname,'/adote-uma-arvore');assert.equal(new URLSearchParams(login.search).get('aba'),'solicitar');assert.equal(new URLSearchParams(login.search).get('cidade'),'64');
+    assert.equal(login.pathname,'/adoteumaarvore');assert.equal(new URLSearchParams(login.search).get('aba'),'solicitar');assert.equal(new URLSearchParams(login.search).get('cidade'),'64');
     await navigate('?overview&cidade=64');await waitFor('document.querySelector("[data-testid=adoption-program]")');
     await click('Começar minha solicitação');await waitFor('document.querySelector(".adoption-request-layout")');
     await radio('muda');await evaluate('document.querySelector("button.adoption-back-link").click()');
@@ -210,7 +210,7 @@ try {
       await capture(`header-${width}`);
       await evaluate('Object.defineProperty(navigator,"share",{configurable:true,value:undefined});Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async value=>{window.copiedAdoptionLink=value}}});document.querySelector(".adoption-invite-button").click()');
       await waitFor('document.querySelector(".adoption-invite-button").textContent.includes("Link copiado")');
-      assert.ok(await evaluate('(()=>{const u=new URL(window.copiedAdoptionLink);return u.pathname==="/adote-uma-arvore"&&u.searchParams.get("cidade")==="64"&&[...u.searchParams.keys()].length===1})()'),'Convite não preservou apenas a cidade pública');
+      assert.ok(await evaluate('(()=>{const u=new URL(window.copiedAdoptionLink);return u.pathname==="/adoteumaarvore"&&u.searchParams.get("cidade")==="64"&&[...u.searchParams.keys()].length===1})()'),'Convite não preservou apenas a cidade pública');
       if(width===1920&&height===1080){
         await evaluate('Object.defineProperty(navigator,"share",{configurable:true,value:async data=>{window.adoptionInvitation=data}});document.querySelector(".adoption-invite-button").click()');
         await waitFor('document.querySelector(".adoption-invite-button").textContent.includes("Convite compartilhado")');

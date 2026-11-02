@@ -29,7 +29,7 @@ set test.user_id='00000000-0000-0000-0000-000000000003';
 select public.update_tree_adoption('a0000000-0000-0000-0000-000000000001','solicitada','em_analise','Analisando o pedido de mudas.');
 reset role;
 select public.test_assert((select count(*)=1 from public.notifications where type='tree_adoption_update'),'Mudança de status não gerou exatamente um aviso');
-select public.test_assert((select user_id='00000000-0000-0000-0000-000000000002' and title='Atualização no pedido de mudas' and message like '%Em análise técnica%' and link='/adote-uma-arvore?cidade=64&aba=minhas&pedido=a0000000-0000-0000-0000-000000000001' and not is_read from public.notifications where type='tree_adoption_update'),'Aviso perdeu autor, status, título ou link direto');
+select public.test_assert((select user_id='00000000-0000-0000-0000-000000000002' and title='Atualização no pedido de mudas' and message like '%Em análise técnica%' and link='/adoteumaarvore?cidade=64&aba=minhas&pedido=a0000000-0000-0000-0000-000000000001' and not is_read from public.notifications where type='tree_adoption_update'),'Aviso perdeu autor, status, título ou link direto');
 set role authenticated;
 set test.user_id='00000000-0000-0000-0000-000000000003';
 select public.update_tree_adoption('a0000000-0000-0000-0000-000000000001','em_analise','em_analise','Orientação adicional sobre o local de plantio.');

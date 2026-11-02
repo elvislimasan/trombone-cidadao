@@ -5,6 +5,8 @@
 
 export const RESERVED_USERNAMES = new Set([
   'arvores-da-comunidade',
+  'adoteumaarvore',
+  'adote-uma-arvore',
   'admin',
   'administrator',
   'suporte',

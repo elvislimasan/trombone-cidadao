@@ -1,6 +1,6 @@
 # Adote uma árvore
 
-Página pública: `/adote-uma-arvore`, também acessível no menu, no rodapé e no mapa de arborização. É necessário entrar na conta para preencher e enviar. A cidade selecionada determina o catálogo, os fornecedores e a equipe responsável.
+Página pública: `/adoteumaarvore`, também acessível no menu, no rodapé e no mapa de arborização. É necessário entrar na conta para preencher e enviar. A cidade selecionada determina o catálogo, os fornecedores e a equipe responsável.
 
 ## Ativação
 
@@ -20,7 +20,7 @@ No desktop municipal, seleção da espécie e fornecedor, mapa, períodos e orie
 
 Quando não há oferta na cidade, **Avise-me quando tiver disponibilidade** cadastra um aviso para a conta autenticada e a cidade escolhida. O cidadão pode cancelar e consultar a confirmação ao voltar à tela. Cada pessoa só consulta o próprio aviso; nenhuma conta ou prefeitura recebe a lista de interessados de outra pessoa.
 
-Ao cadastrar ou alterar uma oferta para **Disponível**, o banco envia uma única notificação do tipo `system` aos avisos pendentes daquela cidade e registra o envio. Alterar instruções ou salvar novamente uma oferta disponível não repete a notificação. A notificação utiliza a infraestrutura existente da conta e abre `/adote-uma-arvore?cidade=ID`, respeitando a cidade do aviso antes de carregar o catálogo. Se a oferta já estiver disponível no momento do clique, o cliente atualiza o catálogo em vez de deixar um aviso pendente. O cadastro do aviso e a liberação de ofertas são serializados por cidade.
+Ao cadastrar ou alterar uma oferta para **Disponível**, o banco envia uma única notificação do tipo `system` aos avisos pendentes daquela cidade e registra o envio. Alterar instruções ou salvar novamente uma oferta disponível não repete a notificação. A notificação utiliza a infraestrutura existente da conta e abre `/adoteumaarvore?cidade=ID`, respeitando a cidade do aviso antes de carregar o catálogo. Se a oferta já estiver disponível no momento do clique, o cliente atualiza o catálogo em vez de deixar um aviso pendente. O cadastro do aviso e a liberação de ofertas são serializados por cidade.
 
 ## Solicitação do cidadão
 
@@ -29,9 +29,9 @@ Ao cadastrar ou alterar uma oferta para **Disponível**, o banco envia uma únic
 3. **Árvore e fornecedor:** buscar no catálogo por nome popular, regional ou científico, escolher uma espécie e consultar o fornecedor. A página mostra resumo, indicação para calçada e orientação de plantio.
 4. **Revisão:** conferir pedido, endereço e espécie em uma coluna, com o mapa do ponto já aberto ao lado. Há ações para alterar cada seção ou ajustar o local, observações opcionais e compromisso de cuidado. Em área pública, o plantio depende da autorização da equipe. No desktop, a revisão ocupa a altura disponível e mantém o envio visível.
 
-A entrada pública `/adote-uma-arvore` apresenta o programa antes do formulário: benefícios, formas de participação, etapas do atendimento, cuidados e dúvidas frequentes. É uma página de leitura com rolagem normal e rodapé. A home pública também exibe uma seção do programa, disponível sem login, com links para a apresentação e para solicitar. Os links preservam a cidade escolhida.
+A entrada pública `/adoteumaarvore` apresenta o programa antes do formulário: benefícios, formas de participação, etapas do atendimento, cuidados e dúvidas frequentes. É uma página de leitura com rolagem normal e rodapé. A home pública também exibe uma seção do programa, disponível sem login, com links para a apresentação e para solicitar. Os links preservam a cidade escolhida.
 
-**Quero participar** abre `/adote-uma-arvore?aba=solicitar`; **Minhas solicitações** usa `aba=minhas`. No desktop, essas duas áreas usam a altura disponível abaixo do menu, mantendo as ações visíveis e a rolagem interna quando necessária. A seta do cabeçalho retorna à apresentação sem apagar o preenchimento. O catálogo tem páginas de seis espécies; no celular, o fluxo mantém rolagem normal e controles de toque maiores. O retorno do login preserva cidade e aba do formulário.
+**Quero participar** abre `/adoteumaarvore?aba=solicitar`; **Minhas solicitações** usa `aba=minhas`. No desktop, essas duas áreas usam a altura disponível abaixo do menu, mantendo as ações visíveis e a rolagem interna quando necessária. A seta do cabeçalho retorna à apresentação sem apagar o preenchimento. O catálogo tem páginas de seis espécies; no celular, o fluxo mantém rolagem normal e controles de toque maiores. O retorno do login preserva cidade e aba do formulário.
 
 ### Apresentação do fluxo
 
@@ -93,3 +93,5 @@ npx vite build
 ```
 
 O teste de navegador usa Chrome headless, componentes reais e dados simulados, sem ler o `.env` ou gravar em produção. Inclui a geometria do menu superior e verifica 320×844, 390×844, 1366×768, 1440×768, 1440×900, 1920×921 e 1920×1080. Confere margens externas, ausência de rolagem da página e botões visíveis nas quatro etapas desktop, cores herdadas do tema, catálogo paginado com 25 espécies e o fluxo completo de localização e atendimento. As capturas ficam em `.tmp/tree-adoption-ui/`.
+
+O endereço público usa `/adoteumaarvore`. O endereço anterior `/adote-uma-arvore` redireciona preservando os parâmetros e o fragmento. A migração `404_tree_adoption_public_url.sql` atualiza os links de novas notificações e reserva o novo nome de usuário; notificações já enviadas continuam funcionando pelo redirecionamento.

@@ -41,7 +41,7 @@ update public.tree_species_availability set status='disponivel' where species_id
 select public.test_reject($q$update public.tree_species_availability set pickup_details='{"schedule":[{"days":[1],"from":"17:00","to":"08:00"}]}' where species_id='71000000-0000-0000-0000-000000000064'$q$);
 set test.user_id='00000000-0000-0000-0000-000000000002';
 select public.test_assert((select count(*)=1 from public.notifications),'Aviso ausente ou duplicado');
-select public.test_assert((select link='/adote-uma-arvore?cidade=64' and type='system' from public.notifications),'Aviso perdeu cidade');
+select public.test_assert((select link='/adoteumaarvore?cidade=64' and type='system' from public.notifications),'Aviso perdeu cidade');
 select public.test_assert((select notified_at is not null from public.tree_adoption_availability_alerts),'Aviso não foi consumido');
 select public.test_assert((public.set_tree_adoption_availability_alert(64,true)->>'available')::boolean,'Oferta existente deixou cidadão esperando');
 set test.user_id='00000000-0000-0000-0000-000000000003';

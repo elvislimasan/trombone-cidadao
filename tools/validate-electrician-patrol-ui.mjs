@@ -27,8 +27,12 @@ const stubs={
   '@/hooks/useNavVoice':`export const useNavVoice=()=>({preparar:prepare,anunciar:announce,mudo:false,alternarMudo:()=>{},suportada:true});const prepare=()=>{};const announce=text=>window.voiceAlerts.push(text);`,
   '@/lib/customSupabaseClient':`
     const pole={id:1,identifier:'X159189',address:'Rua A',latitude:-8.6,longitude:-38.57,lighting_status:'apagado',updated_at:'2026-10-06T12:00:00Z'};
+    window.patrolFixtures={poles:[pole],reports:[],demands:[]};
     export const supabase={from(table){let single=false,op='select',value;const q=new Proxy({}, {get(_,key){if(key==='then')return r=>{let data=[];let error=null;
-      if(table==='poles')data=single?{...pole}:[{...pole}];
+      if(table==='poles')data=single?{...pole}:window.patrolFixtures.poles.map(p=>({...p}));
+      if(table==='reports')data=window.patrolFixtures.reports;
+      if(table==='demandas_municipais')data=window.patrolFixtures.demands;
+      if(table==='bairros')data=[{id:'centro',name:'Centro'},{id:'bela-vista',name:'Bela Vista'}];
       if(table==='patrols'&&op==='insert'){if(window.saveMode==='reject')error={message:'validation error',code:'23514'};else if(window.saveMode==='offline')error={message:'Failed to fetch'};else {data={...value,id:crypto.randomUUID()};window.savedPatrols.push(data);}}
       if(table==='patrol_paths'&&op==='upsert'){window.savedPaths.push(value);data=value;}
       if(table==='patrols'&&op==='select')data=window.savedPatrols;
@@ -42,13 +46,13 @@ await build({jsx:'automatic',loader:{'.png':'dataurl'},stdin:{contents:`import R
 let inputCss=await fs.readFile('src/index.css','utf8');
 for(const token of ['primitives','semantic','typography','motion']) inputCss=inputCss.replace("@import './design-system/tokens/"+token+".css';",await fs.readFile('src/design-system/tokens/'+token+'.css','utf8'));
 const css=await postcss([tailwind({...loadConfig(path.join(root,'tailwind.config.js')),content:[{raw:'h-screen w-full'},...['src/pages/ElectricianPatrolPage.jsx','src/components/MapView.jsx','src/components/map/MapDisplayControls.jsx','src/components/municipality/ElectricianPatrolAlert.jsx','src/pages/ElectricianProfilePage.jsx','src/pages/MyPatrolsPage.jsx','src/components/municipality/ElectricianLayout.jsx','src/components/patrol/**/*.jsx','src/components/municipality/ElectricianPoleVisitDrawer.jsx','src/components/municipality/MunicipalLightingMap.jsx','src/components/WebUploadIndicator.jsx','src/components/ui/{drawer,input,button,progress}.jsx'].map(file=>path.join(root,file))]})]).process(inputCss,{from:path.join(root,'src/index.css')});
-await fs.writeFile(path.join(out,'preview.css'),(await fs.readFile(path.join(out,'preview.css'),'utf8'))+'\n'+css.css);
+await fs.writeFile(path.join(out,'preview.css'),(await fs.readFile(path.join(out,'preview.css'),'utf8').catch(()=>''))+'\n'+css.css);
 await fs.writeFile(path.join(out,'index.html'),'<html><head><meta charset="UTF-8"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>');
 }
 const server=http.createServer(async(req,res)=>{const avatarFile=req.url?.startsWith('/avatar/')?req.url.slice(8):null;const file=avatarFile&&publishedFigures.includes(avatarFile)?path.join(figures,avatarFile):path.join(out,req.url==='/preview.js'?'preview.js':req.url==='/preview.css'?'preview.css':'index.html');res.setHeader('Content-Type',file.endsWith('.webp')?'image/webp':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(file));});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 await fs.rm(path.join(out,'chrome-profile/DevToolsActivePort'),{force:true});
-const chrome=spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--disable-gpu','--disable-extensions','--no-first-run','--remote-debugging-port=0','--user-data-dir='+path.join(out,'chrome-profile'),'about:blank'],{windowsHide:true});
+const chrome=spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--disable-gpu','--disable-extensions','--no-first-run','--remote-debugging-port=0','--user-data-dir='+path.join(out,'chrome-profile'),'about:blank'],{windowsHide:true});
 let ws;
 try{
   const endpoint=await new Promise((resolve,reject)=>{
@@ -80,7 +84,7 @@ try{
   const touchable=async(text)=>evaluate(`(()=>{const b=[...document.querySelectorAll('button,a')].find(x=>x.textContent.trim()===${JSON.stringify(text)});const r=b.getBoundingClientRect();return b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()`);
   const alert='document.querySelector(`section[aria-label="Poste com problema próximo"]`)';
   const screenshot=async(name)=>{const capture=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,name+'.png'),Buffer.from(capture.data,'base64'));};
-  for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+  for(const [width,height] of (process.argv.includes('--filters-only') ? [] : [[390,844],[1440,900],[1920,1080]])){
     await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
     const load=async(route='/perfil')=>{await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/prefeitura/eletricista'+route},sessionId);};
     await load();await waitFor('document.body.innerText.includes("Sair em patrulha")');
@@ -172,6 +176,32 @@ try{
       assert.equal(queued.length,1);assert.equal(queued[0].tipo,'saida');assert.equal(queued[0].dados.patrulha.lighting_patrol,true);assert.equal(queued[0].dados.patrulha.travel_mode,'walking');
       results.push({offline:true,payloadPersisted:true});
     }
+  }
+
+  if(process.argv.includes('--filters-only')) for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+    await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/prefeitura/eletricista/patrulha?cidade=1&secretaria=light'},sessionId);
+    await waitFor('document.querySelector(`select[aria-label="Bairro da patrulha"] option[value="Centro"]`)');
+    const select=async(label,value)=>evaluate(`(()=>{const s=document.querySelector('select[aria-label="'+${JSON.stringify(label)}+'"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,${JSON.stringify(value)});s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await select('Bairro da patrulha','Centro');await select('Tipo de serviço da patrulha','no_lighting');await select('Prioridade da patrulha','oldest');
+    let href=await evaluate('[...document.querySelectorAll("a")].find(a=>a.textContent.includes("Iniciar patrulha")).href');
+    assert.equal(new URL(href).searchParams.get('bairro'),'Centro');assert.equal(new URL(href).searchParams.get('servico'),'no_lighting');assert.equal(new URL(href).searchParams.get('ordem'),'oldest');assert.equal(new URL(href).searchParams.get('cidade'),'1');assert.equal(new URL(href).searchParams.get('secretaria'),'light');
+    await clickText('Limpar filtros');assert.equal(await evaluate('document.querySelector(`select[aria-label="Bairro da patrulha"]`).value'),'');
+    await select('Bairro da patrulha','Centro');await select('Tipo de serviço da patrulha','no_lighting');await select('Prioridade da patrulha','oldest');
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("h1").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'));
+    await screenshot('filters-preparation-'+width);
+    await evaluate(`(()=>{const base={lighting_status:'aceso',longitude:-38.57};patrolFixtures.poles=[{...base,id:2,identifier:'NOVO',latitude:-8.60006},{...base,id:3,identifier:'ANTIGO',latitude:-8.6},{...base,id:4,identifier:'OUTRO-BAIRRO',latitude:-8.60007},{...base,id:5,identifier:'APAGADO',latitude:-8.60008}];patrolFixtures.reports=[{pole_id:2,issue_type:'no_lighting',neighborhood:'Centro',created_at:'2026-10-30'},{pole_id:3,issue_type:'no_lighting',neighborhood:'Centro',created_at:'2026-09-01'},{pole_id:4,issue_type:'no_lighting',neighborhood:'Bela Vista',created_at:'2020-01-01'},{pole_id:5,issue_type:'lamp_off',neighborhood:'Centro',created_at:'2020-01-01'}]})()`);
+    await clickText('Iniciar patrulha');await waitFor('document.body.innerText.includes("Antes de começar")');
+    await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent.includes("Entendi")).click()');
+    await waitFor('Object.keys(gps.watchers).length===1');await evaluate('gps.emit(-8.60008,-38.57,5)');await waitFor(alert+' && window.testMap');
+    await waitFor('document.querySelectorAll(".custom-leaflet-icon").length===2');
+    assert.ok(await evaluate('document.querySelector(`section[aria-label="Poste com problema próximo"]`).innerText.includes("ANTIGO")'));
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    await screenshot('filtered-patrol-'+width);await clickText('Depois');
+    await waitFor('document.querySelector(`section[aria-label="Poste com problema próximo"]`)?.innerText.includes("NOVO")');
+    await clickText('Depois');await waitFor('!'+alert);
+    results.push({width,filtersPreserved:true,filteredMap:true,oldestAlert:true,onlySelectedServicesAlert:true,overflow:false});
   }
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify(results,null,2));

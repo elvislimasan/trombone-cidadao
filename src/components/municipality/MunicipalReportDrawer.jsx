@@ -24,6 +24,8 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
   const [linked, setLinked] = useState(null);
   const [steps, setSteps] = useState([]);
   const [updates, setUpdates] = useState([]);
+  const [requester, setRequester] = useState(null);
+  const [requesterError, setRequesterError] = useState('');
   const [viewingPhotoIndex, setViewingPhotoIndex] = useState(null);
   const [tab, setTab] = useState('informacoes');
   const [loading, setLoading] = useState(false);
@@ -51,11 +53,13 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
     setLinked(null);
     setSteps([]);
     setUpdates([]);
+    setRequester(null);
+    setRequesterError('');
     setError('');
     setViewingPhotoIndex(null);
     setTab('informacoes');
     (async () => {
-      const [reportResult, linkedResult, stepsResult, updatesResult] = await Promise.all([
+      const [reportResult, linkedResult, stepsResult, updatesResult, requesterResult] = await Promise.all([
         supabase.from('reports')
           .select('id,city_id,title,description,address,reference_point,neighborhood,created_at,status,protocol,location,category_id,issue_type,pole_number,is_from_water_utility,is_public,created_by_municipality,category:categories(name),featured_image_url,report_media(url,type,created_at)')
           .eq('id', reportId).eq('city_id', context.municipality.city_id)
@@ -67,9 +71,12 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
           .order('ocorreu_em', { ascending: false }).limit(20),
         supabase.from('report_updates').select('id,message,created_at,status')
           .eq('report_id', reportId).order('created_at', { ascending: false }).limit(20),
+        supabase.from('municipal_report_contacts').select('name,phone').eq('report_id', reportId).maybeSingle(),
       ]);
       if (!active) return;
       setReport(reportResult.data);
+      setRequester(requesterResult.data || null);
+      setRequesterError(requesterResult.error ? 'Não foi possível carregar o contato do cidadão.' : '');
       setUpdateStatus('recebida');
       setLinked(linkedResult.data?.[0] || null);
       setSteps(stepsResult.data || []);
@@ -211,6 +218,13 @@ export default function MunicipalReportDrawer({ open, reportId, context, onClose
             <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-content-secondary">{report.description || 'Sem descrição adicional.'}</p>
           </section>
 
+          {(requester || requesterError) && <section className="border-t border-edge-subtle pt-5" aria-label="Cidadão solicitante">
+            <h2 className="text-sm font-bold">Cidadão solicitante</h2>
+            <p className="mt-1 text-xs text-content-tertiary">Contato para uso da equipe municipal no atendimento.</p>
+            {requester?.name && <p className="mt-2 break-words text-sm"><span className="font-semibold">Nome: </span>{requester.name}</p>}
+            {requester?.phone && <p className="mt-2 text-sm"><span className="font-semibold">Telefone: </span><a className="inline-flex min-h-11 items-center font-semibold text-brand underline" href={`tel:${requester.phone.replace(/[^+\d]/g, '')}`}>{requester.phone}</a></p>}
+            {requesterError && <p role="alert" className="mt-2 text-sm text-danger">{requesterError} <button type="button" className="min-h-11 underline" onClick={() => setRevision(value => value + 1)}>Tentar novamente</button></p>}
+          </section>}
           <section className="border-t border-edge-subtle pt-5" aria-labelledby="atendimento-da-solicitação">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h2 id="atendimento-da-solicitação" className="text-sm font-bold">Atendimento municipal</h2>

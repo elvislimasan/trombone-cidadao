@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { ArrowRight, Circle, Download, History, LampDesk, Lightbulb, Loader2, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, Wrench } from 'lucide-react';
+import { ArrowRight, Circle, Download, History, LampDesk, Lightbulb, Loader2, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, Wrench, X } from 'lucide-react';
+import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import MunicipalLightingMap, { lightingStatus } from '@/components/municipality/MunicipalLightingMap';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import PoleDetailsDialog from '@/components/municipality/PoleDetailsDialog';
@@ -77,11 +78,12 @@ export default function MunicipalLightingPage() {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
   const [panel, setPanel] = useState('filters');
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [summary, setSummary] = useState(null);
   const [summaryError, setSummaryError] = useState('');
   const [pendingCount, setPendingCount] = useState(null);
   const visibleGeneration = useRef(0);
-  const sidebarRef = useRef(null);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [saving, setSaving] = useState(false);
@@ -467,15 +469,23 @@ export default function MunicipalLightingPage() {
     ['aceso', 'Sem problema registrado', Lightbulb, 'bg-success-bg text-success-fg', 'border-success-border'],
     ['apagado', 'Apagados / com problema', Circle, 'bg-danger-subtleBg text-danger-subtleFg', 'border-brand/20'],
   ];
+  const changeMapExpanded = (next) => { setMapExpanded(next); setFiltersOpen(false); };
+  const openFilters = () => {
+    setPanel('filters');
+    setFiltersOpen(true);
+    window.setTimeout(() => document.getElementById('lighting-search')?.focus({ preventScroll: true }), 0);
+  };
   return <div className="page-shell-fluid min-w-0 pb-8 pt-6 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
     <Helmet><title>Mapa de iluminação | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
     <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Infraestrutura da cidade</p><h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">Iluminação pública</h1><p className="mt-2 text-sm text-content-secondary">Localize postes, acompanhe as lâmpadas e organize a manutenção.</p></div><div className="flex flex-wrap items-center gap-2">{context.canReadAttendance && <Button variant="outline" onClick={() => setPendingOpen(true)}><Wrench className="mr-2 h-4 w-4" />Pendências{pendingCount > 0 && <span className="ml-2 rounded-full bg-danger-subtleBg px-2 py-0.5 text-xs font-semibold text-danger-subtleFg">{pendingCount}</span>}</Button>}{context.canEditLighting && <><Button variant="outline" onClick={() => setBulkOpen(true)}>Alterar lâmpadas em massa</Button><Button onClick={() => newPole()}><Plus className="mr-2 h-4 w-4" />Adicionar poste</Button></>}</div></header>
     <section aria-label="Indicadores de iluminação da cidade" className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">{lightingMetrics.map(([status, label, Icon, tone, border]) => <button key={status} type="button" onClick={() => updateFilters({ ...filters, status })} aria-pressed={filters.status === status} className={'flex min-w-0 items-start gap-3 rounded-xl border bg-surface-raised p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (filters.status === status && status !== 'all' ? border + ' ring-1 ring-inset ring-edge-default' : 'border-edge-subtle')}><span className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + tone}><Icon className={'h-5 w-5 ' + (Icon === Circle ? 'fill-current' : '')} /></span><span className="min-w-0"><strong className="block text-2xl font-bold tabular-nums tracking-tight">{summary?.[status]?.toLocaleString('pt-BR') ?? '—'}</strong><span className="mt-0.5 block text-xs font-medium text-content-secondary">{label}</span><span className="mt-1 block text-[11px] tabular-nums text-content-secondary">{status === 'all' ? 'No cadastro ativo da cidade' : summary ? (summary.all ? (summary[status] / summary.all * 100) : 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% do total' : 'Carregando…'}</span></span></button>)}</section>
     <p className="mt-2 text-xs text-content-secondary">Indicadores de toda a cidade. “Sem problema registrado” não significa funcionamento verificado em campo.</p>
     {summaryError && <p role="status" className="mt-2 text-xs text-danger">Não foi possível carregar os indicadores. <button type="button" onClick={() => setRevision((value) => value + 1)} className="underline">Tentar novamente</button></p>}
-    <section className="mt-5 grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] 4xl:grid-cols-[minmax(0,1fr)_25rem]">
-      <div className="min-w-0"><MunicipalLightingMap center={center} focus={focus} coordinateTarget={coordinateTarget} items={mapItems} selected={selected} loading={loading} count={poleCount} onBounds={setBounds} onSelect={editPole} onFilters={() => { setPanel('filters'); if (window.innerWidth < 1200) sidebarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); window.setTimeout(() => document.getElementById('lighting-search')?.focus({ preventScroll: true }), 0); }} />{error && <p role="alert" className="mt-2 text-sm text-danger">{error}<button type="button" onClick={loadVisible} className="ml-2 underline">Tentar novamente</button></p>}</div>
-      <aside ref={sidebarRef} className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-1">
+    <FullscreenMapPanel title="Mapa de iluminação pública" className="mt-5" open={mapExpanded} onOpenChange={changeMapExpanded} hideExpandButton>
+    <section className={'relative min-w-0 ' + (mapExpanded ? 'h-full min-h-0 overflow-hidden' : '')}>
+      <div className={'min-w-0 ' + (mapExpanded ? 'relative h-full min-h-0' : '')}><MunicipalLightingMap center={center} focus={focus} coordinateTarget={coordinateTarget} items={mapItems} selected={selected} loading={loading} count={poleCount} onBounds={setBounds} onSelect={editPole} onFilters={openFilters} fullscreen={mapExpanded} onFullscreenChange={changeMapExpanded} />{error && <p role="alert" className={'mt-2 text-sm text-danger ' + (mapExpanded ? 'absolute bottom-24 left-4 right-4 z-[600] rounded-lg bg-surface-raised p-3' : '')}>{error}<button type="button" onClick={loadVisible} className="ml-2 underline">Tentar novamente</button></p>}</div>
+      <aside aria-label="Ferramentas do mapa de iluminação" className={'absolute inset-y-3 right-3 z-[700] min-w-0 w-[min(22rem,calc(100%_-_1.5rem))] content-start gap-2 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-raised shadow-lg ' + (filtersOpen ? 'grid' : 'hidden')}>
+        <div className="flex items-center justify-between px-4 pt-3"><h2 className="text-sm font-semibold">Ferramentas do mapa</h2><Button type="button" variant="ghost" size="icon" aria-label="Fechar busca e filtros" onClick={() => setFiltersOpen(false)}><X className="h-4 w-4" /></Button></div>
         <section className="min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm">
           <div role="tablist" aria-label="Ferramentas de iluminação" className="flex border-b border-edge-subtle px-3">{[['filters', 'Busca e filtros', SlidersHorizontal], ['report', 'Relatório', Download]].map(([key, label, Icon]) => <button key={key} id={'lighting-tab-' + key} role="tab" aria-selected={panel === key} aria-controls={'lighting-panel-' + key} type="button" onClick={() => setPanel(key)} className={'flex min-h-12 items-center gap-1.5 border-b-2 px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (panel === key ? 'border-brand text-brand' : 'border-transparent text-content-secondary hover:text-content-primary')}><Icon className="h-3.5 w-3.5 shrink-0" />{label}{key === 'filters' && activeFilterCount > 0 && <span className="rounded bg-brand-subtleBg px-1.5 py-0.5 text-[10px]">{activeFilterCount}</span>}</button>)}</div>
           {panel === 'filters' ? <div id="lighting-panel-filters" role="tabpanel" aria-labelledby="lighting-tab-filters" className="space-y-4 p-4">
@@ -489,6 +499,7 @@ export default function MunicipalLightingPage() {
         </section>
       </aside>
     </section>
+    </FullscreenMapPanel>
     <MunicipalDrawer open={pendingOpen && context.canReadAttendance} onClose={() => setPendingOpen(false)} title="Pendências de iluminação" description="Postes com problema e ordens de serviço em aberto na cidade.">
       <LightingPendingPanel municipalityId={context.municipality.id} cityId={cityId} revision={revision} showHeading={false} />
     </MunicipalDrawer>
