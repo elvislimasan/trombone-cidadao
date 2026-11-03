@@ -1,0 +1,112 @@
+.tree-diary { --diary-paper: 255 253 247; --diary-ink: 41 64 43; --diary-rule: 201 215 190; --diary-wash: 241 245 234; display: grid; gap: 18px; min-width: 0; }
+.dark .tree-diary { --diary-paper: 33 40 32; --diary-ink: 214 229 202; --diary-rule: 72 88 65; --diary-wash: 28 35 27; }
+.tree-diary button, .tree-diary a { -webkit-tap-highlight-color: transparent; }
+.tree-diary :is(button,a):focus-visible, .tree-diary-book:focus-visible { outline: 2px solid rgb(var(--experience-forest)); outline-offset: 3px; }
+.tree-diary-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
+.tree-diary-heading > div { display: flex; align-items: center; gap: 11px; }
+.tree-diary-heading > div > span { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgb(var(--experience-leaf) / .18); border-radius: 12px; color: rgb(var(--experience-forest)); background: rgb(var(--experience-wash)); }
+.tree-diary-heading h2 { font-size: 22px; font-weight: 650; letter-spacing: -.025em; }
+.tree-diary-heading p { margin-top: 3px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-diary-heading > button { min-height: 44px; gap: 7px; border-radius: 8px; }
+.tree-diary-filters { display: flex; flex-wrap: wrap; gap: 7px; }
+.tree-diary-filters > button { min-height: 44px; padding: 9px 14px; border: 1px solid rgb(var(--border-subtle)); border-radius: 8px; background: rgb(var(--surface-raised)); color: rgb(var(--text-secondary)); font-size: 12px; }
+.tree-diary-filters > button[aria-pressed=true] { border-color: rgb(var(--experience-forest)); background: rgb(var(--experience-wash)); color: rgb(var(--experience-forest)); font-weight: 600; }
+.tree-diary-book { position: relative; isolation: isolate; min-width: 0; padding: 0 5px 12px; overflow: hidden; perspective: 1400px; border-radius: 15px; touch-action: pan-y pinch-zoom; }
+.tree-diary-book::before, .tree-diary-book::after { content: ''; position: absolute; left: 13px; right: 13px; bottom: 5px; height: 34px; z-index: -1; border: 1px solid rgb(var(--diary-rule) / .8); border-radius: 0 0 12px 12px; background: rgb(var(--diary-paper)); box-shadow: 0 4px 10px rgb(30 54 29 / .035); }
+.tree-diary-book::after { bottom: 2px; left: 19px; right: 19px; z-index: -2; }
+.tree-diary-paper { --diary-accent: 55 99 57; position: relative; display: grid; grid-template-columns: minmax(0,1.08fr) minmax(0,1fr); min-width: 0; min-height: 440px; overflow: hidden; border: 1px solid rgb(var(--diary-rule) / .8); border-radius: 13px; background: rgb(var(--diary-paper)); box-shadow: 0 5px 16px rgb(32 57 29 / .045); transform-origin: left center; backface-visibility: hidden; }
+.tree-diary-paper.is-watering { --diary-accent: 56 103 113; }
+.tree-diary-paper.is-observation { --diary-accent: 140 107 55; }
+.dark .tree-diary-paper { --diary-accent: 168 197 142; }
+.dark .tree-diary-paper.is-watering { --diary-accent: 144 189 192; }
+.dark .tree-diary-paper.is-observation { --diary-accent: 214 185 130; }
+.tree-diary-writing { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 26px 30px 20px 35px; border-right: 1px solid rgb(var(--diary-rule) / .65); }
+.tree-diary-writing::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 12px; background: linear-gradient(90deg,rgb(var(--diary-rule) / .24),transparent); pointer-events: none; }
+.tree-diary-page-top { display: flex; align-items: start; justify-content: space-between; gap: 12px; min-width: 0; }
+.tree-diary-chapter { max-width: 32ch; color: rgb(var(--text-secondary)); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.tree-diary-page-number { color: rgb(var(--diary-accent) / .6); font-family: Georgia,'Times New Roman',serif; font-size: 20px; }
+.tree-diary-action-icon { display: grid; place-items: center; width: 54px; height: 54px; margin-top: 23px; border: 1px solid rgb(var(--diary-accent) / .15); border-radius: 50% 44% 48% 45%; color: rgb(var(--diary-accent)); background: rgb(var(--diary-accent) / .07); transform: rotate(-5deg); }
+.tree-diary-action-icon > svg { transform: rotate(5deg); }
+.tree-diary-paper h3 { margin-top: 14px; font-family: Georgia,'Times New Roman',serif; font-size: clamp(29px,2.2vw,38px); line-height: 1.1; font-weight: 700; letter-spacing: -.035em; color: rgb(var(--diary-ink)); }
+.tree-diary-date { display: block; margin-top: 9px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-diary-notes { flex: 1; min-height: 130px; margin-top: 24px; background: repeating-linear-gradient(transparent 0,transparent 31px,rgb(var(--diary-rule) / .4) 31px,rgb(var(--diary-rule) / .4) 32px); }
+.tree-diary-notes > p { white-space: pre-wrap; overflow-wrap: anywhere; color: rgb(var(--diary-ink)); font-family: Georgia,'Times New Roman',serif; font-size: 20px; line-height: 32px; }
+.tree-diary-unwritten { padding-top: 8px; color: rgb(var(--diary-accent)); }
+.tree-diary-unwritten > p { max-width: 29ch; margin-top: 10px; font-family: Georgia,'Times New Roman',serif; font-size: 18px; line-height: 1.7; color: rgb(var(--text-secondary)); }
+.tree-diary-unwritten > button { min-height: 44px; margin-top: 5px; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
+.tree-diary-moderation { margin-top: 14px; font-size: 11px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.tree-diary-entry-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin-top: 20px; padding-top: 10px; border-top: 1px solid rgb(var(--diary-rule) / .65); }
+.tree-diary-visibility { display: inline-flex; align-items: center; gap: 5px; margin-right: auto; font-size: 10px; color: rgb(var(--text-secondary)); }
+.tree-diary-entry-footer > :is(button,a) { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; color: rgb(var(--text-secondary)); font-size: 10px; }
+.tree-diary-entry-footer > button[aria-haspopup=menu] { width: 40px; }
+.tree-diary-memory { display: grid; align-content: center; justify-items: center; min-width: 0; padding: 32px; color: rgb(var(--diary-accent)); background: linear-gradient(90deg,rgb(var(--diary-rule) / .13),transparent 10%),radial-gradient(ellipse at 80% 10%,rgb(var(--diary-accent) / .06),transparent 65%); }
+.tree-diary-polaroid { position: relative; width: 100%; max-width: 450px; min-width: 0; margin: 0; padding: 12px 12px 18px; background: rgb(var(--surface-raised)); box-shadow: 0 6px 22px rgb(29 49 29 / .12); transform: rotate(2deg); }
+.tree-diary-polaroid::before { content: ''; position: absolute; top: -12px; left: 35%; width: 32%; height: 28px; background: rgb(203 182 133 / .38); transform: rotate(-5deg); z-index: 1; pointer-events: none; }
+.tree-diary-polaroid > button { position: relative; display: block; width: 100%; min-width: 0; overflow: hidden; background: rgb(var(--diary-wash)); touch-action: pan-y pinch-zoom; }
+.tree-diary-polaroid img { display: block; width: 100%; height: clamp(240px,24vw,370px); object-fit: cover; }
+.tree-diary-polaroid button > span { position: absolute; right: 9px; bottom: 9px; display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 5px 8px; border-radius: 5px; background: rgb(0 0 0 / .45); color: #fff; font-size: 10px; }
+.tree-diary-polaroid figcaption { margin-top: 14px; font-family: Georgia,'Times New Roman',serif; font-size: 13px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; color: rgb(var(--text-secondary)); }
+.tree-diary-botanical { width: 100%; max-width: 360px; text-align: center; }
+.tree-diary-illustration { display: block; width: 100%; height: auto; max-height: 300px; }
+.tree-diary-botanical > p { margin-top: 6px; font-family: Georgia,'Times New Roman',serif; font-size: 17px; line-height: 1.5; font-style: italic; color: rgb(var(--diary-ink)); }
+.tree-diary-botanical > span { display: block; margin-top: 12px; font-size: 9px; color: rgb(var(--text-tertiary)); }
+.tree-diary-photo-missing { display: grid; justify-items: center; gap: 14px; padding: 24px 12px; text-align: center; color: rgb(var(--text-secondary)); }
+.tree-diary-photo-missing h4 { font-size: 17px; font-weight: 600; }
+.tree-diary-photo-missing p { max-width: 32ch; font-size: 12px; line-height: 1.7; }
+.tree-diary-photo-missing > div { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.tree-diary-photo-missing button { min-height: 44px; gap: 6px; font-size: 11px; }
+.tree-diary-navigation { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tree-diary-navigation > button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 46px; padding: 10px 14px; border: 1px solid rgb(var(--border-subtle)); border-radius: 9px; color: rgb(var(--experience-forest)); background: rgb(var(--surface-raised)); font-size: 12px; }
+.tree-diary-navigation > button:disabled { opacity: .35; cursor: default; }
+.tree-diary-navigation > div { text-align: center; }
+.tree-diary-navigation strong { font-size: 12px; font-weight: 600; color: rgb(var(--text-secondary)); }
+.tree-diary-swipe-hint { display: none; }
+.tree-diary-empty-book { display: grid; grid-template-columns: minmax(0,1fr) minmax(190px,.65fr); gap: 24px; align-items: center; min-width: 0; min-height: 340px; padding: 35px; border: 1px solid rgb(var(--diary-rule) / .8); border-left: 10px solid rgb(var(--experience-forest) / .7); border-radius: 8px 16px 16px 8px; background: rgb(var(--diary-paper)); box-shadow: 4px 5px 0 rgb(var(--diary-rule) / .3); color: rgb(var(--experience-forest)); }
+.tree-diary-empty-book > div > span { display: block; margin-top: 20px; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+.tree-diary-empty-book h3 { margin-top: 12px; font-family: Georgia,'Times New Roman',serif; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.tree-diary-empty-book p { max-width: 45ch; margin-block: 14px 20px; font-size: 13px; line-height: 1.7; color: rgb(var(--text-secondary)); }
+.tree-diary-empty-book button { min-height: 46px; gap: 7px; white-space: normal; }
+.tree-diary-load-more { justify-self: center; min-height: 44px; gap: 8px; }
+@media (max-width: 1199px) and (min-width: 900px) { .tree-diary-writing { padding-inline: 24px; } .tree-diary-memory { padding: 22px; } .tree-diary-paper { grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); } .tree-diary-polaroid img { height: 270px; } }
+@media (max-width: 699px) {
+  .tree-diary { gap: 15px; }
+  .tree-diary-heading { gap: 10px; }
+  .tree-diary-heading > div { gap: 9px; }
+  .tree-diary-heading > div > span { width: 34px; height: 38px; border-radius: 10px; }
+  .tree-diary-heading h2 { font-size: 20px; }
+  .tree-diary-heading p { font-size: 10px; }
+  .tree-diary-heading > button { padding-inline: 9px; font-size: 11px; }
+  .tree-diary-filters { flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .tree-diary-filters > button { flex-shrink: 0; padding-inline: 11px; font-size: 11px; }
+  .tree-diary-book { padding-inline: 3px; }
+  .tree-diary-paper { grid-template-columns: minmax(0,1fr); min-height: 0; padding: 20px; }
+  .tree-diary-writing { display: contents; }
+  .tree-diary-writing::before { display: none; }
+  .tree-diary-page-top { order: 0; }
+  .tree-diary-chapter { max-width: 28ch; font-size: 9px; }
+  .tree-diary-action-icon { order: 1; width: 44px; height: 44px; margin-top: 17px; }
+  .tree-diary-paper h3 { order: 2; margin-top: 12px; font-size: 32px; }
+  .tree-diary-date { order: 3; font-size: 12px; }
+  .tree-diary-memory { order: 4; padding: 27px 6px 6px; background: none; }
+  .tree-diary-polaroid { max-width: 360px; padding: 9px 9px 14px; transform: rotate(-1.5deg); }
+  .tree-diary-polaroid img { height: 255px; }
+  .tree-diary-polaroid figcaption { margin-top: 11px; font-size: 12px; }
+  .tree-diary-botanical { max-width: 210px; }
+  .tree-diary-botanical > p { margin-top: 0; font-size: 15px; }
+  .tree-diary-botanical > span { margin-top: 7px; font-size: 8px; }
+  .tree-diary-notes { order: 5; min-height: 100px; margin-top: 20px; }
+  .tree-diary-notes > p { font-size: 19px; }
+  .tree-diary-unwritten > p { max-width: none; font-size: 17px; }
+  .tree-diary-moderation { order: 6; }
+  .tree-diary-entry-footer { order: 7; margin-top: 16px; }
+  .tree-diary-entry-footer > :is(button,a) { font-size: 10px; }
+  .tree-diary-navigation { gap: 8px; }
+  .tree-diary-navigation > button { min-width: 44px; padding: 10px 8px; }
+  .tree-diary-navigation > button > span { display: none; }
+  .tree-diary-navigation strong { font-size: 12px; }
+  .tree-diary-swipe-hint { display: block; margin-top: 5px; font-size: 9px; color: rgb(var(--text-tertiary)); }
+  .tree-diary-empty-book { grid-template-columns: minmax(0,1fr); gap: 5px; min-height: 0; padding: 25px 23px; }
+  .tree-diary-empty-book h3 { font-size: 29px; }
+  .tree-diary-empty-book > .tree-diary-illustration { max-width: 180px; justify-self: end; margin-top: -5px; }
+}
+@media (prefers-reduced-motion: reduce) { .tree-diary *, .tree-diary *::before, .tree-diary *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

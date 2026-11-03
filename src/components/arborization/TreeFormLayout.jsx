@@ -11,8 +11,8 @@ export function TreeFormProgress({ steps, current, onSelect, busy = false, label
   })}</ol></nav>;
 }
 
-export function TreeFormHeading({ title, description, step, total, headingRef, className = '' }) {
-  return <header className={`tree-form-heading ${className}`}><p className="tree-form-kicker"><Leaf size={14} aria-hidden="true" />Etapa {step + 1} de {total}</p><h2 ref={headingRef} tabIndex={-1}>{title}</h2><p>{description}</p></header>;
+export function TreeFormHeading({ title, description, step, total, headingRef, className = '', showStep = true }) {
+  return <header className={`tree-form-heading ${className}`}>{showStep && <p className="tree-form-kicker"><Leaf size={14} aria-hidden="true" />Etapa {step + 1} de {total}</p>}<h2 ref={headingRef} tabIndex={-1}>{title}</h2><p>{description}</p></header>;
 }
 
 export function TreeFormHelp({ title, items, photo = 'tree' }) {

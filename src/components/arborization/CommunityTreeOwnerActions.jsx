@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, Loader2, MoreHorizontal, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
+import { Camera, Eye, EyeOff, Loader2, MoreHorizontal, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -20,8 +20,8 @@ export function TreeOwnerActions({ tree, onPhoto, onPrivacy, onDelete }) {
   </div>;
 }
 
-export function CareOwnerActions({ care, onEdit, onDelete }) {
-  return <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={`Ações do cuidado de ${care.performed_on}`}><MoreHorizontal size={19} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => onEdit(care)}><Pencil size={16} className="mr-2" />Editar cuidado</DropdownMenuItem><DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onDelete(care)}><Trash2 size={16} className="mr-2" />Excluir cuidado</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+export function CareOwnerActions({ care, onEdit, onDelete, onPrivacy, disabled = false }) {
+  return <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" disabled={disabled} aria-label={`Ações do cuidado de ${care.performed_on}`}><MoreHorizontal size={19} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={disabled} onSelect={() => onEdit(care)}><Pencil size={16} className="mr-2" />Editar cuidado</DropdownMenuItem>{onPrivacy && <DropdownMenuItem disabled={disabled} onSelect={() => onPrivacy(care)}>{care.is_public ? <EyeOff size={16} className="mr-2" /> : <Eye size={16} className="mr-2" />}{care.is_public ? 'Guardar só para mim' : 'Tornar público'}</DropdownMenuItem>}<DropdownMenuItem disabled={disabled} className="text-destructive focus:text-destructive" onSelect={() => onDelete(care)}><Trash2 size={16} className="mr-2" />Excluir cuidado</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
 }
 
 export function CommunityDeleteDialog({ tree, care, userId, onClose, onDeleted }) {

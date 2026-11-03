@@ -37,6 +37,53 @@ function drawPhoto(ctx, img, entry, label, x, y, width, height) {
   ctx.restore();
 }
 
+function drawStoryPhoto(ctx, img, entry, label, x, y, width, height) {
+  ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, width, height, 40); ctx.clip();
+  const ratio = Math.max(width / img.width, height / img.height);
+  ctx.drawImage(img, x + (width - img.width * ratio) / 2, y + (height - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
+  const stampDate = dateLabel(entry.date);
+  ctx.font = '700 32px Arial'; const labelWidth = ctx.measureText(label).width;
+  ctx.font = '31px Arial'; const rest = stampDate ? ` · ${stampDate}` : '';
+  const stampWidth = labelWidth + ctx.measureText(rest).width + 54;
+  roundBox(ctx, x + 28, y + 28, stampWidth, 64, 32, 'rgba(250,248,238,.97)');
+  ctx.fillStyle = '#173e29'; ctx.font = '700 32px Arial'; ctx.fillText(label, x + 55, y + 71);
+  ctx.font = '31px Arial'; ctx.fillText(rest, x + 55 + labelWidth, y + 71);
+  ctx.restore();
+}
+
+async function drawStory(ctx, { tree, before, after, beforeImage, afterImage, logo, comparison, url }) {
+  ctx.fillStyle = '#faf7ed'; ctx.fillRect(0, 0, 1080, 1920);
+  ctx.fillStyle = '#e9eedb'; ctx.beginPath(); ctx.ellipse(1090, -10, 350, 310, -.15, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#d8e3c3'; ctx.beginPath(); ctx.ellipse(1020, 58, 49, 122, .62, 0, Math.PI * 2); ctx.fill();
+  ctx.drawImage(logo, 76, 50, 90, 90 * logo.height / logo.width);
+  ctx.strokeStyle = '#6c795d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(190, 65); ctx.lineTo(190, 110); ctx.stroke();
+  ctx.fillStyle = '#791d18'; ctx.font = '700 32px Arial'; ctx.fillText('TROMBONE CIDADÃO', 214, 101);
+
+  ctx.fillStyle = '#092f1f'; ctx.font = '700 110px Georgia'; ctx.fillText('Uma cidade em', 76, 246, 930);
+  ctx.font = 'italic 700 116px Georgia'; ctx.fillText('transformação', 76, 344, 930);
+  roundBox(ctx, 76, 389, 120, 11, 5, '#8ca541');
+  ctx.fillStyle = '#35563a'; ctx.font = '36px Arial';
+  wrapText(ctx, [tree.species_name || tree.name, tree.city_name].filter(Boolean).join(' · '), 230, 411, 780, 42, 1);
+
+  if (comparison) {
+    drawStoryPhoto(ctx, beforeImage, before, 'ANTES', 48, 462, 984, 455);
+    ctx.strokeStyle = '#8caa68'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(540, 917); ctx.lineTo(540, 1004); ctx.stroke();
+    ctx.fillStyle = '#436e43'; ctx.beginPath(); ctx.arc(540, 960, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(531, 959); ctx.lineTo(538, 966); ctx.lineTo(550, 952); ctx.stroke();
+    drawStoryPhoto(ctx, afterImage, after, 'DEPOIS', 48, 1004, 984, 465);
+  } else drawStoryPhoto(ctx, beforeImage, before, 'PRIMEIRO REGISTRO', 48, 462, 984, 1007);
+
+  const footer = ctx.createLinearGradient(0, 1524, 1080, 1920); footer.addColorStop(0, '#104d32'); footer.addColorStop(1, '#103b29');
+  ctx.fillStyle = footer; ctx.beginPath(); ctx.moveTo(0, 1614); ctx.quadraticCurveTo(0, 1524, 90, 1524); ctx.lineTo(990, 1524); ctx.quadraticCurveTo(1080, 1524, 1080, 1614); ctx.lineTo(1080, 1920); ctx.lineTo(0, 1920); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f8f6e9'; ctx.font = '700 76px Georgia'; ctx.fillText('Acompanhe essa', 82, 1640, 630); ctx.fillText(comparison ? 'transformação' : 'história crescer', 82, 1713, 630);
+  ctx.strokeStyle = '#e0eacf'; ctx.lineWidth = 4; ctx.beginPath(); ctx.roundRect(82, 1757, 578, 80, 40); ctx.stroke();
+  ctx.font = '600 38px Arial'; ctx.textAlign = 'center'; ctx.fillText('Veja a história completa', 371, 1808, 532); ctx.textAlign = 'left';
+  ctx.strokeStyle = '#96b172'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(724, 1608); ctx.lineTo(724, 1822); ctx.stroke();
+  const qr = document.createElement('canvas');
+  await QRCode.toCanvas(qr, url, { width: 204, margin: 2, color: { dark: '#123e28', light: '#ffffff' } });
+  roundBox(ctx, 782, 1598, 224, 224, 18, '#fff'); ctx.drawImage(qr, 792, 1608);
+}
+
 export function communityComparison(photos, { beforeId, afterId } = {}) {
   const first = beforeId ? photos.find(entry => entry.id === beforeId) : photos[0];
   const last = afterId ? photos.find(entry => entry.id === afterId) : photos.at(-1);
@@ -63,33 +110,34 @@ export async function generateCommunityTreeCard(client, tree, _care, options = {
   const { before, after, comparison } = selection;
   const [beforeImage, afterImage, logo] = await Promise.all([photo(before.url), comparison ? photo(after.url) : Promise.resolve(null), photo('/logo.png')]);
   const canvas = document.createElement('canvas'); Object.assign(canvas, dimensions); const ctx = canvas.getContext('2d');
+  const url = new URL(`/arvores-da-comunidade/${encodeURIComponent(tree.id)}`, getBaseAppUrl()).href;
+  if (format === 'story') {
+    await drawStory(ctx, { tree: freshTree, before, after, beforeImage, afterImage, logo, comparison, url });
+    return { dataUrl: canvas.toDataURL('image/png'), url, fileName: `story-minha-arvore-${tree.id.slice(0, 8)}.png`, format, ...dimensions, photos, beforeId: before.id, afterId: after.id, comparison };
+  }
   ctx.fillStyle = '#f5f3e9'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#e3ead7'; ctx.beginPath(); ctx.ellipse(1050, 80, 310, 290, -.3, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#d2dfc6'; ctx.beginPath(); ctx.ellipse(1010, 85, 46, 102, .6, 0, Math.PI * 2); ctx.fill();
-  const story = format === 'story', top = story ? 144 : 64;
+  const top = 64;
   ctx.drawImage(logo, 48, top - 43, 64, 64 * logo.height / logo.width);
   ctx.fillStyle = '#651b1b'; ctx.font = '700 25px Arial'; ctx.fillText('TROMBONE CIDADÃO', 128, top);
   ctx.fillStyle = '#183e29'; ctx.font = '700 68px Georgia'; const lines = wrapText(ctx, freshTree.name, 48, top + 106, 980, 73);
   const titleBottom = top + 106 + (lines - 1) * 73;
   ctx.fillStyle = '#576950'; ctx.font = '27px Arial'; wrapText(ctx, [freshTree.species_name, freshTree.city_name].filter(Boolean).join(' · '), 50, titleBottom + 48, 960, 33, 1);
   const photoTop = titleBottom + 88; let photoBottom;
-  if (story && comparison) {
-    drawPhoto(ctx, beforeImage, before, 'ANTES', 48, photoTop, 984, 460);
-    drawPhoto(ctx, afterImage, after, 'DEPOIS', 48, photoTop + 484, 984, 460); photoBottom = photoTop + 944;
-  } else if (comparison) {
+  if (comparison) {
     drawPhoto(ctx, beforeImage, before, 'ANTES', 48, photoTop, 480, 538);
     drawPhoto(ctx, afterImage, after, 'DEPOIS', 552, photoTop, 480, 538); photoBottom = photoTop + 538;
   } else {
-    const height = story ? 880 : 538; drawPhoto(ctx, beforeImage, before, 'PRIMEIRO REGISTRO', 48, photoTop, 984, height); photoBottom = photoTop + height;
+    drawPhoto(ctx, beforeImage, before, 'PRIMEIRO REGISTRO', 48, photoTop, 984, 538); photoBottom = photoTop + 538;
   }
-  const footerTop = photoBottom + 32, footerBottom = dimensions.height - (story ? 144 : 48);
+  const footerTop = photoBottom + 32, footerBottom = dimensions.height - 48;
   roundBox(ctx, 48, footerTop, 984, footerBottom - footerTop, 28, '#173e2a');
   ctx.fillStyle = '#f6f4e9'; ctx.font = '700 44px Georgia'; wrapText(ctx, comparison ? 'Cuidado que vira transformação.' : 'Toda história começa com um cuidado.', 80, footerTop + 70, 690, 53);
   ctx.fillStyle = '#c5d8b7'; ctx.font = '23px Arial'; ctx.fillText('Acompanhe essa história', 80, footerTop + 204);
   ctx.drawImage(logo, 80, footerBottom - 73, 46, 46 * logo.height / logo.width);
   ctx.fillStyle = '#f6f4e9'; ctx.font = '700 23px Arial'; ctx.fillText('Trombone Cidadão', 138, footerBottom - 47);
-  const url = new URL(`/arvores-da-comunidade/${encodeURIComponent(tree.id)}`, getBaseAppUrl()).href;
   const qr = document.createElement('canvas'); await QRCode.toCanvas(qr, url, { width: 148, margin: 1, color: { dark: '#173e2a', light: '#ffffff' } });
   roundBox(ctx, 832, footerTop + 52, 168, 168, 16, '#fff'); ctx.drawImage(qr, 842, footerTop + 62);
-  return { dataUrl: canvas.toDataURL('image/png'), url, fileName: `${story ? 'story' : 'feed'}-minha-arvore-${tree.id.slice(0, 8)}.png`, format, ...dimensions, photos, beforeId: before.id, afterId: after.id, comparison };
+  return { dataUrl: canvas.toDataURL('image/png'), url, fileName: `feed-minha-arvore-${tree.id.slice(0, 8)}.png`, format, ...dimensions, photos, beforeId: before.id, afterId: after.id, comparison };
 }

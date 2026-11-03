@@ -1,0 +1,84 @@
+/* Citizen request tracking uses the fluid page and the system theme. */
+.tree-adoption-page.tree-requests-page { gap: 26px; background: rgb(var(--surface-base)); padding-bottom: calc(var(--bottom-nav-occupied-height,0px) + 40px); }
+.tree-requests-page .tree-collection-intro { min-height: 244px; }
+.tree-requests-page .tree-collection-intro-copy { padding: 32px 36px; }
+.tree-requests-page .tree-collection-intro h1 { font-size: clamp(36px,3vw,48px); }
+.tree-requests-page .tree-collection-intro-copy > span { font-size: 15px; }
+.tree-requests-page .adoption-requests-panel { gap: 32px; }
+.adoption-citizen-requests { gap: 24px; }
+.adoption-citizen-requests .adoption-queue-toolbar { align-items: center; flex-wrap: wrap; gap: 16px; padding: 0; border: 0; background: transparent; }
+.adoption-citizen-requests .adoption-queue-toolbar h2 { font-size: 22px; line-height: 1.3; letter-spacing: -.025em; font-weight: 650; }
+.adoption-citizen-requests .adoption-queue-toolbar > div > p { margin-top: 6px; font-size: 13px; }
+.adoption-citizen-requests .adoption-queue-toolbar > label { width: 260px; max-width: 100%; font-size: 12px; }
+.adoption-citizen-requests .adoption-queue-toolbar select { min-height: 46px; padding-inline: 12px; font-size: 14px; border-radius: 10px; }
+.adoption-citizen-requests .adoption-request-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: stretch; gap: 24px; }
+.adoption-citizen-requests .adoption-request-card.is-citizen { position: relative; display: flex; flex-direction: column; gap: 24px; padding: 26px; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; background: rgb(var(--surface-raised)); box-shadow: 0 4px 14px rgb(var(--text-primary) / .025); }
+.adoption-citizen-requests .adoption-request-card.needs-reply { border-color: rgb(var(--brand) / .3); }
+.adoption-citizen-requests .adoption-citizen-card-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.adoption-citizen-card-top .adoption-request-protocol { font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.adoption-citizen-card-top .adoption-status { padding: 7px 10px; font-size: 12px; border-radius: 20px; }
+.adoption-citizen-card-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.adoption-citizen-card-identity > div { min-width: 0; }
+.adoption-citizen-requests .adoption-citizen-icon { width: 56px; height: 56px; border-radius: 16px; background: rgb(var(--collection-wash,238 244 231)); color: rgb(var(--collection-forest,30 78 43)); }
+.adoption-citizen-requests h3.adoption-citizen-title { margin: 0; font-size: 23px; font-weight: 700; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.adoption-citizen-card-type { margin-top: 8px; font-size: 13px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.adoption-citizen-extra-species { margin-top: 5px; font-size: 13px; color: rgb(var(--text-secondary)); }
+.adoption-citizen-progress { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding-block: 2px; }
+.adoption-citizen-progress > li { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; padding-top: 13px; color: rgb(var(--text-secondary)); font-size: 12px; }
+.adoption-citizen-progress > li::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; border-radius: 4px; background: rgb(var(--border-subtle)); }
+.adoption-citizen-progress > li > span:first-child { display: grid; place-items: center; flex-shrink: 0; width: 20px; height: 20px; border: 1px solid rgb(var(--border-default)); border-radius: 50%; font-size: 10px; }
+.adoption-citizen-progress > li:is(.is-complete,.is-current) { color: rgb(var(--collection-forest,30 78 43)); }
+.adoption-citizen-progress > li:is(.is-complete,.is-current)::before { background: rgb(var(--collection-forest,30 78 43)); }
+.adoption-citizen-progress > li.is-complete > span:first-child { border-color: transparent; background: rgb(var(--collection-wash,238 244 231)); }
+.adoption-citizen-progress > li.is-current > span:first-child { border-color: currentColor; font-weight: 650; }
+.adoption-citizen-requests .adoption-citizen-location { gap: 9px; font-size: 14px; line-height: 1.65; }
+.adoption-citizen-requests .adoption-citizen-location p { overflow-wrap: anywhere; }
+.adoption-citizen-requests .adoption-citizen-next { display: flex; align-items: start; gap: 12px; padding: 16px 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; background: rgb(var(--surface-subtle) / .6); }
+.adoption-citizen-next > svg { flex-shrink: 0; margin-top: 2px; color: rgb(var(--brand)); }
+.adoption-citizen-requests .adoption-citizen-next strong { font-size: 12px; font-weight: 600; color: rgb(var(--text-primary)); }
+.adoption-citizen-requests .adoption-citizen-next p { margin-top: 6px; font-size: 14px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.adoption-request-card.needs-reply .adoption-citizen-next { border-color: rgb(var(--brand) / .12); background: rgb(var(--brand-subtle-bg)); }
+.adoption-citizen-requests .adoption-request-card.is-citizen > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: auto; padding-top: 18px; border-top: 1px solid rgb(var(--border-subtle)); }
+.adoption-citizen-requests .adoption-request-card.is-citizen time { gap: 7px; font-size: 12px; }
+.adoption-citizen-requests .adoption-request-card.is-citizen footer > button { min-height: 46px; height: auto; padding: 11px 16px; gap: 10px; font-size: 14px; border-radius: 9px; }
+.tree-requests-page .tree-planting-next { padding: 24px; border-color: rgb(var(--border-subtle)); background: rgb(var(--surface-raised)); }
+.tree-requests-page .adoption-queue-empty { min-height: 260px; gap: 18px; }
+.tree-requests-page .adoption-queue-empty h3 { font-size: 20px; }
+.tree-requests-page .adoption-queue-empty > p { font-size: 14px; }
+
+.adoption-citizen-detail .adoption-detail-header { padding: 26px 52px 26px 26px; }
+.adoption-citizen-detail .adoption-detail-layout { padding: 26px; gap: 28px; }
+.adoption-citizen-detail .adoption-detail-summary dt { font-size: 12px; }
+.adoption-citizen-detail .adoption-detail-summary dd { font-size: 14px; line-height: 1.65; }
+.adoption-citizen-detail :is(.adoption-detail-summary,.adoption-detail-history) > h3 { font-size: 15px; }
+.adoption-citizen-detail .adoption-detail-action { padding: 22px; gap: 20px; }
+.adoption-citizen-detail .adoption-detail-action :is(label,fieldset > p) { font-size: 14px; }
+.adoption-citizen-detail .adoption-detail-action :is(button,select) { min-height: 46px; }
+.adoption-citizen-detail .adoption-timeline li > p { font-size: 14px; }
+
+@media (min-width: 1700px) { .adoption-citizen-requests .adoption-request-list { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 979px) { .adoption-citizen-requests .adoption-request-list { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 599px) {
+  .tree-adoption-page.tree-requests-page { gap: 24px; padding-bottom: calc(var(--bottom-nav-occupied-height,104px) + 28px); }
+  .tree-requests-page .tree-collection-intro { min-height: 228px; }
+  .tree-requests-page .tree-collection-intro-copy { padding: 28px 24px; }
+  .tree-requests-page .tree-collection-intro h1 { font-size: 36px; }
+  .tree-requests-page .tree-collection-intro-copy > span { font-size: 14px; }
+  .adoption-citizen-requests .adoption-queue-toolbar { align-items: start; gap: 16px; }
+  .adoption-citizen-requests .adoption-queue-toolbar > label { width: 100%; max-width: 100%; font-size: 12px; }
+  .adoption-citizen-requests .adoption-queue-toolbar select { font-size: 16px; }
+  .adoption-citizen-requests .adoption-request-card.is-citizen { padding: 22px 20px; gap: 22px; }
+  .adoption-citizen-requests h3.adoption-citizen-title { font-size: 22px; }
+  .adoption-citizen-requests .adoption-citizen-icon { width: 48px; height: 48px; border-radius: 13px; }
+  .adoption-citizen-card-identity { gap: 12px; }
+  .adoption-citizen-card-top .adoption-status { font-size: 11px; }
+  .adoption-citizen-progress { gap: 8px; }
+  .adoption-citizen-progress > li { gap: 5px; font-size: 11px; }
+  .adoption-citizen-requests .adoption-citizen-next { padding: 16px; }
+  .adoption-citizen-requests .adoption-request-card.is-citizen footer > button { flex: 1 1 100%; justify-content: space-between; }
+  .tree-requests-page .tree-planting-next { padding: 22px; }
+  .adoption-citizen-detail .adoption-detail-header { padding: 24px 44px 24px 20px; }
+  .adoption-citizen-detail .adoption-detail-layout { padding: 24px 20px; gap: 28px; }
+  .adoption-citizen-detail .adoption-detail-action { padding: 20px 16px; }
+  .adoption-citizen-detail .adoption-detail-action :is(input,select,textarea) { font-size: 16px; }
+}

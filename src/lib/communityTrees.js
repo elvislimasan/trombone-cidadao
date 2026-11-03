@@ -65,7 +65,14 @@ async function uploadCommunityPhoto(client, file, treeId, userId) {
 
 async function cleanupPhoto(client, path) {
   if (!path) return;
-  try { await client.storage.from(COMMUNITY_PHOTO_BUCKET).remove([path]); } catch { /* A política impede apagar fotos já vinculadas. */ }
+  try {
+    // A storage policy may be permissive for several buckets. Never attempt to
+    // remove an upload until the server confirms that no saved record uses it.
+    // If this check is unavailable (including older databases), keep the file.
+    const { data, error } = await client.rpc('can_cleanup_community_photo', { p_path: path });
+    if (error || data !== true) return;
+    await client.storage.from(COMMUNITY_PHOTO_BUCKET).remove([path]);
+  } catch { /* An uncertain result must preserve the uploaded photo. */ }
 }
 
 export async function submitCommunityTree(client, form, file, userId) {
@@ -78,7 +85,7 @@ export async function submitCommunityTree(client, form, file, userId) {
     if (!uploaded && !form.cover_photo) throw new Error('Adicione uma foto da árvore.');
     const payload = { id: form.id, city_id: form.city_id, name: form.name.trim(), species_id: form.species_id || null, latitude: form.latitude, longitude: form.longitude, address: form.address?.trim() || null, planted_on: form.planted_on || null, public_profile: form.public_profile, location_visibility: form.location_visibility, cover_photo: uploaded || form.cover_photo };
     const id = await communityRpc(client, 'submit_community_tree', { p_tree: payload });
-    await cleanupPhoto(client, uploaded); // Só remove arquivos não vinculados em tentativas repetidas.
+    await cleanupPhoto(client, uploaded); // Cleans only confirmed, unlinked duplicate uploads.
     return id;
   } catch (error) {
     // Uma resposta perdida não deve apagar a foto de um cadastro confirmado.
@@ -167,7 +174,10 @@ export async function hydrateCommunityPhotos(client, rows) {
   if (!paths.length) return rows;
   const { data } = await client.storage.from(COMMUNITY_PHOTO_BUCKET).createSignedUrls(paths, 300);
   const urls = new Map((data || []).filter(row => !row.error).map(row => [row.path, row.signedUrl]));
-  return rows.map(row => ({ ...row, photo_url: urls.get(row.cover_photo || row.photo_path) || null }));
+  return rows.map(row => {
+    const path = row.cover_photo || row.photo_path, url = urls.get(path) || null;
+    return { ...row, photo_url: url, photo_unavailable: Boolean(path && !url) };
+  });
 }
 
 export function communityShareData(tree, care) {

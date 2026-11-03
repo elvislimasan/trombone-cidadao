@@ -1,0 +1,180 @@
+/* A fluid page with an open diary; only the supporting facts use a narrow column. */
+.tree-profile-simple { --experience-paper: 250 247 239; --experience-wash: 238 240 224; gap: 28px; padding-top: 20px; background: rgb(var(--surface-base)); }
+.dark .tree-profile-simple { --experience-paper: 27 33 27; --experience-wash: 35 45 32; background: rgb(var(--surface-base)); }
+.tree-profile-simple :is(#tree-diary,#tree-photos,#tree-about,#comentarios) { scroll-margin-top: calc(var(--header-bar-height,64px) + var(--header-safe-top,0px) + 18px); }
+.tree-profile-simple .community-profile-topbar { min-height: 32px; }
+.tree-profile-simple .community-profile-topbar > a { min-height: 44px; }
+.tree-profile-simple .community-profile-topbar > button { border: 0; background: transparent; }
+/* The cover and identity share one surface. Actions stay beside their context. */
+.tree-profile-simple .tree-profile-summary { grid-template-columns: minmax(0,.85fr) minmax(0,1.15fr); gap: 36px; padding: 24px; overflow: hidden; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; background: rgb(var(--surface-raised)); }
+.tree-profile-simple .tree-profile-cover { min-height: 264px; border-radius: 12px; }
+.tree-profile-simple .tree-profile-cover-link { opacity: 0; transition: opacity .15s; }
+.tree-profile-simple .tree-profile-cover:is(:hover,:focus-visible) .tree-profile-cover-link { opacity: 1; }
+.tree-profile-simple .tree-profile-introduction { display: grid; grid-template-columns: minmax(0,1fr) minmax(180px,.36fr); grid-template-areas: 'heading stats' 'people stats' 'action stats'; align-content: center; align-items: center; gap: 18px 32px; padding: 12px 8px; }
+.community-tree-heading { grid-area: heading; display: block; min-width: 0; }
+.tree-profile-simple .tree-profile-introduction h1 { margin: 0; font-size: clamp(34px,2.7vw,48px); line-height: 1.15; }
+.community-tree-identity { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 12px; color: rgb(var(--text-secondary)); font-size: 15px; }
+.community-tree-identity > span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.tree-profile-people { grid-area: people; display: flex; align-items: center; justify-content: start; flex-wrap: wrap; gap: 10px 20px; min-width: 0; }
+.tree-profile-people > .community-tree-author { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.tree-profile-people .community-tree-author-avatar { width: 36px; height: 36px; }
+.tree-profile-people .community-tree-author-name small { display: none; }
+.tree-profile-people .community-tree-author-name strong { font-size: 14px; font-weight: 500; }
+.tree-profile-people .community-tree-like { flex-shrink: 0; }
+.tree-profile-people .community-like-button { gap: 7px; padding-inline: 10px; border: 1px solid rgb(var(--border-subtle)); border-radius: 20px; }
+.tree-profile-people .community-like-button strong { font-size: 12px; }
+.tree-profile-simple .tree-profile-highlights { grid-area: stats; grid-template-columns: minmax(0,1fr); align-self: stretch; align-content: center; margin: 0; padding: 4px 0 4px 28px; gap: 22px; border: 0; border-left: 1px solid rgb(var(--border-subtle)); }
+.tree-profile-simple .tree-profile-highlights > div { gap: 4px; }
+.tree-profile-simple .tree-profile-highlights dt { font-size: 13px; }
+.tree-profile-simple .tree-profile-highlights dd { font-size: 16px; }
+.tree-profile-simple .tree-profile-highlights > div:first-child dd { font-size: 24px; }
+.tree-profile-simple :is(.tree-profile-primary,.tree-profile-public-cta) { grid-area: action; justify-self: start; align-self: center; min-height: 48px; margin: 0; padding-inline: 22px; font-size: 14px; }
+.tree-profile-simple .tree-profile-body { grid-template-columns: minmax(0,1fr) clamp(300px,26vw,420px); gap: 32px; }
+.tree-profile-simple .tree-profile-main { gap: 28px; }
+.tree-profile-simple .tree-profile-sidebar { top: calc(var(--header-bar-height,64px) + 24px); padding-top: 64px; }
+
+.tree-profile-simple .tree-diary { gap: 20px; }
+.tree-profile-simple .tree-diary-heading { flex-wrap: nowrap; gap: 12px; }
+.tree-profile-simple .tree-diary-heading > div { gap: 9px; color: rgb(var(--experience-forest)); }
+.tree-profile-simple .tree-diary-heading h2 { font-family: Georgia,'Times New Roman',serif; font-size: 23px; font-weight: 700; }
+.tree-profile-simple .tree-diary-heading::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg,rgb(var(--experience-leaf) / .45),transparent); }
+.tree-profile-simple .tree-diary-heading > button { order: 2; flex-shrink: 0; border: 0; background: transparent; }
+.tree-diary-active-filter { display: flex; align-items: center; gap: 12px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-diary-active-filter button { min-height: 44px; color: rgb(var(--experience-forest)); text-decoration: underline; text-underline-offset: 3px; }
+.tree-profile-simple .tree-diary-book { padding: 2px 2px 6px; border: 1px solid rgb(var(--experience-forest) / .3); border-radius: 12px; background: rgb(var(--experience-forest) / .35); box-shadow: 0 4px 12px rgb(30 49 30 / .07); }
+.tree-profile-simple .tree-diary-paper { grid-template-columns: minmax(0,.95fr) minmax(0,1.05fr); min-height: 430px; border-radius: 9px; border-color: rgb(191 174 131 / .55); background: radial-gradient(ellipse at 1% 100%,rgb(204 175 103 / .15),transparent 48%),radial-gradient(ellipse at 95% 0%,rgb(204 175 103 / .1),transparent 55%),rgb(var(--diary-paper)); }
+.tree-profile-simple .tree-diary-paper::after { content: ''; position: absolute; inset: 0 auto 0 47.5%; width: 24px; transform: translateX(-50%); background: linear-gradient(90deg,transparent,rgb(100 76 36 / .1),rgb(255 255 255 / .13),transparent); pointer-events: none; }
+.tree-profile-simple .tree-diary-writing { padding: 32px 36px 24px; }
+.tree-profile-simple .tree-diary-writing > :not(.tree-diary-corner) { position: relative; z-index: 1; }
+.tree-diary-corner { position: absolute; bottom: 0; left: -13px; width: 140px; opacity: .17; color: rgb(var(--diary-accent)); pointer-events: none; }
+.tree-profile-simple .tree-diary-chapter { font-size: 12px; font-family: Georgia,'Times New Roman',serif; font-style: italic; }
+.tree-profile-simple .tree-diary-action-icon { width: 46px; height: 46px; margin-top: 20px; }
+.tree-profile-simple .tree-diary-action-icon svg { width: 22px; height: 22px; }
+.tree-profile-simple .tree-diary-paper h3 { margin-top: 16px; font-size: clamp(32px,2.4vw,40px); }
+.tree-profile-simple .tree-diary-date { margin-top: 12px; font-size: 14px; font-family: Georgia,'Times New Roman',serif; font-style: italic; }
+.tree-profile-simple .tree-diary-notes { min-height: 64px; margin-top: 24px; background: none; }
+.tree-profile-simple .tree-diary-notes > p { font-size: 20px; line-height: 1.7; }
+.tree-profile-simple .tree-diary-entry-footer { margin-top: 24px; padding-top: 8px; }
+.tree-profile-simple .tree-diary-memory { padding: 36px; }
+.tree-profile-simple .tree-diary-polaroid { max-width: 480px; }
+.tree-profile-simple .tree-diary-polaroid img { height: clamp(260px,19vw,330px); }
+.tree-profile-simple .tree-diary-polaroid button > span { opacity: 0; }
+.tree-profile-simple .tree-diary-polaroid button:is(:hover,:focus-visible) > span { opacity: 1; }
+.tree-diary-bottom { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; }
+.tree-profile-simple .tree-diary-navigation { justify-content: center; gap: 24px; }
+.tree-profile-simple .tree-diary-navigation > button { width: 44px; min-height: 44px; padding: 8px; border: 0; background: rgb(var(--experience-wash)); }
+.tree-profile-simple .tree-diary-navigation > button > span, .tree-profile-simple .tree-diary-swipe-hint { display: none; }
+.tree-diary-share { justify-self: center; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 5px 12px; color: rgb(var(--experience-forest)); font-size: 12px; font-weight: 600; }
+
+.tree-profile-simple .tree-profile-photos { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.community-gallery.is-compact { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; }
+.community-gallery.is-compact > header { flex-shrink: 0; margin: 0; }
+.community-gallery.is-compact > header > div { display: flex; align-items: center; gap: 10px; }
+.tree-profile-simple .community-gallery.is-compact h2 { font-family: Georgia,'Times New Roman',serif; font-size: 14px; }
+.community-gallery.is-compact > header p { margin: 0; font-size: 10px; }
+.tree-profile-simple .community-gallery.is-compact .community-gallery-grid { display: flex; flex: 1; min-width: 0; gap: 8px; overflow-x: auto; padding: 3px 3px 7px; }
+.community-gallery.is-compact .community-gallery-grid button { flex: 0 0 70px; width: 70px; border: 1px solid rgb(var(--experience-leaf) / .3); border-radius: 6px; overflow: hidden; }
+.tree-profile-simple .community-gallery.is-compact .community-gallery-grid img { aspect-ratio: 1.3; }
+.community-gallery.is-compact .community-gallery-grid span { display: none; }
+.community-gallery.is-compact .community-gallery-empty { min-height: 44px; padding: 6px 0; border: 0; font-size: 11px; }
+.community-gallery.is-compact .community-gallery-unavailable { flex-basis: 100%; }
+.tree-profile-simple .community-comments.is-compact { gap: 12px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.community-comments.is-compact .community-comment-composer { position: relative; display: flex; align-items: end; gap: 8px; padding: 5px 6px 5px 12px; border: 1px solid rgb(var(--border-default)); border-radius: 9px; background: rgb(var(--surface-raised) / .45); }
+.community-comments.is-compact .community-comment-composer textarea { flex: 1; min-width: 0; min-height: 44px; padding: 11px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; resize: vertical; font-size: 14px; line-height: 22px; }
+.community-comments.is-compact .community-comment-composer > div { display: flex; align-items: center; flex-shrink: 0; }
+.community-comments.is-compact .community-comment-composer button { min-height: 44px; padding-inline: 12px; }
+.community-comments.is-compact .community-comment-composer small:not(.sr-only) { position: absolute; right: 0; bottom: -20px; }
+.community-comments.is-compact .community-comment-composer:has(small:not(.sr-only)) { margin-bottom: 22px; }
+.community-comments.is-compact .community-comments-list[hidden] { display: none; }
+.community-comments.is-compact .community-comments-login { justify-content: start; padding: 0; background: transparent; }
+.community-comments.is-compact .community-comment-notice { padding: 5px 0; }
+.tree-profile-simple .tree-profile-about { display: block; padding: 0; border: 1px solid rgb(var(--experience-leaf) / .25); border-radius: 10px; background: rgb(var(--surface-raised) / .28); }
+.tree-profile-about > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 18px 22px; color: rgb(var(--experience-forest)); cursor: pointer; list-style: none; }
+.tree-profile-about > summary::-webkit-details-marker { display: none; }
+.tree-profile-about > summary h2 { flex: 1; font-family: Georgia,'Times New Roman',serif; font-size: 16px; font-weight: 700; }
+.tree-profile-about > summary > svg:last-child { transition: transform .15s; }
+.tree-profile-about[open] > summary > svg:last-child { transform: rotate(180deg); }
+.tree-profile-about-content { display: grid; gap: 14px; padding: 0 22px 22px; }
+.tree-profile-about-content dl { display: grid; gap: 0; }
+.tree-profile-about-content dl > div { display: flex; align-items: start; gap: 12px; padding: 16px 0; border-bottom: 1px solid rgb(var(--experience-leaf) / .16); }
+.tree-profile-about-content dl > div:last-child { border: 0; padding-bottom: 0; }
+.tree-profile-about-content dl svg { flex-shrink: 0; margin-top: 2px; color: rgb(var(--experience-forest)); }
+.tree-profile-about-content dl dt { font-size: 13px; color: rgb(var(--text-secondary)); }
+.tree-profile-about-content dl dd { margin-top: 7px; font-size: 15px; overflow-wrap: anywhere; }
+
+/* Give the two-page desktop diary the height of an open book. */
+@media (min-width: 1200px) {
+  .tree-profile-simple .tree-diary-paper { min-height: clamp(560px,34vw,660px); }
+  .tree-profile-simple .tree-diary-writing { padding: 40px 40px 28px; }
+  .tree-profile-simple .tree-diary-memory { padding: 40px; }
+  .tree-profile-simple .tree-diary-polaroid { max-width: 540px; }
+  .tree-profile-simple .tree-diary-polaroid img { height: clamp(320px,23vw,420px); }
+  .tree-profile-simple .tree-diary-botanical { max-width: 400px; }
+  .tree-profile-simple .tree-diary-illustration { max-height: 340px; }
+}
+
+@media (max-width: 1199px) {
+  .tree-profile-simple .tree-profile-summary { gap: 24px; padding: 20px; }
+  .tree-profile-simple .tree-profile-introduction { grid-template-columns: minmax(0,1fr) 145px; padding: 8px 0; gap: 16px; }
+  .tree-profile-simple .tree-profile-highlights { padding-left: 18px; }
+  .tree-profile-simple .tree-profile-body { grid-template-columns: minmax(0,1fr) 300px; gap: 24px; }
+  .tree-profile-simple .tree-profile-cover { min-height: 280px; }
+  .tree-profile-simple .tree-profile-primary { margin-top: 0; }
+  .tree-profile-simple .tree-diary-writing { padding-inline: 26px; }
+  .tree-profile-simple .tree-diary-memory { padding: 28px; }
+  .tree-profile-simple .tree-diary-paper { grid-template-columns: minmax(0,1fr); }
+  .tree-profile-simple .tree-diary-paper::after { display: none; }
+  .tree-profile-simple .tree-diary-writing { border-right: 0; }
+  .tree-profile-simple .tree-diary-polaroid { max-width: 400px; }
+}
+@media (max-width: 899px) {
+  .tree-profile-simple .tree-profile-summary { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .tree-profile-simple .tree-profile-cover { height: 250px; min-height: 0; }
+  .tree-profile-simple .tree-profile-introduction { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .community-tree-heading { order: 0; }
+  .tree-profile-people { order: 1; }
+  .tree-profile-simple .tree-profile-highlights { order: 2; grid-template-columns: repeat(3,minmax(0,1fr)); padding: 12px 0 0; border-left: 0; border-top: 1px solid rgb(var(--border-subtle)); gap: 10px; }
+  .tree-profile-simple .tree-profile-highlights dt { font-size: 10px; }
+  .tree-profile-simple .tree-profile-highlights dd { font-size: 13px; }
+  .tree-profile-simple :is(.tree-profile-primary,.tree-profile-public-cta) { order: 3; align-self: start; }
+  .tree-profile-simple .tree-profile-body { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .tree-profile-simple .tree-profile-sidebar { padding-top: 0; }
+}
+@media (max-width: 767px) {
+  .community-page.tree-profile-simple { gap: 24px; padding-top: 10px; padding-bottom: calc(var(--bottom-nav-occupied-height,104px) + 28px); }
+  .tree-profile-simple .community-profile-topbar { margin-bottom: -8px; }
+  .tree-profile-simple .tree-profile-summary { grid-template-columns: minmax(0,1fr); gap: 20px; padding: 16px; }
+  .tree-profile-simple .tree-profile-cover { min-height: 145px; height: 43vw; max-height: 230px; }
+  .tree-profile-simple .tree-profile-cover > .community-status { top: 9px; left: 9px; padding: 4px 8px; font-size: 10px; }
+  .tree-profile-simple .tree-profile-introduction { padding: 0; gap: 16px; }
+  .tree-profile-simple .tree-profile-introduction h1 { font-size: 30px; }
+  .community-tree-identity { margin-top: 10px; font-size: 14px; }
+  .tree-profile-people { margin-top: 1px; }
+  .tree-profile-simple .tree-profile-highlights { margin-top: 4px; padding-top: 10px; }
+  .tree-profile-simple .tree-profile-highlights dt { font-size: 11px; }
+  .tree-profile-simple .tree-profile-highlights dd { font-size: 13px; }
+  .tree-profile-simple .tree-profile-primary { min-height: 46px; margin-top: 4px; width: 100%; font-size: 13px; }
+  .tree-profile-simple .tree-profile-public-cta { display: flex; justify-content: center; margin-top: 10px; }
+  .tree-diary-bottom { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .tree-profile-simple .tree-diary-heading { justify-content: center; }
+  .tree-profile-simple .tree-diary-heading h2 { font-size: 22px; }
+  .tree-profile-simple .tree-diary-heading::after { min-width: 0; }
+  .tree-profile-simple .tree-diary-book { border-color: rgb(176 154 105 / .4); border-width: 1px; padding: 1px 1px 8px; background: rgb(var(--diary-paper)); border-radius: 14px; }
+  .tree-profile-simple .tree-diary-paper { grid-template-columns: minmax(0,1fr); min-height: 0; padding: 24px 20px; border-radius: 12px; }
+  .tree-profile-simple .tree-diary-paper::after, .tree-profile-simple .tree-diary-corner { display: none; }
+  .tree-profile-simple .tree-diary-writing { padding: 0; }
+  .tree-profile-simple .tree-diary-action-icon { margin-top: 16px; }
+  .tree-profile-simple .tree-diary-paper h3 { font-size: 32px; }
+  .tree-profile-simple .tree-diary-memory { padding: 24px 5px 3px; }
+  .tree-profile-simple .tree-diary-polaroid img { height: clamp(180px,57vw,280px); }
+  .tree-profile-simple .tree-diary-polaroid figcaption { margin-top: 8px; font-size: 11px; }
+  .tree-profile-simple .tree-diary-notes { min-height: 56px; margin-top: 24px; }
+  .tree-profile-simple .tree-diary-entry-footer { margin-top: 10px; }
+  .tree-profile-simple .tree-diary-botanical { max-width: 170px; }
+  .community-gallery.is-compact { gap: 5px; }
+  .community-gallery.is-compact > header { flex-basis: 100%; }
+  .community-comments.is-compact .community-comment-composer textarea { font-size: 16px; }
+  .community-comments.is-compact .community-comment-composer button { width: 44px; padding: 8px; color: rgb(var(--experience-forest)); background: transparent; box-shadow: none; }
+  .community-comments.is-compact .community-comment-composer button > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .tree-profile-simple * { transition: none !important; } }

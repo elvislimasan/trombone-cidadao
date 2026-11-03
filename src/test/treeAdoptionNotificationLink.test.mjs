@@ -32,13 +32,15 @@ const mocks = {
   '@/lib/treeAdoption': adoption,
   '@/lib/treeAdoptionClient': adoptionClient,
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: () => null },
+  './TreeAdoptionReceiptButton': { __esModule: true, default: () => null },
+  './TreeAdoptionPickup': { __esModule: true, default: () => null },
   './TreeJourney': { TreePlantingNextStep: () => null },
   './treeAdoptionManagement.css': {},
 };
 const source = readFileSync(new URL('../components/arborization/TreeAdoptionRequests.jsx', import.meta.url), 'utf8');
 const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
 const module = { exports: {} };
-new Function('require', 'module', 'exports', code)(name => mocks[name] || require(name), module, module.exports);
+new Function('require', 'module', 'exports', code)(name => name.endsWith('.css') ? {} : mocks[name] || require(name), module, module.exports);
 const Requests = module.exports.default;
 const settle = async () => { await new Promise(resolve => setTimeout(resolve, 20)); flushSync(() => {}); };
 async function withRequests(run) {
@@ -50,7 +52,7 @@ async function withRequests(run) {
 
 test('push abre resumo de pedido encerrado fora dos resultados e fechar não reabre o diálogo', async () => {
   await withRequests(async (node, render) => {
-    assert.match(node.textContent, /Nenhuma solicitação neste filtro/);
+    assert.match(node.textContent, /Seu próximo plantio começa aqui/);
     assert.match(node.querySelector('.adoption-request-dialog').textContent, /Maria da Silva/);
     assert.match(node.querySelector('.adoption-request-dialog').textContent, /Atendimento encerrado/);
     assert.deepEqual(queries[0], [['id', row.id], ['city_id', 64], ['author_id', 'citizen']]);

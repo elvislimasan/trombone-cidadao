@@ -19,6 +19,8 @@ const mocks = {
   '@/lib/customSupabaseClient': { supabase: {} },
   '@/hooks/useTreeAdoptionCatalog': { __esModule: true, default: () => ({}) },
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: ({ status }) => React.createElement('span', {}, adoption.ADOPTION_STATUSES[status]) },
+  './TreeAdoptionReceiptButton': { __esModule: true, default: () => null },
+  './TreeAdoptionPickup': { __esModule: true, default: () => null },
   './treeAdoptionManagement.css': {},
   './TreeProgramPhoto': { __esModule: true, default: () => null },
   '@/lib/treeAdoption': adoption,
@@ -32,7 +34,7 @@ mocks['./TreeJourney'] = journey.exports;
 const source = readFileSync(new URL('../components/arborization/TreeAdoptionRequests.jsx', import.meta.url), 'utf8') + '\nexport { RequestDetails };';
 const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
 const module = { exports: {} };
-new Function('require', 'module', 'exports', code)(name => mocks[name] || require(name), module, module.exports);
+new Function('require', 'module', 'exports', code)(name => name.endsWith('.css') ? {} : mocks[name] || require(name), module, module.exports);
 const { RequestDetails } = module.exports;
 const request = { ...adoption.EMPTY_ADOPTION, id: 'request-1', status: 'solicitada', author_id: 'citizen', request_type: 'muda', requester_name: 'Maria da Silva', requester_phone: '(87) 99999-9999', species_id: 'ipe', quantity: 1, provider: 'viveiro_municipal', address: 'Rua das Flores, 20', latitude: -8.6, longitude: -38.57, created_at: '2026-10-30T10:00:00Z' };
 const catalog = { species: [{ id: 'ipe', common_name: 'Ipê' }], availability: [], nurseries: [] };

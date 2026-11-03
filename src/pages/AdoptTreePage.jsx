@@ -160,15 +160,15 @@ export function AdoptTreeContent() {
   const cityLabel = city ? [city.name, cityStateUf(city)].filter(Boolean).join(' · ') : '';
   const supportedCity = String(cityId) === String(ADOPTION_CITY_ID);
   const contextKey = `${cityId}:${user?.id || 'visitor'}`;
-  return <main className={`tree-adoption-page page-shell-fluid${tab === 'programa' ? ' tree-adoption-overview-page' : tab === 'minhas' ? ' tree-collection-page tree-collection-scope' : ''}`}>
+  return <main className={`tree-adoption-page page-shell-fluid${tab === 'programa' ? ' tree-adoption-overview-page' : tab === 'minhas' ? ' tree-collection-page tree-collection-scope tree-requests-page' : ''}`}>
     <Helmet><title>{tab === 'minhas' ? 'Meus pedidos | Adote uma árvore' : 'Adote uma árvore'}</title><meta name="description" content="Solicite uma muda ou plantio, escolha uma espécie e acompanhe o atendimento da equipe de arborização da sua cidade." /></Helmet>
-    {tab === 'minhas' ? <><TreeCollectionToolbar /><TreeCollectionIntro title="Meus pedidos" description="Da primeira muda ao seu novo jardim."><Button onClick={() => setTab('solicitar')}><Plus size={17} />Solicitar muda</Button></TreeCollectionIntro><TreeJourneyNav cityId={cityId} active="requests" /></> : <TreeAdoptionHeader cityId={cityId} city={city} tab={tab} onTabChange={setTab} />}
+    {tab === 'minhas' ? <><TreeCollectionToolbar /><TreeCollectionIntro title="Meus pedidos" description="Acompanhe suas solicitações."><Button onClick={() => setTab('solicitar')}><Plus size={17} />Solicitar muda</Button></TreeCollectionIntro><TreeJourneyNav cityId={cityId} active="requests" /></> : <TreeAdoptionHeader cityId={cityId} city={city} tab={tab} onTabChange={setTab} />}
     {tab === 'programa' && <TreeAdoptionIntroduction city={city} onStart={() => setTab('solicitar')} />}
     {tab !== 'programa' && (!cityId || !city) && <p className="rounded-xl border border-dashed p-6 text-sm text-content-secondary">Selecione a cidade do plantio para começar.</p>}
     {tab === 'solicitar' && cityId && city && !supportedCity && <div role="alert" className="rounded-xl border bg-surface-raised p-6 text-sm leading-relaxed"><h2 className="mb-2 text-lg font-semibold">Programa ainda não disponível em {city.name}</h2><p>{ADOPTION_CITY_NOTICE}</p></div>}
     {cityId && city && <>
       {supportedCity && (formStarted || tab === 'solicitar') && <div className="adoption-form-slot" hidden={tab !== 'solicitar'}><AdoptionForm key={contextKey} cityId={cityId} city={city} cityLabel={cityLabel} onSubmitted={() => setRevision(value => value + 1)} onShowRequests={() => setTab('minhas')} /></div>}
-      {tab === 'minhas' && <div className="adoption-requests-panel"><TreeAdoptionRequests key={contextKey} cityId={cityId} requestId={params.get('pedido')} onRequestClose={closeRequest} revision={revision} /><TreePlantingNextStep cityId={cityId} /></div>}
+      {tab === 'minhas' && <div className="adoption-requests-panel"><TreeAdoptionRequests key={contextKey} cityId={cityId} city={city} requestId={params.get('pedido')} onRequestClose={closeRequest} revision={revision} /><TreePlantingNextStep cityId={cityId} /></div>}
     </>}
   </main>;
 }

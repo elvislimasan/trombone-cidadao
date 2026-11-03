@@ -36,7 +36,7 @@ test('editar cuidado preserva foto e privacidade e ignora campos de moderação 
 
 test('remover foto de um cuidado só limpa o arquivo depois de atualizar o registro', async () => {
   const events = [];
-  const client = { async rpc(name, args) { events.push('updated'); assert.equal(args.p_care.photo_path, null); return { data: care.id }; }, storage: { from() { return { async remove(paths) { events.push(paths); return {}; } }; } } };
+  const client = { async rpc(name, args) { if (name === 'can_cleanup_community_photo') { assert.equal(args.p_path, care.photo_path); return { data: true }; } events.push('updated'); assert.equal(args.p_care.photo_path, null); return { data: care.id }; }, storage: { from() { return { async remove(paths) { events.push(paths); return {}; } }; } } };
   await updateCommunityCare(client, care, null, 'owner', care, true);
   assert.deepEqual(events, ['updated', [care.photo_path]]);
 });

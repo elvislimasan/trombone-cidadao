@@ -1,0 +1,123 @@
+/* Citizen tree pages keep the fluid shell; reading widths belong to inner copy. */
+.tree-experience { --experience-forest: 31 77 44; --experience-paper: 247 249 241; --experience-wash: 235 242 226; --experience-leaf: 124 153 94; gap: 20px; }
+.dark .tree-experience { --experience-forest: 186 219 165; --experience-paper: 27 38 30; --experience-wash: 34 48 36; --experience-leaf: 151 178 126; }
+.tree-experience :is(#tree-diary,#tree-photos,#tree-about,#comentarios) { scroll-margin-top: calc(var(--header-bar-height,64px) + var(--header-safe-top,0px) + 82px); }
+
+.tree-registration-header { display: grid; grid-template-columns: minmax(0,1fr) minmax(220px,.42fr); min-width: 0; overflow: hidden; border: 1px solid rgb(var(--experience-leaf) / .22); border-radius: 16px; background: rgb(var(--experience-paper)); }
+.tree-registration-header > div { position: relative; z-index: 1; padding: 22px 28px; }
+.tree-registration-header a { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-registration-header h1 { margin-top: 5px; font-family: Georgia,'Times New Roman',serif; font-size: clamp(29px,2.4vw,38px); font-weight: 700; line-height: 1.12; letter-spacing: -.035em; color: rgb(var(--experience-forest)); }
+.tree-registration-header p { margin-top: 8px; font-size: 13px; color: rgb(var(--text-secondary)); }
+.tree-registration-header-photo { position: relative; height: 100%; min-height: 148px; }
+.tree-registration-header-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 65% 65%; border-radius: 0; }
+.tree-registration-header-photo > figcaption { position: absolute; right: 7px; bottom: 7px; padding: 3px 5px; margin: 0; border-radius: 4px; color: #fff; background: rgb(0 0 0 / .45); font-size: 9px; }
+.tree-registration-page .community-form-body { gap: 24px; }
+.tree-registration-page .tree-form-heading { margin-bottom: 0; }
+.tree-registration-page .community-photo-picker { height: 280px; }
+.tree-registration-page .tree-form-help { top: calc(var(--header-bar-height,64px) + 20px); }
+
+.tree-profile-summary { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.14fr); overflow: hidden; min-width: 0; border: 1px solid rgb(var(--experience-leaf) / .2); border-radius: 18px; background: rgb(var(--experience-paper)); }
+.tree-profile-cover { position: relative; display: block; min-width: 0; min-height: 310px; overflow: hidden; background: rgb(var(--experience-wash)); }
+.tree-profile-cover > img, .tree-profile-cover > .tree-program-photo { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tree-profile-cover img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.tree-profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg,rgba(9,39,22,.4),transparent 45%); pointer-events: none; }
+.tree-profile-cover > .community-status { position: absolute; left: 18px; top: 18px; z-index: 1; box-shadow: 0 3px 10px rgb(0 0 0 / .06); }
+.tree-profile-cover-link { position: absolute; right: 16px; bottom: 16px; z-index: 1; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 8px 11px; border: 1px solid rgb(255 255 255 / .5); border-radius: 7px; color: #fff; background: rgb(0 0 0 / .22); font-size: 11px; backdrop-filter: blur(8px); }
+.tree-profile-cover .tree-program-photo > figcaption { position: absolute; left: 12px; bottom: 12px; z-index: 1; padding: 3px 6px; margin: 0; border-radius: 4px; background: rgb(0 0 0 / .4); color: #fff; font-size: 9px; }
+.tree-profile-introduction { display: block; min-width: 0; padding: 30px 36px; }
+.tree-profile-eyebrow { color: rgb(var(--experience-forest)); font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.tree-profile-introduction h1 { max-width: 28ch; margin-top: 10px; font-family: Georgia,'Times New Roman',serif; font-size: clamp(31px,3vw,46px); font-weight: 700; line-height: 1.1; letter-spacing: -.04em; color: rgb(var(--experience-forest)); overflow-wrap: anywhere; }
+.tree-profile-species { margin-top: 10px; font-size: 15px; color: rgb(var(--text-primary)); }
+.tree-profile-city { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-profile-highlights { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-top: 22px; padding-top: 20px; border-top: 1px solid rgb(var(--experience-leaf) / .22); }
+.tree-profile-highlights > div { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.tree-profile-highlights dt { font-size: 10px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+.tree-profile-highlights dd { font-size: 17px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.tree-profile-highlights > div:first-child dd { color: rgb(var(--experience-forest)); font-size: 24px; }
+.tree-profile-primary { min-height: 46px; gap: 8px; margin-top: 24px; padding-inline: 20px; border-radius: 9px; }
+.tree-profile-public-cta { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-top: 18px; color: rgb(var(--experience-forest)); font-size: 13px; font-weight: 600; }
+.tree-profile-sections { position: sticky; top: calc(var(--header-bar-height,64px) + var(--header-safe-top,0px)); z-index: 20; display: flex; align-items: stretch; gap: 12px; min-width: 0; border-bottom: 1px solid rgb(var(--border-default)); background: rgb(var(--surface-base) / .96); backdrop-filter: blur(12px); }
+.tree-profile-sections > a { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; padding: 10px 18px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: rgb(var(--text-secondary)); font-size: 13px; }
+.tree-profile-sections > a[aria-current] { border-bottom-color: rgb(var(--experience-forest)); color: rgb(var(--experience-forest)); font-weight: 650; }
+.tree-profile-sections > a:hover { background: rgb(var(--experience-wash) / .65); }
+.tree-profile-body { display: grid; grid-template-columns: minmax(0,1fr) clamp(290px,25vw,390px); align-items: start; gap: 24px; min-width: 0; }
+.tree-profile-main { display: grid; align-content: start; gap: 24px; min-width: 0; }
+.tree-profile-sidebar { position: sticky; top: calc(var(--header-bar-height,64px) + var(--header-safe-top,0px) + 72px); min-width: 0; }
+.tree-profile-about, .tree-profile-photos { min-width: 0; padding: 24px; border: 1px solid rgb(var(--border-subtle)); border-radius: 14px; background: rgb(var(--surface-raised)); }
+.tree-profile-about { display: grid; gap: 20px; }
+.tree-profile-about .community-profile-facts { grid-template-columns: minmax(0,1fr); gap: 20px; }
+.tree-profile-about .community-profile-facts dd { overflow-wrap: anywhere; }
+.tree-profile-invitation { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 20px; min-width: 0; border: 1px solid rgb(var(--experience-leaf) / .22); border-radius: 13px; background: linear-gradient(120deg,rgb(var(--experience-wash)),rgb(var(--experience-paper))); }
+.tree-profile-invitation > span { display: grid; place-items: center; flex-shrink: 0; width: 46px; height: 46px; border-radius: 13px; background: rgb(var(--surface-raised) / .7); color: rgb(var(--experience-forest)); }
+.tree-profile-invitation > div { flex: 1; min-width: min(100%,180px); }
+.tree-profile-invitation h2 { color: rgb(var(--experience-forest)); font-size: 15px; font-weight: 650; line-height: 1.4; }
+.tree-profile-invitation p { max-width: 56ch; margin-top: 5px; color: rgb(var(--text-secondary)); font-size: 12px; line-height: 1.6; }
+.tree-profile-invitation > :is(button,a) { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: rgb(var(--experience-forest)); font-size: 12px; font-weight: 600; }
+.tree-profile-main .community-timeline { padding: 0; gap: 18px; }
+.tree-profile-main .community-care-card { border-radius: 13px; }
+.tree-profile-main .community-care-notes { max-width: 70ch; }
+.tree-profile-main .community-care-photo { max-height: 360px; object-fit: cover; }
+.tree-profile-photos .community-gallery { padding: 0; border: 0; }
+.community-gallery-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.community-gallery-unavailable { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid rgb(var(--border-subtle)); border-radius: 9px; background: rgb(var(--surface-subtle)); }
+.community-gallery-unavailable > div { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 11px; }
+.community-gallery-unavailable button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: rgb(var(--experience-forest)); font-size: 11px; }
+.tree-profile-photos .community-gallery h2, .tree-profile-main .community-timeline > header h2 { font-size: 21px; font-weight: 650; letter-spacing: -.025em; }
+.tree-profile-photos .community-gallery-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.tree-profile-photos .community-gallery-grid img { aspect-ratio: 1.1; }
+.tree-profile-main .community-empty { min-height: 205px; }
+
+@media (min-width: 1100px) {
+  .tree-profile-main .community-care-list { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; }
+  .tree-profile-main .community-care-card:has(.community-care-photo) { display: grid; grid-template-columns: minmax(0,1fr) 210px; gap: 14px 22px; align-items: start; }
+  .tree-profile-main .community-care-card:has(.community-care-photo) > header, .tree-profile-main .community-care-card:has(.community-care-photo) > p { grid-column: 1; }
+  .tree-profile-main .community-care-card > a:has(.community-care-photo) { grid-column: 2; grid-row: 1 / span 2; }
+  .tree-profile-main .community-care-card:has(.community-care-photo) > footer { grid-column: 1 / -1; }
+  .tree-profile-main .community-care-photo { width: 210px; height: 170px; }
+}
+@media (max-width: 1099px) { .tree-profile-introduction { padding: 26px; } .tree-profile-body { grid-template-columns: minmax(0,1fr) 290px; gap: 20px; } .tree-profile-highlights { gap: 9px; } .tree-profile-highlights dd { font-size: 15px; } }
+@media (max-width: 899px) { .tree-profile-body { grid-template-columns: minmax(0,1fr); } .tree-profile-sidebar { position: static; } .tree-profile-about .community-profile-facts { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 767px) {
+  .community-page.tree-experience { gap: 14px; padding-top: 12px; }
+  .tree-registration-header { grid-template-columns: minmax(0,1fr) 104px; border-radius: 13px; }
+  .tree-registration-header > div { padding: 14px 16px 18px; }
+  .tree-registration-header a { min-height: 30px; font-size: 11px; }
+  .tree-registration-header h1 { margin-top: 8px; font-size: 27px; }
+  .tree-registration-header p { display: none; }
+  .tree-registration-header-photo { min-height: 118px; }
+  .tree-registration-header-photo > figcaption { right: 4px; bottom: 4px; font-size: 8px; }
+  .tree-registration-page .tree-registration-layout { gap: 0; }
+  .tree-registration-page .community-form { margin-bottom: 100px; }
+  .tree-registration-page .community-form .community-form-body { padding: 22px 20px; gap: 20px; }
+  .tree-registration-page .tree-form-heading > h2 { font-size: 23px; }
+  .tree-registration-page .community-photo-picker { height: 166px; }
+  .tree-registration-page .community-form > .community-form-footer { position: fixed; left: 0; right: 0; bottom: var(--bottom-nav-occupied-height,calc(6.5rem + var(--safe-area-bottom,0px))); z-index: 30; gap: 14px; padding: 12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left)); border-radius: 0; box-shadow: 0 -4px 18px rgb(0 0 0 / .04); }
+  .tree-registration-page .community-form-footer > button { min-height: 46px; }
+  .tree-profile-summary { grid-template-columns: minmax(0,1fr); border-radius: 14px; }
+  .tree-profile-cover { min-height: 174px; }
+  .tree-profile-cover > .community-status { top: 12px; left: 12px; }
+  .tree-profile-cover-link { right: 12px; bottom: 12px; min-height: 36px; font-size: 10px; }
+  .tree-profile-introduction { padding: 20px; }
+  .tree-profile-eyebrow { display: none; }
+  .tree-profile-introduction h1 { margin-top: 0; font-size: 33px; }
+  .tree-profile-species { margin-top: 7px; font-size: 14px; }
+  .tree-profile-city { margin-top: 6px; font-size: 11px; }
+  .tree-profile-highlights { margin-top: 17px; padding-top: 15px; gap: 10px; }
+  .tree-profile-highlights dt { font-size: 9px; }
+  .tree-profile-highlights dd { font-size: 13px; }
+  .tree-profile-highlights > div:first-child dd { font-size: 20px; }
+  .tree-profile-primary { width: 100%; margin-top: 18px; }
+  .tree-profile-sections { gap: 0; }
+  .tree-profile-sections > a { flex: 1; min-width: 0; padding: 10px 4px; font-size: 11px; }
+  .tree-profile-sections > a > svg { display: none; }
+  .tree-profile-main { gap: 20px; }
+  .tree-profile-invitation { gap: 12px; padding: 16px; }
+  .tree-profile-invitation > span { width: 36px; height: 36px; border-radius: 10px; }
+  .tree-profile-invitation h2 { font-size: 14px; }
+  .tree-profile-invitation p { font-size: 11px; }
+  .tree-profile-invitation > :is(button,a) { margin-left: 48px; min-height: 36px; }
+  .tree-profile-about, .tree-profile-photos { padding: 18px; }
+  .tree-profile-photos .community-gallery-grid { gap: 9px; }
+  .tree-profile-photos .community-gallery-grid span { font-size: 10px; }
+  .tree-profile-main .community-timeline > header h2, .tree-profile-photos .community-gallery h2 { font-size: 20px; }
+}

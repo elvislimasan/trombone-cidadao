@@ -1,15 +1,16 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Sprout } from 'lucide-react';
+import { Loader2, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useCity } from '@/contexts/CityContext';
 import { useCommunityTree } from '@/hooks/useCommunityTrees';
 import { communityTreePath } from '@/lib/communityTrees';
 import { CommunityTreeRegistrationForm } from '@/components/arborization/CommunityTreeForms';
-import { TreeJourneyNav } from '@/components/arborization/TreeJourney';
+import TreeRegistrationHeader from '@/components/arborization/TreeRegistrationHeader';
 import { TreeFormHelp } from '@/components/arborization/TreeFormLayout';
+import '@/components/arborization/treeExperience.css';
 
 function Registration({ initial }) {
   const { user } = useAuth(), { cities, activeCityId, loadingCities } = useCity(); const [params] = useSearchParams(); const navigate = useNavigate();
@@ -32,8 +33,7 @@ function EditRegistration({ id }) {
 export default function CommunityTreeRegistrationPage() {
   const { user } = useAuth(), { id } = useParams(); const [params] = useSearchParams();
   const pathname = id ? `${communityTreePath(id)}/editar` : '/arvores-da-comunidade/nova';
-  return <main className="page-shell-fluid community-page"><Helmet><title>{id ? 'Editar árvore' : 'Cadastrar árvore'} | Trombone Cidadão</title><meta name="robots" content="noindex" /></Helmet><Link className="community-back" to="/arvores-da-comunidade?aba=minhas"><ArrowLeft size={16} />Minhas árvores</Link><header className="community-page-heading"><div><p className="community-eyebrow"><Sprout size={16} />Árvores da comunidade</p><h1>{id ? 'Editar árvore' : 'Cadastrar uma árvore'}</h1><p>Foto, localização e um cuidado que continua com você.</p></div></header>
-    <TreeJourneyNav cityId={params.get('cidade')} active="care" />
+  return <main className="page-shell-fluid community-page tree-registration-page tree-experience"><Helmet><title>{id ? 'Editar árvore' : 'Cadastrar árvore'} | Trombone Cidadão</title><meta name="robots" content="noindex" /></Helmet><TreeRegistrationHeader editing={Boolean(id)} treeId={id} cityId={params.get('cidade')} />
     {!user ? <section className="community-empty"><Sprout size={34} /><h2>Entre para cadastrar sua árvore</h2><p>Você poderá acompanhar a análise e registrar os cuidados.</p><Button asChild><Link to="/login" state={{ from: { pathname, search: params.toString() ? `?${params}` : '' } }}>Entrar na minha conta</Link></Button></section> : id ? <EditRegistration id={id} /> : <Registration />}
   </main>;
 }
