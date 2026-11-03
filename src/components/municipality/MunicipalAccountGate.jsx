@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
+import { electricianCachedRead } from '@/lib/electricianOffline';
 import { municipalSetupStep } from '@/lib/municipalAccount';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +26,12 @@ export default function MunicipalAccountGate({ children }) {
     if (!userId || !required) return;
     const version = ++checkVersion.current;
     try {
-      const { data, error: failure } = await supabase.rpc('municipal_account_status');
-      if (failure) throw failure;
+      const data = await electricianCachedRead(userId, 'account-setup', async () => {
+        const result = await supabase.rpc('municipal_account_status');
+        if (result.error) throw result.error;
+        return result.data;
+      });
+      if (data?.password_expires_at && Date.now() >= new Date(data.password_expires_at).getTime()) data.password_required = true;
       if (!data) throw new Error('O acesso ainda não foi concluído pela administração.');
       if (currentUser.current !== userId || version !== checkVersion.current) return;
       setStatus(data); setCheckedId(userId); setError('');

@@ -66,7 +66,7 @@ import {
 import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 import { notifyNative } from '@/lib/nativeNotification';
 import PoleNumberSearch from '@/components/report/PoleNumberSearch';
-import { createReportPole, mergeNearbyReportPoles } from '@/lib/reportPole';
+import { createReportPole, mergeNearbyReportPoles, resolveReportSubmissionLocation } from '@/lib/reportPole';
 import { resolveReportPoleAddress } from '@/lib/reportPoleAddress';
 import ReportTreePicker from '@/components/report/ReportTreePicker';
 import { useReportMapTrees } from '@/hooks/useReportMapTrees';
@@ -297,26 +297,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     return s.replace(/^\s*\d+\s*[-–—]\s*/u, "").trim();
   };
 
-  const reportLocationForSubmit = async () => {
-    if (formData.category !== "iluminacao" || !formData.pole_id) return formData.location;
-
-    const knownPole = nearbyPoles.find((pole) => String(pole.pole_id) === String(formData.pole_id));
-    let pole = knownPole;
-    if (!pole) {
-      const { data, error } = await supabase.from("poles")
-        .select("latitude, longitude")
-        .eq("id", formData.pole_id)
-        .maybeSingle();
-      if (error) throw error;
-      pole = data;
-    }
-    const lat = pole?.latitude == null ? NaN : Number(pole.latitude);
-    const lng = pole?.longitude == null ? NaN : Number(pole.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      throw new Error("Não foi possível confirmar a localização do poste selecionado.");
-    }
-    return { lat, lng };
-  };
+  const reportLocationForSubmit = () => resolveReportSubmissionLocation({
+    client: supabase, formData, resolveCityIdFromLocation, getResolvedNeighborhood,
+  });
 
   const handleCreatePendingPole = async () => {
     if (isCreatingPendingPole || formData.pole_id) return;
@@ -427,9 +410,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   // Após o usuário mover o marcador manualmente, não sobrescrever location com o GPS
   const userPickedLocationRef = useRef(false);
 
-  // Resolve o city_id SEMPRE a partir das coordenadas do marcador (não do usuário).
-  // Chamado no submit para garantir um valor confiável e não-nulo, sem depender
-  // do useEffect assíncrono com debounce (que sofre de race conditions).
+  // Sem poste cadastrado, resolve a cidade pelas coordenadas do marcador.
+  // O envio de um poste usa cidade e coordenadas do próprio cadastro.
   const { resolveCityIdFromLocation, resetCityCache, getResolvedNeighborhood } =
     useCityIdFromLocation();
 
@@ -3002,9 +2984,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       }
 
       // Para iluminação vinculada, a coordenada persistida é sempre a do poste.
-      const reportLocation = await reportLocationForSubmit();
-      throwIfSubmissionAborted(submissionController.signal);
-      const resolvedCityId = await resolveCityIdFromLocation(reportLocation);
+      const { location: reportLocation, city_id: resolvedCityId, neighborhood } = await reportLocationForSubmit();
       throwIfSubmissionAborted(submissionController.signal);
       if (resolvedCityId == null) {
         // Nunca salvar city_id nulo — bloqueia o envio e orienta o usuário.
@@ -3017,16 +2997,14 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         setIsSubmitting(false);
         return;
       }
-      // O bairro sai da MESMA resposta que resolveu a cidade — nenhuma chamada
-      // extra. Nulo é aceitável: a bronca conta no placar da cidade e fica de
-      // fora do placar de bairro, que é melhor que atribuí-la a um bairro
-      // adivinhado.
+      // Bairro confirmado no cadastro do poste ou na resolução do marcador.
+      // Quando desconhecido, permanece nulo sem impedir o envio.
       const finalFormData = {
         ...formData,
         location: reportLocation,
         reported_pole_distance_m: formData.pole_id ? 0 : formData.reported_pole_distance_m,
         city_id: resolvedCityId,
-        neighborhood: getResolvedNeighborhood(),
+        neighborhood,
       };
       const submissionResult = await onSubmit(finalFormData, uploadMediaWrapper, {
         signal: submissionController.signal,
@@ -3341,9 +3319,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     setIsSubmitting(true);
     setUploadProgress(0);
     try {
-      const reportLocation = await reportLocationForSubmit();
-      throwIfSubmissionAborted(submissionController.signal);
-      const anonCityId = await resolveCityIdFromLocation(reportLocation);
+      const { location: reportLocation, city_id: anonCityId, neighborhood } = await reportLocationForSubmit();
       throwIfSubmissionAborted(submissionController.signal);
       if (anonCityId == null) {
         showAppError({
@@ -3373,7 +3349,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         issue_type: formData.issue_type,
         is_from_water_utility: formData.is_from_water_utility,
         city_id: anonCityId,
-        neighborhood: getResolvedNeighborhood(),
+        neighborhood,
       };
 
       // Detectar plataforma nativa com plugin disponível

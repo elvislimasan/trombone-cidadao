@@ -15,10 +15,11 @@ import ElectricianCompletionCelebration from '@/components/municipality/Electric
 import { Input } from '@/components/ui/input';
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
-import { compactPoleReference, electricianPoleForm, electricianPolePayload, electricianVisitTitle, fillElectricianPoleIdentifier, poleIdentifierFromTitle } from '@/lib/electricianPole';
+import { compactPoleReference, electricianPoleForm, electricianPolePayload, electricianVisitTitle, poleIdentifierFromTitle } from '@/lib/electricianPole';
 import { clearElectricianDraft, electricianDraftHasWork, loadElectricianDraft, saveElectricianDraft } from '@/lib/electricianDraft';
 import { canResumeElectricianOrder, distanceBetweenPoints, formatDistance } from '@/lib/electricianPanel';
-import { ehErroDeRede } from '@/lib/offlineErros';
+import { ELECTRICIAN_SYNC_EVENT, loadElectricianOrderSnapshot, queueElectricianJob } from '@/lib/electricianOffline';
+import { useElectricianOffline } from '@/contexts/ElectricianOfflineContext';
 
 const panelPath = '/prefeitura/eletricista';
 const serviceOptions = [['lamp_replacement', 'Troca de lâmpada'], ['arm_installation', 'Instalação de braço de luz'], ['relay_replacement', 'Troca de relé'], ['other', 'Outro serviço']];
@@ -67,6 +68,8 @@ function ResponsiveOrderEditor({ isDesktop, open, onOpenChange, busy, draftStatu
 
 export default function ElectricianOrderPage() {
   const context = useOutletContext();
+  const { sync } = useElectricianOffline();
+  const [snapshotState, setSnapshotState] = useState({});
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [pole, setPole] = useState(null);
@@ -124,74 +127,42 @@ export default function ElectricianOrderPage() {
   draftDirtyRef.current = draftDirty;
   const markDraftChanged = () => { draftGenerationRef.current += 1; setDraftDirty(true); };
 
-  const load = useCallback(async ({ preserveDraft = false, cachedOrder = null, cachedPole = null, preferredReportId = null } = {}) => {
+  const load = useCallback(async ({ preserveDraft = false, preferredReportId = null } = {}) => {
     if (!municipalityId || !id) return;
     setLoading(true); setError('');
-    const detail = await supabase.from('demandas_municipais').select('*')
-      .eq('id', id).eq('prefeitura_id', municipalityId)
-      .eq('atribuido_a', context.userId).eq('category_id', 'iluminacao').maybeSingle();
-    if (scopeKeyRef.current !== scopeKey) return;
-    if (detail.error || !detail.data) {
-      const networkFailure = detail.error && (navigator.onLine === false
-        || /fetch|network|offline|timeout|load failed/i.test(detail.error.message || ''));
-      const snapshot = cachedOrder || latestDraftRef.current?.order;
-      if (networkFailure && snapshot?.id === id && snapshot?.atribuido_a === context.userId
-        && snapshot?.prefeitura_id === municipalityId) {
-        setOrder(snapshot); setPole(cachedPole || latestDraftRef.current?.pole || null);
-        setOffline(true);
-        setError('Sem conexão. Você pode continuar o rascunho neste aparelho; confira a ordem ao voltar à internet.');
-        setLoading(false); return snapshot;
+    try {
+      const snapshot = await loadElectricianOrderSnapshot(supabase, context.userId, municipalityId, id);
+      if (scopeKeyRef.current !== scopeKey) return;
+      const { order: item, linkedReports: linked, poles } = snapshot;
+      const preferred = preferredReportId || draftReportIdRef.current;
+      const nextReport = linked.find(report => report.report_id === preferred && report.status !== 'resolved')
+        || linked.find(report => report.status !== 'resolved');
+      const keepDraft = preserveDraft && (nextReport?.report_id || null) === draftReportIdRef.current;
+      draftReportIdRef.current = nextReport?.report_id || null;
+      const targetPole = poles.find(row => String(row.id) === String(nextReport?.pole_id || item.pole_id)) || null;
+      setSnapshotState(snapshot); setOrder(item); setLinkedReports(linked);
+      setSelectedReportId(nextReport?.report_id || null); setOffline(snapshot.offline);
+      if (snapshot.offline) setError('Sem conexão. Registre o trabalho normalmente; o envio será automático quando a conexão voltar.');
+      if (snapshot.blocked) setError('Há um registro aguardando revisão. Seus dados e fotos continuam guardados na fila acima.');
+      if (!keepDraft) {
+        setFiles([]); setResult(''); setServiceType(''); setServiceTypes([]); setTechnicalNote('');
+        setPole(targetPole); setPoleForm(electricianPoleForm(targetPole, nextReport?.title || item.titulo));
+      } else {
+        setPole(current => current || targetPole);
+        setPoleForm(current => current || electricianPoleForm(targetPole, nextReport?.title || item.titulo));
       }
-      setError(detail.error?.message || 'Esta ordem não está mais atribuída a você.');
-      setOrder(null); setOffline(false); setLoading(false); return;
-    }
-    const item = detail.data;
-    const linkedResult = await supabase.rpc('solicitacoes_ordem_eletricista', {
-      p_prefeitura: municipalityId, p_ordem: id,
-    });
-    if (scopeKeyRef.current !== scopeKey) return;
-    if (linkedResult.error) {
-      setError(linkedResult.error.message);
-      setOrder(null); setLoading(false); return;
-    }
-    const linked = linkedResult.data || [];
-    const preferred = preferredReportId || draftReportIdRef.current;
-    const nextReport = linked.find((report) => report.report_id === preferred && report.status !== 'resolved')
-      || linked.find((report) => report.status !== 'resolved');
-    const previousReportId = draftReportIdRef.current;
-    const keepDraft = preserveDraft && (nextReport?.report_id || null) === previousReportId;
-    draftReportIdRef.current = nextReport?.report_id || null;
-    if (!keepDraft && previousReportId !== draftReportIdRef.current) setFiles([]);
-    const targetPoleId = nextReport?.pole_id || item.pole_id;
-    const requests = [
-      supabase.from('demanda_anexos').select('*').eq('demanda_id', id).order('created_at', { ascending: false }),
-      supabase.from('demanda_eventos').select('*,autor:profiles!demanda_eventos_criado_por_fkey(name)').eq('demanda_id', id).order('created_at', { ascending: false }).limit(30),
-      targetPoleId ? supabase.from('poles').select('id,identifier,plate,address,latitude,longitude,lamp_type,lamp_power_w,raw_properties,updated_at').eq('id', targetPoleId).maybeSingle() : Promise.resolve({ data: null }),
-    ];
-    const [filesResult, eventsResult, poleResult] = await Promise.all(requests);
-    if (scopeKeyRef.current !== scopeKey) return;
-    if (filesResult.error || eventsResult.error || poleResult.error) setError((filesResult.error || eventsResult.error || poleResult.error).message);
-    setOrder(item);
-    setLinkedReports(linked);
-    setSelectedReportId(nextReport?.report_id || null);
-    setOffline(false);
-    if (!keepDraft) {
-      setResult(nextReport ? '' : item.resultado || '');
-      setServiceType(nextReport ? '' : item.service_type || '');
-      setServiceTypes(nextReport ? [] : item.service_types?.length ? item.service_types : item.service_type ? [item.service_type] : []);
-      setTechnicalNote(nextReport ? '' : item.registro_execucao || '');
-    }
-    setAttachments(filesResult.data || []);
-    setEvents(eventsResult.data || []);
-    if (!keepDraft || targetPoleId) setPole(poleResult.data || null);
-    if (!keepDraft) setPoleForm(electricianPoleForm(poleResult.data, nextReport?.title || item.titulo));
-    else setPoleForm((current) => {
-      const fresh = electricianPoleForm(poleResult.data, nextReport?.title || item.titulo);
-      if (!current || (targetPoleId && String(current.id) !== String(targetPoleId))) return fresh;
-      return fillElectricianPoleIdentifier(current, targetPoleId ? nextReport?.title || item.titulo : '');
-    });
-    setLoading(false);
-    return item;
+      if (!snapshot.offline) {
+        const [filesResult, eventsResult] = await Promise.all([
+          supabase.from('demanda_anexos').select('*').eq('demanda_id', id).order('created_at', { ascending: false }),
+          supabase.from('demanda_eventos').select('*,autor:profiles!demanda_eventos_criado_por_fkey(name)').eq('demanda_id', id).order('created_at', { ascending: false }).limit(30),
+        ]);
+        if (scopeKeyRef.current !== scopeKey) return;
+        setAttachments(filesResult.data || []); setEvents(eventsResult.data || []);
+      }
+      return item;
+    } catch (cause) {
+      if (scopeKeyRef.current === scopeKey) { setError(cause.message || 'Conecte-se e prepare esta ordem antes de trabalhar sem internet.'); setOrder(null); }
+    } finally { if (scopeKeyRef.current === scopeKey) setLoading(false); }
   }, [municipalityId, id, context.userId, scopeKey]);
 
   useEffect(() => {
@@ -246,7 +217,11 @@ export default function ElectricianOrderPage() {
 
   useEffect(() => {
     const search = poleSearch.trim();
-    if (!order || offline || (poleForm?.id && !changingPole) || (search.length < 2 && (search || !hasOrderPin))) {
+    if (offline && order) {
+      const candidates = (snapshotState.poles || []).filter(row => search ? `${row.identifier || ''} ${row.address || ''}`.toLowerCase().includes(search.toLowerCase()) : (distanceBetweenPoints(workLocation, row) ?? Infinity) <= 300);
+      setPoleResults(candidates); setSearchingPole(false); setPoleLookupError(''); return undefined;
+    }
+    if (!order || (poleForm?.id && !changingPole) || (search.length < 2 && (search || !hasOrderPin))) {
       setPoleResults([]); setSearchingPole(false); setPoleLookupError(''); return undefined;
     }
     let active = true;
@@ -263,7 +238,7 @@ export default function ElectricianOrderPage() {
       if (failure) setPoleLookupError(failure.message);
     }, search ? 300 : 0);
     return () => { active = false; clearTimeout(timer); };
-  }, [changingPole, hasOrderPin, id, municipalityId, offline, order, poleForm?.id, poleSearch]);
+  }, [changingPole, hasOrderPin, id, municipalityId, offline, order, poleForm?.id, poleSearch, snapshotState.poles, workLocation]);
 
   useEffect(() => {
     const flush = () => {
@@ -279,9 +254,11 @@ export default function ElectricianOrderPage() {
 
   useEffect(() => {
     const onOnline = () => { if (offline) load({ preserveDraft: true }); };
+    const synced = event => { if (event.detail?.userId === context.userId && event.detail?.resource === `order:${id}`) load({ preserveDraft: true }); };
     window.addEventListener('online', onOnline);
-    return () => window.removeEventListener('online', onOnline);
-  }, [load, offline]);
+    window.addEventListener(ELECTRICIAN_SYNC_EVENT, synced);
+    return () => { window.removeEventListener('online', onOnline); window.removeEventListener(ELECTRICIAN_SYNC_EVENT, synced); };
+  }, [load, offline, context.userId, id]);
 
   useEffect(() => () => {
     if (scopeKeyRef.current === scopeKey && draftReadyRef.current && draftDirtyRef.current
@@ -316,84 +293,49 @@ export default function ElectricianOrderPage() {
   };
 
   const save = async (status) => {
-    if (!order || saving || committingRef.current) return;
-    if (offline || navigator.onLine === false) {
-      setFormError('Sem conexão. O rascunho continua neste aparelho; envie quando voltar à internet.');
-      return;
-    }
+    if (!order || saving || committingRef.current || snapshotState.blocked) return;
     let poleData;
     const closeResolvedOrder = status === 'concluida' && linkedReports.length > 0 && !activeReport;
     if (status === 'concluida' && !closeResolvedOrder) {
-      if (!serviceTypes.length || serviceTypes.some((type) => !serviceOptions.some(([key]) => key === type))) {
+      if (!serviceTypes.length || serviceTypes.some(type => !serviceOptions.some(([key]) => key === type))) {
         setFormError('Selecione o serviço executado antes de resolver.'); return;
       }
       try { poleData = electricianPolePayload(poleForm); }
       catch (cause) { setFormError(cause.message); return; }
     }
-    setSaving(true); setFormError('');
-    committingRef.current = true;
-    const uploaded = [];
-    let committed = false;
-    let submissionStarted = false;
-    let localCleanupFailed = false;
+    setSaving(true); setFormError(''); committingRef.current = true;
+    const savedScope = scopeKey;
     try {
-      for (const pending of status === 'concluida' && !closeResolvedOrder ? files : []) {
-        const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[pending.file.type];
-        const path = `${municipalityId}/${context.userId}/${crypto.randomUUID()}.${extension}`;
-        const { error: uploadError } = await supabase.storage.from('municipal-demand-files')
-          .upload(path, pending.file, { contentType: pending.file.type });
-        if (uploadError) throw uploadError;
-        uploaded.push({ storage_path: path, nome: pending.file.name, mime_type: pending.file.type,
-          tamanho: pending.file.size, tipo: 'conclusao', visibilidade: 'interna' });
-      }
-      submissionStarted = true;
-      const saveResponse = closeResolvedOrder ? await supabase.rpc('concluir_ordem_eletricista', {
-        p_prefeitura: municipalityId, p_ordem: order.id, p_versao: order.versao,
-      }) : status === 'concluida' && activeReport ? await supabase.rpc('atender_solicitacao_ordem_eletricista', {
-        p_prefeitura: municipalityId, p_ordem: order.id, p_report: activeReport.report_id,
-        p_versao: order.versao, p_poste_id: poleForm.id, p_poste_atualizado_em: poleForm.updated_at,
-        p_poste: { ...poleData, service_type: serviceTypes[0], service_types: serviceTypes, resultado: result.trim() },
-        p_anexos: uploaded,
-      }) : status === 'concluida' ? await supabase.rpc('resolver_ordem_eletricista', {
-        p_prefeitura: municipalityId, p_ordem: order.id, p_versao: order.versao,
-        p_poste_id: poleForm.id, p_poste_atualizado_em: poleForm.updated_at,
-        p_poste: { ...poleData, service_type: serviceTypes[0], service_types: serviceTypes, resultado: result.trim() }, p_anexos: uploaded,
-      }) : await supabase.rpc('salvar_demanda_municipal', {
-        p_prefeitura: municipalityId, p_id: order.id, p_versao: order.versao,
-        p_dados: { status }, p_reports: [], p_anexos: uploaded,
+      const rpc = closeResolvedOrder ? 'concluir_ordem_eletricista'
+        : status !== 'concluida' ? 'salvar_demanda_municipal'
+        : activeReport ? 'atender_solicitacao_ordem_eletricista' : 'resolver_ordem_eletricista';
+      const args = { p_prefeitura: municipalityId, p_versao: order.versao,
+        ...(status !== 'concluida' ? { p_id: order.id, p_dados: { status } } : { p_ordem: order.id }),
+        ...(status === 'concluida' && !closeResolvedOrder ? {
+          p_poste_id: poleForm.id, p_poste_atualizado_em: poleForm.updated_at,
+          p_poste: { ...poleData, service_type: serviceTypes[0], service_types: serviceTypes, resultado: result.trim() },
+          ...(activeReport ? { p_report: activeReport.report_id } : {}),
+        } : {}),
+      };
+      await queueElectricianJob({ userId: context.userId, municipalityId, rpc, args,
+        resource: `order:${order.id}`, previousId: snapshotState.previousId || null,
+        label: `${order.protocolo || 'Ordem'} · ${status === 'concluida' ? 'Atendimento' : 'Início da execução'}`,
+        files: status === 'concluida' && !closeResolvedOrder ? files : [],
       });
-      if (saveResponse.error) throw saveResponse.error;
-      committed = true;
-      const finishedOrder = status === 'concluida' && (!activeReport || saveResponse.data?.status === 'concluida');
+      if (scopeKeyRef.current !== savedScope) return;
+      // Clear only after the queue transaction (including every photo) commits.
       if (status === 'concluida') {
         draftGenerationRef.current += 1;
-        try {
-          await clearElectricianDraft(draftScope);
-          setDraftDirty(false); setDraftSavedAt(null); setDraftStatus('empty');
-        } catch {
-          setDraftStatus('error');
-          localCleanupFailed = true;
-        }
-        setFiles([]);
+        await clearElectricianDraft(draftScope).catch(() => {});
+        setDraftDirty(false); setDraftSavedAt(null); setDraftStatus('empty');
+        setFiles([]); setEditorOpen(false);
       }
-      if (finishedOrder) setCelebrating(true);
-      else if (status === 'concluida') showAppNotice({ title: 'Solicitação resolvida', description: 'A ordem continua em execução até atender todas as solicitações.' });
-      else showAppNotice({ title: 'Serviço iniciado' });
-      if (status === 'concluida') setEditorOpen(false);
+      showAppNotice({ title: 'Registro guardado no aparelho', description: 'O envio será automático quando houver conexão. Acompanhe a confirmação na fila.' });
       await load({ preserveDraft: status === 'em_andamento' });
-      if (localCleanupFailed) setError('Execução enviada, mas o rascunho local não pôde ser apagado.');
+      void sync();
     } catch (cause) {
-      const networkFailure = ehErroDeRede(cause);
-      // Uma queda após o envio da RPC pode acontecer depois do COMMIT.
-      // Não apague evidências que podem já estar vinculadas ao atendimento.
-      if (!committed && !(submissionStarted && networkFailure) && uploaded.length) await supabase.storage.from('municipal-demand-files')
-        .remove(uploaded.map((file) => file.storage_path)).catch(() => {});
-      setFormError(committed ? 'O atendimento foi salvo, mas não foi possível atualizar a página. Recarregue a ordem para conferir.'
-        : networkFailure ? submissionStarted
-          ? 'A conexão caiu ao confirmar o atendimento. Seu rascunho foi mantido. Atualize a ordem para conferir se o serviço foi salvo antes de enviar novamente.'
-          : 'Não foi possível enviar os arquivos. Seu rascunho foi mantido. Confira sua conexão e tente novamente.'
-        : cause.code === '40001' ? 'O cadastro mudou durante o atendimento. Atualize a ordem e confira os dados atuais do poste antes de resolver.' : cause.message);
-    } finally { committingRef.current = false; setSaving(false); }
+      if (scopeKeyRef.current === savedScope) setFormError(cause.message || 'Não foi possível guardar. Mantenha a tela aberta e tente novamente.');
+    } finally { committingRef.current = false; if (scopeKeyRef.current === savedScope) setSaving(false); }
   };
 
   const canStart = canResumeElectricianOrder(order);
@@ -419,7 +361,7 @@ export default function ElectricianOrderPage() {
       {error && <p role="alert" className="mt-4 text-sm text-danger">{error}</p>}
       <header className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/20 bg-brand-subtleBg px-4 py-4 sm:px-6">
         <div className="min-w-0"><p className="text-xs font-bold uppercase tracking-wider text-brand">Ordem de serviço</p><h1 className="mt-1 break-words font-display text-2xl font-extrabold leading-tight sm:text-3xl">{order.protocolo || 'Sem protocolo'}</h1></div>
-        <span className="rounded-full border border-brand/20 bg-surface-raised px-3 py-1.5 text-xs font-bold text-brand">{statusLabel(order.status)}</span>
+        <span className="rounded-full border border-brand/20 bg-surface-raised px-3 py-1.5 text-xs font-bold text-brand">{snapshotState.pending ? 'Salvo no aparelho · envio pendente' : statusLabel(order.status)}</span>
       </header>
       <div className="mt-4 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,1fr)] xl:gap-6">
         <div className="min-w-0 space-y-4">
@@ -439,12 +381,12 @@ export default function ElectricianOrderPage() {
           {linkedReports.length > 0 && <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm sm:p-5" aria-label="Andamento das solicitações">
             <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-lg font-extrabold">Andamento da ordem</h2><span className="text-xs font-bold text-brand">{resolvedReports} de {linkedReports.length} resolvidas</span></div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-subtle" role="progressbar" aria-label="Solicitações resolvidas" aria-valuenow={resolvedReports} aria-valuemin={0} aria-valuemax={linkedReports.length}><div className="h-full rounded-full bg-brand" style={{ width: `${resolvedReports / linkedReports.length * 100}%` }} /></div>
-            {otherReports.length > 0 && <ul className="mt-4 divide-y divide-edge-subtle">{otherReports.map((report) => <li key={report.report_id} className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0">{report.status === 'resolved' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" />}<div className="min-w-0"><p className="break-words text-sm font-semibold">{compactPoleReference(report.title || 'Solicitação de iluminação')}</p><p className="mt-0.5 text-xs text-content-secondary">{report.status === 'resolved' ? 'Resolvida' : 'Pendente'}</p>{report.status !== 'resolved' && <Button type="button" variant="outline" size="sm" className="mt-2" disabled={saving || offline} onClick={async () => { if (currentDraftHasWork && !await confirmApp({ title: 'Trocar a solicitação em atendimento?', description: 'As alterações deste registro serão descartadas ao abrir outra solicitação. Salve o atendimento antes de trocar para mantê-las.', confirmLabel: 'Trocar solicitação' })) return; await load({ preferredReportId: report.report_id }); markDraftChanged(); }}>Atender esta solicitação</Button>}</div></li>)}</ul>}
+            {otherReports.length > 0 && <ul className="mt-4 divide-y divide-edge-subtle">{otherReports.map((report) => <li key={report.report_id} className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0">{report.status === 'resolved' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" />}<div className="min-w-0"><p className="break-words text-sm font-semibold">{compactPoleReference(report.title || 'Solicitação de iluminação')}</p><p className="mt-0.5 text-xs text-content-secondary">{report.status === 'resolved' ? 'Resolvida' : 'Pendente'}</p>{report.status !== 'resolved' && <Button type="button" variant="outline" size="sm" className="mt-2" disabled={saving || snapshotState.blocked} onClick={async () => { if (currentDraftHasWork && !await confirmApp({ title: 'Trocar a solicitação em atendimento?', description: 'As alterações deste registro serão descartadas ao abrir outra solicitação. Salve o atendimento antes de trocar para mantê-las.', confirmLabel: 'Trocar solicitação' })) return; await load({ preferredReportId: report.report_id }); markDraftChanged(); }}>Atender esta solicitação</Button>}</div></li>)}</ul>}
             {canSubmit && <p className="mt-3 text-xs leading-5 text-content-secondary">Cada serviço salvo resolve uma solicitação. A ordem termina após a última.</p>}
           </section>}
           {attachments.length > 0 && <details className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm sm:p-5"><summary className="cursor-pointer font-display text-base font-extrabold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Anexos recebidos · {attachments.length}</summary><div className="mt-4"><DemandAttachments files={attachments} /></div></details>}
         </div>
-        {canCloseResolvedOrder ? <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm"><h2 className="font-display text-xl font-extrabold">Concluir ordem</h2><p className="mt-2 text-sm text-content-secondary">Todas as solicitações vinculadas já estão resolvidas. Confirme o encerramento desta ordem.</p>{formError && <p role="alert" className="mt-3 text-sm text-danger">{formError}</p>}<Button type="button" className="mt-4 w-full" disabled={saving || offline} onClick={() => save('concluida')}>{saving ? 'Concluindo…' : 'Concluir ordem'}</Button></section> : canSubmit ? <ResponsiveOrderEditor isDesktop={isDesktop} open={editorOpen} onOpenChange={setEditorOpen} busy={saving} draftStatus={draftStatus}
+        {canCloseResolvedOrder ? <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm"><h2 className="font-display text-xl font-extrabold">Concluir ordem</h2><p className="mt-2 text-sm text-content-secondary">Todas as solicitações vinculadas já estão resolvidas. Confirme o encerramento desta ordem.</p>{formError && <p role="alert" className="mt-3 text-sm text-danger">{formError}</p>}<Button type="button" className="mt-4 w-full" disabled={saving || snapshotState.blocked} onClick={() => save('concluida')}>{saving ? 'Concluindo…' : 'Concluir ordem'}</Button></section> : canSubmit ? <ResponsiveOrderEditor isDesktop={isDesktop} open={editorOpen} onOpenChange={setEditorOpen} busy={saving} draftStatus={draftStatus}
           draftMessage={draftStatus === 'saving' ? 'Salvando rascunho neste aparelho…' : draftStatus === 'saved' && draftSavedAt
             ? `Rascunho salvo neste aparelho · ${dateTime(draftSavedAt)}` : draftStatus === 'error'
               ? 'Falha ao guardar o rascunho. Tente salvar novamente.' : 'O rascunho é salvo automaticamente neste aparelho.'}
@@ -452,7 +394,7 @@ export default function ElectricianOrderPage() {
           footer={<div className="space-y-2">
             {formError && <p role="alert" className="rounded-xl bg-danger-subtleBg p-3 text-sm text-danger">{formError}</p>}
             {formError?.includes('cadastro mudou') && pole && <Button type="button" variant="outline" disabled={saving} className="w-full" onClick={async () => { await load(); markDraftChanged(); setFormError(''); }}>Recarregar dados atuais do poste</Button>}
-            <Button type="button" className="min-h-12 w-full" onClick={() => save('concluida')} disabled={saving || offline || !draftReady || !poleForm}><CheckCircle2 className="mr-2 h-4 w-4" />{saving ? 'Salvando…' : activeReport ? 'Resolver esta solicitação' : 'Salvar poste e resolver serviço'}</Button>
+            <Button type="button" className="min-h-12 w-full" onClick={() => save('concluida')} disabled={saving || snapshotState.blocked || !draftReady || !poleForm}><CheckCircle2 className="mr-2 h-4 w-4" />{saving ? 'Salvando…' : activeReport ? 'Resolver esta solicitação' : 'Salvar poste e resolver serviço'}</Button>
             {draftStatus === 'error' && <Button type="button" variant="ghost" className="w-full" onClick={saveDraftNow} disabled={saving || !draftReady}>Tentar salvar rascunho</Button>}
           </div>}>
           <div className="space-y-5">
@@ -462,7 +404,7 @@ export default function ElectricianOrderPage() {
               {!poleSearch.trim() && hasOrderPin && <p className="mt-2 text-xs text-content-secondary">Postes até 300 m do pin no mapa, do mais próximo ao mais distante.</p>}
               {!poleSearch.trim() && !hasOrderPin && <p className="mt-2 text-xs text-content-secondary">Esta ordem não tem pin no mapa. Busque pelo número ou endereço.</p>}
               {searchingPole && <p role="status" className="mt-2 text-xs text-content-secondary">Buscando postes…</p>}
-              {offline && <p className="mt-2 text-xs text-content-secondary">Conecte-se para buscar postes.</p>}
+              {offline && <p className="mt-2 text-xs text-content-secondary">Busca nos postes guardados neste aparelho.</p>}
               {poleLookupError && <p role="alert" className="mt-2 text-xs text-danger">{poleLookupError}</p>}
               <div className="mt-2 max-h-56 space-y-1 overflow-y-auto" aria-label={poleSearch.trim() ? 'Postes encontrados' : 'Postes próximos ao pin'}>{poleResults.map((item) => {
                 const distance = distanceBetweenPoints(workLocation, item);
@@ -485,7 +427,7 @@ export default function ElectricianOrderPage() {
           </div>
         </ResponsiveOrderEditor> : <section className={'min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm sm:p-5 ' + (!isDesktop ? 'order-first' : '')}>
           <div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl font-extrabold">{canStart ? resuming ? 'Retomar execução' : 'Iniciar execução' : 'Acompanhar ordem'}</h2><Button type="button" variant="ghost" size="icon" onClick={() => load({ preserveDraft: true })} disabled={saving} aria-label="Atualizar ordem sem apagar rascunho"><RotateCcw className="h-4 w-4" /></Button></div>
-          {canStart ? <div className="mt-4 rounded-xl bg-brand-subtleBg p-4"><p className="text-sm text-content-primary">{resuming ? `Pendência: ${order.motivo_pendencia || statusLabel(order.status)}. Retome quando ela estiver resolvida.` : 'Inicie a ordem para registrar o serviço.'}</p><Button type="button" className="mt-3 w-full" disabled={saving || offline} onClick={() => save('em_andamento')}>{saving ? 'Salvando…' : resuming ? 'Retomar execução' : 'Iniciar execução'}</Button></div> : <p className="mt-4 text-sm text-content-secondary">{order.revisao_pendente || order.status === 'aguardando_confirmacao' ? 'A gestão precisa revisar e reabrir esta ordem para permitir um novo atendimento.' : `${statusLabel(order.status)}. Acompanhe as atualizações no histórico.`}</p>}
+          {canStart ? <div className="mt-4 rounded-xl bg-brand-subtleBg p-4"><p className="text-sm text-content-primary">{resuming ? `Pendência: ${order.motivo_pendencia || statusLabel(order.status)}. Retome quando ela estiver resolvida.` : 'Inicie a ordem para registrar o serviço.'}</p><Button type="button" className="mt-3 w-full" disabled={saving || snapshotState.blocked} onClick={() => save('em_andamento')}>{saving ? 'Salvando…' : resuming ? 'Retomar execução' : 'Iniciar execução'}</Button></div> : <p className="mt-4 text-sm text-content-secondary">{order.revisao_pendente || order.status === 'aguardando_confirmacao' ? 'A gestão precisa revisar e reabrir esta ordem para permitir um novo atendimento.' : `${statusLabel(order.status)}. Acompanhe as atualizações no histórico.`}</p>}
         </section>}
       </div>
       <section className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm sm:p-5"><MunicipalDemandHistory events={events} context={context} variant="timeline" /></section>

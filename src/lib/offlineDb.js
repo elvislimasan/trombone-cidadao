@@ -20,11 +20,12 @@
 // em qualquer versão anterior, inclusive a zero.
 
 const NOME = 'tc_offline';
-const VERSAO = 3;
+const VERSAO = 4;
 
 export const LOJA_FILA = 'fila_v1';
 export const LOJA_CORREDOR = 'corredor_v1';
 export const LOJA_RASCUNHO_ELETRICISTA = 'rascunho_eletricista_v1';
+export const LOJA_ELETRICISTA = 'eletricista_offline_v1';
 
 export const indexedDbDisponivel = () => typeof indexedDB !== 'undefined';
 
@@ -34,6 +35,9 @@ export const abrirBanco = () =>
 
     req.onupgradeneeded = () => {
       const db = req.result;
+      if (!db.objectStoreNames.contains(LOJA_ELETRICISTA)) {
+        db.createObjectStore(LOJA_ELETRICISTA, { keyPath: 'id' });
+      }
 
       if (!db.objectStoreNames.contains(LOJA_FILA)) {
         const fila = db.createObjectStore(LOJA_FILA, { keyPath: 'id' });

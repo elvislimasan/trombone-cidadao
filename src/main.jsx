@@ -10,6 +10,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { MapModeProvider } from './contexts/MapModeContext';
 import { MissionProgressProvider } from './contexts/MissionProgressContext';
 import { OfflineQueueProvider } from './contexts/OfflineQueueContext';
+import { ElectricianOfflineProvider } from './contexts/ElectricianOfflineContext';
 import { ThemeProvider } from '@/design-system/theme/ThemeProvider';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar } from '@capacitor/status-bar';
@@ -259,9 +260,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 <MissionProgressProvider>
                   {/* O carteiro da fila offline. Uma instância só — ver o
                       cabeçalho do contexto. */}
-                  <OfflineQueueProvider>
+                  <OfflineQueueProvider><ElectricianOfflineProvider>
                     <App />
-                  </OfflineQueueProvider>
+                  </ElectricianOfflineProvider></OfflineQueueProvider>
                 </MissionProgressProvider>
               </MapModeProvider>
             </NotificationProvider>

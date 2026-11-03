@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 
+import { readElectricianCache, writeElectricianCache, ELECTRICIAN_SYNC_EVENT } from '@/lib/electricianOffline';
+import { ehErroDeRede } from '@/lib/offlineErros';
+
 export const ELECTRICIAN_SERVICES_PAGE_SIZE = 20;
 const EMPTY_COUNTS = { fazer: 0, execucao: 0, conferencia: 0, historico: 0 };
 const EMPTY_ITEMS = [];
@@ -28,6 +31,8 @@ export function useExecutorServicesPage({ municipalityId, userId, tab, stage, qu
   if (selection.scope !== scope) setSelection({ scope, page: 1 });
   const requestedPage = selection.scope === scope ? selection.page : 1;
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
+
+  useEffect(() => { window.addEventListener(ELECTRICIAN_SYNC_EVENT, refresh); return () => window.removeEventListener(ELECTRICIAN_SYNC_EVENT, refresh); }, [refresh]);
 
   useEffect(() => {
     const { args, rpc, all: loadAll, includeAvailable: combinedMap } = JSON.parse(scope);
@@ -65,8 +70,13 @@ export function useExecutorServicesPage({ municipalityId, userId, tab, stage, qu
           data = { ...pages[0], items: [...unique.values()], total: unique.size, page: 1 };
         } else data = await load(args);
         if (controller.signal.aborted) return;
-        setResponse({ scope, requestedPage, data, error: '' });
+        await writeElectricianCache(userId, `services:${scope}:${requestedPage}`, data).catch(() => {});
+        if (!controller.signal.aborted) setResponse({ scope, requestedPage, data, error: '' });
       } catch (error) {
+        if (ehErroDeRede(error)) {
+          const cached = await readElectricianCache(userId, `services:${scope}:${requestedPage}`).catch(() => null);
+          if (cached) { if (!controller.signal.aborted) setResponse({ scope, requestedPage, data: cached, error: 'Sem conexão. Exibindo serviços guardados neste aparelho.' }); return; }
+        }
         if (!controller.signal.aborted) setResponse({ scope, requestedPage, data: null,
           error: error?.message || 'Não foi possível carregar os serviços. Tente atualizar a lista.' });
       } finally {
@@ -74,7 +84,7 @@ export function useExecutorServicesPage({ municipalityId, userId, tab, stage, qu
       }
     })();
     return () => controller.abort();
-  }, [scope, requestedPage, enabled, revision]);
+  }, [scope, requestedPage, enabled, revision, userId]);
 
   const current = response?.scope === scope && response.requestedPage === requestedPage ? response : null;
   const total = current?.data?.total || 0;

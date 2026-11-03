@@ -3,6 +3,10 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { haversine, NAV_ALERTA } from '@/lib/navGeo';
 import { brokenPole, closestPatrolPole, DEFAULT_PATROL_FILTERS, filterPatrolPoles, ELECTRICIAN_PATROL_ALERT_MS, patrolPoleBounds, patrolPositionIsPrecise } from '@/lib/electricianPatrol';
 
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { readElectricianCache } from '@/lib/electricianOffline';
+import { ehErroDeRede } from '@/lib/offlineErros';
+
 const FIELDS = 'id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w,raw_properties';
 
 async function readPages(buildQuery, signal) {
@@ -17,6 +21,8 @@ async function readPages(buildQuery, signal) {
 }
 
 export function useElectricianPatrol({ enabled, cityId, municipalityId, position, paused, revision, filters = DEFAULT_PATROL_FILTERS }) {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [poles, setPoles] = useState([]);
   const [alert, setAlert] = useState(null);
   const [dismissal, setDismissal] = useState(0);
@@ -78,9 +84,19 @@ export function useElectricianPatrol({ enabled, cityId, municipalityId, position
         if (token !== sequence.current) return;
         setPoles(filterPatrolPoles(data, services, filters)); setError('');
         center.current = { ...position, fetchedAt: Date.now() };
-      }).catch(() => { if (token === sequence.current) setError('Não foi possível atualizar os serviços da patrulha. Tentando novamente…'); })
+      }).catch(async failure => {
+        if (ehErroDeRede(failure)) {
+          const cached = await readElectricianCache(userId, `poles:${municipalityId}`).catch(() => null);
+          if (cached && token === sequence.current) {
+            setPoles(filterPatrolPoles(cached.filter(pole => pole.latitude != null && pole.longitude != null && pole.latitude >= bounds.south && pole.latitude <= bounds.north && pole.longitude >= bounds.west && pole.longitude <= bounds.east), [], filters));
+            setError('Sem conexão. Usando os postes preparados neste aparelho.');
+            center.current = { ...position, fetchedAt: Date.now() }; return;
+          }
+        }
+        if (token === sequence.current) setError('Não foi possível atualizar os serviços da patrulha. Prepare os postes antes de sair.');
+      })
       .finally(() => { if (inFlight.current === controller) inFlight.current = null; });
-  }, [enabled, cityId, municipalityId, position, revision, filters.neighborhood, filters.serviceType, filters.order]);
+  }, [enabled, cityId, municipalityId, position, revision, filters, userId]);
 
   useEffect(() => {
     if (!enabled || paused || !patrolPositionIsPrecise(position)) { changeAlert(null); return; }

@@ -6,6 +6,9 @@ import { enabledMunicipalCategories, filterMunicipalCategories } from '@/lib/mun
 import { PERMISSIONS_CHANGED_EVENT, PERMISSIONS_STORAGE_KEY } from '@/lib/permissionUpdates';
 import { municipalCapabilities, assertMunicipalWorkspaceIdentity, municipalWorkspaceChannel, municipalTreeAdoptionAccess } from '@/lib/municipalAccess';
 
+import { readElectricianCache, writeElectricianCache } from '@/lib/electricianOffline';
+import { ehErroDeRede } from '@/lib/offlineErros';
+
 const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), canAttendTreeAdoption: false, isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
 const WorkspaceContext = createContext(empty);
 export const WORKSPACE_EVENT = 'municipality-workspace-changed';
@@ -31,11 +34,13 @@ export function MunicipalityWorkspaceProvider({ children }) {
     const storage = event => { if (event.key === PERMISSIONS_STORAGE_KEY) refresh(); };
     window.addEventListener('storage', storage);
     window.addEventListener('focus', refresh);
-    return () => { window.removeEventListener(WORKSPACE_EVENT, update); window.removeEventListener(PERMISSIONS_CHANGED_EVENT, refresh); window.removeEventListener('focus', refresh); window.removeEventListener('storage', storage); };
+    window.addEventListener('online', refresh);
+    return () => { window.removeEventListener('online', refresh); window.removeEventListener(WORKSPACE_EVENT, update); window.removeEventListener(PERMISSIONS_CHANGED_EVENT, refresh); window.removeEventListener('focus', refresh); window.removeEventListener('storage', storage); };
   }, [refresh]);
   useEffect(() => {
     if (!user?.id) { setState({ ...empty, loading: false }); return undefined; }
     let active = true;
+    const offlineKey = `workspace:${explicitCity || chosenId || 'default'}:${requestedChannel || ''}`;
     // Voltar da galeria/câmera devolve o foco e revalida os vínculos. No mesmo
     // contexto, manter a página montada preserva o formulário e seu input file.
     // Uma troca de conta, cidade ou secretaria continua limpando o acesso.
@@ -58,6 +63,7 @@ export function MunicipalityWorkspaceProvider({ children }) {
         const membership = explicitCity ? available.find(row => String(row.prefeitura.city_id) === String(explicitCity))
           : available.find(row => row.prefeitura.id === preference) || available[0];
         if (!membership) {
+          await writeElectricianCache(user.id, offlineKey, null).catch(() => {});
           if (active) setState({ ...empty, loading: false, userId: user.id, error: explicitCity ? 'Sem vínculo municipal nesta cidade.' : '' });
           return;
         }
@@ -87,7 +93,7 @@ export function MunicipalityWorkspaceProvider({ children }) {
         // O filtro da listagem não limita o cadastro do administrador geral.
         // Funcionários continuam cadastrando somente nas categorias do seu contexto.
         const reportCreationCategoryIds = isAdministrator ? enabledMunicipalCategories(municipality) : categoryIds;
-        if (active) setState({
+        const nextState = {
           loading: false, refreshing: false, userId: user.id, municipality, memberships: available, accesses,
           channels: selectedChannel ? channels.filter(row => String(row.id) === selectedChannel) : channels,
           allChannels: channels, activeChannelId: selectedChannel,
@@ -99,8 +105,18 @@ export function MunicipalityWorkspaceProvider({ children }) {
           ...caps, isAdministrator, isElectrician: caps.canExecuteLighting, canEdit: caps.canReceive,
           canViewLighting: categoryIds.includes('iluminacao') && (caps.canReadAttendance || caps.canEditLighting || caps.canExecuteLighting),
           canEditLighting: categoryIds.includes('iluminacao') && caps.canEditLighting, error: '',
-        });
+        };
+        if (caps.canExecuteLighting) await writeElectricianCache(user.id, offlineKey, nextState).catch(() => {});
+        else await writeElectricianCache(user.id, offlineKey, null).catch(() => {});
+        if (active) setState(nextState);
       } catch (error) {
+        if (ehErroDeRede(error) && pathname.startsWith('/prefeitura/eletricista')) {
+          const cached = await readElectricianCache(user.id, offlineKey).catch(() => null);
+          if (cached?.userId === user.id && cached.isElectrician) {
+            if (active) setState({ ...cached, refreshing: false, loading: false, offline: true });
+            return;
+          }
+        } else await writeElectricianCache(user.id, offlineKey, null).catch(() => {});
         if (active) setState({ ...empty, loading: false, userId: user.id, error: ['42883', 'PGRST202'].includes(error.code) ? 'Atualize o banco com as migrações do painel por responsabilidades.' : error.message });
       }
     })();

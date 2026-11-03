@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { normalizeGeocodeCityName } from "../_shared/geocodeCityName.js"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -250,6 +251,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502,
       })
     }
+    result.city = normalizeGeocodeCityName(result.city, result.state_uf)
     if (resultCache.size >= 500) resultCache.delete(resultCache.keys().next().value!)
     resultCache.set(cacheKey, { expires: Date.now() + 60 * 60 * 1000, result })
     return new Response(JSON.stringify(result), {

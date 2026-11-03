@@ -8,11 +8,17 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { poleDisplayLabel } from '@/lib/poleDisplay';
 
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { readElectricianCache, ELECTRICIAN_SYNC_EVENT } from '@/lib/electricianOffline';
+import { ehErroDeRede } from '@/lib/offlineErros';
+
 const FILTERS = [['apagado', 'Apagados'], ['aceso', 'Acesos'], ['all', 'Todos']];
 const STATUS_LABEL = { aceso: 'Aceso / funcionando', apagado: 'Apagado ou com problema' };
 
 export default function ElectricianLightingMap({ municipality }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userId = user?.id;
   const cityId = municipality?.city_id;
   const [center, setCenter] = useState(null);
   const [bounds, setBounds] = useState(null);
@@ -40,11 +46,17 @@ export default function ElectricianLightingMap({ municipality }) {
       const damaged = await base().or('lighting_status.eq.apagado,is_broken.eq.true').limit(1).maybeSingle();
       const fallback = damaged.data ? damaged : await base().limit(1).maybeSingle();
       if (!active) return;
+      if (fallback.error && ehErroDeRede(fallback.error)) {
+        const poles = await readElectricianCache(userId, `poles:${municipality.id}`);
+        const first = poles?.find(pole => pole.latitude != null && pole.longitude != null);
+        if (active && first) { setCenter([Number(first.latitude), Number(first.longitude)]); return; }
+      }
       if (fallback.error) setError(fallback.error.message);
+      if (!active) return;
       setCenter(fallback.data ? [fallback.data.latitude, fallback.data.longitude] : [-14.2, -51.9]);
     })();
     return () => { active = false; };
-  }, [cityId]);
+  }, [cityId, userId, municipality.id]);
 
   const onBounds = useCallback((next) => setBounds((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next), []);
   useEffect(() => {
@@ -61,14 +73,21 @@ export default function ElectricianLightingMap({ municipality }) {
       p_status: filter, p_street: '', p_include_removed: false,
       p_zoom: bounds.zoom,
       p_marker_limit: Math.min(800, Math.max(350, Math.floor(bounds.width * bounds.height / 1200))),
-    }).then(({ data, error: failure }) => {
+    }).then(async ({ data, error: failure }) => {
+      if (failure && ehErroDeRede(failure)) {
+        const poles = await readElectricianCache(userId, `poles:${municipality.id}`);
+        data = (poles || []).filter(pole => pole.latitude != null && pole.longitude != null && Number(pole.latitude) >= bounds.south && Number(pole.latitude) <= bounds.north
+          && Number(pole.longitude) >= bounds.west && Number(pole.longitude) <= bounds.east && (filter === 'all' || lightingStatus(pole) === filter))
+          .slice(0, 800).map(pole => ({ pole, item_count: 1, cluster_lat: Number(pole.latitude), cluster_lng: Number(pole.longitude) }));
+        failure = { message: poles ? 'Sem conexão. Postes preparados neste aparelho (até 800 por área).' : 'Prepare os postes com conexão antes de usar o mapa offline.' };
+      }
       if (token !== requestId.current) return;
       setItems(data || []);
       setError(failure?.message || '');
       setLoading(false);
     });
     return () => { generation.current++; };
-  }, [cityId, bounds, filter, revision]);
+  }, [cityId, bounds, filter, revision, userId, municipality.id]);
 
   useEffect(() => {
     setResults([]); setSearchError('');
@@ -77,7 +96,12 @@ export default function ElectricianLightingMap({ municipality }) {
     setSearching(true);
     const timer = window.setTimeout(() => {
       supabase.rpc('buscar_mapa_eletricista', { p_prefeitura: municipality.id, p_busca: query.trim() })
-        .then(({ data, error: failure }) => {
+        .then(async ({ data, error: failure }) => {
+          if (failure && ehErroDeRede(failure)) {
+            const poles = await readElectricianCache(userId, `poles:${municipality.id}`);
+            data = (poles || []).filter(pole => `${pole.identifier || ''} ${pole.plate || ''} ${pole.address || ''}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 50).map(poste => ({ tipo: 'poste', poste }));
+            if (poles) failure = null;
+          }
           if (!active) return;
           setResults(data || []);
           setSearchError(failure?.message || '');
@@ -85,7 +109,13 @@ export default function ElectricianLightingMap({ municipality }) {
         .finally(() => { if (active) setSearching(false); });
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [municipality?.id, query, revision]);
+  }, [municipality?.id, query, revision, userId]);
+
+  useEffect(() => {
+    const update = () => setRevision(value => value + 1);
+    window.addEventListener(ELECTRICIAN_SYNC_EVENT, update);
+    return () => window.removeEventListener(ELECTRICIAN_SYNC_EVENT, update);
+  }, []);
 
   const openPole = (pole) => {
     setSelected(pole);

@@ -28,6 +28,8 @@ const supabase = {
   } },
 };
 const mocks = {
+  '@/lib/electricianOffline': { electricianCachedRead: async (user, key, read) => read(), readElectricianCache: async () => null, writeElectricianCache: async () => {}, queueElectricianJob: async () => {} },
+  '@/lib/offlineErros': { ehErroDeRede: () => false },
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user, loading: false, refreshUserProfile: async () => user, signOut: async () => {} }) },
   'react-router-dom': { useLocation: () => ({ pathname }), Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
   '@/lib/customSupabaseClient': { supabase },

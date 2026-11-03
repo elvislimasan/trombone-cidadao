@@ -1,3 +1,5 @@
+import { normalizeGeocodeCityName } from '../../supabase/functions/_shared/geocodeCityName.js';
+
 // O mesmo resultado atende ao campo de endereço e à resolução da cidade.
 // A função do projeto é a fonte principal; a consulta direta cobre falhas de
 // deploy/rede da função sem deixar o formulário preso em uma resposta vazia.
@@ -49,7 +51,7 @@ export function normalizeReverseGeocode(payload) {
     ? payload.address.trim()
     : [[road, number].filter(Boolean).join(', '), rawSuburb, city, fields.state]
       .filter(Boolean).join(' - ') || String(payload.display_name || '').trim();
-  return { address: address || null, city: city || null, state_uf: state_uf || null, suburb };
+  return { address: address || null, city: normalizeGeocodeCityName(city, state_uf), state_uf: state_uf || null, suburb };
 }
 
 export async function reverseGeocodePin(location, { invoke, fetcher = fetch, zoom = 18 } = {}) {

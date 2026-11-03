@@ -1,5 +1,19 @@
 # Correção da localização dos postes
 
+## Cidade no envio de broncas — S231465
+
+O envio autenticado e o anônimo consultam agora cidade e coordenadas do cadastro atual do poste na mesma leitura. Antes, o formulário descartava a cidade cadastrada e dependia de geocodificação externa para enviar, inclusive quando apenas o endereço estava vazio. A cidade do formulário ou do usuário não substitui essa conferência. Postes legados sem cidade continuam usando a resolução pelas coordenadas cadastradas.
+
+Na consulta somente de leitura ao ambiente de desenvolvimento configurado neste workspace, S231465 corresponde ao ID 1216, com `city_id=64`, posição `(-8.601985, -38.572948)` e endereço nulo. Esse cenário está coberto em `src/test/reportPole.test.mjs`, incluindo geocodificação indisponível, coordenadas inválidas e falhas na consulta opcional de bairro. `src/test/reportPoleAddress.test.mjs` verifica que a busca de endereço não perde a cidade cadastrada.
+
+Em produção, foi confirmada uma segunda causa: `reverse-geocode` retornava `city="Floresta-PE"` e `state_uf="PE"`; `match_city` retornava nulo para esse nome. O serviço agora remove apenas o sufixo de UF delimitado e correspondente à UF informada, devolvendo `Floresta` e `PE` separadamente. A mesma normalização está no fallback direto do frontend. Nomes com hífen e sufixos de outra UF são preservados.
+
+A correção do serviço foi publicada em produção (`mrejgpcxaevooofyenzq`) em 03/11/2026, mantendo `verify_jwt=false`. Após o deploy, a consulta pública nas coordenadas do S231465, nos níveis 18 e 10, retornou `Floresta`/`PE`, e `match_city` resolveu ID 64. Não foi necessário alterar o cadastro do poste nem criar bronca de teste. A verificação ficou em `.tmp/s231465-production/verification.json`; a versão anterior da função foi preservada na mesma pasta. Aplicativos já instalados recebem a correção do servidor; reabrir o app ou recarregar a página elimina respostas antigas mantidas em memória.
+
+A proteção adicional que usa o cadastro do poste no envio ainda exige publicar o frontend e incluir a atualização no aplicativo Android; não exige migração de banco. A identificação de ruas em cruzamentos permanece fora desta alteração, conforme solicitado.
+
+## Correção de coordenadas e endereços
+
 O ponto informado (-8.5974, -38.5907) fica junto à Rua José do Carmo Menezes de Sá. O poste X171815 está em (-8.597442, -38.590736), cerca de 9 m do traçado cadastrado dessa rua. X171816 está em (-8.597515, -38.590472), cerca de 5 m do mesmo traçado.
 
 A consulta ao serviço de geocodificação retorna Rua João Ernesto para esse trecho. No cadastro municipal, o nome da Rua José do Carmo termina com “teste teste teste” e é excluído da consulta `mapped_street_address`; além disso, essa consulta aceita somente pontos até 5 m de uma rua. Não foram alterados nomes do cadastro de ruas nem relaxados os critérios para todos os postes.

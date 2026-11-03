@@ -11,6 +11,12 @@ import { LAMP_TYPES } from '@/lib/lightingCatalog';
 import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 import { showAppNotice } from '@/lib/appError';
 
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useElectricianOffline } from '@/contexts/ElectricianOfflineContext';
+import { electricianCachedRead, queueElectricianJob, readElectricianCache } from '@/lib/electricianOffline';
+
+import { ehErroDeRede } from '@/lib/offlineErros';
+
 const POLE_FIELDS = 'id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w';
 const STATUS_LABEL = { aceso: 'Aceso / funcionando', apagado: 'Apagado ou com problema' };
 const SERVICE_OPTIONS = [['lamp_replacement', 'Troca de lâmpada'], ['arm_installation', 'Instalação de braço de luz'], ['relay_replacement', 'Troca de relé'], ['other', 'Outro serviço']];
@@ -18,6 +24,8 @@ const formatDate = (value) => value ? new Date(value).toLocaleString('pt-BR', { 
 
 export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose, onSaved, onBusyChange }) {
   const cityId = municipality?.city_id;
+  const { user } = useAuth();
+  const { sync } = useElectricianOffline();
   const [selected, setSelected] = useState(null);
   const selectionId = useRef(0);
   const [history, setHistory] = useState([]);
@@ -33,6 +41,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
   const [visitId, setVisitId] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [offlineNotice, setOfflineNotice] = useState('');
   useEffect(() => { onBusyChange?.(saving); }, [saving, onBusyChange]);
 
   const openPole = useCallback(async (pole) => {
@@ -40,15 +49,27 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
     setSelected(pole); setStatus(lightingStatus(pole));
     setDescription(''); setLampType(pole.lamp_type || ''); setPower(pole.lamp_power_w ?? '');
     setServiceDone(false); setServices([]); setVisitId(crypto.randomUUID());
-    setDetailError(''); setHistory([]); setActiveReports([]); setReportId(null); setHistoryLoading(true);
-    const [current, changes, reports] = await Promise.all([
+    setOfflineNotice(''); setDetailError(''); setHistory([]); setActiveReports([]); setReportId(null); setHistoryLoading(true);
+    const [current, changes, reports] = await electricianCachedRead(user?.id, `pole-detail:${municipality.id}:${pole.id}`, async () => {
+      const results = await Promise.all([
       supabase.from('poles').select(POLE_FIELDS).eq('id', pole.id).eq('city_id', cityId).single(),
       supabase.from('pole_lighting_changes')
         .select('id,changed_at,old_status,new_status,descricao_servico')
         .eq('city_id', cityId).eq('pole_id', pole.id)
         .order('changed_at', { ascending: false }).limit(20),
       supabase.rpc('solicitacoes_ativas_poste_eletricista', { p_prefeitura: municipality.id, p_poste_id: pole.id }),
-    ]);
+      ]);
+      const failure = results.find(result => result.error)?.error;
+      if (failure) throw failure;
+      return results;
+    }).catch(async error => {
+      if (!ehErroDeRede(error)) throw error;
+      const prepared = await readElectricianCache(user?.id, `poles:${municipality.id}`);
+      const cachedPole = prepared?.find(row => String(row.id) === String(pole.id));
+      if (!cachedPole) throw error;
+      if (token === selectionId.current) setOfflineNotice('Sem conexão. A visita será guardada com os dados preparados. Solicitações vinculadas não serão resolvidas por este registro; use a ordem preparada para atendê-las.');
+      return [{ data: cachedPole }, { data: [] }, { data: [] }];
+    });
     if (token !== selectionId.current) return;
     if (current.error) setDetailError(current.error.message);
     else { setSelected((value) => value?.id === pole.id ? current.data : value); setLampType(current.data.lamp_type || ''); setPower(current.data.lamp_power_w ?? ''); }
@@ -62,31 +83,32 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
     }
     setStatus(reports.data?.length ? 'apagado' : lightingStatus(current.data || pole));
     setHistoryLoading(false);
-  }, [cityId, municipality.id]);
+  }, [cityId, municipality.id, user?.id]);
 
   const save = async (event) => {
     event.preventDefault();
     if (!selected || saving || ((serviceDone || (reportId && status === 'aceso')) && !services.length)
       || (status === 'aceso' && activeReports.length > 0 && !reportId)) return;
     setSaving(true); setDetailError('');
-    const { data, error: failure } = await Promise.resolve(supabase.rpc('registrar_visita_poste_eletricista_v2', {
-      p_prefeitura: municipality.id, p_poste_id: selected.id,
-      p_poste_atualizado_em: selected.updated_at,
-      p_status: status, p_lamp_type: lampType || null,
-      p_power_w: power === '' ? null : Number(power),
-      p_servicos: serviceDone || (reportId && status === 'aceso') ? services : [], p_descricao: description.trim(), p_visita_id: visitId,
-      p_report: status === 'aceso' ? reportId : null,
-    })).catch(() => ({ error: { message: 'Não foi possível confirmar o atendimento. Confira sua conexão e o histórico antes de tentar novamente.' } }));
-    setSaving(false);
-    if (failure) { setDetailError(failure.message); return; }
-    if (data?.report_id) showAppNotice({ title: 'Solicitação resolvida',
-      description: activeReports.length > 1
-        ? `${activeReports.length - 1} solicitação(ões) ainda aberta(s) neste poste.`
-        : data.restantes > 0 ? `${data.restantes} solicitação(ões) ainda pendente(s) nesta ordem.` : 'O mapa foi atualizado.' });
-    selectionId.current++;
-    setSelected(null);
-    onSaved?.({ pole: selected, status, reportId: data?.report_id || null });
-    onClose();
+    try {
+      await queueElectricianJob({ userId: user?.id, municipalityId: municipality.id,
+        resource: `pole:${selected.id}`, label: `Visita · ${poleDisplayLabel(selected)}`,
+        rpc: 'registrar_visita_poste_eletricista_v2', args: {
+          p_prefeitura: municipality.id, p_poste_id: selected.id,
+          p_poste_atualizado_em: selected.updated_at, p_status: status,
+          p_lamp_type: lampType || null, p_power_w: power === '' ? null : Number(power),
+          p_servicos: serviceDone || (reportId && status === 'aceso') ? services : [],
+          p_descricao: description.trim(), p_visita_id: visitId,
+          p_report: status === 'aceso' ? reportId : null,
+        },
+      });
+      showAppNotice({ title: 'Visita guardada no aparelho', description: 'O envio será automático quando houver conexão. A solicitação será confirmada após o envio.' });
+      selectionId.current++; setSelected(null);
+      onSaved?.({ pole: selected, status, reportId: null, offline: true });
+      onClose(); void sync();
+    } catch (failure) { setDetailError(failure.message); }
+    finally { setSaving(false); }
+
   };
 
 
@@ -128,6 +150,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
           {(serviceDone || (reportId && status === 'aceso')) && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Serviços realizados *</legend><p className="text-xs text-content-secondary">Para resolver uma solicitação, selecione o serviço executado. Use Outro serviço para uma vistoria que confirmou o funcionamento.</p>{SERVICE_OPTIONS.map(([key, label]) => <label key={key} className="flex min-h-9 items-center gap-2 rounded-lg border border-edge-subtle px-3 text-sm"><input type="checkbox" checked={services.includes(key)} onChange={(event) => setServices((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} disabled={saving} className="h-4 w-4 accent-brand" />{label}</label>)}</fieldset>}
           <label className="block text-sm font-semibold">{serviceDone ? 'O que foi feito (opcional)' : 'Observação (opcional)'}<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} disabled={saving} placeholder="Descreva a vistoria, o reparo ou o problema encontrado" className="mt-2 min-h-24 w-full rounded-lg border border-input bg-background p-3 text-sm" /></label>
         </form>
+        {offlineNotice && <p role="status" className="text-xs text-content-secondary">{offlineNotice}</p>}
         {detailError && <p role="alert" className="text-sm text-danger">{detailError}</p>}
         <section className="border-t border-edge-subtle pt-4"><h2 className="text-sm font-bold">Histórico do poste</h2>{historyLoading ? <p className="mt-2 text-xs text-content-secondary">Carregando histórico…</p> : history.length ? <ol className="mt-3 space-y-3">{history.map((entry) => <li key={entry.id} className="border-l-2 border-brand/40 pl-3"><span className="text-[11px] text-content-secondary">{formatDate(entry.changed_at)}</span><p className="text-xs font-semibold">{STATUS_LABEL[entry.new_status] || entry.new_status}</p>{entry.descricao_servico && <p className="mt-1 whitespace-pre-line text-xs text-content-secondary">{entry.descricao_servico}</p>}</li>)}</ol> : <p className="mt-2 text-xs text-content-secondary">Nenhuma atualização registrada.</p>}</section>
       </div>}

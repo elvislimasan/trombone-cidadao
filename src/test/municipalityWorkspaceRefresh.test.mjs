@@ -40,6 +40,8 @@ const supabase = {
   },
 };
 const mocks = {
+  '@/lib/electricianOffline': { electricianCachedRead: async (user, key, read) => read(), readElectricianCache: async () => null, writeElectricianCache: async () => {}, queueElectricianJob: async () => {} },
+  '@/lib/offlineErros': { ehErroDeRede: () => false },
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user }) },
   'react-router-dom': { useLocation: () => ({ pathname, search, hash: '' }), useNavigate: () => navigate },
   '@/lib/customSupabaseClient': { supabase },

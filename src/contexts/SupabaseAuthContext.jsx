@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { App } from '@capacitor/app';
+import { readElectricianCache, writeElectricianCache } from '@/lib/electricianOffline';
+import { ehErroDeRede } from '@/lib/offlineErros';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
@@ -77,6 +79,10 @@ export const AuthProvider = ({ children }) => {
       const { data: profile, error } = profileResult;
 
       if (error) {
+        if (ehErroDeRede(error)) {
+          const cached = await readElectricianCache(authUser.id, 'profile').catch(() => null);
+          if (cached) { const restored = { ...authUser, ...cached }; setUser(restored); return restored; }
+        } else await writeElectricianCache(authUser.id, 'profile', null).catch(() => {});
         console.error("Error fetching user profile:", error);
         setUser((prev) => prev || authUser); // Fallback to auth user
         return authUser;
@@ -86,10 +92,15 @@ export const AuthProvider = ({ children }) => {
           ...profile,
           has_municipality_access: Boolean(municipalityResult?.data),
         };
+        await writeElectricianCache(authUser.id, 'profile', { ...profile, has_municipality_access: Boolean(municipalityResult?.data) }).catch(() => {});
         setUser(fullUser);
         return fullUser;
       }
     } catch (err) {
+      if (ehErroDeRede(err)) {
+        const cached = await readElectricianCache(authUser.id, 'profile').catch(() => null);
+        if (cached) { const restored = { ...authUser, ...cached }; setUser(restored); return restored; }
+      }
       console.error("Profile fetch exception or timeout:", err);
       setUser((prev) => prev || authUser); // Fallback to auth user em caso de timeout/erro
       return authUser;

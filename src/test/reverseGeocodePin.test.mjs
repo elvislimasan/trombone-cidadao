@@ -1,6 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canonicalReportNeighborhood, normalizeReverseGeocode, reverseGeocodePin } from '../lib/reverseGeocodePin.js';
+import { normalizeGeocodeCityName } from '../../supabase/functions/_shared/geocodeCityName.js';
+
+test('remove somente UF delimitada e correspondente, preservando nomes de municípios', () => {
+  for (const name of ['Floresta-PE', 'Floresta - PE', 'Floresta/PE', 'Floresta (pe)', 'Floresta, PE']) {
+    assert.equal(normalizeGeocodeCityName(name, 'PE'), 'Floresta');
+  }
+  for (const name of ['Floresta-PR', 'São João del-Rei', 'Abaeté', 'Floresta PE']) {
+    assert.equal(normalizeGeocodeCityName(name, 'PE'), name);
+  }
+  assert.equal(normalizeGeocodeCityName('Floresta-PE', null), 'Floresta-PE');
+  assert.equal(normalizeGeocodeCityName(null, 'PE'), null);
+});
+
+test('normaliza a cidade tanto na resposta do servidor antigo quanto no fallback direto', () => {
+  const fromServer = normalizeReverseGeocode({ address: 'Avenida Paulo Pessoa Guerra', city: 'Floresta-PE', state_uf: 'PE' });
+  const direct = normalizeReverseGeocode({ address: { road: 'Avenida Paulo Pessoa Guerra', city: 'Floresta-PE', state: 'Pernambuco' } });
+  assert.equal(fromServer.city, 'Floresta');
+  assert.equal(direct.city, 'Floresta');
+});
 
 test('extrai endereço e município do resultado direto do Nominatim', () => {
   assert.deepEqual(normalizeReverseGeocode({

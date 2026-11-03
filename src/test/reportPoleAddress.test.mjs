@@ -56,6 +56,17 @@ test('ausência de rua mapeada ou falha de RPC consulta a coordenada exata do po
   }
 });
 
+test('poste sem endereço mantém a cidade cadastrada ao recorrer às outras fontes', async () => {
+  const stored = { address: null, city_id: 64 };
+  const mapped = client({ stored, mapped: { address: 'Rua mapeada' } });
+  assert.deepEqual(await resolveReportPoleAddress(mapped.db, 5, location), { address: 'Rua mapeada', city_id: 64 });
+  for (const lookup of [async () => null, async () => { throw new Error('Sem rede'); }, async () => ({ address: 'Rua A', city_id: 99 })]) {
+    const view = client({ stored });
+    const result = await resolveReportPoleAddress(view.db, 5, location, { lookup });
+    assert.equal(result.city_id, 64);
+  }
+});
+
 test('falha de todas as fontes permite endereço manual e coordenada inválida não inicia consulta', async () => {
   const view = client();
   assert.equal(await resolveReportPoleAddress(view.db, 5, location, {

@@ -1,5 +1,36 @@
 import { polePosition } from './poleAddress.js';
 import { haversineDistanceKm } from './geoUtils.js';
+import { poleNeighborhood } from './poleNeighborhood.js';
+import { resolveRegisteredNeighborhood } from '../../supabase/functions/_shared/reportNeighborhoods.js';
+
+// Cidade e coordenadas devem vir do mesmo cadastro. A cidade do usuário, do
+// formulário ou de uma lista antiga não confirma a localização deste poste.
+export async function resolveReportSubmissionLocation({ client, formData, resolveCityIdFromLocation, getResolvedNeighborhood }) {
+  let location = formData.location;
+  if (formData.category === 'iluminacao' && formData.pole_id) {
+    const { data: pole, error } = await client.from('poles')
+      .select('latitude,longitude,city_id,address,raw_properties')
+      .eq('id', formData.pole_id).maybeSingle();
+    if (error) throw error;
+    location = pole && polePosition(pole);
+    if (!location) throw new Error('Não foi possível confirmar a localização do poste selecionado.');
+    const cityId = Number(pole.city_id);
+    if (Number.isSafeInteger(cityId) && cityId > 0) {
+      let neighborhood = null;
+      try {
+        const { data, error: neighborhoodError } = await client.from('bairros').select('name').eq('city_id', cityId);
+        if (!neighborhoodError && data) {
+          neighborhood = resolveRegisteredNeighborhood({
+            neighborhood: poleNeighborhood(pole, data), address: formData.address || pole.address,
+          }, data);
+        }
+      } catch { /* Bairro é opcional; sua consulta não pode impedir o envio. */ }
+      return { location, city_id: cityId, neighborhood };
+    }
+  }
+  const cityId = await resolveCityIdFromLocation(location);
+  return { location, city_id: cityId, neighborhood: cityId == null ? null : getResolvedNeighborhood() };
+}
 
 export async function createReportPole({ client, cityId, location, identifier, address }) {
   if (!cityId || !Number.isFinite(Number(cityId)) || Number(cityId) <= 0) {

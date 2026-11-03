@@ -38,6 +38,10 @@ test('a visita mostra o problema de cada solicitação sem mudar a elegibilidade
   };
   const wrapper = ({ children }) => React.createElement('div', null, children);
   const mocks = {
+    '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user: { id: 'worker' } }) },
+    '@/contexts/ElectricianOfflineContext': { useElectricianOffline: () => ({ sync: async () => {} }) },
+  '@/lib/electricianOffline': { electricianCachedRead: async (user, key, read) => read(), readElectricianCache: async () => null, writeElectricianCache: async () => {}, queueElectricianJob: async () => {} },
+  '@/lib/offlineErros': { ehErroDeRede: () => false },
     'react-router-dom': { Link: ({ to, children }) => React.createElement('a', { href: to }, children) },
     'lucide-react': { X: () => null },
     '@/components/municipality/MunicipalLightingMap': { lightingStatus: (value) => value.lighting_status },

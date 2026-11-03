@@ -2,19 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { normalizeGeocodeCityName } from '../../supabase/functions/_shared/geocodeCityName.js';
 
 const source = readFileSync(new URL('../../supabase/functions/reverse-geocode/index.ts', import.meta.url), 'utf8')
-  .replace(/^import \{ serve \} from .+\r?\n/, '');
+  .replace(/^import .+\r?\n/gm, '');
 const code = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText;
 
 const makeHandler = (fetcher) => {
   let handler;
-  new Function('serve', 'Deno', 'fetch', code)(
+  new Function('serve', 'Deno', 'fetch', 'normalizeGeocodeCityName', code)(
     (fn) => { handler = fn; },
     { env: { get: () => null } },
     fetcher,
+    normalizeGeocodeCityName,
   );
   return handler;
 };
@@ -129,4 +131,30 @@ test('retorna erro explícito quando os dois provedores falham', async () => {
   const response = await handler(request(-8.604, -38.570));
   assert.equal(response.status, 502);
   assert.deepEqual(await response.json(), { error: 'reverse_geocode_unavailable' });
+});
+
+test('S231465: Photon devolvendo Floresta-PE separa município e UF para o app já instalado', async () => {
+  const handler = makeHandler(async url => {
+    if (String(url).includes('nominatim')) return new Response('Access denied', { status: 403 });
+    return Response.json({ features: [{ geometry: { coordinates: [-38.572948, -8.601985] }, properties: {
+      street: 'Avenida Paulo Pessoa Guerra', city: 'Floresta-PE', state: 'Pernambuco', countrycode: 'BR', district: 'Centro',
+    } }] });
+  });
+  for (let i = 0; i < 2; i++) {
+    const response = await handler(request(-8.601985, -38.572948));
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.city, 'Floresta');
+    assert.equal(data.state_uf, 'PE');
+    assert.equal(data.suburb, 'Centro');
+    assert.match(data.address, /^Avenida Paulo Pessoa Guerra/);
+  }
+});
+
+test('Nominatim com UF no nome também retorna cidade normalizada', async () => {
+  const handler = makeHandler(async () => Response.json({ address: {
+    road: 'Rua A', city: 'Floresta/PE', state: 'Pernambuco',
+  } }));
+  const response = await handler(request());
+  assert.equal((await response.json()).city, 'Floresta');
 });
