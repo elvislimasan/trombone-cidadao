@@ -8,7 +8,7 @@ export const TREE_STATUS = {
   removida: { label: 'Removida', color: '#64748b' },
 };
 
-export const TREE_MAP_STATES = { ...TREE_STATUS, linked: { label: 'Bronca vinculada', color: '#eab308' } };
+export const TREE_MAP_STATES = { ...TREE_STATUS, linked: { label: 'Bronca ativa vinculada', color: '#eab308' } };
 
 export function treeMapMarkerKey(tree, selected = false) {
   if (tree?.status === 'planejada') return 'planejada';

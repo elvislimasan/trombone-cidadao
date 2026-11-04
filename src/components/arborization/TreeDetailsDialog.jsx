@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogDescription, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
 import { TREE_ACTIONS, TREE_ORIGINS, TREE_STATUS, treeLabel } from '@/lib/arborization';
 import TreePhoto from './TreePhoto';
+import TreeActiveReports from './TreeActiveReports';
 
 const STATUS_STYLE = {
   planejada: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
@@ -51,6 +52,7 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
         </div>
 
         <Button type="button" variant="ghost" className="mt-3 min-h-11 w-full justify-between md:hidden" aria-expanded={expanded} aria-controls="tree-details-secondary" onClick={() => setExpanded(current => !current)}>{expanded ? 'Recolher informações' : 'Ver mais informações'}<ChevronDown className={`h-4 w-4 ${expanded ? 'rotate-180' : ''}`} /></Button>
+        <TreeActiveReports treeId={tree.id} cityId={tree.city_id} />
         <div id="tree-details-secondary" className="tree-details-secondary">
         <dl className="mt-5 grid grid-cols-1 gap-x-4 gap-y-3 border-t border-edge-subtle pt-4 min-[420px]:grid-cols-2">
           {[

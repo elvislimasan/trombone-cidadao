@@ -1,0 +1,56 @@
+.tree-inventory-profile { --profile-accent: #087653; }
+.dark .tree-inventory-profile { --profile-accent: #6ee7b7; }
+.tree-inventory-profile .tree-profile-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; padding-bottom: 20px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.tree-inventory-profile .tree-profile-heading { display: contents; }
+.tree-inventory-profile .tree-profile-identity { grid-column: 1; grid-row: 1; }
+.tree-inventory-profile .tree-profile-title-icon { width: 44px; height: 44px; border-radius: 12px; color: var(--profile-accent); background: rgb(8 118 83 / .07); }
+.tree-inventory-profile .tree-profile-title-icon svg { width: 27px; height: 27px; }
+.tree-inventory-profile .tree-profile-header h1 { font-size: clamp(24px, 1.8vw, 32px); }
+.tree-inventory-profile .tree-profile-badges { grid-column: 1 / -1; grid-row: 2; gap: 8px; padding-left: 56px; }
+.tree-inventory-profile .tree-profile-header-actions { display: block; grid-column: 2; grid-row: 1; justify-self: end; width: auto; }
+.tree-inventory-profile .tree-profile-actions-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-inline: 12px; border-radius: 11px; font-size: 12px; background: transparent; }
+.tree-profile-actions-menu { z-index: 10050; width: 250px; max-width: calc(100vw - 24px); max-height: var(--radix-dropdown-menu-content-available-height); overflow-y: auto; padding: 6px; border-radius: 12px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); }
+.tree-profile-actions-menu [role=menuitem] { gap: 10px; min-height: 44px; padding: 9px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.tree-profile-actions-menu [role=menuitem] > svg { flex-shrink: 0; width: 17px; height: 17px; color: #087653; }
+.tree-profile-actions-menu [role=menuitem]:focus { background: rgb(8 118 83 / .07); }
+.dark .tree-profile-actions-menu [role=menuitem] > svg { color: #6ee7b7; }
+.dark .tree-profile-actions-menu [role=menuitem]:focus { background: rgb(110 231 183 / .08); }
+.tree-inventory-profile :is(#tree-qr-section, #tree-location-section) { scroll-margin-top: calc(var(--header-bar-height, 64px) + var(--header-safe-top, 0px) + 16px); outline: none; }
+.tree-inventory-profile .tree-profile-qr-section { display: grid; grid-template-columns: minmax(260px, .6fr) minmax(0, 1fr); min-width: 0; overflow: hidden; margin-top: 24px; border: 1px solid rgb(var(--border-subtle)); border-radius: 18px; background: rgb(var(--surface-raised)); }
+.tree-profile-qr-preview { display: grid; place-items: center; padding: 28px; border-right: 1px solid rgb(var(--border-subtle)); background: linear-gradient(135deg, rgb(8 118 83 / .06), rgb(8 118 83 / .015)); }
+.tree-profile-qr-plate { display: grid; justify-items: center; gap: 8px; width: 224px; max-width: 100%; padding: 16px 14px; border: 1px solid #dbe7df; border-radius: 12px; background: white; color: #123b2c; box-shadow: 0 8px 24px rgb(20 70 48 / .07); }
+.tree-profile-qr-plate-heading { display: flex; align-items: center; gap: 7px; font-size: 9px; font-weight: 700; letter-spacing: .07em; }
+.tree-profile-qr-image { display: grid; place-items: center; width: 192px; max-width: 100%; min-height: 192px; }
+.tree-profile-qr-image img { display: block; width: 100%; height: auto; }
+.tree-profile-qr-image [role=alert] { display: grid; justify-items: center; gap: 8px; text-align: center; font-size: 11px; }
+.tree-profile-qr-plate figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; text-align: center; }
+.tree-profile-qr-plate figcaption strong { font-size: 13px; overflow-wrap: anywhere; }
+.tree-profile-qr-plate figcaption > span { padding: 2px 6px; border: 1px solid #dbe7df; border-radius: 5px; font-size: 10px; font-weight: 600; }
+.tree-profile-qr-plate figcaption small { width: 100%; font-size: 10px; color: #52655c; overflow-wrap: anywhere; }
+.tree-profile-qr-content { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 16px; min-width: 0; padding: 32px clamp(24px, 3vw, 48px); }
+.tree-profile-qr-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: var(--profile-accent); }
+.tree-profile-qr-content h2 { font-size: 24px; font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
+.tree-profile-qr-content > p { max-width: 54ch; font-size: 14px; line-height: 1.7; color: rgb(var(--text-secondary)); }
+.tree-profile-qr-print-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11px; color: rgb(var(--text-secondary)); }
+.tree-profile-qr-print-info span { padding: 4px 8px; border: 1px solid rgb(var(--border-subtle)); border-radius: 6px; }
+.tree-profile-qr-content > button { gap: 8px; min-height: 44px; border-radius: 10px; background: #087653; color: white; font-size: 13px; }
+.tree-profile-qr-content > button:hover { background: #065f46; }
+.tree-profile-qr-content > small { max-width: 54ch; font-size: 11px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+@media (max-width: 767px) {
+  .tree-inventory-profile .tree-profile-header { gap: 12px; padding-bottom: 16px; }
+  .tree-inventory-profile .tree-profile-header h1 { font-size: 22px; }
+  .tree-inventory-profile .tree-profile-identity { gap: 10px; }
+  .tree-inventory-profile .tree-profile-title-icon { width: 36px; height: 36px; border-radius: 10px; }
+  .tree-inventory-profile .tree-profile-title-icon svg { width: 24px; height: 24px; }
+  .tree-inventory-profile .tree-profile-subtitle { font-size: 11px; }
+  .tree-inventory-profile .tree-profile-badges { padding-left: 0; }
+  .tree-inventory-profile .tree-profile-badge { gap: 5px; padding: 6px 8px; font-size: 10px; }
+  .tree-inventory-profile .tree-profile-actions-trigger { gap: 5px; padding-inline: 9px; }
+  .tree-inventory-profile .tree-profile-qr-section { grid-template-columns: minmax(0, 1fr); margin-top: 20px; }
+  .tree-profile-qr-preview { padding: 24px; border-right: 0; border-bottom: 1px solid rgb(var(--border-subtle)); }
+  .tree-profile-qr-content { padding: 24px 20px; gap: 14px; }
+  .tree-profile-qr-content h2 { font-size: 21px; }
+  .tree-profile-qr-content > p { font-size: 13px; }
+  .tree-profile-qr-content > button { width: 100%; }
+}
+@media (max-width: 359px) { .tree-inventory-profile .tree-profile-header h1 { font-size: 20px; } }

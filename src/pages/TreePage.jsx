@@ -1,19 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Clock3, Download, FileText, Heart, Home, Image as ImageIcon, Info, Landmark, Leaf, Loader2, Map, MapPin, MessageSquare, Pencil, QrCode, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Clock3, FileText, Heart, Home, Image as ImageIcon, Info, Landmark, Leaf, Loader2, Map, MapPin, MessageSquare, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger, FormDialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreeMap from '@/components/arborization/TreeMap';
 import TreePhoto from '@/components/arborization/TreePhoto';
+import TreeProfileActions from '@/components/arborization/TreeProfileActions';
+import TreeQrCodeSection from '@/components/arborization/TreeQrCodeSection';
+import TreeActiveReports from '@/components/arborization/TreeActiveReports';
+import '@/components/arborization/treeProfileRedesign.css';
 import { TreeSurveySummary } from '@/components/arborization/TreeSurveyFields';
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { supabase } from '@/lib/customSupabaseClient';
 import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, TREE_SERVICES, treeLabel } from '@/lib/arborization';
-import { loadTreeHistory, treeTimeline, uploadTreePhoto } from '@/lib/treeInventory';
+import { isActiveTreeReport, loadTreeHistory, treeTimeline, uploadTreePhoto } from '@/lib/treeInventory';
 import { SIDEWALK_SUITABILITY, withTreeSpecies } from '@/lib/treeSpecies';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -32,7 +36,7 @@ function TreeContent({ id }) {
   const [care, setCare] = useState({ service_type: '', performed_on: '', notes: '' });
   const [saving, setSaving] = useState(false), [notice, setNotice] = useState('');
   const [downloadingQr, setDownloadingQr] = useState(false);
-  const mapTrees = useMemo(() => tree ? [{ ...tree, service_requests: history?.reports.length ?? null }] : [], [tree, history?.reports.length]);
+  const mapTrees = useMemo(() => tree ? [{ ...tree, service_requests: history ? history.reports.filter(isActiveTreeReport).length : null }] : [], [tree, history]);
   const { canManage } = useCanManageArborization(tree?.city_id);
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +67,7 @@ function TreeContent({ id }) {
     const uploaded = await uploadTreePhoto(supabase, photo, tree.city_id);
     const { error: saveError } = await supabase.from('city_trees').update({ ...payload, ...(uploaded ? { photo_url: uploaded.url } : {}) }).eq('id', id).eq('city_id', tree.city_id).select('id').single();
     if (saveError) { if (uploaded) await supabase.storage.from('tree-photos').remove([uploaded.path]); throw new Error('Não foi possível salvar a árvore.'); }
-    setRevision(value => value + 1); setNotice('Árvore atualizada.');
+    setRevision(value => value + 1); setNotice('');
   };
   const recordCare = async event => {
     event.preventDefault();
@@ -87,21 +91,26 @@ function TreeContent({ id }) {
     catch { setNotice('Não foi possível baixar o QR Code. Tente novamente.'); }
     finally { setDownloadingQr(false); }
   };
+  const revealSection = sectionId => {
+    const section = document.getElementById(sectionId);
+    section?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    requestAnimationFrame(() => section?.focus({ preventScroll: true }));
+  };
   if (loading) return <main className="page-shell-fluid flex min-h-64 items-center justify-center gap-2"><Loader2 className="h-5 w-5 animate-spin" />Carregando árvore…</main>;
   if (error || !tree) return <main className="page-shell-fluid space-y-4 py-8"><p role="alert">{error || 'Árvore não encontrada.'}</p>{error && retry}<Link className="block underline" to="/mapa-arborizacao">Voltar ao mapa de arborização</Link></main>;
   const timeline = history ? treeTimeline(tree, history.care, history.reports, history.updates) : [];
   const age = tree.estimated_birth_year ? new Date().getFullYear() - tree.estimated_birth_year : null;
-  return <main className="page-shell-fluid tree-profile-page" data-testid="tree-page">
+  return <main className="page-shell-fluid tree-profile-page tree-inventory-profile" data-testid="tree-page">
     <Helmet><title>{treeLabel(tree)} — Arborização</title><meta name="description" content={`Consulte o cadastro de ${treeLabel(tree)}, sua localização e o histórico de cuidados e solicitações de serviço.`} /></Helmet>
     <nav className="tree-profile-breadcrumb" aria-label="Navegação estrutural"><Link to="/" aria-label="Início"><Home className="h-3.5 w-3.5" /></Link><ChevronRight aria-hidden="true" /><Link to="/mapa-arborizacao">Mapa de arborização</Link><ChevronRight aria-hidden="true" /><span>Inventário de arborização</span><ChevronRight aria-hidden="true" /><span>{city?.name || 'Cidade'}</span><ChevronRight aria-hidden="true" /><span aria-current="page">{treeLabel(tree)}</span></nav>
     {mobile && <div className="tree-profile-mobile-topbar"><Link to="/mapa-arborizacao"><ArrowLeft className="h-4 w-4" />Mapa de arborização</Link></div>}
     <header className="tree-profile-header">
       <div className="tree-profile-heading"><div className="tree-profile-identity"><span className="tree-profile-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><h1>{treeLabel(tree)}</h1><p className="tree-profile-subtitle">{[city?.name, tree.neighborhood].filter(Boolean).join(' · ') || 'Localização não informada'}</p>{tree.scientific_name && <p className="tree-profile-scientific">{tree.scientific_name}</p>}</div></div><div className="tree-profile-badges" aria-label="Características da árvore"><span className={`tree-profile-badge tree-profile-badge--${tree.status}`}><Heart aria-hidden="true" />{TREE_STATUS[tree.status]?.label || 'Situação não informada'}</span>{TREE_ORIGINS[tree.origin] && <span className="tree-profile-badge"><Leaf aria-hidden="true" />{TREE_ORIGINS[tree.origin]}</span>}{TREE_ACTIONS[tree.maintenance_action] && (!mobile || tree.maintenance_action !== 'nenhuma') && <span className="tree-profile-badge"><Trees aria-hidden="true" />{TREE_ACTIONS[tree.maintenance_action]}</span>}</div></div>
-      {canManage && <div className="tree-profile-header-actions">
-        {tree.status === 'planejada' && <Button onClick={() => setEditing('planting')}><Sprout className="h-4 w-4" />Confirmar plantio realizado</Button>}
-        <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Editar árvore</Button>
-        {tree.status !== 'planejada' && <Dialog open={careOpen} onOpenChange={open => { if (!saving) { setCareOpen(open); setCareError(''); } }}>
-          <DialogTrigger asChild><Button variant="outline" className="tree-profile-service-action"><Scissors className="h-4 w-4" />Registrar serviço</Button></DialogTrigger>
+      <div className="tree-profile-header-actions"><TreeProfileActions canManage={canManage} planned={tree.status === 'planejada'} hasPhoto={Boolean(tree.photo_url)} downloading={downloadingQr}
+        onEdit={() => setEditing(true)} onPlant={() => setEditing('planting')} onCare={() => { setCareError(''); setCareOpen(true); }} onPhoto={() => setEditing('photo')}
+        onLocation={() => revealSection('tree-location-section')} onQr={() => revealSection('tree-qr-section')} onDownload={downloadQr} /></div>
+    </header>
+        {canManage && tree.status !== 'planejada' && <Dialog open={careOpen} onOpenChange={open => { if (!saving) { setCareOpen(open); setCareError(''); } }}>
           <FormDialogContent className="tree-profile-care-dialog sm:max-w-2xl">
             <form onSubmit={recordCare} className="tree-profile-care-form" aria-label="Registrar serviço realizado">
               <DialogTitle className="tree-profile-section-title"><Scissors aria-hidden="true" />Registrar serviço realizado</DialogTitle>
@@ -116,10 +125,8 @@ function TreeContent({ id }) {
             </form>
           </FormDialogContent>
         </Dialog>}
-      </div>}
-    </header>
     {notice && <p role="status" className="break-words rounded-xl border p-3 text-sm">{notice}</p>}
-    <section className="tree-profile-qr-action" aria-labelledby="tree-qr-title"><span className="tree-profile-qr-icon"><QrCode aria-hidden="true" /></span><div className="min-w-0"><h2 id="tree-qr-title">QR Code da árvore</h2><p>PDF A5 · Para impressão</p></div><Button type="button" variant="outline" disabled={downloadingQr} onClick={downloadQr} aria-label="Baixar QR Code da árvore em PDF">{downloadingQr ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}{downloadingQr ? 'Gerando…' : 'Baixar PDF'}</Button></section>
+    {history && <TreeActiveReports treeId={tree.id} cityId={tree.city_id} reports={history.reports} />}
     <div className="tree-profile-grid">
       <div className="tree-profile-column">
       <section className="tree-profile-card tree-profile-overview" aria-label="Dados da árvore">
@@ -149,7 +156,7 @@ function TreeContent({ id }) {
       </section>
       </div>
       <div className="tree-profile-column">
-      <section className="tree-profile-card tree-profile-location" aria-labelledby="tree-location-title"><div className="tree-profile-location-map" data-testid="tree-profile-map"><FullscreenMapPanel title="Localização da árvore" buttonLabel="Ver no mapa maior" buttonClassName="tree-profile-map-expand" header={<div className="min-w-0"><h2 id="tree-location-title" className="tree-profile-section-title"><MapPin aria-hidden="true" />Localização da árvore</h2><p className="tree-profile-description">Veja no mapa a localização desta árvore{tree.neighborhood ? ` no bairro ${tree.neighborhood}` : ''}.</p></div>}><TreeMap trees={mapTrees} /></FullscreenMapPanel></div>{mobile && <div className="tree-profile-map-address"><MapPin className="h-4 w-4 shrink-0" /><div><p>{tree.address || 'Endereço não informado'}</p><p>{tree.neighborhood || 'Bairro não identificado'} · {city?.name}</p></div></div>}</section>
+      <section id="tree-location-section" tabIndex={-1} className="tree-profile-card tree-profile-location" aria-labelledby="tree-location-title"><div className="tree-profile-location-map" data-testid="tree-profile-map"><FullscreenMapPanel title="Localização da árvore" buttonLabel="Ver no mapa maior" buttonClassName="tree-profile-map-expand" header={<div className="min-w-0"><h2 id="tree-location-title" className="tree-profile-section-title"><MapPin aria-hidden="true" />Localização da árvore</h2><p className="tree-profile-description">Veja no mapa a localização desta árvore{tree.neighborhood ? ` no bairro ${tree.neighborhood}` : ''}.</p></div>}><TreeMap trees={mapTrees} /></FullscreenMapPanel></div>{mobile && <div className="tree-profile-map-address"><MapPin className="h-4 w-4 shrink-0" /><div><p>{tree.address || 'Endereço não informado'}</p><p>{tree.neighborhood || 'Bairro não identificado'} · {city?.name}</p></div></div>}</section>
       <section className="tree-profile-card tree-profile-history" aria-label="Linha do tempo da árvore">
         <details className="tree-profile-history-disclosure" open={!mobile || historyExpanded} onToggle={event => { if (mobile) setHistoryExpanded(event.currentTarget.open); }}>
           <summary className="tree-profile-history-toggle"><Clock3 className="h-5 w-5" /><span><strong>Histórico e cuidados</strong><span>{history ? `${history.care.length} serviços · ${history.reports.length} solicitações` : 'Registros desta árvore'}</span></span><ChevronDown className="h-4 w-4" /></summary>
@@ -166,6 +173,7 @@ function TreeContent({ id }) {
       </section>
       </div>
     </div>
+    <TreeQrCodeSection tree={tree} cityName={city?.name} downloading={downloadingQr} onDownload={downloadQr} />
     {photoOpen && <Dialog open onOpenChange={open => { if (!open) setPhotoOpen(false); }}><DialogContent className="tree-profile-photo-dialog" aria-describedby={undefined}><DialogTitle>{photoOpen.illustrative ? `Imagem ilustrativa de ${tree.common_name}` : `Foto de ${tree.common_name}`}</DialogTitle><img src={photoOpen.url} alt={photoOpen.illustrative ? photoOpen.alt : `Foto completa de ${tree.common_name}`} />{photoOpen.illustrative && <p className="text-sm text-muted-foreground">{photoOpen.caption}</p>}</DialogContent></Dialog>}
     {editing && canManage && <TreeFormDialog tree={editing === 'planting' ? { ...tree, status: 'saudavel' } : tree} initialStep={editing === 'photo' || editing === 'planting' ? 1 : 0} city={city} cityId={tree.city_id} onClose={() => setEditing(false)} onSave={saveTree}
       onSpeciesChanged={species => setTree(current => current?.species_id === species.id ? withTreeSpecies(current, species) : current)} />}

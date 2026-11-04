@@ -1,0 +1,14 @@
+.tree-active-reports { margin-block: 16px; padding: 16px; border: 1px solid rgb(234 179 8 / .3); border-radius: 12px; background: rgb(234 179 8 / .05); color: rgb(var(--text-primary)); }
+.tree-active-reports > header { display: flex; align-items: center; gap: 8px; }
+.tree-active-reports > header > svg { flex-shrink: 0; color: #a16207; }
+.tree-active-reports h3 { font-size: 14px; font-weight: 650; }
+.tree-active-reports header > span { margin-left: auto; min-width: 24px; padding: 2px 7px; border-radius: 999px; background: rgb(234 179 8 / .14); text-align: center; font-size: 11px; font-weight: 600; }
+.tree-active-reports > p { display: flex; gap: 7px; align-items: center; margin-top: 8px; font-size: 11px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.tree-active-reports ul { display: grid; gap: 8px; margin-top: 12px; }
+.tree-active-reports li > a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 12px; border: 1px solid rgb(var(--border-subtle)); border-radius: 9px; background: rgb(var(--surface-raised)); }
+.tree-active-reports li > a:hover { border-color: rgb(234 179 8 / .5); }
+.tree-active-reports li > a > div { min-width: 0; }
+.tree-active-reports strong { display: block; font-size: 12px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.tree-active-reports small { display: block; margin-top: 3px; font-size: 11px; color: rgb(var(--text-secondary)); }
+.tree-active-reports li > a > svg { flex-shrink: 0; color: #a16207; }
+.dark .tree-active-reports > header > svg, .dark .tree-active-reports li > a > svg { color: #facc15; }

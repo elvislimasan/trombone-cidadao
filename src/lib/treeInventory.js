@@ -3,6 +3,8 @@ import { haversineDistanceKm } from './geoUtils.js';
 import { TREE_SERVICES, treeLabel } from './arborization.js';
 
 export const treeNameKey = value => String(value || '').normalize('NFD').replace(/\p{Mn}/gu, '').trim().replace(/\s+/g, ' ').toLowerCase();
+export const ACTIVE_TREE_REPORT_STATUSES = ['pending', 'in-progress', 'pending_resolution'];
+export const isActiveTreeReport = report => ACTIVE_TREE_REPORT_STATUSES.includes(report?.status);
 
 export async function allTreeRows(client, table, configure = query => query) {
   const rows = [];
@@ -68,12 +70,28 @@ export function treeNeighborhoodCounts(trees, neighborhoods = []) {
 
 export async function treeRequestCounts(client, cityId) {
   const counts = new Map();
-  for (let start = 0; ; start += 1000) {
-    const { data, error } = await client.rpc('city_tree_request_counts', { p_city_id: cityId || null }).order('tree_id').range(start, start + 999);
-    if (error) throw error;
-    for (const row of data || []) counts.set(row.tree_id, row);
-    if (!data || data.length < 1000) return counts;
+  const reports = await allTreeRows(client, 'reports', query => {
+    let scoped = query.select('id,tree_id,tree_service,status').not('tree_id', 'is', null).in('status', ACTIVE_TREE_REPORT_STATUSES);
+    if (cityId) scoped = scoped.eq('city_id', cityId);
+    return scoped;
+  });
+  for (const report of reports) {
+    if (!report.tree_id || !isActiveTreeReport(report)) continue;
+    const row = counts.get(report.tree_id) || { tree_id: report.tree_id, total: 0, poda: 0, remocao: 0 };
+    row.total++;
+    if (report.tree_service === 'poda') row.poda++;
+    if (report.tree_service === 'remocao') row.remocao++;
+    counts.set(report.tree_id, row);
   }
+  return counts;
+}
+
+export function loadActiveTreeReports(client, treeId, cityId) {
+  return allTreeRows(client, 'reports', query => {
+    let scoped = query.select('id,title,protocol,status,created_at,tree_service').eq('tree_id', treeId).in('status', ACTIVE_TREE_REPORT_STATUSES);
+    if (cityId) scoped = scoped.eq('city_id', cityId);
+    return scoped;
+  });
 }
 
 export function treeTimeline(tree, care = [], reports = [], updates = []) {

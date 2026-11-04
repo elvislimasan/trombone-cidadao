@@ -5,6 +5,21 @@ html.tree-entry-is-open { overflow: hidden; }
 .tree-entry-discard-dialog[role=alertdialog] p { margin-top: 10px; font-size: 13px; line-height: 1.6; }
 .tree-entry-discard-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .tree-entry-discard-actions button { min-height: 44px; flex: 1; font-size: 12px; }
+.tree-maintenance-progress { display: flex; align-items: center; gap: 16px; padding: 10px 24px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.tree-maintenance-progress > span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-maintenance-progress > span[aria-current] { color: var(--tree-accent); font-weight: 600; }
+.tree-maintenance-progress b { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid rgb(var(--border-subtle)); border-radius: 50%; font-size: 11px; }
+.tree-maintenance-progress [aria-current] b { background: var(--tree-accent); color: white; border-color: var(--tree-accent); }
+.tree-maintenance-progress > i { width: 48px; height: 1px; background: rgb(var(--border-subtle)); }
+.tree-maintenance-search { display: grid; gap: 6px; font-size: 12px; font-weight: 600; }
+.tree-maintenance-intro { display: grid; gap: 10px; }
+.tree-maintenance-intro h2 { font-size: 21px; font-weight: 700; }
+.tree-maintenance-intro p, .tree-maintenance-results { font-size: 12px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.tree-maintenance-action-fields { display: grid; gap: 18px; padding: 18px; border: 1px solid rgb(var(--border-subtle)); border-radius: 14px; }
+.tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-maintenance-fields { padding: 24px; }
+@media (min-width: 980px) {
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-layout { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); }
+}
 .tree-location-select-trigger { display: flex; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; height: auto; padding: 10px 12px; border-radius: 10px; font-size: 14px; font-weight: 400; text-align: left; }
 .tree-location-select-trigger > span { flex: 1; white-space: normal; overflow-wrap: anywhere; }
 .tree-location-select-trigger > svg { flex-shrink: 0; color: rgb(var(--text-secondary)); }
@@ -222,6 +237,16 @@ html.tree-entry-is-open { overflow: hidden; }
 .tree-entry-dialog[data-batch-mode=true] .tree-entry-kind-check { width: 14px; height: 14px; right: 9px; top: 12px; }
 .tree-entry-dialog[data-batch-mode=true] .tree-entry-kind small { font-size: 10px; }
 @media (max-width: 979px) {
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-main { overflow-y: auto; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-layout { height: auto; min-height: 100%; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-location { flex: none; min-height: 0; padding-bottom: 16px; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-map { flex: none; height: clamp(240px, 36dvh, 340px); min-height: 220px; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-maintenance-fields { flex: 1; max-height: none; overflow: visible; padding: 16px; border-top: 1px solid rgb(var(--border-subtle)); }
+  .tree-maintenance-intro { display: none; }
+  .tree-maintenance-progress { gap: 10px; padding-inline: 16px; }
+  .tree-maintenance-progress > span { font-size: 10px; }
+  .tree-maintenance-progress > i { flex: 1; min-width: 8px; }
+  .tree-maintenance-action-fields { padding: 14px; }
   .tree-entry-dialog.tree-entry-redesign .tree-entry-main { overflow-y: auto; }
   .tree-entry-dialog.tree-entry-redesign .tree-entry-layout { display: flex; height: auto; min-height: 100%; flex-direction: column; }
   .tree-entry-dialog.tree-entry-redesign .tree-entry-location { padding: 16px 20px 0; background: rgb(var(--surface-raised)); border: 0; gap: 10px; }
@@ -281,6 +306,7 @@ html.tree-entry-is-open { overflow: hidden; }
   .tree-entry-footer-actions { display: block; }
   .tree-entry-footer-actions > p { display: none; }
   .tree-entry-dialog[data-batch-mode=true] .tree-entry-footer-actions > p { display: flex; margin-bottom: 8px; font-size: 11px; }
+  .tree-maintenance-dialog .tree-entry-footer-actions > p { display: flex; margin-bottom: 8px; font-size: 11px; }
   .tree-entry-footer-actions > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 10px; }
   .tree-entry-footer button { min-width: 0; min-height: 48px; padding-inline: 12px; font-size: 12px; }
   .tree-entry-discard { flex-direction: column; align-items: stretch; gap: 12px; }
@@ -288,6 +314,11 @@ html.tree-entry-is-open { overflow: hidden; }
 }
 /* Quando o teclado reduz a altura, permite rolar os campos sem perder o rodapé. */
 @media (max-width: 979px) and (max-height: 600px) {
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-main { overflow-y: auto; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-layout { height: auto; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-location { flex: none; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-entry-map { flex: none; height: 180px; }
+  .tree-entry-dialog.tree-entry-redesign.tree-maintenance-dialog .tree-maintenance-fields { max-height: none; overflow: visible; }
   .tree-entry-dialog.tree-entry-redesign[data-batch-mode=true][data-step="0"] .tree-entry-main { overflow-y: auto; }
   .tree-entry-dialog.tree-entry-redesign[data-batch-mode=true][data-step="0"] .tree-entry-layout { height: auto; }
   .tree-entry-dialog.tree-entry-redesign[data-batch-mode=true][data-step="0"] .tree-entry-location { flex: none; }

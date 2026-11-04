@@ -42,11 +42,25 @@ const stubs = {
     const neighborhoods=[{id:'b1',city_id:64,name:'Centro'},{id:'b2',city_id:64,name:'Três Marias'},{id:'b3',city_id:64,name:'Bela Vista'}];
     let rows=[{id:'t1',city_id:64,public_code:'AR1',species_id:'s1',bairro_id:'b1',common_name:'Ipê-amarelo',scientific_name:'Handroanthus albus',origin:'nativa',status:'saudavel',address:'Praça São José',neighborhood:'Centro',latitude:-8.597,longitude:-38.574,height_m:6,crown_diameter_m:4,maintenance_action:'nenhuma',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'prefeitura',planted_at:'2025-02-03',estimated_birth_year:1920,is_historic_site:true},
       {id:'t2',city_id:64,public_code:'AR2',species_id:'s2',bairro_id:'b3',common_name:'Nim',scientific_name:'Azadirachta indica',origin:'exotica',status:'risco',address:'Rua das Flores',neighborhood:'Bela Vista',latitude:-8.6,longitude:-38.57,maintenance_action:'vistoria',maintenance_due_at:'2026-10-20',created_at:'2026-10-15T12:00:00Z',updated_at:'2026-10-15T12:00:00Z',planted_by:'nao_informado'}];
+    if(location.search.includes('planning-tools'))rows.push(...[
+      {id:'p1',planting_year:2027,status:'planejada',street_id:'street1',street_name:'Rua das Flores',bairro_id:'b1',neighborhood:'Centro'},
+      {id:'p2',planting_year:2027,status:'planejada',address:'Rua das Flores - Centro - Floresta',neighborhood:'centro'},
+      {id:'p3',planting_year:2027,status:'saudavel',planted_at:'2028-01-02',street_id:'street1',street_name:'Rua das Flores',bairro_id:'b1',neighborhood:'Centro'},
+      {id:'p4',planting_year:2028,status:'planejada',street_id:'street3',street_name:'Rua Parcial',bairro_id:'b2',neighborhood:'Três Marias'},
+    ].map((row,index)=>({city_id:64,common_name:'Ipê-amarelo',species_id:'s1',maintenance_action:'nenhuma',planted_by:'prefeitura',latitude:-8.598-index*.0002,longitude:-38.575,...row})));
+    if(location.search.includes('profile-plan'))rows[0]={...rows[0],status:'planejada',planting_year:2027,planted_at:null};
     if(location.search.includes('maintenance'))rows.push({id:'removed',city_id:64,public_code:'AR9',common_name:'Removida',status:'removida',latitude:-8.599,longitude:-38.572,maintenance_action:'nenhuma'});
     if(location.search.includes('improvements'))rows.push({id:'unidentified',city_id:64,public_code:'AR3',species_id:'s1',common_name:'Ipê-amarelo',status:'atencao',latitude:-8.599,longitude:-38.571,maintenance_action:'nenhuma',planted_at:'2026-05-01'}, {id:'removed',city_id:64,public_code:'AR4',common_name:'Removida',status:'removida',latitude:-8.598,longitude:-38.572,maintenance_action:'nenhuma'});
     if(location.search.includes('photo'))rows[0].photo_url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
     if(location.search.includes('list-layout'))rows.push(...Array.from({length:33},(_,index)=>({id:'list-'+index,city_id:64,public_code:'AR'+(index+3),common_name:index===0?'Não identificada':'Caraibeira',origin:'nativa',status:index===1?'risco':'saudavel',address:index===0?'Avenida Manoel Ferraz - São Francisco de Assis - DNER - Floresta - Pernambuco - São Francisco de Assis (DNER)':'',latitude:-8.598,longitude:-38.572,maintenance_action:'nenhuma',photo_url:index%5===0?'/logo.png':null})));
     let care=[];const reports=[{id:'r1',city_id:64,tree_id:'t1',title:'Poda solicitada',tree_service:'poda',status:'pending',created_at:'2026-10-16T12:00:00Z'}];
+    if(location.search.includes('active-broncas'))reports.push(...[
+      {id:'r2',tree_id:'t1',status:'in-progress',title:'Galhos na rede elétrica'},
+      {id:'r3',tree_id:'t1',status:'pending_resolution',title:'Limpeza aguardando confirmação'},
+      {id:'r4',tree_id:'t1',status:'resolved',title:'Poda antiga já resolvida'},
+      {id:'r5',tree_id:'t1',status:'duplicate',title:'Solicitação duplicada'},
+      {id:'r6',tree_id:'t2',status:'resolved',title:'Vistoria encerrada'},
+    ].map(row=>({city_id:64,created_at:'2026-10-17T12:00:00Z',tree_service:'poda',...row})));
     export const supabase={functions:{async invoke(name,options){window.aiRequests=(window.aiRequests||[]).concat({name,...options});return window.failAi?{error:{message:'offline'}}:{data:{summary:'Resumo de teste: porte e características da espécie.',sidewalk_suitability:'com_restricoes',planting_guidance:'Conferir raízes e espaço para a copa.'}}}},auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(path,file){window.uploads.push({path,size:file.size});return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(paths){window.removedUploads.push(...paths);return {error:null}}}}},
       rpc(name,args){
         if(name==='schedule_city_tree_maintenance')return Promise.resolve().then(async()=>{
@@ -60,8 +74,9 @@ const stubs = {
           return {data:{updated_count:ids.length,updated_at},error:null};
         });
         const counts=new Map();for(const report of reports){if(report.tree_id&&report.status!=='duplicate'){const row=counts.get(report.tree_id)||{tree_id:report.tree_id,total:0,poda:0,remocao:0};row.total++;if(report.tree_service==='poda')row.poda++;if(report.tree_service==='remocao')row.remocao++;counts.set(report.tree_id,row)}}const result={data:name==='city_tree_request_counts'?[...counts.values()]:[],error:location.search.includes('fail-counts')?{code:'42501',message:'permission denied'}:null};const q={order(){return q},range(){return q},then(ok,fail){return Promise.resolve(result).then(ok,fail)}};return q},
-      from(table){window.tableReads.push(table);let payload,operation,one=false,rangeStart=0,rangeEnd=Infinity;const filters=[];const q={select(){return q},order(){return q},range(start,end){rangeStart=start;rangeEnd=end;return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
+      from(table){window.tableReads.push(table);let payload,operation,one=false,rangeStart=0,rangeEnd=Infinity;const filters=[];const q={select(){return q},order(){return q},range(start,end){rangeStart=start;rangeEnd=end;return q},limit(){return q},eq(k,v){filters.push(r=>String(r[k])===String(v));return q},gte(k,v){filters.push(r=>r[k]>=v);return q},lte(k,v){filters.push(r=>r[k]<=v);return q},neq(k,v){filters.push(r=>String(r[k])!==String(v));return q},not(k,operator,v){filters.push(r=>r[k]!=null);return q},in(k,v){filters.push(r=>v.includes(r[k]));return q},single(){one=true;return q},maybeSingle(){one=true;return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(ok,fail){
       if((table==='bairros'&&location.search.includes('fail-neighborhoods'))||(table==='city_tree_species'&&location.search.includes('fail-species')))return Promise.resolve({error:{message:'catalog unavailable'}}).then(ok,fail);
+      if(table==='reports'&&(location.search.includes('fail-counts')||window.failActiveReports))return Promise.resolve({error:{message:'reports unavailable'}}).then(ok,fail);
       if(operation&&window.failSave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
       let insertedRows;
       if(operation){window.writes.push({table,operation,payload});if(table==='city_trees'){if(operation==='insert'){insertedRows=(Array.isArray(payload)?payload:[payload]).map((item,index)=>({...item,public_code:'AR'+(rows.length+index+1),id:'new'+(rows.length+index),created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));rows.unshift(...insertedRows);}if(operation==='update')rows=rows.map(r=>filters.every(f=>f(r))?{...r,...payload}:r);}if(table==='city_tree_care')care.push({...payload,id:'c'+care.length});if(table==='city_tree_species'){if(operation==='insert')species.unshift({...payload,id:species.some(row=>row.id==='s-new')?'s-new-'+species.length:'s-new'});if(operation==='update')species.forEach(row=>{if(filters.every(f=>f(row)))Object.assign(row,payload)});}if(table==='reports'&&operation==='insert')reports.unshift({...payload,id:'r'+reports.length,created_at:new Date().toISOString()});}
@@ -132,10 +147,15 @@ await build({
 });
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
-for (const name of ['treeAdoptionCard', 'treeEntryRedesign', 'treeInventoryRedesign', 'treeInventoryList']) sourceCss += '\n' + await fs.readFile(`src/components/arborization/${name}.css`, 'utf8');
+for (const name of ['treeAdoptionCard', 'treeEntryRedesign', 'treeInventoryRedesign', 'treeInventoryList', 'treeProfileRedesign', 'treeActiveReports']) sourceCss += '\n' + await fs.readFile(`src/components/arborization/${name}.css`, 'utf8');
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
 const css = await postcss([tailwind({ ...config, content: ['src/pages/MunicipalityTeamPage.jsx','src/components/municipality/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/PavementMapPage.jsx','src/components/pavement/*.jsx','src/components/PavementMapView.jsx','src/pages/ArborizationMapPage.jsx', 'src/pages/TreePage.jsx', 'src/components/Footer.jsx', 'src/components/report/ReportTreePicker.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/TelaDeMapa.jsx', 'src/components/map/mapLayout.js', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + '\n' + await fs.readFile('node_modules/leaflet/dist/leaflet.css', 'utf8'));
+if(process.argv.includes('--production-css')){
+  const assets=await fs.readdir('dist/assets');const name=assets.find(name=>/^index-.*\.css$/.test(name));
+  if(!name)throw new Error('Gere o build antes de usar --production-css');
+  await fs.copyFile(path.join('dist/assets',name),path.join(out,'preview.css'));
+}
 }
 const server = http.createServer(async (req, res) => {
   const file = req.url.split('?')[0];
@@ -173,22 +193,24 @@ try {
     await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
   };
   const click = async label => {
+    if(label==='Sair da tela cheia'&&await evaluate('Boolean(document.querySelector("[data-testid=tree-maintenance-dialog]"))'))label='Fechar manejo';
     if(label==='Cadastrar em sequência')label='Cadastrar várias árvores';
     if(label==='Encerrar')label='Cancelar cadastro';
     const hasDialog = await evaluate('Boolean(document.querySelector("[role=dialog][data-state=open]"))');
     if(!hasDialog){
-      await waitFor('!document.querySelector("[role=dialog]")');
+      await waitFor('!document.querySelector("[role=dialog]")&&!document.querySelector("[role=menu][data-state=closed]")');
       await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     }
     if(!hasDialog && ['Lista','Mapa'].includes(label))label=label==='Lista'?'Ver lista':'Ver mapa';
+    if(!hasDialog&&await evaluate('Boolean(document.querySelector("[data-testid=tree-page]"))')&&['Editar árvore','Registrar serviço','Confirmar plantio realizado','Ver localização','Ver QR Code','Baixar QR Code em PDF'].includes(label)&&!await evaluate('Boolean(document.querySelector("[role=menu][data-state=open]"))'))await click('Ações');
     if(!hasDialog && ['Cadastrar árvore','Planejar plantio','Cadastrar várias árvores','Manejo em lote','Planejamento anual','Exportar CSV','Estatísticas','Ver lista','Ver mapa'].includes(label)
-      && !await evaluate('Boolean(document.querySelector("[role=menu]"))'))await click('Ações');
+      && !await evaluate('Boolean(document.querySelector("[role=menu][data-state=open]"))'))await click('Ações');
     if(await evaluate(`Boolean([...document.querySelectorAll('[role=tab]')].find(el=>el.textContent.trim()===${JSON.stringify(label)}))`)){
       const point=await evaluate(`(()=>{const el=[...document.querySelectorAll('[role=tab]')].find(el=>el.textContent.trim()===${JSON.stringify(label)});el.scrollIntoView({block:'nearest',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);return;
     }
     if (label === 'Mais ações' || label === 'Ações') {
-      const point = await evaluate(`(()=>{const el=document.querySelector('[role=dialog] .arborization-actions-trigger')||document.querySelector('.arborization-header .arborization-actions-trigger');el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      const point = await evaluate(`(()=>{const el=document.querySelector('[role=dialog] .arborization-actions-trigger')||document.querySelector('.tree-profile-actions-trigger')||document.querySelector('.arborization-header .arborization-actions-trigger');el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
       await waitFor('document.querySelector("[role=menu]")?.contains(document.activeElement)');
       await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
@@ -387,7 +409,92 @@ try {
     assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
   };
   // As verificações do inventário e do cadastro agora usam o fluxo unificado.
-  if(process.argv.length === 2 || ['--planning','--experience','--layout','--registration','--batch','--species'].some(flag => process.argv.includes(flag))){
+  if(process.argv.includes('--active-reports')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?active-broncas');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await waitFor('document.querySelector(".tree-map-pin svg [fill]")?.getAttribute("fill")==="#eab308"');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-pin svg [fill]")[1].getAttribute("fill")'),'#b91c1c','Somente resolvida mantém cor de risco');
+      await evaluate('document.querySelector(".tree-map-pin").click()');
+      await waitFor('document.querySelector("[data-testid=tree-active-reports] li")');
+      assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-active-reports] li").length'),3);
+      assert.ok(await evaluate('(()=>{const card=document.querySelector("[data-testid=tree-active-reports]");return card.innerText.includes("Aberta")&&card.innerText.includes("Em andamento")&&card.innerText.includes("Aguardando confirmação")&&!card.innerText.includes("resolvida")&&!card.innerText.includes("duplicada")&&card.querySelector("a").getAttribute("href")==="/bronca/r1"&&!card.closest("#tree-details-secondary")})()'),'Ativas visíveis sem expandir detalhes');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture('active-reports-details-'+width);await closeDetails();
+      await evaluate('document.querySelectorAll(".tree-map-pin")[1].click()');await waitFor('document.querySelector("[data-testid=tree-details-dialog]")');
+      await waitFor('!document.querySelector("[data-testid=tree-active-reports]")');
+      await closeDetails();
+      await evaluate('window.failActiveReports=true;document.querySelector(".tree-map-pin").click()');
+      await waitFor('document.querySelector("[data-testid=tree-active-reports] [role=alert]")');
+      await evaluate('window.failActiveReports=false');await click('Tentar novamente');await waitFor('document.querySelectorAll("[data-testid=tree-active-reports] li").length===3');
+      await navigate('?detail&active-broncas');await waitFor('document.querySelector(".tree-profile-history")&&document.querySelectorAll("[data-testid=tree-active-reports] li").length===3');
+      await evaluate('document.querySelector(".tree-profile-history-disclosure").open=true');
+      assert.ok(await evaluate('document.querySelector(".tree-profile-history").innerText.includes("Poda antiga já resolvida")&&!document.querySelector("[data-testid=tree-active-reports]").innerText.includes("Poda antiga já resolvida")'),'Resolvidas permanecem somente no histórico');
+      await capture('active-reports-profile-'+width);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      results.push({width,activeOnly:true,yellowActiveOnly:true,detailLinks:true,resolvedHistory:true,retry:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--profile-actions')){
+    for(const [width,height] of [[320,740],[390,844],[768,1024],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?detail&species-info');await waitFor('document.querySelector(".tree-profile-qr-image img")&&document.querySelector(".tree-profile-history")');
+      assert.ok(await evaluate('!document.querySelector(".tree-profile-qr-action")&&document.querySelector(".tree-profile-header-actions").querySelectorAll("button").length===1'),'Topo usa apenas o menu Ações');
+      assert.ok(await evaluate('(()=>{const header=document.querySelector(".tree-profile-header").getBoundingClientRect(),grid=document.querySelector(".tree-profile-grid").getBoundingClientRect(),qr=document.querySelector(".tree-profile-qr-section").getBoundingClientRect();return header.bottom<grid.top&&grid.bottom<=qr.top})()'),'QR fica em seção própria após os dados');
+      const url=await evaluate('document.querySelector(".tree-profile-qr-image img").dataset.url');assert.ok(url.endsWith('/arborizacao/arvore/t1'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=tree-page]").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'),'Ficha mantém margens fluidas');
+      await capture(`profile-actions-header-${width}`);await click('Ações');await waitFor('document.querySelector(".tree-profile-actions-menu")');await capture(`profile-actions-menu-${width}`);
+      assert.ok(await evaluate('document.querySelector(".tree-profile-actions-menu").innerText.includes("Editar árvore")&&document.querySelector(".tree-profile-actions-menu").innerText.includes("Registrar serviço")'));
+      await click('Ver QR Code');await waitFor('!document.querySelector("[role=menu]")');await pause(500);await capture(`profile-qr-section-${width}`);
+      assert.ok(await evaluate('document.activeElement.id==="tree-qr-section"'),'Atalho leva o foco à seção do QR');
+      await click('Baixar QR Code da árvore em PDF');await waitFor('window.generatedFiles.some(blob=>blob.type==="application/pdf")');assert.equal(await evaluate('window.generatedFiles.find(blob=>blob.type==="application/pdf").slice(0,5).text()'),'%PDF-');
+      assert.ok((await evaluate('window.generatedFiles.find(blob=>blob.type==="application/pdf").text()')).includes('/arborizacao/arvore/t1'),'PDF e prévia acessam a mesma árvore');
+      await click('Editar árvore');await waitFor('document.querySelector(".tree-entry-dialog")');await click('Fechar cadastro');await waitFor('!document.querySelector(".tree-entry-dialog")');
+      await click('Registrar serviço');await waitFor('document.querySelector(".tree-profile-care-form")');await choose('Serviço','poda');await input('Data de realização','2026-11-01');await click('Registrar no histórico');await waitFor('!document.querySelector(".tree-profile-care-form")');
+      assert.ok(await evaluate('document.querySelector(".tree-profile-history").innerText.includes("Poda: serviço realizado")'));
+      results.push({width,headerMenu:true,qrPreview:true,qrSection:true,qrPdf:true,edit:true,recordCare:true,noOverflow:true});
+    }
+    await navigate('?detail&profile-plan');await waitFor('document.querySelector(".tree-profile-qr-image img")');await click('Ações');await waitFor('document.querySelector(".tree-profile-actions-menu")');
+    assert.ok(await evaluate('document.querySelector(".tree-profile-actions-menu").innerText.includes("Confirmar plantio realizado")&&!document.querySelector(".tree-profile-actions-menu").innerText.includes("Registrar serviço")'),'Plano oferece confirmação de plantio');
+    await click('Confirmar plantio realizado');await waitFor('document.querySelector(".tree-entry-dialog")?.dataset.step==="1"');await click('Fechar cadastro');await waitFor('!document.querySelector(".tree-entry-dialog")');
+    await navigate('?detail&public&dark');await waitFor('document.querySelector(".tree-profile-qr-image img")');await click('Ações');await waitFor('document.querySelector(".tree-profile-actions-menu")');
+    assert.ok(await evaluate('!document.querySelector(".tree-profile-actions-menu").innerText.includes("Editar árvore")&&!document.querySelector(".tree-profile-actions-menu").innerText.includes("Registrar serviço")&&document.querySelector(".tree-profile-actions-menu").innerText.includes("Ver QR Code")'),'Consulta pública mantém somente ações permitidas');
+    await click('Ver QR Code');await pause(500);await capture('profile-qr-public-dark');
+  }else if(process.argv.includes('--planning-tools')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?planning-tools');await waitFor('document.querySelectorAll(".tree-map-pin").length===6');
+      await openFilters();
+      const geometry=await evaluate('(()=>{const dialog=document.querySelector("#arborization-filters"),scroll=dialog.querySelector(".arborization-filter-scroll"),fields=dialog.querySelector(".arborization-filter-fields"),input=fields.querySelector("select"),r=scroll.getBoundingClientRect(),f=input.getBoundingClientRect();return {left:f.left-r.left,right:r.right-f.right,padding:getComputedStyle(scroll).paddingRight,outer:getComputedStyle(dialog).overflowY,inner:getComputedStyle(fields).overflowY,rootOverflow:dialog.scrollHeight-dialog.clientHeight}})()');
+      assert.ok(geometry.left>=6&&geometry.right>=24&&geometry.outer==='hidden'&&geometry.inner==='visible'&&geometry.rootOverflow<=1,JSON.stringify(geometry));
+      await evaluate('document.querySelector(".arborization-filter-scroll").scrollTop=1e5;document.querySelector(".arborization-additional-filters").open=true;true');
+      await evaluate('document.querySelector(".arborization-filter-scroll").scrollTop=1e5;true');
+      assert.ok(await evaluate('(()=>{const r=document.querySelector(".arborization-filter-scroll").getBoundingClientRect(),field=document.querySelector(".arborization-additional-filters label:last-child select").getBoundingClientRect(),footer=document.querySelector(".arborization-filter-footer").getBoundingClientRect();return field.bottom<=r.bottom-4&&r.bottom<=footer.top+1})()'),'Último campo acessível por inteiro e rodapé separado');
+      await capture(`filters-production-bottom-${width}`);await evaluate('document.querySelector(".arborization-filter-scroll").scrollTop=0;true');await capture(`filters-production-top-${width}`);
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("#arborization-filters")');
+      await click('Cadastrar árvore');await waitFor('document.querySelector("[data-testid=tree-species-field] [role=combobox]")&&!document.querySelector("[data-testid=tree-species-field] [role=combobox]").disabled');
+      await evaluate('window.addressResult={address:"Rua das Flores - Centro - Floresta",suburb:null};true');await click('Usar GPS');
+      await waitFor('document.querySelector(".tree-entry-address-state").innerText.includes("conferidos")');assert.equal(await fieldValue('Rua cadastrada'),'street1');
+      assert.ok(await evaluate('!document.querySelector(".tree-entry-address-reference").open'),'Endereço não é repetido em campo aberto');
+      await evaluate('document.querySelector(".tree-location-select [role=combobox]").click()');await waitFor('document.querySelector(".tree-location-popover")');
+      await evaluate('(()=>{const el=document.querySelector(".tree-location-popover input");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(el,"parcial");el.dispatchEvent(new Event("input",{bubbles:true}))})()');
+      await waitFor('document.querySelectorAll("[data-location-option]").length===1');assert.ok(await evaluate('document.querySelector("[data-location-option]").innerText.includes("Rua Parcial")'));await capture(`street-search-${width}`);
+      await evaluate('document.querySelector("[data-location-option=street3]").click()');await waitFor('!document.querySelector(".tree-location-popover")');assert.equal(await fieldValue('Rua cadastrada'),'street3');assert.equal(await fieldValue('Bairro'),'b2');
+      await click('Fechar cadastro');await waitFor('document.querySelector(".tree-entry-discard-dialog[role=alertdialog]")');
+      await capture(`discard-centered-${width}`);
+      assert.ok(await evaluate('(()=>{const r=document.querySelector(".tree-entry-discard-dialog").getBoundingClientRect();return Math.abs(r.top+r.height/2-innerHeight/2)<3&&Math.abs(r.left+r.width/2-innerWidth/2)<12&&!document.querySelector(".tree-entry-footer .tree-entry-discard")})()'),'Descarte aparece no centro');await capture(`discard-centered-${width}`);
+      await click('Continuar cadastro');await waitFor('!document.querySelector("[role=alertdialog]")');assert.equal(await fieldValue('Rua cadastrada'),'street3');
+      await click('Fechar cadastro');await waitFor('document.querySelector("[role=alertdialog]")');await click('Descartar alterações');await waitFor('!document.querySelector(".tree-entry-dialog")');
+      await choose('Tipo de registro','planned');await click('Planejamento anual');await waitFor('document.querySelector(".tree-planning-report table")');await choose('Ano previsto','2027');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-planning-report tbody tr").length'),1);assert.equal(await evaluate('document.querySelector(".tree-planning-report tbody tr td:nth-child(5)").innerText'),'2');assert.equal(await evaluate('document.querySelector(".tree-planning-report tbody tr td:nth-child(6)").innerText'),'1','Relatório inclui execução mesmo com mapa em planejadas');
+      await click('Exportar PDF');await waitFor('window.generatedFiles.some(blob=>blob.type==="application/pdf")');assert.equal(await evaluate('window.generatedFiles.find(blob=>blob.type==="application/pdf").slice(0,5).text()'),'%PDF-');
+      const bytes=await evaluate('window.generatedFiles.find(blob=>blob.type==="application/pdf").arrayBuffer().then(value=>Array.from(new Uint8Array(value)))');await fs.writeFile(path.join(out,`planning-tools-${width}.pdf`),Buffer.from(bytes));
+      await capture(`planning-tools-report-${width}`);await choose('Bairro do relatório','Três Marias');assert.ok(await evaluate('document.querySelector(".tree-planning-report").innerText.includes("Nenhum plantio com ano previsto")'));
+      await choose('Ano previsto','2028');assert.ok(await evaluate('document.querySelector(".tree-planning-report tbody").innerText.includes("Rua Parcial")'));await click('Exportar relatório CSV');await waitFor('window.generatedFiles.some(blob=>blob.type.includes("csv"))');
+      assert.match(await evaluate('window.generatedFiles.find(blob=>blob.type.includes("csv")).text()'),/2028.*Três Marias.*Rua Parcial/);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));results.push({width,productionCss:process.argv.includes('--production-css'),geometry,search:true,centeredDiscard:true,reportScope:true,pdf:true,csv:true});
+    }
+  }else if(process.argv.length === 2 || ['--planning','--experience','--layout','--registration','--batch','--species'].some(flag => process.argv.includes(flag))){
     for (const [width,height] of [[320,740],[390,844],[768,1024],[1024,768],[1440,900],[1920,1080]]) {
       const mobile = width < 768;
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
@@ -655,7 +762,7 @@ try {
       assert.ok(await evaluate('document.querySelector(".tree-profile-history-disclosure").open'));
       await click('Adicionar foto');await waitFor('document.querySelector(".tree-entry-dialog")?.dataset.mobileStep==="1"');
       await evaluate(`document.querySelector('button[aria-label="Fechar cadastro"]').click()`);await waitFor('!document.querySelector(".tree-entry-dialog")');
-      assert.ok(await evaluate('(()=>{const qr=document.querySelector(".tree-profile-qr-action");const button=qr.querySelector("button").getBoundingClientRect();return getComputedStyle(qr).display!=="none"&&button.height>=44&&qr.innerText.includes("Baixar PDF")&&qr.innerText.includes("PDF A5")})()'),'Download de QR Code visível na página, com formato indicado');
+      assert.ok(await evaluate('(()=>{const qr=document.querySelector(".tree-profile-qr-section");const button=qr.querySelector("button[aria-label]").getBoundingClientRect();return Boolean(qr.querySelector("img"))&&button.height>=44&&qr.innerText.includes("Baixar PDF")&&qr.innerText.includes("PDF A5")})()'),'Seção do QR Code oferece prévia e impressão');
       await navigate('?detail&photo');await waitFor('document.querySelector(".tree-profile-photo img")');
       assert.ok(await evaluate('document.querySelector(".tree-profile-photo").getBoundingClientRect().height<=190'));
       await click('Ver imagem completa');await waitFor('document.querySelector(".tree-profile-photo-dialog img")');
@@ -871,8 +978,10 @@ try {
       await click('Tela cheia');await waitFor('document.querySelector("[role=dialog] .leaflet-container")');
       await click('Manejo em lote');await waitFor('document.querySelector("[data-testid=tree-maintenance-dialog] .tree-map-pin")');await waitFor('document.querySelectorAll("[role=dialog]").length===1');
       await capture('maintenance-open-'+width);
+      assert.ok(await evaluate(`document.querySelector('[data-testid=tree-maintenance-dialog] .tree-entry-map').getBoundingClientRect().height>=${width<980?220:300}`),'Mapa do manejo permanece visível e utilizável');
       assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),1,'Manejo abre uma única tela: '+JSON.stringify(await evaluate('[...document.querySelectorAll("[role=dialog]")].map(el=>({state:el.dataset.state,title:el.querySelector("h2")?.textContent}))')));
       assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-maintenance-dialog] .tree-map-pin").length'),2,'Árvore removida não participa da seleção');
+      await evaluate('window.testMap.setView([-8.597,-38.574],17,{animate:false});true');
       const point=await evaluate(`(()=>{const r=document.querySelector('[data-testid=tree-maintenance-dialog] .tree-map-pin[title="AR1 · Ipê-amarelo"]').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
       await waitFor('document.querySelectorAll(".tree-map-maintenance-selected").length===1');

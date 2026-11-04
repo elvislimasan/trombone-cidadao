@@ -1,10 +1,10 @@
 import { Capacitor } from '@capacitor/core';
-import { getBaseAppUrl } from './shareUtils';
+import { treeQrCodeUrl } from './treeQrCodeUrl';
 import { pdfParaBase64, salvarDocumento } from './nativeDownload';
 import { createTreeQrCodePdf } from './treeQrCodePdf';
 
 export async function downloadTreeQrCode(tree, cityName) {
-  const url = `${getBaseAppUrl().replace(/\/$/, '')}/arborizacao/arvore/${encodeURIComponent(tree.id)}`;
+  const url = treeQrCodeUrl(tree);
   const doc = await createTreeQrCodePdf(tree, cityName, url);
   const fileName = `arvore-${String(tree.public_code || tree.id).replace(/[^a-zA-Z0-9_-]/g, '-')}-qrcode.pdf`;
   const native = Capacitor.isNativePlatform();

@@ -14,7 +14,7 @@ import { findTreeStreet } from '@/lib/treeStreetLocation';
 import { EMPTY_TREE, TREE_ACTIONS, TREE_STATUS, TREE_PLANTED_BY, treePayload } from '@/lib/arborization';
 import { loadTreeCatalogs, nearbyTrees, treeNameKey } from '@/lib/treeInventory';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
-import { treeBatchPayloads } from '@/lib/treeBatchLocations';
+import { applyTreeBatchAddress, treeBatchPayloads } from '@/lib/treeBatchLocations';
 import { supabase } from '@/lib/customSupabaseClient';
 import { EntryField, EntryKind, EntryProgress, EntryReview, EntrySection, entrySelectClass } from './TreeEntryParts';
 import TreeEntryAddressFields from './TreeEntryAddressFields';
@@ -193,10 +193,10 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
     if (street) setForm(current => ({ ...current, street_id: street.id, street_name: street.name }));
   }, [streets, cityId, form.address, form.street_id, form.bairro_id]);
   useEffect(() => {
-    if (addressEdited.current.neighborhood || !form.neighborhood) return;
-    const match = catalogs.neighborhoods.find(item => treeNameKey(item.name) === treeNameKey(form.neighborhood));
-    if (match && form.bairro_id !== match.id) setForm(current => ({ ...current, bairro_id: match.id, neighborhood: match.name }));
-  }, [catalogs.neighborhoods, form.neighborhood, form.bairro_id]);
+    if (addressEdited.current.neighborhood) return;
+    const location = applyTreeBatchAddress({}, { address: form.address, suburb: form.neighborhood }, cityId, { neighborhoods: catalogs.neighborhoods });
+    if (location.bairro_id && form.bairro_id !== location.bairro_id) setForm(current => ({ ...current, bairro_id: location.bairro_id, neighborhood: location.neighborhood }));
+  }, [catalogs.neighborhoods, cityId, form.address, form.neighborhood, form.bairro_id]);
   const locate = () => {
     if (!navigator.geolocation) { setError('A localização não está disponível neste dispositivo. Marque o ponto no mapa.'); return; }
     setLocating(true); setError('');

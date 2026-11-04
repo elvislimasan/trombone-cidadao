@@ -48,7 +48,7 @@ export async function buildTreePlanningPdf({ trees, cities = [], cityName = '', 
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     let legendX = margin;
     for (const [label, color] of [['Pendentes', BLUE], ['Realizados', GREEN], ['Sem confirmação', GRAY]]) { doc.setFillColor(...color); doc.rect(legendX, y - 2.5, 3, 3, 'F'); doc.setTextColor(...GRAY); doc.text(label, legendX + 5, y); legendX += 45; }
-    y += 8;
+    y += 5;
     for (const row of data) {
       space(15);
       doc.setTextColor(40, 50, 60); doc.setFontSize(8);
@@ -70,13 +70,13 @@ export async function buildTreePlanningPdf({ trees, cities = [], cityName = '', 
   chart('Bairros com maior quantidade prevista (até 10)', row => `${row.neighborhood}${citySuffix(row)}`, 10);
   chart('Ruas com maior quantidade prevista (até 10)', row => `${row.street} - ${row.neighborhood}${citySuffix(row)}`, 10);
   space(22); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(25, 35, 45); doc.text('Detalhamento por ano, bairro e rua', margin, y); y += 6;
-  autoTable(doc, { startY: y, margin: { left: margin, right: margin, top: 46, bottom: 18 },
+  autoTable(doc, { startY: y, margin: { left: margin, right: margin, top: 46, bottom: 26 },
     head: [['Ano', 'Cidade', 'Bairro', 'Rua', 'Total previsto', 'Pendentes', 'Realizados', 'Sem confirmação']],
     body: rows.map(row => [row.year, cities.find(city => String(city.id) === String(row.city_id))?.name || row.city_id, row.neighborhood, row.street, row.total, row.planned, row.planted, row.unconfirmed]),
     styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, overflow: 'linebreak' }, headStyles: { fillColor: GREEN }, alternateRowStyles: { fillColor: [246, 249, 247] },
     didDrawPage: data => { if (data.pageNumber > 1) header(); },
   });
-  y = doc.lastAutoTable.finalY + 8; space(20);
+  y = doc.lastAutoTable.finalY + 4; space(8);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GRAY);
   doc.text(doc.splitTextToSize('O ano é a previsão original. Realizados correspondem a árvores desse planejamento com data de plantio confirmada, mesmo quando executadas em outro ano. Árvores existentes sem ano previsto não compõem este relatório.', width - margin * 2), margin, y);
   const pages = doc.getNumberOfPages();

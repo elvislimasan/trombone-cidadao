@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_TREE, filterTrees, treeImage, treePayload, treesCsv, treeMapMarkerKey } from '../lib/arborization.js';
-import { loadReportMapTrees, nearbyTrees, treeNeighborhoodCounts, treeTimeline, treeRequestCounts, treeReportSelection, uploadTreePhoto } from '../lib/treeInventory.js';
+import { ACTIVE_TREE_REPORT_STATUSES, isActiveTreeReport, loadActiveTreeReports, loadReportMapTrees, nearbyTrees, treeNeighborhoodCounts, treeTimeline, treeRequestCounts, treeReportSelection, uploadTreePhoto } from '../lib/treeInventory.js';
 
 test('foto real tem prioridade; ilustração identifica a espécie e não se passa por foto da árvore', () => {
   const tree = { common_name: 'Nim', photo_url: 'https://example.test/real.jpg', species_illustration_url: 'https://example.test/nim.png' };
@@ -93,14 +93,14 @@ test('árvores para bronca são consultadas por área visível, com cidade e pag
       gte: (key, value) => { call.filters.push(['gte', key, value]); return query; },
       lte: (key, value) => { call.filters.push(['lte', key, value]); return query; },
       range: (start, end) => { call.range = [start, end]; return query; },
-      then: resolve => Promise.resolve({ data: Array.from({ length: call.range[0] === 0 ? 1000 : 2 }, (_, id) => ({ id })), error: null }).then(resolve) };
+      then: resolve => Promise.resolve({ data: Array.from({ length: call.range[0] === 0 ? 1000 : call.range[0] === 1000 ? 2 : 0 }, (_, id) => ({ id: call.range[0] + id })), error: null }).then(resolve) };
     return query;
   } };
   assert.equal((await loadReportMapTrees(client, { south: -8.61, north: -8.58, west: -38.59, east: -38.55 }, 64)).length, 1002);
   assert.ok(calls.every(call => call.table === 'city_trees' && JSON.stringify(call.filters) === JSON.stringify([
     ['neq', 'status', 'removida'], ['neq', 'status', 'planejada'], ['gte', 'latitude', -8.61], ['lte', 'latitude', -8.58], ['gte', 'longitude', -38.59], ['lte', 'longitude', -38.55], ['eq', 'city_id', 64],
   ])));
-  assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999]]);
+  assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999], [1002, 2001]]);
   assert.deepEqual(await loadReportMapTrees({}, null, 64), []);
 });
 
@@ -153,16 +153,49 @@ test('erro de permissão, bucket ausente e sessão expirada têm mensagens espec
   await assert.rejects(uploadTreePhoto({ auth: { getUser: async () => ({ data: null, error: { message: 'expired' } }) } }, file, 64), /sessão expirou/);
 });
 
-test('indicadores de solicitações carregam além das primeiras mil árvores', async () => {
-  const ranges = [];
-  const client = { rpc(name, args) {
-    assert.equal(name, 'city_tree_request_counts'); assert.equal(args.p_city_id, 64);
-    let start;
-    const q = { order() { return q; }, range(first, last) { start = first; ranges.push([first, last]); return q; },
-      then(resolve) { return Promise.resolve({ data: Array.from({ length: start === 0 ? 1000 : 1 }, (_, i) => ({ tree_id: `${start + i}`, total: 2 })) }).then(resolve); } };
+function reportClient(rows, calls = []) {
+  return { from(table) {
+    assert.equal(table, 'reports');
+    const filters = [], call = { filters: [] }; calls.push(call);
+    let start = 0, end = Infinity;
+    const q = { select() { return q; }, order() { return q; },
+      not(key, operator, value) { call.filters.push(['not', key, operator, value]); filters.push(row => row[key] != null); return q; },
+      in(key, values) { call.filters.push(['in', key, values]); filters.push(row => values.includes(row[key])); return q; },
+      eq(key, value) { call.filters.push(['eq', key, value]); filters.push(row => row[key] === value); return q; },
+      range(first, last) { start = first; end = last; call.range = [first, last]; return q; },
+      then(resolve) { return Promise.resolve({ data: rows.filter(row => filters.every(filter => filter(row))).slice(start, end + 1), error: null }).then(resolve); } };
     return q;
   } };
-  const counts = await treeRequestCounts(client, 64);
-  assert.equal(counts.size, 1001); assert.equal(counts.get('1000').total, 2);
-  assert.deepEqual(ranges, [[0, 999], [1000, 1999]]);
+}
+
+test('somente broncas abertas, em andamento e aguardando confirmação são ativas', () => {
+  assert.deepEqual(ACTIVE_TREE_REPORT_STATUSES, ['pending', 'in-progress', 'pending_resolution']);
+  for (const status of ACTIVE_TREE_REPORT_STATUSES) assert.ok(isActiveTreeReport({ status }));
+  for (const status of ['resolved', 'duplicate', 'archived', null, undefined]) assert.equal(isActiveTreeReport({ status }), false);
+});
+
+test('indicadores paginam broncas ativas, respeitam a cidade e não contam resolvidas', async () => {
+  const rows = Array.from({ length: 1001 }, (_, id) => ({ id, tree_id: `t${id}`, city_id: 64, status: 'pending', tree_service: 'poda' }));
+  rows.push({ id: 1002, tree_id: 't1000', city_id: 64, status: 'in-progress', tree_service: 'remocao' },
+    { id: 1003, tree_id: 't1000', city_id: 64, status: 'pending_resolution', tree_service: 'poda' });
+  for (const row of [{ status: 'resolved' }, { status: 'duplicate' }, { city_id: 65 }, { tree_id: null }]) {
+    rows.push({ id: rows.length, tree_id: 'excluded', city_id: 64, status: 'pending', ...row });
+  }
+  const calls = [], counts = await treeRequestCounts(reportClient(rows, calls), 64);
+  assert.equal(counts.size, 1001);
+  assert.deepEqual(counts.get('t1000'), { tree_id: 't1000', total: 3, poda: 2, remocao: 1 });
+  assert.equal(counts.has('excluded'), false);
+  assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999], [1003, 2002]]);
+  assert.ok(calls.every(call => call.filters.some(filter => filter[0] === 'eq' && filter[1] === 'city_id' && filter[2] === 64)));
+});
+
+test('detalhes consultam somente broncas ativas da árvore e cidade indicadas', async () => {
+  const rows = [
+    { id: 'active', tree_id: 't1', city_id: 64, status: 'pending_resolution' },
+    { id: 'resolved', tree_id: 't1', city_id: 64, status: 'resolved' },
+    { id: 'other-tree', tree_id: 't2', city_id: 64, status: 'pending' },
+    { id: 'other-city', tree_id: 't1', city_id: 65, status: 'pending' },
+  ];
+  assert.deepEqual((await loadActiveTreeReports(reportClient(rows), 't1', 64)).map(row => row.id), ['active']);
+  await assert.rejects(treeRequestCounts({ from() { return { select() { throw Error('permission denied'); } }; } }, 64), /permission denied/);
 });

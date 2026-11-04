@@ -162,7 +162,7 @@ export function ArborizationContent({ management, embedded = false }) {
     const { data, error: saveError } = await query.select().single();
     if (saveError) { if (uploaded) await supabase.storage.from('tree-photos').remove([uploaded.path]); throw new Error('Não foi possível salvar. Verifique sua conexão e a permissão na cidade.'); }
     setTrees(current => id ? current.map(tree => tree.id === id ? data : tree) : [data, ...current]);
-    setSelected(null); setView('map'); setNotice(id ? 'Árvore atualizada.' : `Árvore cadastrada.${data.public_code ? ` Código: ${data.public_code}.` : ''}`);
+    setSelected(null); setView('map'); setNotice(id ? '' : `Árvore cadastrada.${data.public_code ? ` Código: ${data.public_code}.` : ''}`);
   }, [canManage, cityId]);
 
   const saveBatch = useCallback(async (payloads, photo) => {
