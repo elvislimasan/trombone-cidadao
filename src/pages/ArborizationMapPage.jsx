@@ -10,6 +10,7 @@ import CitySelector from '@/components/CitySelector';
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import { MAP_LAYER } from '@/components/map/MapDisplayControls';
 import TreeInventorySummary from '@/components/arborization/TreeInventorySummary';
+import TreeLocationSelect from '@/components/arborization/TreeLocationSelect';
 import '@/components/arborization/treeInventoryRedesign.css';
 import '@/components/arborization/treeInventoryList.css';
 import TreeMap from '@/components/arborization/TreeMap';
@@ -257,7 +258,7 @@ export function ArborizationContent({ management, embedded = false }) {
             ['action', 'Manejo', [['pending', 'Todos os manejos pendentes'], ...Object.entries(TREE_ACTIONS)]],
             ['plantedBy', 'Responsável pelo plantio', Object.entries(TREE_PLANTED_BY)],
             ['historic', 'Sítio histórico', [['yes', 'Sim'], ['no', 'Não']]],
-          ].map(([key, label, options]) => <div key={key} className="arborization-filter-row"><label>{label}<select className={selectClass} value={draftFilters[key]} onChange={event => setFilter(key, event.target.value)}><option value="all">Todos</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label></div>)}
+          ].map(([key, label, options]) => <div key={key} className="arborization-filter-row">{key === 'street' ? <TreeLocationSelect label={label} items={options.map(([id, name]) => ({ id, name }))} value={draftFilters.street} onChange={value => setFilter('street', value)} placeholder="Todos" emptyLabel="Todos" emptyValue="all" searchLabel="Pesquisar rua" /> : <label>{label}<select className={selectClass} value={draftFilters[key]} onChange={event => setFilter(key, event.target.value)}><option value="all">Todos</option>{options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}</div>)}
           <div className="arborization-filter-row"><label>Ano previsto de plantio<select className={selectClass} value={draftFilters.planningYear} onChange={event => setFilter('planningYear', event.target.value)}><option value="">Todos os anos</option>{planningYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label></div>
           <div className="arborization-filter-row"><fieldset className="min-w-0 flex-1"><legend>Faixa de idade</legend><div className="arborization-age-range"><Input type="number" min="0" max={draftFilters.maxAge || undefined} aria-label="Idade mínima" placeholder="Mín." value={draftFilters.minAge} onChange={event => setFilter('minAge', event.target.value)} /><span>–</span><Input type="number" min={draftFilters.minAge || '0'} aria-label="Idade máxima" placeholder="Máx." value={draftFilters.maxAge} onChange={event => setFilter('maxAge', event.target.value)} /><span>anos</span></div></fieldset></div>
           <details className="arborization-additional-filters"><summary>Outros filtros</summary><label>Ano do plantio<Input type="number" min="1" max={new Date().getFullYear()} placeholder="Ex.: 2025" value={draftFilters.plantedYear} onChange={event => setFilter('plantedYear', event.target.value)} /></label><label>Idade estimada<select className={selectClass} value={draftFilters.centenarian} onChange={event => setFilter('centenarian', event.target.value)}><option value="all">Todas as idades</option><option value="yes">Centenárias (100 anos ou mais)</option></select></label></details>
@@ -328,6 +329,7 @@ export function ArborizationContent({ management, embedded = false }) {
         {management && !permissionsLoading && !canManage && <p className="rounded-xl border bg-surface-raised p-3 text-sm text-content-secondary">{cityId ? 'Consulta pública. O gerenciamento exige permissão de Arborização nesta cidade.' : 'Selecione uma cidade para acessar o gerenciamento do inventário.'}</p>}
         {summaryError && <p role="alert" className="text-sm text-destructive">{summaryError} <Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></p>}
       </div>}
+      {view === 'map' && <div className="arborization-map-summary"><TreeInventorySummary alwaysVisible stats={stats} loading={loading} plannedCount={filtered.filter(tree => tree.status === 'planejada').length} /></div>}
       {filterToolbar}
       <div className="arborization-workspace"><section className="arborization-results min-w-0 space-y-3" aria-label="Resultados do inventário">
         {view === 'map' ? <div className="arborization-map-panel relative isolate overflow-hidden rounded-2xl border border-edge-subtle" data-testid="tree-map">

@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { treeNameKey } from '@/lib/treeInventory';
 
-export default function TreeLocationSelect({ label, items, value, onChange, fallback = '', placeholder = 'Selecione', emptyLabel = 'Não identificado', searchLabel, disabled = false, normalize = treeNameKey }) {
+export default function TreeLocationSelect({ label, items, value, onChange, fallback = '', placeholder = 'Selecione', emptyLabel = 'Não identificado', emptyValue = '', searchLabel, disabled = false, normalize = treeNameKey }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -25,7 +25,7 @@ export default function TreeLocationSelect({ label, items, value, onChange, fall
           <CommandList>
             <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
             <CommandGroup>
-              {!term && <CommandItem value="unknown" data-location-option="" onSelect={() => choose('')}><Check size={15} className={value ? 'opacity-0' : ''} /><span>{fallback ? `Manter ${fallback}` : emptyLabel}</span></CommandItem>}
+              {!term && <CommandItem value="unknown" data-location-option={emptyValue} onSelect={() => choose(emptyValue)}><Check size={15} className={value === emptyValue ? '' : 'opacity-0'} /><span>{fallback ? `Manter ${fallback}` : emptyLabel}</span></CommandItem>}
               {filtered.map(item => <CommandItem key={item.id} value={String(item.id)} data-location-option={item.id} onSelect={() => choose(item.id)}><Check size={15} className={String(value) === String(item.id) ? '' : 'opacity-0'} /><span>{item.name}</span></CommandItem>)}
             </CommandGroup>
           </CommandList>

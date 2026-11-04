@@ -243,7 +243,7 @@ try {
     }
     const locationField=await evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const label=[...scope.querySelectorAll('label')].find(e=>e.textContent===${JSON.stringify(label)});return Boolean(label?.closest('.tree-location-select'))})()`);
     if(locationField){
-      await evaluate(`(()=>{const scope=document.querySelector('.tree-entry-dialog');const label=[...scope.querySelectorAll('label')].find(e=>e.textContent===${JSON.stringify(label)});if(label.closest('details'))label.closest('details').open=true;scope.querySelector('[aria-labelledby="'+label.id+'"]').click()})()`);
+      await evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const label=[...scope.querySelectorAll('label')].find(e=>e.textContent===${JSON.stringify(label)});if(label.closest('details'))label.closest('details').open=true;scope.querySelector('[aria-labelledby="'+label.id+'"]').click()})()`);
       await waitFor('document.querySelector(".tree-location-popover[data-state=open]")');
       await evaluate(`[...document.querySelectorAll('[data-location-option]')].find(el=>el.dataset.locationOption===${JSON.stringify(value)}).click()`);
       await waitFor('!document.querySelector(".tree-location-popover")');return;
@@ -409,7 +409,35 @@ try {
     assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
   };
   // As verificações do inventário e do cadastro agora usam o fluxo unificado.
-  if(process.argv.includes('--active-reports')){
+  if(process.argv.includes('--street-filter')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?planning-tools');await waitFor('document.querySelectorAll(".tree-map-pin").length===6');
+      assert.ok(await evaluate('(()=>{const cards=[...document.querySelectorAll(".arborization-map-summary .arborization-stat")],summary=document.querySelector(".arborization-map-summary"),filters=document.querySelector(".arborization-primary-filters");return cards.length===4&&cards.every(card=>card.getBoundingClientRect().height>=128)&&new Set(cards.map(card=>card.getBoundingClientRect().top)).size===(innerWidth<768?2:1)&&summary.getBoundingClientRect().bottom<=filters.getBoundingClientRect().top})()'),'Cards visíveis, mais altos e responsivos');
+      await capture('map-summary-'+width);await openFilters();
+      await evaluate('document.querySelector("#arborization-filters [role=combobox]").click()');await waitFor(`document.querySelector('[aria-label="Pesquisar rua"]')`);
+      assert.ok(await evaluate('document.querySelector(".tree-location-popover").innerText.includes("Todos")&&document.querySelector(".tree-location-popover").innerText.includes("Sem rua identificada")'));
+      await evaluate(`(()=>{const el=document.querySelector('[aria-label="Pesquisar rua"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(el,"SAO");el.dispatchEvent(new Event("input",{bubbles:true}))})()`);
+      await waitFor('document.querySelectorAll("[data-location-option]").length===1');
+      assert.ok(await evaluate('document.querySelector("[data-location-option]").textContent.includes("São José")'),'Pesquisa ignora acentos e caixa');
+      await capture('street-filter-search-'+width);
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('!document.querySelector(".tree-location-popover")');assert.ok(await evaluate('Boolean(document.querySelector("#arborization-filters"))'),'Escape fecha somente a pesquisa');
+      await choose('Rua','name:rua das flores');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-pin").length'),6,'Escolha aguarda Aplicar');
+      await evaluate('document.querySelector("#arborization-filters form").requestSubmit()');await waitFor('document.querySelectorAll(".tree-map-pin").length===4&&!document.querySelector("#arborization-filters")');
+      await openFilters();assert.equal(await evaluate('document.querySelector("#arborization-filters [role=combobox]").dataset.value'),'name:rua das flores');
+      await choose('Rua','unidentified');assert.equal(await evaluate('document.querySelector("#arborization-filters [role=combobox]").dataset.value'),'unidentified');
+      await choose('Rua','all');await evaluate('document.querySelector("#arborization-filters form").requestSubmit()');await waitFor('document.querySelectorAll(".tree-map-pin").length===6');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await click('Estatísticas');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');await pause(400);
+      await capture('statistics-width-'+width);
+      const statisticsGeometry=await evaluate('(()=>{const modal=document.querySelector("[data-testid=tree-neighborhood-drawer]"),r=modal.getBoundingClientRect();return {width:r.width,left:r.left,right:r.right,height:r.height,client:modal.clientHeight,scroll:modal.scrollHeight,viewport:document.documentElement.clientWidth,outer:document.documentElement.scrollWidth}})()');
+      assert.ok(Math.abs(statisticsGeometry.width-Math.min(760,statisticsGeometry.viewport))<2&&statisticsGeometry.right<=width&&statisticsGeometry.left>=0&&statisticsGeometry.scroll<=statisticsGeometry.client+1&&statisticsGeometry.outer<=width,'Estatísticas ampliadas sem rolagem externa ou horizontal: '+JSON.stringify(statisticsGeometry));
+      await click('Fechar bairros');await waitFor('!document.querySelector("[data-testid=tree-neighborhood-drawer]")');
+      results.push({width,search:true,accentInsensitive:true,applyPreserved:true,allAndUnidentified:true,widerStatistics:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--active-reports')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       await navigate('?active-broncas');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
@@ -502,7 +530,7 @@ try {
       assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
       assert.ok(await evaluate('!document.querySelector("#arborization-filters")'),'Filtros avançados começam recolhidos');
       assert.ok(await evaluate('Boolean(document.querySelector(".arborization-header h1"))&&!document.querySelector("[data-testid=map-page]")'),'Cabeçalho compacto restaurado');
-      await click('Estatísticas');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');assert.equal(await evaluate('document.querySelectorAll(".arborization-stat").length'),4);assert.ok(await evaluate('!document.querySelector(".arborization-stats").hidden'));await click('Fechar bairros');await waitFor('!document.querySelector("[role=dialog]")');
+      await click('Estatísticas');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-neighborhood-drawer] .arborization-stat").length'),4);assert.ok(await evaluate('!document.querySelector("[data-testid=tree-neighborhood-drawer] .arborization-stats").hidden'));await click('Fechar bairros');await waitFor('!document.querySelector("[role=dialog]")');
       await click('Ações');await waitFor('document.querySelector(".arborization-actions-menu")');assert.ok(await evaluate('document.querySelector("[role=menu]").innerText.includes("Cadastrar árvore")&&document.querySelector("[role=menu]").innerText.includes("Planejamento anual")&&document.querySelector("[role=menu]").innerText.includes("Estatísticas")'));
       await capture(`actions-menu-${width}`);await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[role=menu]")');
       if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=arborization-page]").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'));

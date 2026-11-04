@@ -53,6 +53,7 @@
 .arborization-filter-dialog[role=dialog] { display: flex; flex-direction: column; height: min(760px, 88dvh); overflow: hidden; border-radius: 20px; padding: 24px; }
 .arborization-filter-dialog[role=dialog] .arborization-filter-heading { flex-shrink: 0; padding: 0 36px 16px 0; border-bottom: 1px solid rgb(var(--border-subtle)); }
 .arborization-filter-dialog[role=dialog] .arborization-filter-row label { gap: 7px; font-size: 12px; }
+.arborization-filter-dialog[role=dialog] .tree-location-select { flex: 1; min-width: 0; width: 100%; }
 .arborization-filter-dialog[role=dialog] select, .arborization-filter-dialog[role=dialog] input { min-height: 44px; border-radius: 10px; background: rgb(var(--surface-raised)); font-size: 14px; }
 .arborization-filter-dialog .arborization-apply, .tree-planning-report .arborization-report-export { border-radius: 10px; background: #087f5b; color: white; }
 .arborization-filter-dialog .arborization-apply:hover, .tree-planning-report .arborization-report-export:hover { background: #066448; }
@@ -73,6 +74,8 @@
 .arborization-filter-dialog[role=dialog] :is(select, input):focus-visible, .tree-planning-report :is(select, button):focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; --tw-ring-color: transparent; box-shadow: none; }
 .arborization-filter-dialog[role=dialog] button:focus-visible { outline: 2px solid #087f5b; outline-offset: -2px; --tw-ring-color: transparent; }
 .tree-planning-report .arborization-select { min-width: 160px; min-height: 44px; border-radius: 10px; background: rgb(var(--surface-raised)); }
+.arborization-neighborhood-drawer[role=dialog] { width: min(760px, 100%); max-width: 100%; max-height: 100dvh; overflow: hidden; }
+.arborization-neighborhood-drawer[role=dialog] .arborization-drawer-scroll { padding-right: 32px; scrollbar-gutter: stable; }
 .arborization-statistics-overview { --arbor-accent: #087f5b; --arbor-accent-soft: rgb(8 127 91 / .07); padding-block: 12px 18px; }
 .dark .arborization-statistics-overview { --arbor-accent: #6ee7b7; --arbor-accent-soft: rgb(52 211 153 / .1); }
 .arborization-statistics-overview .arborization-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -84,6 +87,28 @@
 .arborization-statistics-overview .arborization-stat-value { margin-top: 10px; font-size: 23px; font-weight: 700; line-height: 1.2; }
 .arborization-statistics-overview .arborization-stat-value.is-text { font-size: 17px; overflow-wrap: anywhere; }
 .arborization-statistics-overview .arborization-stat-description { display: block; margin-top: 5px; font-size: 10px; color: rgb(var(--text-secondary)); }
+.arborization-map-summary { padding-top: 16px; }
+.arborization-map-summary .arborization-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.arborization-map-summary .arborization-stat { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 10px; min-height: 132px; padding: 18px 20px; border-radius: 14px; }
+.arborization-map-summary .arborization-stat-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.arborization-map-summary .arborization-stat-label { margin: 0; font-size: 12px; line-height: 1.5; }
+.arborization-map-summary .arborization-stat-icon { width: 32px; height: 32px; border-radius: 10px; }
+.arborization-map-summary .arborization-stat-icon svg { width: 19px; height: 19px; }
+.arborization-map-summary .arborization-stat-value { margin: 0; font-size: 28px; line-height: 1.2; }
+.arborization-map-summary .arborization-stat-value.is-text { font-size: 22px; overflow-wrap: anywhere; }
+.arborization-map-summary .arborization-stat-description { display: block; margin: 0; font-size: 11px; line-height: 1.5; }
+@media (min-width: 768px) {
+  .arborization-redesign.is-map-view .arborization-map-panel { height: max(480px, calc(100dvh - var(--header-bar-height, 64px) - 320px)); min-height: 480px; }
+}
+@media (max-width: 767px) {
+  .arborization-map-summary .arborization-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .arborization-map-summary .arborization-stat { min-height: 128px; padding: 14px; }
+  .arborization-map-summary .arborization-stat-top { align-items: flex-start; gap: 6px; }
+  .arborization-map-summary .arborization-stat-label { font-size: 11px; }
+  .arborization-map-summary .arborization-stat-icon { width: 26px; height: 26px; flex-shrink: 0; }
+  .arborization-map-summary .arborization-stat-value { font-size: 25px; }
+  .arborization-map-summary .arborization-stat-value.is-text { font-size: 19px; }
+}
 .arborization-map-legend summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 11px; font-weight: 500; color: rgb(var(--text-primary)); }
 .arborization-map-legend summary::-webkit-details-marker { display: none; }
 .arborization-legend-key { display: inline-flex; align-items: center; gap: 6px; padding-left: 12px; margin-left: 4px; border-left: 1px solid rgb(var(--border-subtle)); font-size: 10px; font-weight: 400; }
