@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams, useOutletContext } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { BarChart3, Building2, LayoutDashboard, LogOut, MapPin, Map as MapIcon, Menu, Moon, Route, Sprout, Sun, Trees, X } from 'lucide-react';
+import { BarChart3, Building2, LayoutDashboard, LogOut, MapPin, Map as MapIcon, Menu, Moon, MoreVertical, Route, Sprout, Sun, Trees, X } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { CityViewProvider, useCity } from '@/contexts/CityContext';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ArborizationContent } from '@/pages/ArborizationMapPage';
 import { PavementContent } from '@/pages/PavementMapPage';
 import { TERRITORIAL_BASE, territorialModules } from '@/lib/territorialAccess';
@@ -36,6 +38,7 @@ export default function TerritorialPanelPage() {
   const location = useLocation(), navigate = useNavigate();
   const { resolved, setPreference } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuTrigger = useRef(null);
   const ids = new Set([
     ...(workspace?.municipality ? [workspace.municipality.city_id] : []),
     ...(access.canWrite('urban_planning') ? access.planningCityIds : []),
@@ -59,9 +62,10 @@ export default function TerritorialPanelPage() {
   useEffect(() => { setMenuOpen(false); }, [location.pathname, location.search]);
   useEffect(() => {
     if (!menuOpen) return;
-    const close = event => { if (event.key === 'Escape') setMenuOpen(false); };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
   }, [menuOpen]);
 
   if (access.loading || loadingCities) return <div role="status" className="page-shell-fluid py-12">Abrindo painel…</div>;
@@ -78,6 +82,7 @@ export default function TerritorialPanelPage() {
   };
   const cityValue = { cityId: city.id, cityName: city.name, city, cities: allowedCities, loadingCities: false,
     setCityId: id => changeCity(String(id)), isExploring: true, resetToMyCity() {} };
+  const signOutOfPanel = async () => { await signOut(); navigate('/login', { replace: true }); };
   const navigation = <>
     <p className="mb-3 px-3 text-xs font-semibold text-content-secondary">Áreas de trabalho</p>
     {modules.map(area => { const { Icon, title: label } = AREAS[area]; return <div key={area}>
@@ -99,15 +104,29 @@ export default function TerritorialPanelPage() {
     <Helmet><title>{title} — {city.name}</title></Helmet>
     <header className="border-b border-edge-subtle bg-header-bg text-header-fg" style={{ paddingTop: 'var(--header-safe-top, 0px)', paddingLeft: 'var(--safe-area-left, 0px)', paddingRight: 'var(--safe-area-right, 0px)' }}>
       <div className="territorial-header-inner">
-        <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="shrink-0 lg:hidden" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen} aria-controls="territorial-mobile-nav" onClick={() => setMenuOpen(value => !value)}>{menuOpen ? <X /> : <Menu />}</Button><Building2 className="hidden h-6 w-6 shrink-0 sm:block" /><div className="min-w-0"><p className="break-words text-sm font-bold">{municipality?.nome || `Prefeitura · ${city.name}`}</p><p className="max-w-[28rem] truncate text-[11px] opacity-80">{user?.name || 'Servidor municipal'}{department ? ` · ${department}` : ''}</p></div></div>
-        <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-2">
+        <div className="territorial-header-identity flex min-w-0 items-center gap-3"><Button ref={menuTrigger} variant="ghost" size="icon" className="shrink-0 lg:hidden" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen} aria-controls="territorial-mobile-nav" onClick={() => setMenuOpen(value => !value)}>{menuOpen ? <X /> : <Menu />}</Button><Building2 className="hidden h-6 w-6 shrink-0 sm:block" /><div className="min-w-0"><p className="truncate text-sm font-bold">{municipality?.nome || `Prefeitura · ${city.name}`}</p><p className="max-w-[28rem] truncate text-[11px] opacity-80">{user?.name || 'Servidor municipal'}{department ? ` · ${department}` : ''}</p></div></div>
+        <div className="territorial-header-controls">
+        <div className="territorial-header-desktop">
           <label className="territorial-header-city"><MapPin className="h-3.5 w-3.5 shrink-0" /><span className="sr-only">Cidade</span><select aria-label="Cidade do painel" value={city.id} onChange={event=>changeCity(event.target.value)}>{allowedCities.map(item=><option key={item.id} value={item.id}>{item.name}{item.state?.uf ? ` · ${item.state.uf}` : ''}</option>)}</select></label>
           {overviewTo && <Button asChild variant="ghost" size="sm" className="h-9 gap-1.5 px-2 text-xs sm:px-3 sm:text-sm"><Link to={overviewTo} aria-label="Visão geral"><LayoutDashboard className="h-4 w-4 shrink-0" />Visão geral</Link></Button>}
-          <Button variant="ghost" size="icon" aria-label={resolved === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} onClick={() => setPreference(resolved === 'dark' ? 'light' : 'dark')}>{resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" aria-label="Sair" onClick={async () => { await signOut(); navigate('/login', { replace: true }); }}><LogOut className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" aria-label={resolved === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} onClick={() => setPreference(resolved === 'dark' ? 'light' : 'dark')}>{resolved === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" aria-label="Sair" onClick={signOutOfPanel}><LogOut className="h-4 w-4" /></Button>
+        </div>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" className="territorial-header-options" aria-label="Opções da gestão"><MoreVertical className="h-5 w-5" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="territorial-header-menu">
+            {allowedCities.length > 1 ? <DropdownMenuSub><DropdownMenuSubTrigger><MapPin className="mr-2 h-4 w-4" />{city.name}{city.state?.uf ? ` · ${city.state.uf}` : ''}</DropdownMenuSubTrigger><DropdownMenuSubContent className="territorial-header-menu"><DropdownMenuLabel>Cidade do painel</DropdownMenuLabel><DropdownMenuRadioGroup value={String(city.id)} onValueChange={changeCity}>{allowedCities.map(item => <DropdownMenuRadioItem key={item.id} value={String(item.id)}>{item.name}{item.state?.uf ? ` · ${item.state.uf}` : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuSubContent></DropdownMenuSub> : <DropdownMenuLabel>{city.name}{city.state?.uf ? ` · ${city.state.uf}` : ''}</DropdownMenuLabel>}
+            <DropdownMenuSeparator />
+            {overviewTo && <DropdownMenuItem asChild><Link to={overviewTo} aria-label="Visão geral"><LayoutDashboard className="mr-2 h-4 w-4" />Visão geral</Link></DropdownMenuItem>}
+            <DropdownMenuItem onSelect={() => setPreference(resolved === 'dark' ? 'light' : 'dark')}>{resolved === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}{resolved === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={signOutOfPanel}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         </div>
       </div>
     </header>
-    {menuOpen && <nav id="territorial-mobile-nav" aria-label="Áreas de trabalho" className="border-b border-edge-subtle bg-surface-raised p-4 lg:hidden">{navigation}</nav>}
+    <Dialog open={menuOpen} onOpenChange={setMenuOpen}><DialogContent hideClose placement="right" className="territorial-mobile-drawer" onCloseAutoFocus={event => { event.preventDefault(); menuTrigger.current?.focus(); }}>
+      <div className="territorial-mobile-drawer-heading"><div><DialogTitle>Áreas de trabalho</DialogTitle><DialogDescription>{municipality?.nome || `Prefeitura · ${city.name}`}</DialogDescription></div><Button type="button" variant="ghost" size="icon" aria-label="Fechar menu" onClick={() => setMenuOpen(false)}><X className="h-5 w-5" /></Button></div>
+      <nav id="territorial-mobile-nav" aria-label="Áreas de trabalho" onClick={event => { if (event.target.closest('a')) setMenuOpen(false); }}>{navigation}</nav>
+    </DialogContent></Dialog>
     <div className="territorial-dashboard-grid">
       <aside className="territorial-dashboard-sidebar"><nav aria-label="Áreas de trabalho">{navigation}</nav></aside>
       <main className="territorial-dashboard-main" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}>

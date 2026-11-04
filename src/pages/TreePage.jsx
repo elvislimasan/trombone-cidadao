@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Clock3, FileText, Heart, Home, Image as ImageIcon, Info, Landmark, Leaf, Loader2, Map, MapPin, MessageSquare, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronRight, Clock3, FileText, Heart, Home, Info, Landmark, Leaf, Loader2, Map, MapPin, Maximize2, MessageSquare, Ruler, Scissors, Sprout, Trees, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
@@ -130,7 +130,7 @@ function TreeContent({ id }) {
     <div className="tree-profile-grid">
       <div className="tree-profile-column">
       <section className="tree-profile-card tree-profile-overview" aria-label="Dados da árvore">
-        <TreePhoto tree={tree} className="tree-profile-photo" captionClassName="tree-profile-photo-caption" fallback={<figure className="tree-profile-photo tree-profile-photo-placeholder"><div className="tree-profile-photo-empty"><Trees className="h-12 w-12" aria-hidden="true" /><span>Foto ainda não cadastrada</span>{mobile && canManage && <Button type="button" variant="outline" size="sm" onClick={() => setEditing('photo')}>Adicionar foto</Button>}</div></figure>}>{photo => <Button type="button" variant="secondary" onClick={() => setPhotoOpen(photo)}><ImageIcon className="h-4 w-4" />Ver imagem completa</Button>}</TreePhoto>
+        <TreePhoto tree={tree} className="tree-profile-photo" captionClassName="tree-profile-photo-caption" fallback={<figure className="tree-profile-photo tree-profile-photo-placeholder"><div className="tree-profile-photo-empty"><Trees className="h-12 w-12" aria-hidden="true" /><span>Foto ainda não cadastrada</span>{mobile && canManage && <Button type="button" variant="outline" size="sm" onClick={() => setEditing('photo')}>Adicionar foto</Button>}</div></figure>}>{photo => <Button type="button" variant="secondary" size="icon" aria-label="Expandir imagem" title="Expandir imagem" onClick={() => setPhotoOpen(photo)}><Maximize2 className="h-4 w-4" aria-hidden="true" /></Button>}</TreePhoto>
         <div className="tree-profile-summary-heading"><h2 className="tree-profile-section-title"><Leaf aria-hidden="true" />Resumo da árvore</h2><p className="tree-profile-description">Informações gerais e características registradas no inventário.</p></div>
         {mobile && <dl className="tree-profile-mobile-highlights">{[['Bairro', MapPin, tree.neighborhood || 'Não identificado'], ['Altura / copa', Ruler, `${tree.height_m ?? '—'} m / ${tree.crown_diameter_m ?? '—'} m`], ['Manejo', Scissors, TREE_ACTIONS[tree.maintenance_action]], ['Prazo', Clock3, dateLabel(tree.maintenance_due_at)]].map(([label, Icon, value]) => <div key={label}><Icon className="h-4 w-4" /><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
         <details open className="tree-profile-all-data"><summary className="tree-profile-all-data-toggle">Todos os dados do cadastro<ChevronDown className="h-4 w-4" /></summary>

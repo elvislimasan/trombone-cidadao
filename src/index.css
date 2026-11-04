@@ -338,7 +338,7 @@
 .tree-profile-photo { position: relative; height: clamp(200px, 16vw, 285px); overflow: hidden; border-radius: 9px; background: rgb(var(--surface-subtle)); }
 .tree-profile-photo > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .tree-profile-photo[data-illustrative=true] > img { object-fit: contain; }
-.tree-profile-photo > button { position: absolute; right: 10px; bottom: 10px; height: 32px; gap: 7px; padding-inline: 10px; border: 1px solid rgb(255 255 255 / .15); border-radius: 7px; background: rgb(0 0 0 / .72); color: white; font-size: 11px; }
+.tree-profile-photo > button { position: absolute; right: 10px; bottom: 10px; width: 32px; height: 32px; padding: 0; border: 1px solid rgb(255 255 255 / .15); border-radius: 7px; background: rgb(0 0 0 / .72); color: white; }
 .tree-profile-photo > button:hover { background: rgb(0 0 0 / .88); }
 .tree-profile-photo-caption { position: absolute; top: 10px; left: 10px; right: 10px; width: fit-content; max-width: calc(100% - 20px); border-radius: 6px; padding: 6px 8px; background: rgb(0 0 0 / .75); color: white; font-size: 11px; line-height: 1.5; }
 .tree-profile-photo-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 100%; background: linear-gradient(130deg, rgb(5 150 105 / .07), transparent); font-size: 12px; color: rgb(var(--text-secondary)); }
@@ -483,7 +483,7 @@
   .tree-profile-photo-placeholder .tree-profile-photo-empty > span { flex: 1; font-size: 12px; }
   .tree-profile-photo-placeholder .tree-profile-photo-empty > button { min-height: 44px; flex-shrink: 0; padding-inline: 0; border: 0; background: transparent; color: #087653; font-size: 11px; font-weight: 600; }
   .tree-profile-photo-placeholder .tree-profile-photo-empty > button:hover { text-decoration: underline; }
-  .tree-profile-photo > button { min-height: 44px; }
+  .tree-profile-photo > button { width: 44px; min-height: 44px; }
   .tree-profile-summary-heading .tree-profile-description { display: none; }
   .tree-profile-all-data { margin-top: 14px; border-top: 1px solid rgb(var(--border-subtle)); }
   .tree-profile-all-data-toggle { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; color: rgb(var(--text-secondary)); font-size: 12px; font-weight: 500; }
@@ -2114,6 +2114,22 @@ input[type="password"]::-ms-clear {
 /* Painel territorial: largura fluida; em notebooks a tabela rola apenas
    dentro de seu cartão, sem limitar o contêiner externo da página. */
 .territorial-header-inner { display:flex; align-items:center; justify-content:space-between; min-width:0; gap:12px; min-height:56px; padding:8px 20px; }
+.territorial-header-identity { flex:1; }
+.territorial-header-controls, .territorial-header-desktop { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.territorial-header-options { display:none; }
+.territorial-header-menu { z-index:10050; min-width:220px; max-width:calc(100vw - 24px); max-height:var(--radix-dropdown-menu-content-available-height); overflow-y:auto; border-radius:12px; }
+.territorial-header-menu [role^=menuitem] { min-height:44px; font-size:13px; }
+.territorial-mobile-drawer[role=dialog] { inset:0 auto 0 0; display:flex; flex-direction:column; gap:0; width:min(320px,calc(100% - 24px)); max-width:320px; height:100dvh; max-height:100dvh; padding:0; overflow:hidden; transform:none; border-width:0 1px 0 0; border-radius:0; background:rgb(var(--surface-raised)); }
+.territorial-mobile-drawer-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-shrink:0; padding:max(16px,env(safe-area-inset-top)) 16px 16px; border-bottom:1px solid rgb(var(--border-subtle)); }
+.territorial-mobile-drawer-heading h2 { font-size:17px; font-weight:700; }
+.territorial-mobile-drawer-heading p { margin-top:4px; font-size:12px; }
+.territorial-mobile-drawer nav { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:16px 12px max(16px,env(safe-area-inset-bottom)); }
+.territorial-mobile-drawer nav > p { display:none; }
+.territorial-mobile-drawer-heading button { flex-shrink:0; min-width:44px; min-height:44px; }
+@media (max-width:767px) {
+  .territorial-header-desktop { display:none; }
+  .territorial-header-options { display:inline-flex; width:44px; height:44px; }
+}
 .territorial-header-city { display:flex; align-items:center; gap:6px; min-width:0; border:1px solid rgb(255 255 255 / .25); border-radius:8px; padding:0 8px; }
 .territorial-header-city select { height:30px; max-width:172px; min-width:0; background:transparent; color:inherit; font-size:11px; outline-offset:3px; }
 .territorial-header-city option { background:rgb(var(--surface-raised)); color:rgb(var(--text-primary)); }
@@ -2220,9 +2236,9 @@ input[type="password"]::-ms-clear {
   .pavement-dashboard-summary { grid-template-columns:minmax(0,1fr) minmax(300px,27%); }
 }
 @media (max-width:639px) {
-  .territorial-header-inner { padding:8px 12px; gap:6px; flex-wrap:wrap; }
-  .territorial-header-inner > div:first-child { flex:1 1 100%; }
-  .territorial-header-inner > div:last-child { width:100%; justify-content:flex-end; }
+  .territorial-header-inner { min-height:60px; padding:8px 12px; gap:8px; flex-wrap:nowrap; }
+  .territorial-header-inner > .territorial-header-identity { flex:1 1 auto; }
+  .territorial-header-inner > .territorial-header-controls { width:auto; }
   .territorial-header-city { margin-right:auto; }
   .territorial-dashboard-main { padding:12px; }
   .pavement-dashboard-heading h1 { font-size:21px; }

@@ -156,6 +156,7 @@
   .tree-profile-simple .tree-profile-primary { min-height: 46px; margin-top: 4px; width: 100%; font-size: 13px; }
   .tree-profile-simple .tree-profile-public-cta { display: flex; justify-content: center; margin-top: 10px; }
   .tree-diary-bottom { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .tree-profile-simple .tree-diary-swipe-hint { display: block; margin-top: 5px; font-size: 10px; color: rgb(var(--text-tertiary)); }
   .tree-profile-simple .tree-diary-heading { justify-content: center; }
   .tree-profile-simple .tree-diary-heading h2 { font-size: 22px; }
   .tree-profile-simple .tree-diary-heading::after { min-width: 0; }

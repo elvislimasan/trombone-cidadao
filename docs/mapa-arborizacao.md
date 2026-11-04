@@ -12,6 +12,8 @@ Na ficha `/arborizacao/arvore/:id`, o topo reúne identificação, característi
 
 Os pins amarelos indicam broncas **ativas** vinculadas: abertas (`pending`), em andamento (`in-progress`) ou aguardando confirmação (`pending_resolution`). O modal de detalhes e a ficha da árvore exibem essas solicitações com status e link direto, inclusive sem expandir os dados no celular. Resolvidas e duplicatas não entram nessa contagem; as resolvidas permanecem na linha do tempo. As consultas respeitam a RLS, a cidade e a paginação do banco, sem exigir migração.
 
+Na visualização de mapa, os quatro indicadores aparecem acima da busca e dos filtros, com altura mínima de 112 px e espaçamento interno compacto. São quatro colunas no desktop e duas no celular, sempre refletindo os filtros aplicados. O painel de estatísticas mantém a consulta completa dos bairros e tem até 760 px de largura, com rolagem apenas no conteúdo. O filtro de rua usa um seletor pesquisável sem distinção de acentos e mantém **Todos**, **Sem rua identificada** e a confirmação por **Aplicar filtros**.
+
 ## Banco e acesso
 
 ### Organização da interface
@@ -79,6 +81,12 @@ O gestor informa o manejo e um prazo opcional, revisa a quantidade e os pontos s
 Aplicar `supabase/migrations/388_tree_bulk_maintenance.sql` para habilitar a função `schedule_city_tree_maintenance`. A função verifica a permissão de arborização da cidade, bloqueia árvores removidas e seleções inválidas e atualiza o lote em uma transação, sem alterações parciais. O retorno contém a quantidade e o horário de atualização, evitando truncamento em lotes acima de mil árvores.
 
 ## Verificação
+
+Na gestão municipal, cabeçalho, indicadores, filtros e mapa ficam empilhados e usam toda a largura disponível ao lado da navegação. O layout redesenhado substitui a antiga grade municipal de duas colunas. No celular, o cabeçalho mantém uma linha, e cidade, visão geral (quando permitida), tema e saída ficam em **Opções da gestão**. **Áreas de trabalho** abre sobre o conteúdo com foco contido e retorna o foco ao fechar; selecionar uma área fecha o menu, sem deslocar o mapa.
+
+`node tools/validate-tree-inventory-ui.mjs --management-map --production-css` verifica o mapa em largura completa, alinhamento dos cards, alternância com lista, cabeçalho compacto e menu sobreposto em 320, 390, 1440 e 1920 px, incluindo Escape, retorno do foco e seleção da área atual.
+
+`node tools/validate-tree-inventory-ui.mjs --street-filter --production-css` verifica a pesquisa de ruas sem acentos, seleção de **Todos** e **Sem rua identificada**, aplicação dos filtros, cards mais altos e painel de estatísticas com até 760 px em 390, 1440 e 1920 px, sem rolagem horizontal.
 
 `node tools/validate-tree-inventory-ui.mjs --active-reports --production-css` verifica o amarelo apenas com broncas ativas, links e status nos detalhes, ausência de resolvidas nessa seção, preservação do histórico e recuperação de falhas em 390, 1440 e 1920 px. `--profile-actions --production-css` verifica o menu do perfil, navegação por foco, prévia do QR e PDF A5 em 320, 390, 768, 1440 e 1920 px, com acesso público e gestão.
 

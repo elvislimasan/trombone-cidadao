@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { BookOpen, Camera, ChevronLeft, ChevronRight, Droplets, Eye, EyeOff, Flag, MessageSquare, MoreHorizontal, Pencil, Share2, Sprout } from 'lucide-react';
@@ -24,6 +24,7 @@ function DiaryIllustration({ action = 'growth' }) {
 }
 
 export default function CommunityTreeDiary({ tree, entries, user, filter, onFilterChange, selectedId, onSelect, onRecord, onEdit, onDelete, onPrivacy, onReport, busy = false, more = false, onLoadMore, onRetryPhotos, onShare }) {
+  const bookId = useId();
   const reducedMotion = useReducedMotion();
   const [direction, setDirection] = useState(1), [enlarged, setEnlarged] = useState(null), [failedPhoto, setFailedPhoto] = useState(null);
   const gesture = useRef(null), ignorePhotoClickUntil = useRef(0);
@@ -59,7 +60,9 @@ export default function CommunityTreeDiary({ tree, entries, user, filter, onFilt
     {filter !== 'all' && <p className="tree-diary-active-filter">{COMMUNITY_CARE_ACTIONS[filter]}<button type="button" onClick={() => { onFilterChange('all'); onSelect(null); }}>Ver todos</button></p>}
 
     {current ? <>
-      <div className="tree-diary-book" role="region" aria-roledescription="carrossel" aria-label={`Páginas do diário de ${tree.name}`} tabIndex={0} onKeyDown={event => {
+      <div className="tree-diary-reader">
+      <button type="button" className="tree-diary-page-turn is-previous" aria-label="Página anterior do diário" aria-controls={bookId} title="Página anterior" disabled={index === 0} onClick={() => go(index - 1)}><ChevronLeft size={22} aria-hidden="true" /></button>
+      <div id={bookId} className="tree-diary-book" role="region" aria-roledescription="carrossel" aria-label={`Páginas do diário de ${tree.name}`} tabIndex={0} onKeyDown={event => {
         if (event.target !== event.currentTarget) return;
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault(); go(event.key === 'Home' ? 0 : event.key === 'End' ? visible.length - 1 : index + (event.key === 'ArrowRight' ? 1 : -1));
@@ -76,7 +79,9 @@ export default function CommunityTreeDiary({ tree, entries, user, filter, onFilt
           </motion.article>
         </AnimatePresence>
       </div>
-      <div className="tree-diary-bottom"><div className="tree-diary-navigation"><button type="button" aria-label="Página anterior do diário" disabled={index === 0} onClick={() => go(index - 1)}><ChevronLeft size={20} /><span>Anterior</span></button><div><strong>Página {index + 1} de {visible.length}</strong><span className="tree-diary-swipe-hint">Deslize para virar a página</span></div><button type="button" aria-label="Próxima página do diário" disabled={index === visible.length - 1} onClick={() => go(index + 1)}><span>Próxima</span><ChevronRight size={20} /></button></div>
+      <button type="button" className="tree-diary-page-turn is-next" aria-label="Próxima página do diário" aria-controls={bookId} title="Próxima página" disabled={index === visible.length - 1} onClick={() => go(index + 1)}><ChevronRight size={22} aria-hidden="true" /></button>
+      </div>
+      <div className="tree-diary-bottom"><div className="tree-diary-navigation"><div><strong>Página {index + 1} de {visible.length}</strong><span className="tree-diary-swipe-hint">Deslize para virar a página</span></div></div>
       {publicTree && onShare && <button type="button" className="tree-diary-share" onClick={onShare}><Share2 size={15} aria-hidden="true" />Compartilhar história</button>}</div>
       <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">Página {index + 1} de {visible.length}: {COMMUNITY_CARE_ACTIONS[current.action]}, {fullDate(current.performed_on)}.</span>
     </> : <div className="tree-diary-empty-book"><div><BookOpen size={34} /><span>{entries.length ? 'Uma pausa entre as páginas' : 'Seu primeiro capítulo'}</span><h3>{entries.length ? 'Nenhum registro deste tipo ainda.' : `O diário de ${tree.name}`}</h3><p>{entries.length ? 'Veja outros cuidados ou explore mais páginas do histórico.' : tree.is_owner ? 'Uma rega, uma foto, uma descoberta. Cada cuidado pode virar uma página.' : 'Os cuidados públicos vão contar esta história por aqui.'}</p>{entries.length ? <Button type="button" variant="outline" onClick={() => { onFilterChange('all'); onSelect(null); }}>Ver todos os cuidados</Button> : tree.is_owner && <Button type="button" onClick={onRecord}><Pencil size={17} />Escrever o primeiro cuidado</Button>}</div><DiaryIllustration /></div>}

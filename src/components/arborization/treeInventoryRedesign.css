@@ -48,7 +48,8 @@
 .arborization-redesign .arborization-notices { margin-top: 12px; }
 .arborization-redesign .arborization-data-note { padding-top: 10px; font-size: 10px; line-height: 1.6; color: rgb(var(--text-secondary)); }
 .arborization-redesign :is(button, input, select):focus-visible { outline: 2px solid var(--arbor-accent); outline-offset: 3px; --tw-ring-color: transparent; box-shadow: none; }
-.arborization-page.arborization-redesign.arborization-embedded { padding: 0 0 16px; gap: 0; }
+/* Override the legacy municipal grid so the header cannot share a row with the map. */
+.arborization-page.arborization-redesign.arborization-embedded { display: flex; flex-direction: column; align-items: stretch; padding: 0 0 16px; gap: 0; }
 .arborization-redesign.arborization-embedded .arborization-map-panel { height: max(560px, calc(100dvh - 260px)); }
 .arborization-filter-dialog[role=dialog] { display: flex; flex-direction: column; height: min(760px, 88dvh); overflow: hidden; border-radius: 20px; padding: 24px; }
 .arborization-filter-dialog[role=dialog] .arborization-filter-heading { flex-shrink: 0; padding: 0 36px 16px 0; border-bottom: 1px solid rgb(var(--border-subtle)); }
@@ -88,26 +89,26 @@
 .arborization-statistics-overview .arborization-stat-value.is-text { font-size: 17px; overflow-wrap: anywhere; }
 .arborization-statistics-overview .arborization-stat-description { display: block; margin-top: 5px; font-size: 10px; color: rgb(var(--text-secondary)); }
 .arborization-map-summary { padding-top: 16px; }
-.arborization-map-summary .arborization-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.arborization-map-summary .arborization-stat { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 10px; min-height: 132px; padding: 18px 20px; border-radius: 14px; }
+.arborization-redesign .arborization-map-summary .arborization-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.arborization-redesign .arborization-map-summary .arborization-stat { display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; gap: 6px; min-height: 112px; padding: 12px 18px; border-radius: 14px; }
 .arborization-map-summary .arborization-stat-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.arborization-map-summary .arborization-stat-label { margin: 0; font-size: 12px; line-height: 1.5; }
-.arborization-map-summary .arborization-stat-icon { width: 32px; height: 32px; border-radius: 10px; }
-.arborization-map-summary .arborization-stat-icon svg { width: 19px; height: 19px; }
-.arborization-map-summary .arborization-stat-value { margin: 0; font-size: 28px; line-height: 1.2; }
-.arborization-map-summary .arborization-stat-value.is-text { font-size: 22px; overflow-wrap: anywhere; }
-.arborization-map-summary .arborization-stat-description { display: block; margin: 0; font-size: 11px; line-height: 1.5; }
+.arborization-redesign .arborization-map-summary .arborization-stat-label { margin: 0; font-size: 12px; line-height: 1.5; }
+.arborization-redesign .arborization-map-summary .arborization-stat-icon { width: 28px; height: 28px; border-radius: 10px; }
+.arborization-redesign .arborization-map-summary .arborization-stat-icon svg { width: 19px; height: 19px; }
+.arborization-redesign .arborization-map-summary .arborization-stat-value { margin: 0; font-size: 28px; line-height: 1.2; }
+.arborization-redesign .arborization-map-summary .arborization-stat-value.is-text { font-size: 22px; overflow-wrap: anywhere; }
+.arborization-redesign .arborization-map-summary .arborization-stat-description { display: block; margin: 0; font-size: 11px; line-height: 1.5; }
 @media (min-width: 768px) {
   .arborization-redesign.is-map-view .arborization-map-panel { height: max(480px, calc(100dvh - var(--header-bar-height, 64px) - 320px)); min-height: 480px; }
 }
 @media (max-width: 767px) {
-  .arborization-map-summary .arborization-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .arborization-map-summary .arborization-stat { min-height: 128px; padding: 14px; }
+  .arborization-redesign .arborization-map-summary .arborization-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .arborization-redesign .arborization-map-summary .arborization-stat { min-height: 112px; padding: 12px; }
   .arborization-map-summary .arborization-stat-top { align-items: flex-start; gap: 6px; }
-  .arborization-map-summary .arborization-stat-label { font-size: 11px; }
-  .arborization-map-summary .arborization-stat-icon { width: 26px; height: 26px; flex-shrink: 0; }
-  .arborization-map-summary .arborization-stat-value { font-size: 25px; }
-  .arborization-map-summary .arborization-stat-value.is-text { font-size: 19px; }
+  .arborization-redesign .arborization-map-summary .arborization-stat-label { font-size: 11px; }
+  .arborization-redesign .arborization-map-summary .arborization-stat-icon { width: 26px; height: 26px; flex-shrink: 0; }
+  .arborization-redesign .arborization-map-summary .arborization-stat-value { font-size: 25px; }
+  .arborization-redesign .arborization-map-summary .arborization-stat-value.is-text { font-size: 19px; }
 }
 .arborization-map-legend summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 11px; font-weight: 500; color: rgb(var(--text-primary)); }
 .arborization-map-legend summary::-webkit-details-marker { display: none; }

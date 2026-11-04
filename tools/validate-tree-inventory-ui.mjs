@@ -409,11 +409,48 @@ try {
     assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
   };
   // As verificações do inventário e do cadastro agora usam o fluxo unificado.
-  if(process.argv.includes('--street-filter')){
+  if(process.argv.includes('--management-map')){
+    for(const [width,height] of [[1440,900],[1920,1080],[390,844],[320,740]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?territorial&scope=both&area=arborizacao');await waitFor('document.querySelectorAll(".arborization-embedded .tree-map-pin").length===2');
+      const geometry=await evaluate('(()=>{const page=document.querySelector(".arborization-embedded"),header=page.querySelector(".arborization-header"),summary=page.querySelector(".arborization-map-summary"),filters=page.querySelector(".arborization-primary-filters"),map=page.querySelector("[data-testid=tree-map]");return {layout:getComputedStyle(page).display,width:page.getBoundingClientRect().width,header:header.getBoundingClientRect().toJSON(),summary:summary.getBoundingClientRect().toJSON(),filters:filters.getBoundingClientRect().toJSON(),map:map.getBoundingClientRect().toJSON(),descriptions:[...summary.querySelectorAll(".arborization-stat-description")].every(el=>getComputedStyle(el).display!=="none"),overflow:document.documentElement.scrollWidth>innerWidth}})()');
+      assert.equal(geometry.layout,'flex','Painel municipal não usa a grade antiga');
+      assert.ok(geometry.header.bottom<=geometry.summary.top&&geometry.summary.bottom<=geometry.filters.top&&geometry.filters.bottom<=geometry.map.top,'Cabeçalho, cards, filtros e mapa ficam empilhados: '+JSON.stringify(geometry));
+      assert.ok(Math.abs(geometry.width-geometry.map.width)<=2&&Math.abs(geometry.width-geometry.header.width)<=2&&Math.abs(geometry.width-geometry.summary.width)<=2,'Mapa ocupa toda a largura disponível: '+JSON.stringify(geometry));
+      assert.ok(!geometry.overflow&&geometry.descriptions,'Layout sem recorte e cards completos');
+      if(width>=1200)assert.ok(geometry.map.width>width*.75&&geometry.map.height>=480,'Mapa amplo no desktop');
+      await capture('management-map-layout-'+width);
+      if(width<768){
+        assert.ok(await evaluate('document.querySelector(".territorial-header-inner").getBoundingClientRect().height<=68'),'Cabeçalho mobile usa uma única linha');
+        const mapTop=await evaluate('document.querySelector("[data-testid=tree-map]").getBoundingClientRect().top');
+        await click('Abrir menu');await waitFor('document.querySelector(".territorial-mobile-drawer")');
+        assert.ok(await evaluate(`Math.abs(document.querySelector('[data-testid=tree-map]').getBoundingClientRect().top-${mapTop})<=1`),'Menu sobreposto não empurra o conteúdo');
+        assert.equal(await evaluate('getComputedStyle(document.querySelector(".territorial-mobile-drawer")).position'),'fixed');
+        await capture('management-mobile-menu-'+width);
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+        await waitFor('!document.querySelector(".territorial-mobile-drawer")');await waitFor('document.activeElement?.getAttribute("aria-label")==="Abrir menu"');
+        await click('Abrir menu');await waitFor('document.querySelector("#territorial-mobile-nav")');
+        await evaluate('[...document.querySelectorAll("#territorial-mobile-nav a")].find(el=>el.textContent.trim()==="Arborização").click()');await waitFor('!document.querySelector(".territorial-mobile-drawer")');await waitFor('document.activeElement?.getAttribute("aria-label")==="Abrir menu"');
+        await tap('.territorial-header-options');await waitFor('document.querySelector(".territorial-header-menu")');
+        assert.ok(await evaluate('document.querySelector(".territorial-header-menu").innerText.includes("Ativar tema escuro")&&document.querySelector(".territorial-header-menu").innerText.includes("Sair")&&!document.querySelector(".territorial-header-menu").innerText.includes("Visão geral")'),'Opções agrupadas respeitam permissões');
+        await capture('management-mobile-options-'+width);
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector(".territorial-header-menu")');
+      }
+      await click('Ações');await waitFor('document.querySelector(".arborization-actions-menu")');await click('Ver lista');await waitFor('document.querySelector(".arborization-tree-grid")');
+      assert.ok(await evaluate('document.querySelector(".arborization-embedded").getBoundingClientRect().width-document.querySelector(".arborization-list").getBoundingClientRect().width<2'),'Lista mantém a largura disponível');
+      await click('Ações');await click('Ver mapa');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      if(width<768){
+        await navigate('?territorial&scope=municipal-admin&area=arborizacao');await waitFor('document.querySelector(".territorial-header-options")');await tap('.territorial-header-options');await waitFor('document.querySelector(".territorial-header-menu")');
+        assert.equal(await evaluate(`document.querySelector('.territorial-header-menu a[aria-label="Visão geral"]').getAttribute('href')`),'/prefeitura/visao-geral');
+        await evaluate('document.querySelector(".territorial-header-menu a").click()');await waitFor('document.querySelector("[data-testid=municipal-overview]")');
+      }
+      results.push({width,stackedLayout:true,fullWidthMap:true,completeCards:true,mapAndList:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--street-filter')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       await navigate('?planning-tools');await waitFor('document.querySelectorAll(".tree-map-pin").length===6');
-      assert.ok(await evaluate('(()=>{const cards=[...document.querySelectorAll(".arborization-map-summary .arborization-stat")],summary=document.querySelector(".arborization-map-summary"),filters=document.querySelector(".arborization-primary-filters");return cards.length===4&&cards.every(card=>card.getBoundingClientRect().height>=128)&&new Set(cards.map(card=>card.getBoundingClientRect().top)).size===(innerWidth<768?2:1)&&summary.getBoundingClientRect().bottom<=filters.getBoundingClientRect().top})()'),'Cards visíveis, mais altos e responsivos');
+      assert.ok(await evaluate('(()=>{const cards=[...document.querySelectorAll(".arborization-map-summary .arborization-stat")],summary=document.querySelector(".arborization-map-summary"),filters=document.querySelector(".arborization-primary-filters");return cards.length===4&&cards.every(card=>card.getBoundingClientRect().height>=112)&&new Set(cards.map(card=>card.getBoundingClientRect().top)).size===(innerWidth<768?2:1)&&summary.getBoundingClientRect().bottom<=filters.getBoundingClientRect().top})()'),'Cards visíveis e responsivos');
       await capture('map-summary-'+width);await openFilters();
       await evaluate('document.querySelector("#arborization-filters [role=combobox]").click()');await waitFor(`document.querySelector('[aria-label="Pesquisar rua"]')`);
       assert.ok(await evaluate('document.querySelector(".tree-location-popover").innerText.includes("Todos")&&document.querySelector(".tree-location-popover").innerText.includes("Sem rua identificada")'));
@@ -1274,7 +1311,8 @@ try {
       assert.ok(await evaluate(`!document.querySelector('header a[aria-label="Visão geral"]')`),'Funcionário comum não recebe atalho administrativo');
       for(const [scope,target,testId] of [['admin','/admin','platform-overview'],['master','/admin','platform-overview'],['municipal-admin','/prefeitura/visao-geral','municipal-overview']]){
         await navigate('?territorial&scope='+scope+'&area=arborizacao');await waitFor('document.querySelector("[data-testid=territorial-panel]")');
-        const selector='header a[aria-label="Visão geral"]';
+        if(width<768){await tap('.territorial-header-options');await waitFor('document.querySelector(".territorial-header-menu")');}
+        const selector=width<768?'.territorial-header-menu a[aria-label="Visão geral"]':'header a[aria-label="Visão geral"]';
         assert.equal(await evaluate(`document.querySelector(${JSON.stringify(selector)}).getAttribute('href')`),target);
         assert.ok(await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&document.documentElement.scrollWidth<=innerWidth})()`),'Atalho cabe no cabeçalho');
         if(scope==='admin')await capture('territorial-header-admin-'+width);
