@@ -9,6 +9,7 @@ import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreeMap from '@/components/arborization/TreeMap';
 import TreePhoto from '@/components/arborization/TreePhoto';
+import { TreeSurveySummary } from '@/components/arborization/TreeSurveyFields';
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { supabase } from '@/lib/customSupabaseClient';
 import { TREE_STATUS, TREE_ORIGINS, TREE_ACTIONS, TREE_PLANTED_BY, TREE_SERVICES, treeLabel } from '@/lib/arborization';
@@ -97,8 +98,9 @@ function TreeContent({ id }) {
     <header className="tree-profile-header">
       <div className="tree-profile-heading"><div className="tree-profile-identity"><span className="tree-profile-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><h1>{treeLabel(tree)}</h1><p className="tree-profile-subtitle">{[city?.name, tree.neighborhood].filter(Boolean).join(' · ') || 'Localização não informada'}</p>{tree.scientific_name && <p className="tree-profile-scientific">{tree.scientific_name}</p>}</div></div><div className="tree-profile-badges" aria-label="Características da árvore"><span className={`tree-profile-badge tree-profile-badge--${tree.status}`}><Heart aria-hidden="true" />{TREE_STATUS[tree.status]?.label || 'Situação não informada'}</span>{TREE_ORIGINS[tree.origin] && <span className="tree-profile-badge"><Leaf aria-hidden="true" />{TREE_ORIGINS[tree.origin]}</span>}{TREE_ACTIONS[tree.maintenance_action] && (!mobile || tree.maintenance_action !== 'nenhuma') && <span className="tree-profile-badge"><Trees aria-hidden="true" />{TREE_ACTIONS[tree.maintenance_action]}</span>}</div></div>
       {canManage && <div className="tree-profile-header-actions">
+        {tree.status === 'planejada' && <Button onClick={() => setEditing('planting')}><Sprout className="h-4 w-4" />Confirmar plantio realizado</Button>}
         <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Editar árvore</Button>
-        <Dialog open={careOpen} onOpenChange={open => { if (!saving) { setCareOpen(open); setCareError(''); } }}>
+        {tree.status !== 'planejada' && <Dialog open={careOpen} onOpenChange={open => { if (!saving) { setCareOpen(open); setCareError(''); } }}>
           <DialogTrigger asChild><Button variant="outline" className="tree-profile-service-action"><Scissors className="h-4 w-4" />Registrar serviço</Button></DialogTrigger>
           <FormDialogContent className="tree-profile-care-dialog sm:max-w-2xl">
             <form onSubmit={recordCare} className="tree-profile-care-form" aria-label="Registrar serviço realizado">
@@ -113,7 +115,7 @@ function TreeContent({ id }) {
               </fieldset>
             </form>
           </FormDialogContent>
-        </Dialog>
+        </Dialog>}
       </div>}
     </header>
     {notice && <p role="status" className="break-words rounded-xl border p-3 text-sm">{notice}</p>}
@@ -134,6 +136,8 @@ function TreeContent({ id }) {
           ['Manejo necessário', Trees, TREE_ACTIONS[tree.maintenance_action]], ['Prazo do manejo', Clock3, dateLabel(tree.maintenance_due_at)],
         ].map(([label, Icon, value]) => <div key={label} className="tree-profile-fact"><span className="tree-profile-fact-icon"><Icon aria-hidden="true" /></span><div className="min-w-0"><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl>
         </details>
+        {tree.planting_year && <p className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 text-sm font-semibold">Ano previsto de plantio: {tree.planting_year}{tree.planted_at ? ' · Plantio realizado' : ''}</p>}
+        <TreeSurveySummary tree={tree} />
         {tree.notes && <p className="whitespace-pre-wrap break-words text-sm">{tree.notes}</p>}
         {(tree.species_summary || tree.species_aliases?.length > 0 || tree.planting_guidance || (tree.sidewalk_suitability !== 'nao_avaliada' && tree.sidewalk_suitability)) && <div className="space-y-3 border-t pt-4">
           <h2 className="tree-profile-section-title"><Leaf aria-hidden="true" />Sobre a espécie</h2>
@@ -163,7 +167,7 @@ function TreeContent({ id }) {
       </div>
     </div>
     {photoOpen && <Dialog open onOpenChange={open => { if (!open) setPhotoOpen(false); }}><DialogContent className="tree-profile-photo-dialog" aria-describedby={undefined}><DialogTitle>{photoOpen.illustrative ? `Imagem ilustrativa de ${tree.common_name}` : `Foto de ${tree.common_name}`}</DialogTitle><img src={photoOpen.url} alt={photoOpen.illustrative ? photoOpen.alt : `Foto completa de ${tree.common_name}`} />{photoOpen.illustrative && <p className="text-sm text-muted-foreground">{photoOpen.caption}</p>}</DialogContent></Dialog>}
-    {editing && canManage && <TreeFormDialog tree={tree} initialStep={editing === 'photo' ? 1 : 0} city={city} cityId={tree.city_id} onClose={() => setEditing(false)} onSave={saveTree}
+    {editing && canManage && <TreeFormDialog tree={editing === 'planting' ? { ...tree, status: 'saudavel' } : tree} initialStep={editing === 'photo' || editing === 'planting' ? 1 : 0} city={city} cityId={tree.city_id} onClose={() => setEditing(false)} onSave={saveTree}
       onSpeciesChanged={species => setTree(current => current?.species_id === species.id ? withTreeSpecies(current, species) : current)} />}
   </main>;
 }

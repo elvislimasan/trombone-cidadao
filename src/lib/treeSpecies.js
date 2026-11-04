@@ -1,3 +1,4 @@
+import { isLivingTree } from './treePlanning.js';
 import { treeNameKey } from './treeInventory.js';
 
 export const SIDEWALK_SUITABILITY = { nao_avaliada: 'Não avaliada', indicada: 'Indicada', com_restricoes: 'Com restrições', nao_indicada: 'Não indicada' };
@@ -19,7 +20,7 @@ export function withTreeSpecies(tree, species) {
 }
 
 export function treeInventoryHighlights(trees, neighborhoods, year = new Date().getFullYear()) {
-  const living = trees.filter(tree => tree.status !== 'removida');
+  const living = trees.filter(isLivingTree);
   const counts = new Map();
   for (const tree of living) {
     if (!tree.species_id) continue;

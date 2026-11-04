@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import TreeMap from './TreeMap';
 import TreeSpeciesField from './TreeSpeciesField';
 import TreePhoto from './TreePhoto';
+import TreeSurveyFields, { TreeSurveySummary } from './TreeSurveyFields';
+import { allTreeRows } from '@/lib/treeInventory';
+import { isPlannedTree, streetKey } from '@/lib/treePlanning';
 import { EMPTY_TREE, TREE_ACTIONS, TREE_STATUS, TREE_PLANTED_BY, treePayload } from '@/lib/arborization';
 import { loadTreeCatalogs, nearbyTrees, treeNameKey } from '@/lib/treeInventory';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
@@ -43,6 +46,17 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
   const addressEdited = useRef({ address: false, neighborhood: false });
   const [error, setError] = useState('');
   const [catalogs, setCatalogs] = useState({ species: [], neighborhoods: [] });
+  const [streets, setStreets] = useState([]);
+  const [streetsError, setStreetsError] = useState(false);
+  const [streetRevision, setStreetRevision] = useState(0);
+  useEffect(() => {
+    let cancelled = false; setStreets([]); setStreetsError(false);
+    if (cityId) allTreeRows(supabase, 'pavement_streets', query => query.select('id,city_id,name,bairro_id').eq('city_id', cityId)).then(rows => {
+      if (!cancelled) setStreets(rows.filter(row => row.name).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+    }).catch(() => { if (!cancelled) setStreetsError(true); });
+    return () => { cancelled = true; };
+  }, [cityId, streetRevision]);
+  const planned = isPlannedTree(form);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
   const [catalogRevision, setCatalogRevision] = useState(0);
@@ -94,6 +108,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
   };
   const change = (field, value) => {
     setDirty(true);
+    if (field === 'street_id' || field === 'street_name') addressEdited.current.address = true;
     if (field === 'address' || field === 'neighborhood') addressEdited.current[field] = true;
     setForm(current => ({ ...current, [field]: value }));
   };
@@ -105,7 +120,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
   const changeLocation = values => {
     setDirty(true);
     addressEdited.current = { address: false, neighborhood: false };
-    setForm(current => ({ ...current, ...values, address: '', neighborhood: '', bairro_id: '' }));
+    setForm(current => ({ ...current, ...values, address: '', neighborhood: '', bairro_id: '', street_id: '', street_name: '' }));
     setAddressLookup('loading');
     setLocationRevision(value => value + 1);
   };
@@ -151,12 +166,19 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
           ...(!addressEdited.current.neighborhood && neighborhood ? { neighborhood, bairro_id: '' } : {}),
         }));
         setAddressLookup(address && neighborhood ? 'success' : address || neighborhood ? 'partial' : 'failed');
+        if (!address || !neighborhood) setAddressOpen(true);
       } catch {
         if (!cancelled) setAddressLookup('failed');
       } finally { clearTimeout(timeout); }
     }, 450);
     return () => { cancelled = true; clearTimeout(timer); clearTimeout(timeout); };
   }, [position, locationRevision]);
+  useEffect(() => {
+    if (!form.address || form.street_id || addressEdited.current.address) return;
+    const road = streetKey(form.address.split(',')[0]);
+    const matches = streets.filter(street => streetKey(street.name) === road);
+    if (matches.length === 1) setForm(current => ({ ...current, street_id: matches[0].id, street_name: matches[0].name }));
+  }, [streets, form.address, form.street_id]);
   useEffect(() => {
     if (addressEdited.current.neighborhood || !form.neighborhood) return;
     const match = catalogs.neighborhoods.find(item => treeNameKey(item.name) === treeNameKey(form.neighborhood));
@@ -196,7 +218,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
       if (batchMode) {
         const signal = batchLookupAbort.current.signal;
         const payloads = await treeBatchPayloads(values, points, cityId, {
-          neighborhoods: catalogs.neighborhoods, cache: batchLocationCache.current, signal,
+          neighborhoods: catalogs.neighborhoods, streets, cache: batchLocationCache.current, signal,
           lookup: point => reverseGeocodePin(point, { invoke: (...args) => supabase.functions.invoke(...args) }),
           onProgress: progress => { if (!signal.aborted) setBatchProgress(progress); },
         });
@@ -239,16 +261,21 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
             </section>
             <div className="tree-entry-fields min-w-0 space-y-5">
               <section className="tree-entry-identification min-w-0 space-y-4" aria-label="Identificação da árvore">
+                  {!reportMode && <fieldset className="grid grid-cols-2 gap-2"><legend className="mb-2 text-sm font-semibold">Tipo de cadastro</legend>{[['existing', 'Árvore existente'], ['planned', 'Planejar plantio']].map(([value, label]) => <label key={value} className={`flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm ${planned === (value === 'planned') ? 'border-blue-500 bg-blue-500/10' : ''}`}><input type="radio" name="tree-registration-type" value={value} checked={planned === (value === 'planned')} onChange={() => { change('status', value === 'planned' ? 'planejada' : 'saudavel'); if (value === 'planned') { change('planted_at', ''); change('estimated_birth_year', ''); } }} />{label}</label>)}</fieldset>}
+                  {!reportMode && (planned || form.planting_year) && <Field label={planned ? 'Ano previsto de plantio *' : 'Ano previsto no planejamento original'}><Input type="number" inputMode="numeric" min="1900" max="9999" required={planned} placeholder={`Ex.: ${new Date().getFullYear() + 1}`} value={form.planting_year ?? ''} onChange={event => change('planting_year', event.target.value)} /></Field>}
+                  {!reportMode && !planned && form.planting_year && <Field label="Plantio realizado em *"><Input type="date" required={form.status !== 'removida'} max={new Date().toLocaleDateString('en-CA')} value={form.planted_at || ''} onChange={event => change('planted_at', event.target.value)} /></Field>}
                   {tree?.public_code && <p className="text-xs text-muted-foreground">Código da árvore: {tree.public_code}</p>}
                   <TreeSpeciesField species={catalogs.species} value={form.species_id} onSelect={selectSpecies} cityId={cityId}
                     loading={catalogLoading} disabled={saving || !!catalogError} allowCreate={!reportMode} onCreatingChange={setSpeciesCreating}
                     onCreated={speciesChanged} onUpdated={speciesChanged} />
-                  {!reportMode && <Field label="Situação"><select className={selectClass} value={form.status} onChange={event => change('status', event.target.value)}>{Object.entries(TREE_STATUS).map(([value, { label }]) => <option key={value} value={value}>{label}</option>)}</select></Field>}
+                  {!reportMode && !planned && <Field label="Situação"><select className={selectClass} value={form.status} onChange={event => change('status', event.target.value)}>{Object.entries(TREE_STATUS).filter(([value]) => value !== 'planejada').map(([value, { label }]) => <option key={value} value={value}>{label}</option>)}</select></Field>}
                   {catalogError && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{catalogError}</p><Button type="button" variant="outline" size="sm" onClick={() => setCatalogRevision(value => value + 1)}>Tentar novamente</Button></div>}
                 </section>
-              {batchMode ? <p className="tree-entry-batch-address border-t pt-4 text-xs text-muted-foreground" data-testid="tree-batch-address-info">Endereço e bairro automáticos por ponto.</p> : <section className={`tree-entry-address space-y-3 border-t pt-4 ${addressOpen ? 'is-open' : ''}`} aria-label="Endereço da árvore">
+              {batchMode ? <div className="tree-entry-address tree-entry-batch-address border-t pt-4" data-testid="tree-batch-address-info"><p className="text-xs text-muted-foreground">Endereço e bairro automáticos por ponto.</p>{points.length > 0 && <details className="mt-3 rounded-xl border p-3"><summary className="cursor-pointer text-sm font-medium">Selecionar ruas dos pontos</summary><p className="mt-2 text-xs text-muted-foreground">Use quando o pin não identificar a rua. Cada seleção vale somente para o respectivo ponto.</p>{points.map((point, index) => <div key={index} className="mt-3 space-y-2 border-t pt-3"><Field label={`Rua do ponto ${index + 1}`}><select className={selectClass} value={point.street_id || ''} onChange={event => setPoints(current => current.map((item, i) => i === index ? { ...item, street_id: event.target.value } : item))}><option value="">Identificar automaticamente</option>{streets.map(street => <option key={street.id} value={street.id}>{street.name}</option>)}</select></Field><Field label={`Bairro do ponto ${index + 1}`}><select className={selectClass} value={point.bairro_id || ''} onChange={event => setPoints(current => current.map((item, i) => i === index ? { ...item, bairro_id: event.target.value } : item))}><option value="">Identificar automaticamente</option>{catalogs.neighborhoods.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field></div>)}</details>}</div> : <section className={`tree-entry-address space-y-3 border-t pt-4 ${addressOpen ? 'is-open' : ''}`} aria-label="Endereço da árvore">
                 {mobile && <button type="button" className="tree-entry-address-toggle" aria-expanded={addressOpen} aria-controls="tree-entry-address-fields" onClick={() => setAddressOpen(current => !current)}><MapPin className="h-4 w-4 shrink-0" /><span><strong>Endereço e bairro</strong><span>{addressLookup === 'loading' ? 'Buscando endereço…' : [form.address, form.neighborhood].filter(Boolean).join(' · ') || (position ? 'Complete o endereço, se souber' : 'Selecione a localização no mapa')}</span></span><ChevronDown className={`h-4 w-4 shrink-0 ${addressOpen ? 'rotate-180' : ''}`} /></button>}
                 <div id="tree-entry-address-fields" className="tree-entry-address-body space-y-3">
+                <Field label="Rua cadastrada"><select className={selectClass} value={form.street_id || ''} onChange={event => { const street = streets.find(item => item.id === event.target.value); change('street_id', street?.id || ''); change('street_name', street?.name || ''); if (street) change('address', street.name); }}><option value="">Selecione uma rua</option>{streets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+                {streetsError ? <div role="alert" className="text-xs text-destructive">Não foi possível carregar as ruas. <Button type="button" variant="outline" size="sm" onClick={() => setStreetRevision(value => value + 1)}>Tentar novamente</Button></div> : <p className="text-xs text-muted-foreground">Se o pin não reconhecer a rua, selecione uma rua cadastrada na cidade.</p>}
                 <Field label="Endereço / referência"><Input maxLength={300} value={form.address || ''} onChange={event => change('address', event.target.value)} placeholder="Rua, número ou praça" /></Field>
                 <Field label="Bairro"><select disabled={catalogLoading || !!catalogError} className={selectClass} value={form.bairro_id || ''} onChange={event => { change('bairro_id', event.target.value); change('neighborhood', catalogs.neighborhoods.find(item => item.id === event.target.value)?.name || ''); }}><option value="">Não identificado</option>{catalogs.neighborhoods.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
                 {!form.bairro_id && <div className="space-y-1.5"><Button type="button" variant="outline" size="sm" className="h-auto min-h-11 w-full gap-2 whitespace-normal text-left" disabled={!position || saving || locating || speciesCreating || confirmDiscard || catalogLoading || !!catalogError || addressLookup === 'loading'} onClick={lookupNeighborhoodFromPoint}>{addressLookup === 'loading' ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <MapPin className="h-4 w-4 shrink-0" />}Buscar bairro pelo ponto</Button><p className="text-xs text-muted-foreground">Usa a localização já marcada no mapa para identificar o bairro.</p></div>}
@@ -265,19 +292,21 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
                 </div>
               </section>}
               <section className="tree-entry-photo min-w-0 space-y-3 rounded-xl border border-edge-subtle p-4" aria-label="Foto da árvore">
-                  <div className="flex items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-sm font-semibold"><Camera className="h-4 w-4 text-emerald-700" />Foto da árvore</h3><span className="text-xs text-muted-foreground">Opcional</span></div>
+                  <div className="flex items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-sm font-semibold"><Camera className="h-4 w-4 text-emerald-700" />{planned ? 'Foto do local de plantio' : 'Foto da árvore'}</h3><span className="text-xs text-muted-foreground">Opcional</span></div>
                   {batchMode && <p className="text-xs text-muted-foreground">Mesma foto para todo o lote.</p>}
                   <TreePhoto tree={{ ...form, photo_url: preview || form.photo_url, species_illustration_url: catalogs.species.find(item => item.id === form.species_id)?.illustration_url }} imageClassName="h-36 w-full rounded-lg bg-surface-subtle object-contain" />
                   <Field label="Uma foto em JPG, PNG ou WebP, até 5 MB"><Input ref={photoInput} className="text-xs" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { const file = event.target.files?.[0]; if (file && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) { setError('Selecione uma foto JPG, PNG ou WebP de até 5 MB.'); event.target.value = ''; return; } setError(''); setPhoto(file || null); setDirty(true); }} /></Field>
                   {(preview || form.photo_url) && <Button type="button" variant="ghost" size="sm" onClick={() => { setPhoto(null); change('photo_url', ''); if (photoInput.current) photoInput.current.value = ''; }}>Remover foto</Button>}
                 </section>
+              {!reportMode && <TreeSurveyFields form={form} onChange={change} />}
               {!reportMode && <details className="rounded-xl border border-edge-subtle p-4" data-testid="tree-extra-fields"><summary className="cursor-pointer text-sm font-semibold">Dados complementares</summary><div className="mt-4 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Altura (m)"><Input type="number" min="0.01" step="0.01" value={form.height_m ?? ''} onChange={event => change('height_m', event.target.value)} /></Field>
+                {!planned && <><Field label="Altura (m)"><Input type="number" min="0.01" step="0.01" value={form.height_m ?? ''} onChange={event => change('height_m', event.target.value)} /></Field>
                 <Field label="Diâmetro da copa (m)"><Input type="number" min="0.01" step="0.01" value={form.crown_diameter_m ?? ''} onChange={event => change('crown_diameter_m', event.target.value)} /></Field>
-                <Field label="Data do plantio"><Input type="date" value={form.planted_at || ''} onChange={event => change('planted_at', event.target.value)} /></Field>
+                <Field label="DAP (cm) — medido a 1,30 m do solo"><Input type="number" min="0.01" step="0.01" value={form.dap_cm ?? ''} onChange={event => change('dap_cm', event.target.value)} /></Field>
+                {!form.planting_year && <Field label="Data do plantio"><Input type="date" max={new Date().toLocaleDateString('en-CA')} value={form.planted_at || ''} onChange={event => change('planted_at', event.target.value)} /></Field>}</>}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2"><Field label="Responsável pelo plantio"><select className={selectClass} value={form.planted_by} onChange={event => change('planted_by', event.target.value)}>{Object.entries(TREE_PLANTED_BY).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></Field><Field label="Ano de nascimento estimado"><Input type="number" min="1" max={new Date().getFullYear()} value={form.estimated_birth_year ?? ''} onChange={event => change('estimated_birth_year', event.target.value)} placeholder="Se conhecido ou estimado pela equipe" /></Field></div>
+              <div className="grid gap-3 sm:grid-cols-2"><Field label="Responsável pelo plantio"><select className={selectClass} value={form.planted_by} onChange={event => change('planted_by', event.target.value)}>{Object.entries(TREE_PLANTED_BY).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></Field>{!planned && <Field label="Ano de nascimento estimado"><Input type="number" min="1" max={new Date().getFullYear()} value={form.estimated_birth_year ?? ''} onChange={event => change('estimated_birth_year', event.target.value)} placeholder="Se conhecido ou estimado pela equipe" /></Field>}</div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_historic_site} onChange={event => change('is_historic_site', event.target.checked)} />Localizada no sítio histórico</label>
               <div className="grid gap-3 sm:grid-cols-2"><Field label="Manejo necessário"><select className={selectClass} value={form.maintenance_action} onChange={event => change('maintenance_action', event.target.value)}>{Object.entries(TREE_ACTIONS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field><Field label="Prazo do manejo"><Input type="date" disabled={form.maintenance_action === 'nenhuma'} value={form.maintenance_due_at || ''} onChange={event => change('maintenance_due_at', event.target.value)} /></Field></div>
               <Field label="Observações públicas"><textarea className={`${selectClass} h-24 py-2`} maxLength={5000} value={form.notes || ''} onChange={event => change('notes', event.target.value)} placeholder="Condições da árvore e orientações de manejo. Evite dados pessoais." /></Field>
@@ -285,7 +314,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
             </div>
             {mobile && step === 2 && <section className="tree-entry-review space-y-4" aria-label="Revisão do cadastro">
               <div className="tree-entry-review-card"><div className="flex items-center justify-between gap-2"><h3><MapPin className="h-4 w-4" />Localização</h3><Button type="button" variant="ghost" size="sm" onClick={() => goToStep(0)}><Pencil className="mr-1 h-3.5 w-3.5" />Alterar</Button></div>{batchMode ? <><p className="font-semibold">{points.length} {points.length === 1 ? 'árvore marcada' : 'árvores marcadas'}</p><p className="text-sm text-muted-foreground">O endereço e o bairro serão identificados individualmente ao salvar.</p></> : <><p className="break-words text-sm">{form.address || 'Endereço não informado'}</p><p className="text-sm text-muted-foreground">Bairro: {form.neighborhood || 'Não identificado'}</p><p className="text-xs text-muted-foreground">{position?.latitude.toFixed(6)}, {position?.longitude.toFixed(6)}</p>{!form.bairro_id && <p className="mt-2 text-xs text-muted-foreground">Você poderá identificar o bairro depois pelo filtro “Sem bairro identificado”.</p>}</>}</div>
-              <div className="tree-entry-review-card"><div className="flex items-center justify-between gap-2"><h3><Leaf className="h-4 w-4" />Identificação</h3><Button type="button" variant="ghost" size="sm" onClick={() => goToStep(1)}><Pencil className="mr-1 h-3.5 w-3.5" />Alterar</Button></div><p className="break-words font-semibold">{catalogs.species.find(item => item.id === form.species_id)?.common_name || 'Espécie não identificada'}</p><p className="text-sm text-muted-foreground">{TREE_STATUS[form.status]?.label} · {photo || form.photo_url ? 'Com foto' : 'Sem foto'}</p>{!reportMode && <p className="text-sm text-muted-foreground">{TREE_ACTIONS[form.maintenance_action]}{form.maintenance_due_at && form.maintenance_action !== 'nenhuma' ? ` · ${form.maintenance_due_at.split('-').reverse().join('/')}` : ''}</p>}{form.height_m && <p className="text-sm">Altura: {form.height_m} m</p>}{form.crown_diameter_m && <p className="text-sm">Copa: {form.crown_diameter_m} m</p>}{form.planted_at && <p className="text-sm">Plantio: {form.planted_at.split('-').reverse().join('/')}</p>}{form.notes && <p className="whitespace-pre-wrap break-words text-sm">{form.notes}</p>}</div>
+              <div className="tree-entry-review-card"><div className="flex items-center justify-between gap-2"><h3><Leaf className="h-4 w-4" />Identificação</h3><Button type="button" variant="ghost" size="sm" onClick={() => goToStep(1)}><Pencil className="mr-1 h-3.5 w-3.5" />Alterar</Button></div><p className="break-words font-semibold">{catalogs.species.find(item => item.id === form.species_id)?.common_name || 'Espécie não identificada'}</p><p className="text-sm text-muted-foreground">{TREE_STATUS[form.status]?.label} · {photo || form.photo_url ? 'Com foto' : 'Sem foto'}</p>{!reportMode && <p className="text-sm text-muted-foreground">{TREE_ACTIONS[form.maintenance_action]}{form.maintenance_due_at && form.maintenance_action !== 'nenhuma' ? ` · ${form.maintenance_due_at.split('-').reverse().join('/')}` : ''}</p>}{form.height_m && <p className="text-sm">Altura: {form.height_m} m</p>}{form.crown_diameter_m && <p className="text-sm">Copa: {form.crown_diameter_m} m</p>}{form.planted_at && <p className="text-sm">Plantio: {form.planted_at.split('-').reverse().join('/')}</p>}{form.planting_year && <p className="text-sm font-semibold">Ano previsto: {form.planting_year}</p>}<TreeSurveySummary tree={form} />{form.notes && <p className="whitespace-pre-wrap break-words text-sm">{form.notes}</p>}</div>
             </section>}
           </fieldset>
         </div>

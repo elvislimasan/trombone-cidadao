@@ -259,7 +259,7 @@ try {
     await evaluate('document.querySelector(".arborization-reset-filters").click()');await waitFor('document.querySelectorAll("article").length===2');
     await click('Mapa');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     await click('Mais ações');await waitFor('document.querySelector("[role=menu]")');
-    assert.deepEqual(await evaluate('[...document.querySelectorAll("[role=menuitem]")].map(el=>el.textContent.trim())'),['Cadastrar em sequência','Manejo em lote']);
+    assert.deepEqual(await evaluate('[...document.querySelectorAll("[role=menuitem]")].map(el=>el.textContent.trim())'),['Planejar plantio','Cadastrar em sequência','Manejo em lote']);
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[role=menu]")');
   };
   const validateRegistration = async width => {
@@ -367,7 +367,58 @@ try {
     await navigate('?public');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
   };
-  if(process.argv.includes('--most-planted')){
+  if(process.argv.includes('--planning')){
+    for (const [width,height] of [[390,844],[1440,900],[1920,1080]]) {
+      const mobile = width < 768;
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate(''); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await click('Cadastrar árvore'); await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await evaluate('window.failAddress=true'); await click('Usar GPS');
+      await waitFor('document.querySelector(".tree-entry-dialog").innerText.includes("Não foi possível identificar")');
+      await choose('Rua cadastrada','street1'); await choose('Bairro','b1');
+      if(mobile) await click('Continuar');
+      await evaluate('document.querySelector("input[value=planned]").click()');
+      await choose('Ano previsto de plantio *','2027');
+      await choose('Nome popular','s1');
+      await choose('Tipo de local de plantio','calcada'); await choose('Largura da calçada','media');
+      await choose('Presença de fiação elétrica','baixa');
+      assert.ok(!await evaluate('Boolean([...document.querySelectorAll("summary")].find(el=>el.textContent.includes("Estado fitossanitário")))'),'Plano exibe somente avaliação do local');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Formulário sem rolagem horizontal');
+      await capture(`planning-form-${width}`);
+      if(mobile) await click('Revisar');
+      await evaluate('window.failSave=true;document.querySelector(".tree-entry-dialog form").requestSubmit()');
+      await waitFor('document.querySelector(".tree-entry-dialog [role=alert]")');
+      assert.equal(await fieldValue('Ano previsto de plantio *'),'2027');
+      await evaluate('window.failSave=false;document.querySelector(".tree-entry-dialog form").requestSubmit()');
+      await waitFor('!document.querySelector(".tree-entry-dialog")');
+      assert.deepEqual(await evaluate('(()=>{const p=window.writes.find(w=>w.table==="city_trees"&&w.operation==="insert").payload;return [p.status,p.planting_year,p.street_id,p.bairro_id,p.planting_site,p.sidewalk_width]})()'),['planejada',2027,'street1','b1','calcada','media']);
+      await choose('Rua','name:rua das flores'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await click('Planejamento anual'); await waitFor('document.querySelector("[role=dialog] table")');
+      await choose('Ano previsto','2027');
+      assert.ok(await evaluate('document.querySelector("[role=dialog] tbody").innerText.includes("Rua das Flores")'));
+      assert.equal(await evaluate('document.querySelector("[role=dialog] tbody tr td:nth-child(5)").textContent'),'1');
+      await click('Exportar relatório CSV');
+      await waitFor('window.generatedFiles.length>0');
+      assert.match(await evaluate('window.generatedFiles.at(-1).text()'),/2027.*Centro.*Rua das Flores/);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture(`planning-report-${width}`);
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId); await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('!document.querySelector("[role=dialog]")');
+      await click('Lista'); await waitFor('document.querySelectorAll("article").length===2'); await click('Editar');
+      await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      if(mobile) await click('Continuar');
+      await evaluate('document.querySelector("input[value=existing]").click()'); await choose('Plantio realizado em *','2026-11-01');
+      await choose('Sanidade geral','regular'); await choose('DAP (cm) — medido a 1,30 m do solo','22.5');
+      if(mobile) await click('Revisar');
+      await evaluate('document.querySelector(".tree-entry-dialog form").requestSubmit()'); await waitFor('!document.querySelector(".tree-entry-dialog")');
+      const updated = await evaluate('window.writes.filter(w=>w.table==="city_trees"&&w.operation==="update").at(-1).payload');
+      assert.equal(updated.status,'saudavel');assert.equal(updated.planting_year,2027);assert.equal(updated.planted_at,'2026-11-01');assert.equal(updated.dap_cm,22.5);assert.equal(updated.health,'regular');
+      await click('Planejamento anual'); await waitFor('document.querySelector("[role=dialog] table")');
+      assert.equal(await evaluate('document.querySelector("[role=dialog] tbody tr td:nth-child(5)").textContent'),'0');
+      assert.equal(await evaluate('document.querySelector("[role=dialog] tbody tr td:nth-child(6)").textContent'),'1');
+      results.push({width,plannedRegistration:true,manualStreet:true,survey:true,saveRetry:true,streetFilter:true,annualReport:true,csv:true,confirmedPlanting:true,noOverflow:true});
+    }
+  }else if(process.argv.includes('--most-planted')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       await navigate('?improvements');await waitFor('document.querySelectorAll(".tree-map-pin").length===4');

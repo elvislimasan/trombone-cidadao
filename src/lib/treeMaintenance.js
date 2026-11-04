@@ -1,3 +1,4 @@
+import { isLivingTree } from '@/lib/treePlanning';
 import { TREE_ACTIONS } from './arborization.js';
 
 export function treeMaintenancePayload(action, dueAt = '') {
@@ -10,7 +11,7 @@ export function treeMaintenanceSelection(trees, treeIds, cityId) {
   if (!cityId || !/^\d+$/.test(String(cityId))) throw new Error('Selecione uma cidade para programar o manejo.');
   const ids = [...new Set(treeIds)];
   if (!ids.length) throw new Error('Selecione pelo menos uma árvore.');
-  const available = new Set(trees.filter(tree => String(tree.city_id) === String(cityId) && tree.status !== 'removida').map(tree => tree.id));
+  const available = new Set(trees.filter(tree => String(tree.city_id) === String(cityId) && isLivingTree(tree)).map(tree => tree.id));
   if (ids.some(id => !available.has(id))) throw new Error('A seleção contém árvores indisponíveis nesta cidade. Atualize o mapa e selecione novamente.');
   return ids;
 }

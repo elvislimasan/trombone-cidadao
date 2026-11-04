@@ -298,7 +298,7 @@
 .arborization-inventory-layout .arborization-stat-description { display: none; }
 .arborization-inventory-layout .arborization-actions { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; max-width: none; gap: 8px; }
 .arborization-inventory-layout .arborization-actions > button { height: 38px; padding-inline: 12px; border-radius: 8px; }
-.arborization-primary-filters { display: grid; grid-template-columns: minmax(160px, 2.4fr) repeat(2, minmax(120px, 1fr)) auto auto; align-items: center; gap: 10px; min-width: 0; }
+.arborization-primary-filters { display: grid; grid-template-columns: minmax(160px, 2.4fr) repeat(3, minmax(100px, 1fr)) auto auto; align-items: center; gap: 10px; min-width: 0; }
 .arborization-primary-filters .arborization-search > svg { position: absolute; left: 12px; top: 12px; color: rgb(var(--text-secondary)); pointer-events: none; }
 .arborization-primary-filters .arborization-search input { height: 40px; padding-left: 36px; border-radius: 8px; background: rgb(var(--surface-raised)); font-size: 12px; }
 .arborization-quick-select { position: relative; min-width: 0; }

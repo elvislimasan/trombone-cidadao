@@ -1,3 +1,4 @@
+import { TreeSurveySummary } from './TreeSurveyFields';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CalendarDays, ChevronDown, Clock3, Leaf, MapPin, Ruler, Scissors, Sprout, Trash2, Trees, X } from 'lucide-react';
@@ -7,6 +8,7 @@ import { TREE_ACTIONS, TREE_ORIGINS, TREE_STATUS, treeLabel } from '@/lib/arbori
 import TreePhoto from './TreePhoto';
 
 const STATUS_STYLE = {
+  planejada: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
   saudavel: 'bg-success-bg text-success-fg',
   atencao: 'bg-status-pendingBg text-status-pendingFg',
   risco: 'bg-danger-subtleBg text-danger-subtleFg',
@@ -63,11 +65,14 @@ export default function TreeDetailsDialog({ tree, canManage, onClose, onEdit, on
         </dl>
 
         <div className="mt-4 flex min-w-0 items-start gap-2 rounded-xl border border-edge-subtle bg-surface-subtle p-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-content-secondary" /><div className="min-w-0"><p className="text-[11px] leading-4 text-content-secondary">Coordenadas:</p><p className="mt-0.5 break-words text-sm font-medium leading-5">{coordinates}</p></div></div>
+        {tree.planting_year && <p className="mt-4 rounded-xl border border-blue-500/30 bg-blue-500/10 p-3 text-sm font-semibold">Ano previsto de plantio: {tree.planting_year}</p>}
+        <TreeSurveySummary tree={tree} />
         {tree.notes && <details className="mt-4 rounded-xl border border-edge-subtle bg-surface-subtle p-4"><summary className="cursor-pointer text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Observações da árvore</summary><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-5 text-content-secondary">{tree.notes}</p></details>}
         </div>
         {children}
         <Button asChild className="mt-4 w-full"><Link to={`/arborizacao/arvore/${tree.id}`}>Página da árvore e linha do tempo<ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
 
+        {canManage && tree.status === 'planejada' && <Button type="button" className="mt-4 w-full" onClick={() => onEdit?.({ ...tree, status: 'saudavel' })}><Sprout className="mr-2 h-4 w-4" />Confirmar plantio realizado</Button>}
         {canManage && <div className="mt-5 grid grid-cols-2 gap-2 border-t border-edge-subtle pt-4">
           <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => onEdit?.(tree)}>Editar árvore<ArrowRight className="h-3.5 w-3.5 shrink-0" /></Button>
           <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs text-destructive" onClick={() => onDelete?.(tree)}><Trash2 className="h-3.5 w-3.5 shrink-0" />Excluir cadastro</Button>

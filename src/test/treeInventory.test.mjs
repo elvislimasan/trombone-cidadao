@@ -98,7 +98,7 @@ test('árvores para bronca são consultadas por área visível, com cidade e pag
   } };
   assert.equal((await loadReportMapTrees(client, { south: -8.61, north: -8.58, west: -38.59, east: -38.55 }, 64)).length, 1002);
   assert.ok(calls.every(call => call.table === 'city_trees' && JSON.stringify(call.filters) === JSON.stringify([
-    ['neq', 'status', 'removida'], ['gte', 'latitude', -8.61], ['lte', 'latitude', -8.58], ['gte', 'longitude', -38.59], ['lte', 'longitude', -38.55], ['eq', 'city_id', 64],
+    ['neq', 'status', 'removida'], ['neq', 'status', 'planejada'], ['gte', 'latitude', -8.61], ['lte', 'latitude', -8.58], ['gte', 'longitude', -38.59], ['lte', 'longitude', -38.55], ['eq', 'city_id', 64],
   ])));
   assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999]]);
   assert.deepEqual(await loadReportMapTrees({}, null, 64), []);

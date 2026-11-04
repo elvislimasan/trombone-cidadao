@@ -1,3 +1,4 @@
+import { isLivingTree } from './treePlanning.js';
 import { haversineDistanceKm } from './geoUtils.js';
 import { TREE_SERVICES, treeLabel } from './arborization.js';
 
@@ -26,7 +27,7 @@ export async function loadTreeCatalogs(client, cityId) {
 export function nearbyTrees(trees, location, radius = 80) {
   if (!location || location.lat == null || location.lng == null) return [];
   return trees.flatMap(tree => {
-    if (tree.status === 'removida' || tree.latitude == null || tree.longitude == null) return [];
+    if (!isLivingTree(tree) || tree.latitude == null || tree.longitude == null) return [];
     const distance = haversineDistanceKm(location, { lat: tree.latitude, lng: tree.longitude });
     return distance != null && distance * 1000 <= radius ? [{ ...tree, distance_m: Math.round(distance * 1000) }] : [];
   }).sort((a, b) => a.distance_m - b.distance_m);
@@ -36,7 +37,7 @@ export async function loadReportMapTrees(client, bounds, cityId) {
   if (!bounds || ![bounds.south, bounds.north, bounds.west, bounds.east].every(Number.isFinite)
     || bounds.south > bounds.north || bounds.west > bounds.east) return [];
   return allTreeRows(client, 'city_trees', query => {
-    let scoped = query.neq('status', 'removida')
+    let scoped = query.neq('status', 'removida').neq('status', 'planejada')
       .gte('latitude', bounds.south).lte('latitude', bounds.north)
       .gte('longitude', bounds.west).lte('longitude', bounds.east);
     if (cityId) scoped = scoped.eq('city_id', cityId);
@@ -46,7 +47,7 @@ export async function loadReportMapTrees(client, bounds, cityId) {
 
 export function treeReportSelection(tree) {
   const lat = Number(tree?.latitude), lng = Number(tree?.longitude);
-  if (!tree?.id || !tree.city_id || tree.status === 'removida' || tree.latitude == null || tree.longitude == null
+  if (!tree?.id || !tree.city_id || !isLivingTree(tree) || tree.latitude == null || tree.longitude == null
     || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return { tree_id: tree.id, tree_label: treeLabel(tree), tree_registration: null, tree_photo_file: null,
     location: { lat, lng }, city_id: tree.city_id, address: tree.address || '' };
@@ -55,7 +56,7 @@ export function treeReportSelection(tree) {
 export function treeNeighborhoodCounts(trees, neighborhoods = []) {
   const counts = new Map(neighborhoods.map(item => [treeNameKey(item.name), { name: item.name, count: 0 }]));
   for (const tree of trees) {
-    if (!tree.neighborhood || tree.status === 'removida') continue;
+    if (!tree.neighborhood || !isLivingTree(tree)) continue;
     const key = treeNameKey(tree.neighborhood);
     const row = counts.get(key) || { name: tree.neighborhood, count: 0 };
     row.count++;

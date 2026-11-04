@@ -1,3 +1,4 @@
+import { isLivingTree } from '@/lib/treePlanning';
 import React, { useMemo, useRef, useState } from 'react';
 import { Check, Loader2, Minimize2, Scissors } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -21,7 +22,7 @@ export default function TreeMaintenanceDialog({ trees, city, cityId, initialMapV
   const savingRef = useRef(false);
   const continueButtonRef = useRef(null);
   const [error, setError] = useState('');
-  const eligible = useMemo(() => trees.filter(tree => String(tree.city_id) === String(cityId) && tree.status !== 'removida'), [trees, cityId]);
+  const eligible = useMemo(() => trees.filter(tree => String(tree.city_id) === String(cityId) && isLivingTree(tree)), [trees, cityId]);
   const filtered = useMemo(() => filterTrees(eligible, { search }), [eligible, search]);
   const selected = useMemo(() => eligible.filter(tree => selectedIds.includes(tree.id)), [eligible, selectedIds]);
   const pendingCount = selected.filter(tree => tree.maintenance_action && tree.maintenance_action !== 'nenhuma').length;

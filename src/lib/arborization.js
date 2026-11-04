@@ -1,4 +1,7 @@
+import { EMPTY_TREE_PLANNING, treePlanningPayload, isLivingTree, treeStreetKey, TREE_SURVEY_OPTIONS } from './treePlanning.js';
+
 export const TREE_STATUS = {
+  planejada: { label: 'Plantio planejado', color: '#2563eb' },
   saudavel: { label: 'Saudável', color: '#15803d' },
   atencao: { label: 'Precisa de atenção', color: '#b45309' },
   risco: { label: 'Avaliação técnica necessária', color: '#b91c1c' },
@@ -8,6 +11,7 @@ export const TREE_STATUS = {
 export const TREE_MAP_STATES = { ...TREE_STATUS, linked: { label: 'Bronca vinculada', color: '#eab308' } };
 
 export function treeMapMarkerKey(tree, selected = false) {
+  if (tree?.status === 'planejada') return 'planejada';
   if (tree?.status === 'removida') return 'removida';
   if (selected || Number(tree?.service_requests) > 0) return 'linked';
   return TREE_STATUS[tree?.status] ? tree.status : 'saudavel';
@@ -30,6 +34,7 @@ export function treeImage(tree, failedUrls = []) {
 }
 
 export const EMPTY_TREE = {
+  ...EMPTY_TREE_PLANNING,
   common_name: '', scientific_name: '', origin: 'nao_identificada', status: 'saudavel',
   address: '', neighborhood: '', latitude: '', longitude: '', height_m: '', crown_diameter_m: '',
   planted_at: '', maintenance_action: 'nenhuma', maintenance_due_at: '', notes: '',
@@ -58,22 +63,26 @@ export function treePayload(form, cityId) {
   if (form.planted_at && form.planted_at > new Date().toLocaleDateString('en-CA')) throw new Error('A data do plantio não pode estar no futuro.');
   if (!TREE_PLANTED_BY[form.planted_by || 'nao_informado']) throw new Error('Selecione um responsável pelo plantio válido.');
   return {
+    ...treePlanningPayload(form),
     city_id: cityId, common_name: form.common_name.trim(), scientific_name: form.scientific_name?.trim() || null,
     origin: form.origin, status: form.status, address: form.address?.trim() || null, neighborhood: form.neighborhood?.trim() || null,
-    latitude, longitude, height_m: height, crown_diameter_m: crown, planted_at: form.planted_at || null,
+    latitude, longitude, height_m: form.status === 'planejada' ? null : height, crown_diameter_m: form.status === 'planejada' ? null : crown, planted_at: form.planted_at || null,
     maintenance_action: form.maintenance_action,
     maintenance_due_at: form.maintenance_action === 'nenhuma' ? null : form.maintenance_due_at || null,
     notes: form.notes?.trim() || null,
     species_id: form.species_id || null, bairro_id: form.bairro_id || null, photo_url: form.photo_url || null,
-    planted_by: form.planted_by || 'nao_informado', estimated_birth_year: birthYear, is_historic_site: !!form.is_historic_site,
+    planted_by: form.planted_by || 'nao_informado', estimated_birth_year: form.status === 'planejada' ? null : birthYear, is_historic_site: !!form.is_historic_site,
   };
 }
 
-export function filterTrees(trees, { search = '', species = 'all', status = 'all', origin = 'all', neighborhood = 'all', action = 'all', plantedBy = 'all', plantedYear = '', historic = 'all', centenarian = 'all', minAge = '', maxAge = '' } = {}) {
+export function filterTrees(trees, { search = '', species = 'all', status = 'all', origin = 'all', neighborhood = 'all', action = 'all', plantedBy = 'all', plantedYear = '', historic = 'all', centenarian = 'all', minAge = '', maxAge = '', street = 'all', registration = 'all', planningYear = '' } = {}) {
   const term = normalize(search).trim();
   const year = new Date().getFullYear();
   const validBirthYear = tree => tree.estimated_birth_year != null && Number.isInteger(Number(tree.estimated_birth_year)) && Number(tree.estimated_birth_year) > 0 && Number(tree.estimated_birth_year) <= year;
-  return trees.filter(tree => (status === 'all' || (status === 'living' ? tree.status !== 'removida' : tree.status === status))
+  return trees.filter(tree => (status === 'all' || (status === 'living' ? isLivingTree(tree) : tree.status === status))
+    && (street === 'all' || (street === 'unidentified' ? !tree.street_id && !tree.street_name && !tree.address : treeStreetKey(tree) === street))
+    && (registration === 'all' || (registration === 'planned' ? tree.status === 'planejada' : tree.status !== 'planejada'))
+    && (!planningYear || String(tree.planting_year ?? '') === String(planningYear))
     && (origin === 'all' || tree.origin === origin)
     && (species === 'all' || (species === 'unidentified' ? !tree.species_id : String(tree.species_id) === species))
     && (neighborhood === 'all' || (neighborhood === 'unidentified' ? !tree.bairro_id && !tree.neighborhood?.trim() : tree.neighborhood === neighborhood))
@@ -84,11 +93,11 @@ export function filterTrees(trees, { search = '', species = 'all', status = 'all
     && (maxAge === '' || (validBirthYear(tree) && year - Number(tree.estimated_birth_year) <= Number(maxAge)))
     && (centenarian === 'all' || (tree.estimated_birth_year != null && Number(tree.estimated_birth_year) <= new Date().getFullYear() - 100 && tree.status !== 'removida'))
     && (action === 'all' || (action === 'pending' ? tree.maintenance_action !== 'nenhuma' : tree.maintenance_action === action))
-    && (!term || normalize([tree.public_code, tree.common_name, tree.scientific_name, ...(tree.species_aliases || []), tree.address, tree.neighborhood].join(' ')).includes(term)));
+    && (!term || normalize([tree.public_code, tree.common_name, tree.scientific_name, ...(tree.species_aliases || []), tree.address, tree.street_name, tree.neighborhood].join(' ')).includes(term)));
 }
 
 export function treeStats(trees) {
-  const living = trees.filter(tree => tree.status !== 'removida');
+  const living = trees.filter(isLivingTree);
   return { total: trees.length, living: living.length, native: living.filter(tree => tree.origin === 'nativa').length,
     risk: living.filter(tree => tree.status === 'risco').length,
     pending: trees.filter(tree => tree.maintenance_action !== 'nenhuma').length };
@@ -97,12 +106,12 @@ export function treeStats(trees) {
 export function treesCsv(trees, cities = []) {
   // Neutraliza fórmulas ao abrir o CSV em planilhas, inclusive após espaços.
   const cell = value => `"${String(value ?? '').replace(/^(\s*[=+@-])/, "'$1").replaceAll('"', '""')}"`;
-  const rows = [['Cidade', 'Código da árvore', 'Nome popular', 'Nome científico', 'Origem', 'Situação', 'Endereço', 'Bairro', 'Latitude', 'Longitude', 'Altura (m)', 'Diâmetro da copa (m)', 'Plantio', 'Manejo', 'Prazo do manejo', 'Observações', 'Cadastro na plataforma', 'Plantado por', 'Ano de nascimento estimado', 'Sítio histórico', 'Solicitações de serviço'],
+  const rows = [['Cidade', 'Código da árvore', 'Nome popular', 'Nome científico', 'Origem', 'Situação', 'Endereço', 'Bairro', 'Latitude', 'Longitude', 'Altura (m)', 'Diâmetro da copa (m)', 'Plantio', 'Manejo', 'Prazo do manejo', 'Observações', 'Cadastro na plataforma', 'Plantado por', 'Ano de nascimento estimado', 'Sítio histórico', 'Solicitações de serviço', 'Tipo de cadastro', 'Ano previsto de plantio', 'Rua cadastrada', 'DAP (cm)', ...Object.values(TREE_SURVEY_OPTIONS).map(config => config.label), 'Ação programada', 'Espécie sugerida para substituição'],
     ...trees.map(tree => [cities.find(city => String(city.id) === String(tree.city_id))?.name || tree.city_id,
       tree.public_code, tree.common_name, tree.scientific_name, TREE_ORIGINS[tree.origin], TREE_STATUS[tree.status]?.label,
       tree.address, tree.neighborhood, tree.latitude, tree.longitude, tree.height_m, tree.crown_diameter_m,
       tree.planted_at, TREE_ACTIONS[tree.maintenance_action], tree.maintenance_due_at, tree.notes, tree.created_at,
-      TREE_PLANTED_BY[tree.planted_by], tree.estimated_birth_year, tree.is_historic_site ? 'Sim' : 'Não', tree.service_requests ?? 0])];
+      TREE_PLANTED_BY[tree.planted_by], tree.estimated_birth_year, tree.is_historic_site ? 'Sim' : 'Não', tree.service_requests ?? 0, tree.status === 'planejada' ? 'Plantio planejado' : 'Árvore existente', tree.planting_year, tree.street_name, tree.dap_cm, ...Object.entries(TREE_SURVEY_OPTIONS).map(([key, config]) => config.multiple ? (tree[key] || []).map(value => config.options[value]).filter(Boolean).join(', ') : config.options[tree[key]]), tree.scheduled_action, tree.replacement_species])];
   return '\uFEFF' + rows.map(row => row.map(cell).join(';')).join('\r\n');
 }
 

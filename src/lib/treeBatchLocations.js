@@ -1,4 +1,5 @@
 import { treePayload } from './arborization.js';
+import { streetKey } from './treePlanning.js';
 import { neighborhoodFromAddress, registeredNeighborhood, neighborhoodKey } from '../../supabase/functions/_shared/reportNeighborhoods.js';
 
 async function lookupWithTimeout(lookup, point, signal, timeoutMs) {
@@ -21,23 +22,26 @@ async function lookupWithTimeout(lookup, point, signal, timeoutMs) {
 }
 
 export async function treeBatchPayloads(values, points, cityId, {
-  neighborhoods = [], lookup, cache = new Map(), onProgress, signal, timeoutMs = 12000,
+  neighborhoods = [], streets = [], lookup, cache = new Map(), onProgress, signal, timeoutMs = 12000,
 }) {
   if (!points.length) throw new Error('Marque pelo menos uma árvore no mapa.');
   // Valida o lote inteiro antes de consultar endereços. Campos compartilhados
   // nunca podem substituir a localização ou o endereço individual dos pins.
   const payloads = points.map(point => treePayload({ ...values,
     latitude: point.latitude, longitude: point.longitude,
-    address: '', neighborhood: '', bairro_id: '',
+    address: '', neighborhood: '', bairro_id: '', street_id: '', street_name: '',
   }, cityId));
   const localNeighborhoods = neighborhoods.filter(item => String(item.city_id) === String(cityId));
   onProgress?.({ completed: 0, total: payloads.length });
   // Consultas sequenciais evitam disparar uma rajada ao geocodificador.
   for (const [index, payload] of payloads.entries()) {
     if (signal?.aborted) throw new Error('Consulta cancelada.');
+    const point = points[index];
+    const manualStreet = streets.find(street => street.id === point.street_id && String(street.city_id) === String(cityId));
+    const manualNeighborhood = localNeighborhoods.find(item => item.id === point.bairro_id);
     const key = `${cityId}:${payload.latitude.toFixed(7)},${payload.longitude.toFixed(7)}`;
     let location = cache.get(key);
-    if (!location) {
+    if (!location && !manualStreet) {
       try {
         location = await lookupWithTimeout(lookup, { lat: payload.latitude, lng: payload.longitude }, signal, timeoutMs);
         if (!location?.address?.trim() && !location?.suburb?.trim()) throw new Error('Endereço indisponível.');
@@ -48,15 +52,20 @@ export async function treeBatchPayloads(values, points, cityId, {
       cache.set(key, location);
     }
     if (signal?.aborted) throw new Error('Consulta cancelada.');
+    location ||= {};
     const name = location.suburb?.trim()
       ? registeredNeighborhood(location.suburb, localNeighborhoods)
       : neighborhoodFromAddress(location.address, localNeighborhoods);
     const matches = name ? localNeighborhoods.filter(item => neighborhoodKey(item.name) === neighborhoodKey(name)) : [];
     const neighborhood = matches.length === 1 ? matches[0] : null;
-    payload.address = location.address?.trim() || null;
+    const matchesStreet = streets.filter(street => String(street.city_id) === String(cityId) && streetKey(street.name) === streetKey(location.address?.split(',')[0]));
+    const street = manualStreet || (matchesStreet.length === 1 ? matchesStreet[0] : null);
+    payload.address = manualStreet?.name || location.address?.trim() || null;
+    payload.street_id = street?.id || null;
+    payload.street_name = street?.name || null;
     // O banco exige o ID de um bairro da cidade e normaliza seu nome pelo catálogo.
-    payload.bairro_id = neighborhood?.id || null;
-    payload.neighborhood = neighborhood?.name || null;
+    payload.bairro_id = manualNeighborhood?.id || neighborhood?.id || null;
+    payload.neighborhood = manualNeighborhood?.name || neighborhood?.name || null;
     onProgress?.({ completed: index + 1, total: payloads.length });
   }
   return payloads;
