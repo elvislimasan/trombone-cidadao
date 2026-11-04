@@ -491,6 +491,8 @@ const PublicWorksPage = () => {
       <>
       <TelaDeMapa
         titulo="Mapa de Obras Públicas"
+        fullscreenButtonLabel={null}
+        fullscreenButtonClassName="left-3 top-3 h-11 w-11 gap-0 p-0"
         subtitulo="O que está sendo construído na sua cidade, e em que pé está"
         tituloDaAba="Mapa de Obras Públicas - Trombone Cidadão"
         descricaoSeo="Acompanhe o andamento das obras públicas da sua cidade em um mapa interativo."
@@ -790,7 +792,7 @@ const PublicWorksPage = () => {
         <motion.div key={view} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
           {view === 'map' ? (
             <div className="h-[70vh] w-full rounded-xl overflow-hidden shadow-lg border">
-              <FullscreenMapPanel title="Mapa de Obras Públicas" buttonClassName="left-14 top-3">
+              <FullscreenMapPanel title="Mapa de Obras Públicas" buttonLabel={null} buttonClassName="left-3 top-3 h-11 w-11 gap-0 p-0">
                 <WorksMapView ref={mapViewRef} works={filteredWorks} podeGerir={canManageWorks} onEditWork={handleEditWork} />
               </FullscreenMapPanel>
             </div>

@@ -1,0 +1,3 @@
+.works-map-canvas .leaflet-control-zoom.leaflet-bar { top: 0 !important; bottom: auto !important; margin: 12px 12px 0 0; overflow: hidden; border: 1px solid rgb(var(--border-subtle)); border-radius: 14px; box-shadow: 0 3px 12px rgb(0 0 0 / .1); }
+.works-map-canvas .leaflet-control-zoom.leaflet-bar a { width: 40px; height: 40px; line-height: 40px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); }
+.works-map-canvas .works-map-tools { top: 108px; }

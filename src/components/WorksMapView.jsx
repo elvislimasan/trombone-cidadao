@@ -1,6 +1,6 @@
 import { MapBaseLayer, MAP_LAYER } from '@/components/map/MapDisplayControls';
-import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback } from 'react';
-import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useImperativeHandle, forwardRef, useRef, useEffect, useCallback, useMemo } from 'react';
+import { MapContainer, Marker, Popup, ZoomControl, useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import { LocateFixed, Layers, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useCityView } from '@/contexts/CityContext';
 import { geocodeCity } from '@/lib/geocodeCity';
 import { createMapPin, ICON_SIZE } from '@/components/map/pinIcon';
 import MapResizeObserver from '@/components/map/MapResizeObserver';
+import './worksMap.css';
 
 // Status de obra -> sufixo do token --pin-work-*. Fora dessa lista cai em
 // 'unknown', o cinza neutro.
@@ -58,41 +59,46 @@ const MapScrollLock = ({ mode }) => {
 // (ex.: ao trocar a cidade no seletor). Se não houver obras na cidade,
 // centraliza na própria cidade selecionada (forward geocode). Sem isso,
 // o mapa fica preso no center inicial (Floresta).
-const FitToWorks = ({ works, activeCity }) => {
+const FitToWorks = ({ works, activeCity, manualViewRef }) => {
   const map = useMap();
   const lastKeyRef = useRef('');
+  const points = useMemo(() => (works || []).flatMap(work => {
+    const { lat, lng } = work.location || {};
+    if (lat == null || lng == null || lat === '' || lng === '') return [];
+    const latitude = Number(lat), longitude = Number(lng);
+    return Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? [[latitude, longitude]] : [];
+  }), [works]);
   useEffect(() => {
     let cancelled = false;
-    const pts = (works || [])
-      .filter((w) => w.location && Number.isFinite(w.location.lat) && Number.isFinite(w.location.lng))
-      .map((w) => [w.location.lat, w.location.lng]);
-
-    if (pts.length > 0) {
-      const key = 'works:' + pts.map((p) => p.join(',')).sort().join('|');
-      if (key === lastKeyRef.current) return;
-      lastKeyRef.current = key;
-      try {
-        if (pts.length === 1) {
-          map.setView(pts[0], Math.max(map.getZoom(), 15), { animate: true });
-        } else {
-          map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], animate: true });
-        }
-      } catch (e) { /* noop */ }
-      return;
-    }
-
-    // Sem obras: centraliza na cidade ativa (se houver).
-    if (activeCity?.name) {
-      const key = 'city:' + activeCity.name + '|' + (activeCity.state?.uf || '');
-      if (key === lastKeyRef.current) return;
-      lastKeyRef.current = key;
-      geocodeCity(activeCity.name, activeCity.state?.uf).then((coord) => {
-        if (cancelled || !coord) return;
-        try { map.setView([coord.lat, coord.lng], 13, { animate: true }); } catch {}
+    let frame, cityCenter;
+    const key = `${activeCity?.id || activeCity?.name || ''}|${points.map(point => point.join(',')).sort().join('|')}`;
+    if (key !== lastKeyRef.current) { lastKeyRef.current = key; manualViewRef.current = false; }
+    const container = map.getContainer();
+    // The map can mount before its panel reaches its final size. Fit again as
+    // it settles, then preserve the camera as soon as the person uses the map.
+    const scheduleFit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (cancelled || manualViewRef.current || !container.clientWidth || !container.clientHeight) return;
+        map.invalidateSize({ pan: false });
+        if (points.length) map.fitBounds(L.latLngBounds(points), { padding: [48, 64], maxZoom: 15, animate: false });
+        else if (cityCenter) map.setView([cityCenter.lat, cityCenter.lng], 13, { animate: false });
       });
-    }
-    return () => { cancelled = true; };
-  }, [works, activeCity, map]);
+    };
+    const markManualView = () => { manualViewRef.current = true; };
+    const observer = new ResizeObserver(scheduleFit);
+    observer.observe(container);
+    map.on('resize', scheduleFit);
+    for (const name of ['pointerdown', 'wheel', 'keydown']) container.addEventListener(name, markManualView, { passive: true });
+    if (!points.length && activeCity?.name) geocodeCity(activeCity.name, activeCity.state?.uf).then(coord => {
+      if (!cancelled && coord) { cityCenter = coord; scheduleFit(); }
+    });
+    scheduleFit();
+    return () => {
+      cancelled = true; cancelAnimationFrame(frame); observer.disconnect(); map.off('resize', scheduleFit);
+      for (const name of ['pointerdown', 'wheel', 'keydown']) container.removeEventListener(name, markManualView);
+    };
+  }, [points, activeCity?.id, activeCity?.name, activeCity?.state?.uf, map, manualViewRef]);
   return null;
 };
 
@@ -102,6 +108,7 @@ const FitToWorks = ({ works, activeCity }) => {
 const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = false, onEditWork }, ref) => {
   const [camada, setCamada] = useState(MAP_LAYER.STANDARD);
   const mapRef = useRef();
+  const manualViewRef = useRef(false);
   const navigate = useNavigate();
   const { mode } = useMapModeToggle();
   const { city: activeCity } = useCityView();
@@ -109,6 +116,7 @@ const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = fal
   useImperativeHandle(ref, () => ({
     goToLocation: (location) => {
       if (mapRef.current) {
+        manualViewRef.current = true;
         mapRef.current.flyTo([location.lat, location.lng], 18);
       }
     }
@@ -133,6 +141,7 @@ const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = fal
         const lat = pos?.coords?.latitude;
         const lng = pos?.coords?.longitude;
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        manualViewRef.current = true;
         try {
           mapRef.current.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 15), { animate: true, duration: 0.6 });
         } catch {}
@@ -153,12 +162,13 @@ const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = fal
   };
 
   return (
-    <div className="relative w-full h-full bg-background rounded-xl overflow-hidden">
-      <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} scrollWheelZoom={true} className="w-full h-full">
+    <div className="works-map-canvas relative w-full h-full bg-background rounded-xl overflow-hidden">
+      <MapContainer center={FLORESTA_COORDS} zoom={INITIAL_ZOOM} zoomControl={false} scrollWheelZoom={true} className="w-full h-full">
+        <ZoomControl position="topright" />
         <MapResizeObserver />
         <MapController mapRef={mapRef} />
         <MapScrollLock mode={mode} />
-        <FitToWorks works={works} activeCity={activeCity} />
+        <FitToWorks works={works} activeCity={activeCity} manualViewRef={manualViewRef} />
         <MapBaseLayer layer={camada} />
         {works.map((work) => (
           work.location &&
@@ -207,7 +217,7 @@ const WorksMapView = forwardRef(({ works, mostrarLegenda = true, podeGerir = fal
           a refatoração local do mapa é concluída.
 
       */}
-      <div className="absolute top-4 right-4 z-[800]">
+      <div className="works-map-tools absolute right-3 z-[800]">
         <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
           <button
             type="button"

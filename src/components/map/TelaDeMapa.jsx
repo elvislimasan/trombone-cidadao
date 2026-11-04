@@ -73,6 +73,8 @@ export default function TelaDeMapa({
   filtrosDaLista = null,
   filtros = null,
   mapa,
+  fullscreenButtonLabel = 'Tela cheia',
+  fullscreenButtonClassName = 'left-14 top-3',
   painel = null,
   empilhado = null,
   filtrosLigados = 0,
@@ -139,7 +141,7 @@ export default function TelaDeMapa({
             )}
 
             <div className={MAP_CANVAS_CLASS}>
-              <FullscreenMapPanel title={titulo} buttonClassName="left-14 top-3">
+              <FullscreenMapPanel title={titulo} buttonLabel={fullscreenButtonLabel} buttonClassName={fullscreenButtonClassName}>
                 {mapa}
               </FullscreenMapPanel>
 
