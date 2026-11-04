@@ -1,3 +1,5 @@
+import { findTreeStreet, treeStreetAddressName, treeStreetSearchKey } from './treeStreetLocation.js';
+
 // Valores compartilhados pelo formulário, pela validação e pelos relatórios.
 export const TREE_SURVEY_OPTIONS = {
   planting_site: { label: 'Tipo de local de plantio', options: { calcada: 'Calçada', canteiro: 'Canteiro central', praca: 'Praça', parque: 'Parque', lote_publico: 'Lote público' } },
@@ -21,10 +23,23 @@ export const isPlannedTree = tree => tree?.status === 'planejada';
 export const isLivingTree = tree => !['removida', 'planejada'].includes(tree?.status);
 export const streetKey = value => String(value || '').normalize('NFD').replace(/\p{Mn}/gu, '').trim().replace(/\s+/g, ' ').toLowerCase();
 // Endereços antigos continuam pesquisáveis sem inventar um vínculo com uma rua.
-export const treeStreetName = tree => tree.street_name?.trim() || tree.address?.split(',')[0]?.trim() || '';
+export const treeStreetName = tree => tree.street_name?.trim() || treeStreetAddressName(tree.address);
 // Reúne o mesmo nome nos registros antigos e novos; o vínculo oficial continua
 // em street_id. Cidade e bairro permanecem separados na agregação do relatório.
-export const treeStreetKey = tree => `name:${streetKey(treeStreetName(tree))}`;
+export const treeStreetKey = tree => `name:${treeStreetSearchKey(treeStreetName(tree))}`;
+
+export function treePlanningLocations(trees, neighborhoods = [], streets = []) {
+  return trees.map(tree => {
+    const local = neighborhoods.filter(item => String(item.city_id) === String(tree.city_id));
+    const matches = local.filter(item => streetKey(item.name) === streetKey(tree.neighborhood));
+    const neighborhood = local.find(item => item.id === tree.bairro_id) || (matches.length === 1 ? matches[0] : null);
+    const street = streets.find(item => item.id === tree.street_id && String(item.city_id) === String(tree.city_id))
+      || findTreeStreet(treeStreetName(tree), streets, tree.city_id, neighborhood?.id || tree.bairro_id);
+    return { ...tree, ...(neighborhood ? { bairro_id: neighborhood.id, neighborhood: neighborhood.name } : {}),
+      ...(street ? { street_id: street.id, street_name: street.name } : {}),
+    };
+  });
+}
 
 export function treePlanningPayload(form) {
   const planned = isPlannedTree(form);
@@ -57,12 +72,21 @@ export function treePlanningPayload(form) {
 
 export function treePlanningRows(trees) {
   const rows = new Map();
+  const neighborhoodIds = new Map();
+  for (const tree of trees) if (tree.bairro_id && tree.neighborhood) {
+    const key = JSON.stringify([String(tree.city_id), streetKey(tree.neighborhood)]);
+    const ids = neighborhoodIds.get(key) || new Set();
+    ids.add(tree.bairro_id); neighborhoodIds.set(key, ids);
+  }
   for (const tree of trees) {
     if (!tree.planting_year) continue;
     const neighborhood = tree.neighborhood || 'Sem bairro identificado';
     const street = treeStreetName(tree) || 'Sem rua identificada';
-    const key = JSON.stringify([tree.city_id, tree.planting_year, tree.bairro_id || streetKey(neighborhood), treeStreetKey(tree)]);
-    const row = rows.get(key) || { key, city_id: tree.city_id, year: Number(tree.planting_year), neighborhood, street, planned: 0, planted: 0, unconfirmed: 0 };
+    const ids = neighborhoodIds.get(JSON.stringify([String(tree.city_id), streetKey(neighborhood)]));
+    const neighborhoodId = tree.bairro_id || (ids?.size === 1 ? [...ids][0] : `name:${streetKey(neighborhood)}`);
+    const key = JSON.stringify([String(tree.city_id), Number(tree.planting_year), neighborhoodId, treeStreetKey(tree)]);
+    const row = rows.get(key) || { key, city_id: tree.city_id, year: Number(tree.planting_year), neighborhood, street, total: 0, planned: 0, planted: 0, unconfirmed: 0 };
+    row.total++;
     if (isPlannedTree(tree)) row.planned++;
     else if (tree.planted_at) row.planted++;
     else row.unconfirmed++;
@@ -73,9 +97,9 @@ export function treePlanningRows(trees) {
 
 export const csvCell = value => `"${String(value ?? '').replace(/^(\s*[=+@-])/, "'$1").replaceAll('"', '""')}"`;
 export function treePlanningCsv(trees, cities = []) {
-  return '\uFEFF' + [['Cidade', 'Ano previsto', 'Bairro', 'Rua', 'Plantios previstos pendentes', 'Plantios realizados', 'Outros registros sem plantio confirmado'],
+  return '\uFEFF' + [['Cidade', 'Ano previsto', 'Bairro', 'Rua', 'Plantios previstos pendentes', 'Plantios realizados', 'Outros registros sem plantio confirmado', 'Total previsto no planejamento'],
     ...treePlanningRows(trees).map(row => [cities.find(city => String(city.id) === String(row.city_id))?.name || row.city_id,
-      row.year, row.neighborhood, row.street, row.planned, row.planted, row.unconfirmed])].map(row => row.map(csvCell).join(';')).join('\r\n');
+      row.year, row.neighborhood, row.street, row.planned, row.planted, row.unconfirmed, row.total])].map(row => row.map(csvCell).join(';')).join('\r\n');
 }
 
 export function treeSurveyEntries(tree) {

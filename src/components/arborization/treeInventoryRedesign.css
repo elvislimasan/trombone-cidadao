@@ -1,0 +1,132 @@
+.arborization-page.arborization-redesign {
+  --arbor-accent: #087f5b;
+  --arbor-accent-soft: rgb(8 127 91 / .08);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 0;
+  padding-block: 20px 24px;
+  background: rgb(var(--surface-subtle) / .25);
+}
+.dark .arborization-page.arborization-redesign { --arbor-accent: #6ee7b7; --arbor-accent-soft: rgb(52 211 153 / .1); background: none; }
+.arborization-redesign .arborization-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 20px; padding-bottom: 14px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.arborization-header-identity { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; min-width: 0; }
+.arborization-redesign .arborization-intro { display: flex; align-items: center; flex-shrink: 0; gap: 12px; min-width: 0; padding: 0; }
+.arborization-redesign .arborization-title-icon { width: 44px; height: 44px; border: 1px solid rgb(8 127 91 / .06); border-radius: 13px; color: var(--arbor-accent); background: var(--arbor-accent-soft); }
+.arborization-redesign .arborization-title-icon svg { width: 26px; height: 26px; }
+.arborization-redesign .arborization-intro h1 { margin: 0; font-size: clamp(23px, 1.9vw, 30px); font-weight: 700; letter-spacing: -.04em; line-height: 1.2; }
+.arborization-redesign .arborization-city { grid-area: auto; width: auto; min-width: 0; }
+.arborization-redesign .arborization-city > div > button { height: 36px; min-height: 36px; padding-inline: 12px; border-radius: 11px; font-size: 12px; }
+.arborization-redesign .arborization-city svg { color: var(--arbor-accent); }
+.arborization-count-badge { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; width: fit-content; padding: 7px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--arbor-accent); background: var(--arbor-accent-soft); }
+.arborization-actions-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; height: 38px; min-width: 102px; padding-inline: 12px; border-radius: 11px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); font-size: 12px; box-shadow: 0 2px 4px rgb(15 23 42 / .04); }
+.arborization-actions-menu { width: 244px; max-width: calc(100vw - 24px); max-height: var(--radix-dropdown-menu-content-available-height); overflow-y: auto; padding: 7px; border: 1px solid rgb(var(--border-subtle)); border-radius: 14px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); box-shadow: 0 10px 32px rgb(15 23 42 / .14); }
+.arborization-actions-menu [role=menuitem] { display: flex; align-items: center; gap: 11px; min-height: 40px; padding: 9px 11px; border-radius: 9px; font-size: 12px; cursor: pointer; }
+.arborization-actions-menu [role=menuitem] > svg { width: 17px; height: 17px; flex-shrink: 0; color: #087f5b; }
+.dark .arborization-actions-menu [role=menuitem] > svg { color: #6ee7b7; }
+.arborization-actions-menu [role=menuitem]:focus, .arborization-actions-menu [role=menuitem][data-highlighted] { outline: none; background: rgb(8 127 91 / .08); color: inherit; }
+.dark .arborization-actions-menu [role=menuitem][data-highlighted] { background: rgb(52 211 153 / .1); }
+.arborization-actions-menu [role=separator] { height: 1px; margin: 6px 4px; background: rgb(var(--border-subtle)); }
+.arborization-redesign .arborization-explorer { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.arborization-redesign .arborization-primary-filters { display: grid; grid-template-columns: minmax(180px, 1fr) 220px auto; align-items: center; gap: 12px; min-width: 0; padding-block: 14px; }
+.arborization-redesign .arborization-search { position: relative; min-width: 0; }
+.arborization-redesign .arborization-search > svg { position: absolute; left: 14px; top: 13px; color: rgb(var(--text-secondary)); pointer-events: none; }
+.arborization-redesign .arborization-search input { height: 44px; padding: 10px 14px 10px 42px; border: 1px solid rgb(var(--border-subtle)); border-radius: 11px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); font-size: 13px; }
+.arborization-record-select { position: relative; display: block; min-width: 0; }
+.arborization-record-select > svg { position: absolute; top: 13px; left: 13px; color: var(--arbor-accent); pointer-events: none; }
+.arborization-redesign .arborization-record-select select { height: 44px; padding: 10px 30px 10px 39px; border: 1px solid rgb(var(--border-subtle)); border-radius: 11px; color: rgb(var(--text-primary)); background: rgb(var(--surface-raised)); font-size: 12px; }
+.arborization-redesign .arborization-filter-trigger { display: flex; align-items: center; justify-content: center; gap: 7px; height: 44px; padding-inline: 14px; border-radius: 11px; color: rgb(var(--text-primary)); background: rgb(var(--surface-raised)); font-size: 12px; }
+.arborization-redesign .arborization-filter-trigger.is-active { color: var(--arbor-accent); border-color: rgb(8 127 91 / .25); background: var(--arbor-accent-soft); }
+.arborization-filter-feedback { display: flex; grid-column: 1 / -1; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-width: 0; font-size: 12px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+.arborization-redesign .arborization-reset-filters { height: 26px; padding: 0; color: var(--arbor-accent); font-size: 11px; }
+.arborization-redesign .arborization-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; align-items: stretch; min-width: 0; }
+.arborization-redesign .arborization-results { display: flex; flex-direction: column; min-width: 0; }
+.arborization-redesign .arborization-map-panel { flex: none; height: max(560px, calc(100dvh - var(--header-bar-height, 64px) - 174px)); min-height: 560px; border-radius: 16px; box-shadow: 0 3px 12px rgb(15 23 42 / .06); }
+.arborization-redesign .arborization-results article { margin: 0; border-radius: 16px; box-shadow: 0 2px 4px rgb(15 23 42 / .02); }
+.arborization-redesign .arborization-fullscreen { height: 36px; padding-inline: 10px; border-radius: 10px; background: rgb(var(--surface-raised)); font-size: 11px; }
+.arborization-redesign .arborization-notices { margin-top: 12px; }
+.arborization-redesign .arborization-data-note { padding-top: 10px; font-size: 10px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+.arborization-redesign :is(button, input, select):focus-visible { outline: 2px solid var(--arbor-accent); outline-offset: 3px; --tw-ring-color: transparent; box-shadow: none; }
+.arborization-page.arborization-redesign.arborization-embedded { padding: 0 0 16px; gap: 0; }
+.arborization-redesign.arborization-embedded .arborization-map-panel { height: max(560px, calc(100dvh - 260px)); }
+.arborization-filter-dialog[role=dialog] { display: flex; flex-direction: column; height: min(760px, 88dvh); overflow: hidden; border-radius: 20px; padding: 24px; }
+.arborization-filter-dialog[role=dialog] .arborization-filter-heading { flex-shrink: 0; padding: 0 36px 16px 0; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.arborization-filter-dialog[role=dialog] .arborization-filter-row label { gap: 7px; font-size: 12px; }
+.arborization-filter-dialog[role=dialog] select, .arborization-filter-dialog[role=dialog] input { min-height: 44px; border-radius: 10px; background: rgb(var(--surface-raised)); font-size: 14px; }
+.arborization-filter-dialog .arborization-apply, .tree-planning-report .arborization-report-export { border-radius: 10px; background: #087f5b; color: white; }
+.arborization-filter-dialog .arborization-apply:hover, .tree-planning-report .arborization-report-export:hover { background: #066448; }
+/* A rolagem pertence à moldura, e a grade fica livre para desenhar o foco.
+   O escopo com role também prevalece sobre as regras legadas de index.css,
+   carregadas depois deste módulo no CSS de produção. */
+.arborization-filter-dialog[role=dialog] form { display: flex; flex: 1; flex-direction: column; min-height: 0; gap: 0; overflow: hidden; }
+.arborization-filter-dialog[role=dialog] .arborization-filter-scroll { flex: 1; min-height: 0; margin-top: 12px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 6px 24px 12px 6px; scrollbar-gutter: stable; scroll-padding-block: 8px; }
+.arborization-filter-dialog[role=dialog] .arborization-filter-fields { display: grid; gap: 16px; min-height: 0; padding: 0; overflow: visible; }
+.arborization-filter-dialog[role=dialog] .arborization-filter-footer { display: grid; flex-shrink: 0; gap: 8px; padding-top: 14px; border-top: 1px solid rgb(var(--border-subtle)); }
+.arborization-filter-dialog[role=dialog] .arborization-apply { flex-shrink: 0; }
+.arborization-filter-drawer[role=dialog] { inset: 0 0 0 auto; width: min(420px, 100%); max-width: 100%; height: 100dvh; max-height: none; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); transform: none; border-width: 0 0 0 1px; border-radius: 0; }
+.arborization-filter-drawer[data-state=open] { animation: arborization-drawer-in .25s ease-out both; }
+.arborization-filter-drawer[data-state=closed] { animation: arborization-drawer-out .2s ease-in both; }
+.arborization-filter-drawer .arborization-filter-heading { padding-bottom: 16px; border-bottom: 1px solid rgb(var(--border-subtle)); }
+.arborization-filter-drawer .arborization-filter-heading h2 { font-size: 19px; }
+.arborization-filter-drawer > button.absolute { top: 18px; right: 16px; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; }
+.arborization-filter-dialog[role=dialog] :is(select, input):focus-visible, .tree-planning-report :is(select, button):focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; --tw-ring-color: transparent; box-shadow: none; }
+.arborization-filter-dialog[role=dialog] button:focus-visible { outline: 2px solid #087f5b; outline-offset: -2px; --tw-ring-color: transparent; }
+.tree-planning-report .arborization-select { min-width: 160px; min-height: 44px; border-radius: 10px; background: rgb(var(--surface-raised)); }
+.arborization-statistics-overview { --arbor-accent: #087f5b; --arbor-accent-soft: rgb(8 127 91 / .07); padding-block: 12px 18px; }
+.dark .arborization-statistics-overview { --arbor-accent: #6ee7b7; --arbor-accent-soft: rgb(52 211 153 / .1); }
+.arborization-statistics-overview .arborization-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.arborization-statistics-overview .arborization-stat { position: relative; display: block; padding: 14px; border: 1px solid rgb(var(--border-subtle)); border-radius: 13px; background: rgb(var(--surface-raised)); box-shadow: none; }
+.arborization-statistics-overview .arborization-stat-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.arborization-statistics-overview .arborization-stat-label { margin: 0; font-size: 10px; line-height: 1.5; color: rgb(var(--text-secondary)); }
+.arborization-statistics-overview .arborization-stat-icon { display: grid; place-items: center; flex-shrink: 0; width: 25px; height: 25px; border-radius: 8px; color: var(--arbor-accent); background: var(--arbor-accent-soft); }
+.arborization-statistics-overview .arborization-stat-icon svg { width: 15px; height: 15px; }
+.arborization-statistics-overview .arborization-stat-value { margin-top: 10px; font-size: 23px; font-weight: 700; line-height: 1.2; }
+.arborization-statistics-overview .arborization-stat-value.is-text { font-size: 17px; overflow-wrap: anywhere; }
+.arborization-statistics-overview .arborization-stat-description { display: block; margin-top: 5px; font-size: 10px; color: rgb(var(--text-secondary)); }
+.arborization-map-legend summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: 11px; font-weight: 500; color: rgb(var(--text-primary)); }
+.arborization-map-legend summary::-webkit-details-marker { display: none; }
+.arborization-legend-key { display: inline-flex; align-items: center; gap: 6px; padding-left: 12px; margin-left: 4px; border-left: 1px solid rgb(var(--border-subtle)); font-size: 10px; font-weight: 400; }
+.arborization-legend-key > i { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; }
+.arborization-map-legend[open] summary { margin-bottom: 12px; }
+.arborization-map-legend ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; max-width: 460px; }
+.arborization-map-legend li { display: flex; align-items: center; gap: 7px; font-size: 10px; line-height: 1.5; }
+.arborization-map-legend li > span { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; }
+/* Largura desktop solicitada para o mapa, com cabeçalho, busca e nota alinhados.
+   A página externa e a lista continuam fluidas; mobile, painel municipal e tela
+   cheia conservam suas larguras próprias. */
+@media (min-width: 1200px) {
+  .arborization-redesign.is-map-view:not(.arborization-embedded) > :is(.arborization-header, .arborization-explorer, .arborization-data-note) { width: 92%; max-width: 1600px; margin-inline: auto; }
+}
+@media (max-width: 979px) {
+  .arborization-page.arborization-redesign { padding-block: 16px 22px; }
+  .arborization-redesign .arborization-intro h1 { font-size: 24px; }
+  .arborization-header-identity { gap: 10px; }
+  .arborization-redesign .arborization-map-panel { height: 65dvh; min-height: 430px; }
+  .arborization-redesign .arborization-fullscreen { width: 36px; padding: 0; font-size: 0; }
+  .arborization-actions-menu [role=menuitem] { min-height: 44px; }
+}
+@media (max-width: 767px) {
+  .arborization-page.arborization-redesign { padding-inline: 16px !important; }
+  .arborization-redesign .arborization-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 8px; padding-bottom: 12px; }
+  .arborization-header-identity { display: contents; }
+  .arborization-redesign .arborization-intro { grid-column: 1; grid-row: 1; gap: 9px; flex-shrink: 1; }
+  .arborization-redesign .arborization-title-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 11px; }
+  .arborization-redesign .arborization-title-icon svg { width: 23px; height: 23px; }
+  .arborization-redesign .arborization-intro h1 { font-size: 22px; }
+  .arborization-redesign .arborization-city { grid-column: 1; grid-row: 2; justify-self: start; }
+  .arborization-count-badge { grid-column: 2; grid-row: 2; justify-self: end; font-size: 11px; }
+  .arborization-actions-trigger { grid-column: 2; grid-row: 1; min-width: 90px; min-height: 44px; padding-inline: 9px; font-size: 12px; }
+  .arborization-redesign .arborization-primary-filters { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding-block: 12px; }
+  .arborization-redesign .arborization-search { grid-column: 1 / -1; }
+  .arborization-redesign .arborization-search input { font-size: 16px; min-height: 46px; }
+  .arborization-redesign .arborization-record-select select { font-size: 13px; min-height: 44px; }
+  .arborization-redesign .arborization-filter-trigger { min-width: 90px; }
+  .arborization-redesign .arborization-map-panel { border-radius: 13px; }
+  .arborization-redesign.arborization-embedded .arborization-header { grid-template-columns: minmax(0, 1fr) auto; }
+  .arborization-redesign .is-embedded .arborization-count-badge { grid-column: 1; grid-row: 1; justify-self: start; }
+  .arborization-page.arborization-redesign.arborization-embedded { padding-inline: 0 !important; }
+  .arborization-legend-key { display: none; }
+}
+@media (max-width: 379px) { .arborization-redesign .arborization-intro h1 { font-size: 19px; } }
+@media (prefers-reduced-motion: reduce) { .arborization-filter-drawer[data-state] { animation: none; } }

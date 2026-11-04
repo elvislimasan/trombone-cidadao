@@ -27,6 +27,7 @@ const stubs = {
     const delay=window.nextAddressDelay||20;window.nextAddressDelay=0;const fail=window.failAddress;
     await new Promise(resolve=>setTimeout(resolve,delay));
     if(fail)return null;
+    if(window.addressByLatitude?.[point.lat.toFixed(3)])return window.addressByLatitude[point.lat.toFixed(3)];
     if(window.addressResult)return window.addressResult;
     if(window.batchAddressMode)return {address:'Rua do pin '+point.lat.toFixed(5)+','+point.lng.toFixed(5),suburb:point.lat < window.batchSplitLatitude?'Três Marias':'Centro'};
     return {address:point.lat < -8.6005?'Rua Nova':'Rua Joaquim Marques de Sá',suburb:point.lat < -8.6005?'Três Marias':'Centro'};
@@ -44,6 +45,7 @@ const stubs = {
     if(location.search.includes('maintenance'))rows.push({id:'removed',city_id:64,public_code:'AR9',common_name:'Removida',status:'removida',latitude:-8.599,longitude:-38.572,maintenance_action:'nenhuma'});
     if(location.search.includes('improvements'))rows.push({id:'unidentified',city_id:64,public_code:'AR3',species_id:'s1',common_name:'Ipê-amarelo',status:'atencao',latitude:-8.599,longitude:-38.571,maintenance_action:'nenhuma',planted_at:'2026-05-01'}, {id:'removed',city_id:64,public_code:'AR4',common_name:'Removida',status:'removida',latitude:-8.598,longitude:-38.572,maintenance_action:'nenhuma'});
     if(location.search.includes('photo'))rows[0].photo_url='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+    if(location.search.includes('list-layout'))rows.push(...Array.from({length:33},(_,index)=>({id:'list-'+index,city_id:64,public_code:'AR'+(index+3),common_name:index===0?'Não identificada':'Caraibeira',origin:'nativa',status:index===1?'risco':'saudavel',address:index===0?'Avenida Manoel Ferraz - São Francisco de Assis - DNER - Floresta - Pernambuco - São Francisco de Assis (DNER)':'',latitude:-8.598,longitude:-38.572,maintenance_action:'nenhuma',photo_url:index%5===0?'/logo.png':null})));
     let care=[];const reports=[{id:'r1',city_id:64,tree_id:'t1',title:'Poda solicitada',tree_service:'poda',status:'pending',created_at:'2026-10-16T12:00:00Z'}];
     export const supabase={functions:{async invoke(name,options){window.aiRequests=(window.aiRequests||[]).concat({name,...options});return window.failAi?{error:{message:'offline'}}:{data:{summary:'Resumo de teste: porte e características da espécie.',sidewalk_suitability:'com_restricoes',planting_guidance:'Conferir raízes e espaço para a copa.'}}}},auth:{async getUser(){return {data:{user:{id:'u1'}}}}},storage:{from(){return {async upload(path,file){window.uploads.push({path,size:file.size});return {error:null}},getPublicUrl(path){return {data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='}}},async remove(paths){window.removedUploads.push(...paths);return {error:null}}}}},
       rpc(name,args){
@@ -130,9 +132,9 @@ await build({
 });
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
-sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionCard.css', 'utf8');
+for (const name of ['treeAdoptionCard', 'treeEntryRedesign', 'treeInventoryRedesign', 'treeInventoryList']) sourceCss += '\n' + await fs.readFile(`src/components/arborization/${name}.css`, 'utf8');
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
-const css = await postcss([tailwind({ ...config, content: ['src/pages/MunicipalityTeamPage.jsx','src/components/municipality/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/PavementMapPage.jsx','src/components/pavement/*.jsx','src/components/PavementMapView.jsx','src/pages/ArborizationMapPage.jsx', 'src/pages/TreePage.jsx', 'src/components/Footer.jsx', 'src/components/report/ReportTreePicker.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
+const css = await postcss([tailwind({ ...config, content: ['src/pages/MunicipalityTeamPage.jsx','src/components/municipality/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/PavementMapPage.jsx','src/components/pavement/*.jsx','src/components/PavementMapView.jsx','src/pages/ArborizationMapPage.jsx', 'src/pages/TreePage.jsx', 'src/components/Footer.jsx', 'src/components/report/ReportTreePicker.jsx', 'src/components/arborization/*.jsx', 'src/components/map/FullscreenMapPanel.jsx', 'src/components/map/TelaDeMapa.jsx', 'src/components/map/mapLayout.js', 'src/components/map/MapDisplayControls.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + '\n' + await fs.readFile('node_modules/leaflet/dist/leaflet.css', 'utf8'));
 }
 const server = http.createServer(async (req, res) => {
@@ -171,21 +173,31 @@ try {
     await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
   };
   const click = async label => {
+    if(label==='Cadastrar em sequência')label='Cadastrar várias árvores';
+    if(label==='Encerrar')label='Cancelar cadastro';
+    const hasDialog = await evaluate('Boolean(document.querySelector("[role=dialog][data-state=open]"))');
+    if(!hasDialog){
+      await waitFor('!document.querySelector("[role=dialog]")');
+      await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+    }
+    if(!hasDialog && ['Lista','Mapa'].includes(label))label=label==='Lista'?'Ver lista':'Ver mapa';
+    if(!hasDialog && ['Cadastrar árvore','Planejar plantio','Cadastrar várias árvores','Manejo em lote','Planejamento anual','Exportar CSV','Estatísticas','Ver lista','Ver mapa'].includes(label)
+      && !await evaluate('Boolean(document.querySelector("[role=menu]"))'))await click('Ações');
     if(await evaluate(`Boolean([...document.querySelectorAll('[role=tab]')].find(el=>el.textContent.trim()===${JSON.stringify(label)}))`)){
       const point=await evaluate(`(()=>{const el=[...document.querySelectorAll('[role=tab]')].find(el=>el.textContent.trim()===${JSON.stringify(label)});el.scrollIntoView({block:'nearest',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);return;
     }
-    if (label === 'Mais ações') {
-      const point = await evaluate(`(()=>{const el=[...document.querySelectorAll('button')].find(el=>el.textContent.trim()===${JSON.stringify(label)});el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+    if (label === 'Mais ações' || label === 'Ações') {
+      const point = await evaluate(`(()=>{const el=document.querySelector('[role=dialog] .arborization-actions-trigger')||document.querySelector('.arborization-header .arborization-actions-trigger');el.scrollIntoView({block:'center',behavior:'instant'});const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
       await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point},sessionId);await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point},sessionId);
       await waitFor('document.querySelector("[role=menu]")?.contains(document.activeElement)');
       await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
       return;
     }
-    if (['Cadastrar em sequência', 'Manejo em lote'].includes(label) && !await evaluate(`Boolean([...document.querySelectorAll('button,[role=menuitem]')].find(el=>el.textContent.trim()===${JSON.stringify(label)}))`)) {
+    if (['Cadastrar várias árvores', 'Manejo em lote'].includes(label) && !await evaluate(`Boolean([...document.querySelectorAll('button,[role=menuitem]')].find(el=>el.textContent.trim()===${JSON.stringify(label)}))`)) {
       await click('Mais ações');await waitFor('document.querySelector("[role=menu]")');
     }
-    return evaluate(`(()=>{const scope=document.querySelector('[role=alertdialog][data-state=open]')||document.querySelector('[role=menu][data-state=open]')||[...document.querySelectorAll('[role=dialog][data-state=open]')].at(-1)||document;const button=[...scope.querySelectorAll('button,[role=menuitem]')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!button)throw Error('Botão ausente: '+${JSON.stringify(label)});button.click()})()`);
+    return evaluate(`(()=>{const scope=document.querySelector('[role=alertdialog][data-state=open]')||document.querySelector('[role=menu][data-state=open]')||[...document.querySelectorAll('[role=dialog][data-state=open]')].at(-1)||document;const button=[...scope.querySelectorAll('button,[role=menuitem]')].find(b=>b.textContent.trim()===${JSON.stringify(label)}||b.getAttribute('aria-label')===${JSON.stringify(label)});if(!button)throw Error('Botão ausente: '+${JSON.stringify(label)});button.click()})()`);
   };
   const clickMapControl = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;scope.querySelector('button[aria-label=${JSON.stringify(label)}]').click()})()`);
   const hasSatellite = 'Object.values(window.testMap._layers).some(layer=>layer._url?.includes("World_Imagery"))';
@@ -201,11 +213,18 @@ try {
   const choose = async (label,value) => {
     if(['Nome popular','Espécie do lote'].includes(label)) {
       if(value==='__new_species__') return click('Nova espécie');
-      await evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;scope.querySelector('[role=combobox]').click()})()`);
+      await evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;scope.querySelector('[data-testid=tree-species-field] [role=combobox]').click()})()`);
       await waitFor(`document.querySelector('[data-species-id="${value}"]')`);
       await evaluate(`document.querySelector('[data-species-id="${value}"]').click()`);
       await waitFor('!document.querySelector("[cmdk-root]")');
       return;
+    }
+    const locationField=await evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const label=[...scope.querySelectorAll('label')].find(e=>e.textContent===${JSON.stringify(label)});return Boolean(label?.closest('.tree-location-select'))})()`);
+    if(locationField){
+      await evaluate(`(()=>{const scope=document.querySelector('.tree-entry-dialog');const label=[...scope.querySelectorAll('label')].find(e=>e.textContent===${JSON.stringify(label)});if(label.closest('details'))label.closest('details').open=true;scope.querySelector('[aria-labelledby="'+label.id+'"]').click()})()`);
+      await waitFor('document.querySelector(".tree-location-popover[data-state=open]")');
+      await evaluate(`[...document.querySelectorAll('[data-location-option]')].find(el=>el.dataset.locationOption===${JSON.stringify(value)}).click()`);
+      await waitFor('!document.querySelector(".tree-location-popover")');return;
     }
     return evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('label')].find(e=>e.firstChild.textContent===${JSON.stringify(label)}).querySelector('select,input');if(el.closest('details'))el.closest('details').open=true;Object.getOwnPropertyDescriptor(el.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(el.tagName==='SELECT'?'change':'input',{bubbles:true}))})()`);
   };
@@ -367,32 +386,100 @@ try {
     await navigate('?public');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
     assert.ok(await evaluate('!document.body.innerText.includes("Cadastrar árvore")&&!document.body.innerText.includes("Cadastrar em sequência")'));
   };
-  if(process.argv.includes('--planning')){
-    for (const [width,height] of [[390,844],[1440,900],[1920,1080]]) {
+  // As verificações do inventário e do cadastro agora usam o fluxo unificado.
+  if(process.argv.length === 2 || ['--planning','--experience','--layout','--registration','--batch','--species'].some(flag => process.argv.includes(flag))){
+    for (const [width,height] of [[320,740],[390,844],[768,1024],[1024,768],[1440,900],[1920,1080]]) {
       const mobile = width < 768;
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
       await navigate(''); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      assert.ok(await evaluate('!document.querySelector("#arborization-filters")'),'Filtros avançados começam recolhidos');
+      assert.ok(await evaluate('Boolean(document.querySelector(".arborization-header h1"))&&!document.querySelector("[data-testid=map-page]")'),'Cabeçalho compacto restaurado');
+      await click('Estatísticas');await waitFor('document.querySelector("[data-testid=tree-neighborhood-drawer]")');assert.equal(await evaluate('document.querySelectorAll(".arborization-stat").length'),4);assert.ok(await evaluate('!document.querySelector(".arborization-stats").hidden'));await click('Fechar bairros');await waitFor('!document.querySelector("[role=dialog]")');
+      await click('Ações');await waitFor('document.querySelector(".arborization-actions-menu")');assert.ok(await evaluate('document.querySelector("[role=menu]").innerText.includes("Cadastrar árvore")&&document.querySelector("[role=menu]").innerText.includes("Planejamento anual")&&document.querySelector("[role=menu]").innerText.includes("Estatísticas")'));
+      await capture(`actions-menu-${width}`);await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[role=menu]")');
+      if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=arborization-page]").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'));
+      const mapBeforeEmpty = await evaluate('(()=>{const r=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();return {top:r.top,height:r.height,width:r.width}})()');
+      await choose('Tipo de registro','planned'); await waitFor('document.querySelectorAll(".tree-map-pin").length===0');
+      await waitFor('document.querySelector(".arborization-filter-feedback[role=status]")?.innerText.includes("Nenhuma árvore encontrada")');
+      const mapWhenEmpty = await evaluate('(()=>{const r=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();return {top:r.top,height:r.height,width:r.width}})()');
+      // O aviso pode ativar a barra vertical nativa em viewports pequenas.
+      assert.ok(Math.abs(mapWhenEmpty.width-mapBeforeEmpty.width)<=16&&Math.abs(mapWhenEmpty.height-mapBeforeEmpty.height)<2,`Filtro sem resultados preserva as dimensões do mapa: ${JSON.stringify({mapBeforeEmpty,mapWhenEmpty})}`);
+      assert.ok(mapWhenEmpty.top-mapBeforeEmpty.top<=(mobile?90:60),'Aviso sem resultados é compacto e não empurra o mapa com um cartão grande');
+      assert.equal(await evaluate('document.querySelectorAll(".arborization-explorer > .border-dashed").length'),0,'Não duplica o aviso em um cartão acima do mapa');
+      if([390,1440,1920].includes(width))await capture(`experience-empty-${width}`);
+      await choose('Tipo de registro','all'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await waitFor('!document.querySelector(".arborization-filter-feedback[role=status]")');
+      await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+      await evaluate('window.inventoryMapBefore=window.testMap;window.inventoryMapBefore.setZoom(16,{animate:false});true');
+      const mapWidthBeforeFilters = await evaluate('document.querySelector("[data-testid=tree-map]").getBoundingClientRect().width');
+      await openFilters();
+      assert.ok(await evaluate('(()=>{const dialog=document.querySelector("#arborization-filters"),scroll=dialog.querySelector(".arborization-filter-scroll"),fields=dialog.querySelector(".arborization-filter-fields"),select=fields.querySelector("select");return getComputedStyle(dialog).overflowY==="hidden"&&getComputedStyle(fields).overflowY==="visible"&&scroll.getBoundingClientRect().right-select.getBoundingClientRect().right>=24})()'),'A moldura rola e os campos mantêm espaço para o foco e a barra');
+      if(width>=980){
+        assert.ok(await evaluate('Boolean(document.querySelector(".arborization-filter-drawer[role=dialog]"))'),'Filtros abrem sobre o mapa no desktop');
+        const mapWidthWithFilters = await evaluate('document.querySelector("[data-testid=tree-map]").getBoundingClientRect().width');
+        assert.ok(Math.abs(mapWidthWithFilters-mapWidthBeforeFilters)<=20,'Painel não reserva coluna nem estreita o mapa');
+        if(width>=1440)await capture(`map-filters-overlay-${width}`);
+      }
+      await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);
+      await waitFor('!document.querySelector("#arborization-filters")');
+      const filterMapState = await evaluate('({same:window.testMap===window.inventoryMapBefore,zoom:window.testMap.getZoom()})');
+      assert.ok(filterMapState.same&&filterMapState.zoom===16,`Recolher filtros preserva mapa e zoom em ${width}px: ${JSON.stringify(filterMapState)}`);
+      await openFilters();await choose('Situação','risco');await evaluate('document.querySelector("#arborization-filters form").requestSubmit()');await waitFor('document.querySelectorAll(".tree-map-pin").length===1');
+      await evaluate('document.querySelector(".arborization-reset-filters").click()');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await waitFor('!document.querySelector("#arborization-filters")');
+      const mapMetrics = await evaluate('(()=>{const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect(),workspace=document.querySelector(".arborization-workspace").getBoundingClientRect();return {width:Math.round(map.width),height:Math.round(map.height),workspaceWidth:Math.round(workspace.width),left:Math.round(map.left),right:Math.round(document.documentElement.clientWidth-map.right),bottom:Math.round(map.bottom),pageBottom:Math.round(document.querySelector("[data-testid=arborization-page]").getBoundingClientRect().bottom)}})()');
+      if(width>=980){assert.ok(mapMetrics.width>=mapMetrics.workspaceWidth-2,'Mapa ocupa a largura disponível');assert.ok(mapMetrics.height>=560,'Mantém a altura do mapa anterior');}
+      if(width>=1200){
+        assert.ok(mapMetrics.width<=1600&&mapMetrics.width<width*.93,'Mapa desktop tem largura reduzida');
+        assert.ok(Math.abs(mapMetrics.left-mapMetrics.right)<=2,'Mapa desktop centralizado');
+        assert.ok(await evaluate('(()=>{const map=document.querySelector("[data-testid=tree-map]").getBoundingClientRect();return [".arborization-header","[data-testid=arborization-filters-toolbar]",".arborization-data-note"].every(selector=>{const r=document.querySelector(selector).getBoundingClientRect();return Math.abs(map.left-r.left)<2&&Math.abs(map.width-r.width)<2})})()'),'Cabeçalho, busca, filtros e nota alinhados com o mapa');
+      }
+      assert.ok(await evaluate('(()=>{const a=document.querySelector("[data-testid=tree-map] button[aria-label^=Expandir]").getBoundingClientRect(),b=document.querySelector(".leaflet-control-zoom").getBoundingClientRect();return a.right<=b.left||a.bottom<=b.top})()'),'Tela cheia não sobrepõe o zoom');
+      await evaluate('scrollTo({top:0,behavior:"instant"})');
+      await capture(`experience-inventory-${width}`);
+      if(width===1440){
+        await evaluate('window.mapBeforeFullscreen=window.testMap;true');await click('Tela cheia');await waitFor('document.querySelector("[role=dialog] .leaflet-container")');assert.ok(await evaluate('window.testMap===window.mapBeforeFullscreen'),'Tela cheia compartilhada mantém a instância do mapa');
+        await click('Ações');await click('Cadastrar árvore');await waitFor('document.querySelector(".tree-entry-dialog")&&document.querySelectorAll("[role=dialog]").length===1');assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),1,'Cadastro aberto pelo menu encerra a tela cheia');
+        await click('Cancelar');await waitFor('!document.querySelector("[role=dialog]")');assert.ok(await evaluate('window.testMap===window.mapBeforeFullscreen'),'Retorna ao mesmo mapa após cancelar o cadastro');
+      }
       await click('Cadastrar árvore'); await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      assert.ok(await evaluate('(()=>{const r=document.querySelector(".tree-entry-dialog").getBoundingClientRect();return r.top>=12&&r.bottom<=innerHeight+1&&(innerWidth<600||r.left>=20&&r.right<=innerWidth-20)})()'),'Cadastro abre com contexto visível ao redor');
+      assert.ok(await evaluate('!document.querySelector(".tree-entry-map-caption")&&!document.querySelector("[data-testid=tree-form-map] .tree-map-tools")'),'Mapa do cadastro sem cartão de texto nem seletor de camada sobreposto');
+      assert.ok(await evaluate('(()=>{const group=document.querySelector(".tree-entry-map-actions"),buttons=group.querySelectorAll("button"),gps=buttons[0].getBoundingClientRect(),layer=buttons[1].getBoundingClientRect();return group.innerText.includes("Usar GPS")&&group.innerText.includes("Satélite")&&Math.abs(gps.top-layer.top)<2})()'),'Satélite fica ao lado de Usar GPS');
+      await evaluate('window.mapBeforeLayer=window.testMap;true');await clickMapControl('Usar mapa de satélite');await waitFor(hasSatellite);assert.ok(await evaluate('window.mapBeforeLayer===window.testMap'),'Troca de camada preserva o mapa');await clickMapControl('Usar mapa padrão');
       await evaluate('window.failAddress=true'); await click('Usar GPS');
-      await waitFor('document.querySelector(".tree-entry-dialog").innerText.includes("Não foi possível identificar")');
+      await waitFor('document.querySelector(".tree-entry-dialog").innerText.includes("Endereço não identificado")');
       await choose('Rua cadastrada','street1'); await choose('Bairro','b1');
-      if(mobile) await click('Continuar');
       await evaluate('document.querySelector("input[value=planned]").click()');
       await choose('Ano previsto de plantio *','2027');
+      assert.equal(await evaluate('getComputedStyle(document.documentElement).overflowY'),'hidden');
+      if(width>=980)assert.ok(await evaluate('(()=>{const root=document.querySelector(".tree-entry-layout").getBoundingClientRect(),pane=document.querySelector(".tree-entry-pane").getBoundingClientRect();return pane.width/root.width>=.48&&pane.width/root.width<=.56})()'),'Dados ocupam uma coluna equilibrada');
+      await capture(`experience-location-${width}`);
+      await click('Continuar');
+      await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="1"');
       await choose('Nome popular','s1');
+      if(width===1440){
+        await click('Nova espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');await input('Nome popular','Jacarandá');await click('Cancelar');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');assert.equal(await fieldValue('Nome popular'),'s1');
+      }
+      await click('Voltar');await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="0"');
+      await click('Continuar');await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="1"');assert.equal(await fieldValue('Nome popular'),'s1');
       await choose('Tipo de local de plantio','calcada'); await choose('Largura da calçada','media');
       await choose('Presença de fiação elétrica','baixa');
       assert.ok(!await evaluate('Boolean([...document.querySelectorAll("summary")].find(el=>el.textContent.includes("Estado fitossanitário")))'),'Plano exibe somente avaliação do local');
       assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Formulário sem rolagem horizontal');
+      assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-testid=tree-form-footer]").getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})()'),'Rodapé visível em todas as etapas');
       await capture(`planning-form-${width}`);
-      if(mobile) await click('Revisar');
+      await click('Revisar cadastro');
+      await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="2"');
+      await capture(`experience-review-${width}`);
       await evaluate('window.failSave=true;document.querySelector(".tree-entry-dialog form").requestSubmit()');
       await waitFor('document.querySelector(".tree-entry-dialog [role=alert]")');
       assert.equal(await fieldValue('Ano previsto de plantio *'),'2027');
       await evaluate('window.failSave=false;document.querySelector(".tree-entry-dialog form").requestSubmit()');
       await waitFor('!document.querySelector(".tree-entry-dialog")');
       assert.deepEqual(await evaluate('(()=>{const p=window.writes.find(w=>w.table==="city_trees"&&w.operation==="insert").payload;return [p.status,p.planting_year,p.street_id,p.bairro_id,p.planting_site,p.sidewalk_width]})()'),['planejada',2027,'street1','b1','calcada','media']);
-      await choose('Rua','name:rua das flores'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await openFilters();await choose('Rua','name:rua das flores');await evaluate('document.querySelector("#arborization-filters form").requestSubmit()'); await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
       await click('Planejamento anual'); await waitFor('document.querySelector("[role=dialog] table")');
       await choose('Ano previsto','2027');
       assert.ok(await evaluate('document.querySelector("[role=dialog] tbody").innerText.includes("Rua das Flores")'));
@@ -406,18 +493,103 @@ try {
       await waitFor('!document.querySelector("[role=dialog]")');
       await click('Lista'); await waitFor('document.querySelectorAll("article").length===2'); await click('Editar');
       await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
-      if(mobile) await click('Continuar');
-      await evaluate('document.querySelector("input[value=existing]").click()'); await choose('Plantio realizado em *','2026-11-01');
+      await evaluate('document.querySelector("input[value=existing]").click()');
+      await click('Continuar'); await choose('Plantio realizado em *','2026-11-01');
       await choose('Sanidade geral','regular'); await choose('DAP (cm) — medido a 1,30 m do solo','22.5');
-      if(mobile) await click('Revisar');
+      await click('Revisar cadastro');
+      await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="2"');
       await evaluate('document.querySelector(".tree-entry-dialog form").requestSubmit()'); await waitFor('!document.querySelector(".tree-entry-dialog")');
       const updated = await evaluate('window.writes.filter(w=>w.table==="city_trees"&&w.operation==="update").at(-1).payload');
       assert.equal(updated.status,'saudavel');assert.equal(updated.planting_year,2027);assert.equal(updated.planted_at,'2026-11-01');assert.equal(updated.dap_cm,22.5);assert.equal(updated.health,'regular');
       await click('Planejamento anual'); await waitFor('document.querySelector("[role=dialog] table")');
       assert.equal(await evaluate('document.querySelector("[role=dialog] tbody tr td:nth-child(5)").textContent'),'0');
       assert.equal(await evaluate('document.querySelector("[role=dialog] tbody tr td:nth-child(6)").textContent'),'1');
-      results.push({width,plannedRegistration:true,manualStreet:true,survey:true,saveRetry:true,streetFilter:true,annualReport:true,csv:true,confirmedPlanting:true,noOverflow:true});
+      if([390,1440,1920].includes(width)){
+        await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[role=dialog]")');
+        await click('Cadastrar em sequência');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+        await evaluate('window.failAddress=false;window.addressResult=null;window.addressByLatitude={"-8.603":{address:"Rua das Flores, 12 - Centro",suburb:"Centro"},"-8.604":{address:"Rua Parcial - Três Marias",suburb:"Três Marias"}};true');
+        if(width>=980)assert.ok(await evaluate('(()=>{const r=document.querySelector(".tree-entry-layout").getBoundingClientRect(),map=document.querySelector(".tree-entry-location").getBoundingClientRect();return map.width/r.width>=.6&&map.width/r.width<=.67})()'),'Seleção em lote dá prioridade ao mapa');
+        await capture(`batch-entry-empty-${width}`);
+        await evaluate('window.testMap.fire("click",{latlng:{lat:-8.603,lng:-38.577}});window.testMap.fire("click",{latlng:{lat:-8.604,lng:-38.578}});true');await waitFor('document.querySelector("[data-testid=tree-batch-points]").innerText.includes("2 árvores")');
+        await waitFor('document.querySelectorAll("[data-testid=tree-batch-point]").length===2&&!document.querySelector(".tree-batch-point-summary [role=status]")');
+        assert.equal(await fieldValue('Rua do ponto 1'),'street1');assert.equal(await fieldValue('Bairro do ponto 1'),'b1');
+        assert.equal(await fieldValue('Rua do ponto 2'),'street3');assert.equal(await fieldValue('Bairro do ponto 2'),'b2');
+        assert.equal(await fieldValue('Endereço / referência do ponto 1'),'Rua das Flores, 12 - Centro');
+        assert.ok(await evaluate('document.querySelectorAll(".tree-batch-point-correction[open]").length===0'),'Correção é opcional e começa recolhida');
+        assert.deepEqual(await evaluate('[...document.querySelectorAll(".tree-map-draft text")].map(el=>el.textContent)'),['1','2']);
+        assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-batch-points]").length'),1,'Uma única contagem de seleção');
+        await capture(`batch-entry-addresses-${width}`);
+        if(width===1440){
+          await evaluate('window.addressByLatitude["-8.607"]={address:"Rua das Flores, 15",suburb:"Centro"};window.failAddress=true;window.testMap.fire("click",{latlng:{lat:-8.607,lng:-38.581}});true');await waitFor('document.querySelector(".tree-batch-lookup-failed")');
+          await evaluate('window.failAddress=false');await click('Tentar novamente');await waitFor('!document.querySelector(".tree-batch-point-summary [role=status]")&&!document.querySelector(".tree-batch-lookup-failed")');
+          assert.ok(await fieldValue('Endereço / referência do ponto 3'));assert.equal(await fieldValue('Bairro do ponto 3'),'b1');await click('Remover ponto 3');
+          await evaluate('window.nextAddressDelay=450;window.testMap.fire("click",{latlng:{lat:-8.605,lng:-38.579}});true');
+          await waitFor('document.querySelectorAll("[data-testid=tree-batch-point]").length===3');
+          await choose('Rua do ponto 3','street3');await choose('Bairro do ponto 3','b2');await choose('Endereço / referência do ponto 3','Rua Parcial, em frente à praça');
+          await waitFor('!document.querySelector(".tree-batch-point-summary [role=status]")');
+          assert.equal(await fieldValue('Endereço / referência do ponto 3'),'Rua Parcial, em frente à praça');assert.equal(await fieldValue('Bairro do ponto 3'),'b2');
+          await click('Localizar ponto 3 no mapa');assert.equal(await evaluate('window.testMap.getCenter().lat'),-8.605);
+          await click('Remover ponto 3');await waitFor('document.querySelectorAll(".tree-map-draft").length===2');
+          await evaluate('window.nextAddressDelay=450;window.testMap.fire("click",{latlng:{lat:-8.606,lng:-38.580}});true');
+          await waitFor('document.querySelectorAll("[data-testid=tree-batch-point]").length===3');await click('Remover ponto 3');
+          await pause(550);assert.equal(await evaluate('document.querySelectorAll("[data-testid=tree-batch-point]").length'),2,'Resposta tardia não recria um ponto removido');
+        }
+        if(width===390){await click('Recolher pontos');assert.ok(await evaluate('document.querySelector(".tree-batch-panel-body").getBoundingClientRect().height===0'));await click('Expandir pontos');}
+        await evaluate('document.querySelector("input[value=planned]").click()');await choose('Ano previsto de plantio *','2028');
+        await choose('Endereço / referência do ponto 2','Rua Parcial, 20 - perto da praça');
+        await capture(`batch-entry-correction-${width}`);
+        if(width===390){
+          await send('Emulation.setDeviceMetricsOverride',{width,height:520,deviceScaleFactor:1,mobile:false},sessionId);
+          assert.ok(await evaluate('document.querySelector("[data-testid=tree-form-footer]").getBoundingClientRect().bottom<=innerHeight+1&&getComputedStyle(document.querySelector(".tree-entry-main")).overflowY==="auto"'),'Altura reduzida permite rolar sem perder o rodapé');
+          await capture('batch-entry-short-height');await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+        }
+        await click('Continuar');await choose('Nome popular','s1');await click('Revisar cadastro');await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="2"');
+        assert.ok(await evaluate('document.querySelector(".tree-entry-review").innerText.includes("Rua das Flores, 12 - Centro")&&document.querySelector(".tree-entry-review").innerText.includes("Rua Parcial, 20 - perto da praça")'));
+        const requestsBeforeSave=await evaluate('window.addressRequests.length');
+        await evaluate('window.failSave=true;document.querySelector(".tree-entry-dialog form").requestSubmit()');await waitFor('document.querySelector(".tree-entry-footer [role=alert]")');
+        assert.equal(await evaluate('document.querySelectorAll(".tree-batch-review-addresses li").length'),2);
+        await evaluate('window.failSave=false;document.querySelector(".tree-entry-dialog form").requestSubmit()');await waitFor('document.querySelector(".tree-entry-notice")?.innerText.includes("2 árvores cadastradas")');
+        assert.equal(await evaluate('window.addressRequests.length'),requestsBeforeSave,'Salvar e repetir não refazem consultas concluídas');
+        const batch = await evaluate('window.writes.filter(w=>w.table==="city_trees"&&w.operation==="insert").at(-1).payload');assert.equal(batch.length,2);assert.deepEqual(batch.map(row=>[row.street_id,row.bairro_id,row.planting_year]),[['street1','b1',2028],['street3','b2',2028]]);
+        assert.deepEqual(batch.map(row=>row.address),['Rua das Flores, 12 - Centro','Rua Parcial, 20 - perto da praça']);
+        await evaluate('document.querySelector(".tree-entry-header > button").click()');await waitFor('!document.querySelector(".tree-entry-dialog")');
+      }
+      results.push({width,mapMetrics,balancedColumns:true,filtersPreserveMap:true,stepNavigation:true,plannedRegistration:true,manualStreet:true,survey:true,saveRetry:true,streetFilter:true,annualReport:true,csv:true,confirmedPlanting:true,noOverflow:true});
     }
+    for(const query of ['?public&dark','?territorial&scope=trees&area=arborizacao']){
+      await navigate(query);await waitFor('document.querySelectorAll(".tree-map-pin").length===2');assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      if(query.includes('public')){await click('Ações');await waitFor('document.querySelector("[role=menu]")');assert.ok(await evaluate('!document.querySelector("[role=menu]").innerText.includes("Cadastrar árvore")&&!document.querySelector("[role=menu]").innerText.includes("Manejo em lote")'),'Consulta pública não mostra gestão');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'},sessionId);await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'},sessionId);await waitFor('!document.querySelector("[role=menu]")');}
+      await capture(query.includes('public')?'experience-public-dark':'experience-municipality');
+    }
+  }else if(process.argv.includes('--list-layout')){
+    for(const [width,height] of [[320,740],[390,844],[768,1024],[1061,900],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?list-layout');await waitFor('document.querySelectorAll(".tree-map-pin").length===35');
+      await click('Lista');await waitFor('document.querySelectorAll(".arborization-tree-card").length===12');
+      const layout=await evaluate(`(()=>{const grid=document.querySelector('.arborization-tree-grid'),r=grid.getBoundingClientRect();return {columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,left:r.left,right:document.documentElement.clientWidth-r.right,noOverflow:document.documentElement.scrollWidth<=innerWidth}})()`);
+      assert.equal(layout.columns,width>=1024?3:width>=640?2:1);
+      assert.ok(layout.noOverflow,'Lista sem rolagem horizontal');
+      if(width>=1200)assert.ok(layout.left<=64&&layout.right<=64,'Listagem fluida nas larguras desktop');
+      assert.ok(await evaluate(`(()=>{const toolbar=document.querySelector('.arborization-primary-filters').getBoundingClientRect(),grid=document.querySelector('.arborization-tree-grid').getBoundingClientRect();return toolbar.bottom<=grid.top&&document.querySelector('.arborization-list-record-count').textContent==='35 registros'})()`));
+      assert.ok(await evaluate(`(()=>{const photo=document.querySelector('.arborization-tree-thumbnail').getBoundingClientRect(),text=document.querySelector('.arborization-tree-thumbnail').previousElementSibling.getBoundingClientRect();return photo.left>=text.right&&photo.height<100})()`),'Miniatura compacta ao lado da descrição');
+      if(width>=1024)assert.ok(await evaluate(`(()=>{const filters=document.querySelector('.arborization-primary-filters');return new Set([...filters.children].map(el=>Math.round(el.getBoundingClientRect().top))).size<=2&&filters.getBoundingClientRect().height<80})()`),'Barra de filtros compacta no desktop');
+      await capture('inventory-list-'+width);
+      await click('Próxima');await waitFor('document.querySelector(".arborization-list-pagination span").textContent==="2 / 3"');
+      await click('Próxima');await waitFor('document.querySelectorAll(".arborization-tree-card").length===11');
+      assert.equal(await evaluate('document.querySelector(".arborization-list-pagination span").textContent'),'3 / 3');
+      await evaluate(`(()=>{const input=document.querySelector('.arborization-search input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'AR3');input.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+      await waitFor('document.querySelector(".arborization-list-pagination span").textContent==="1 / 1"');
+      await click('Limpar filtros (1)');await waitFor('document.querySelectorAll(".arborization-tree-card").length===12');
+      await click('No mapa');await waitFor('document.querySelector("[data-testid=tree-map]")');
+      results.push({width,...layout,pagination:true,searchResetsPage:true,mapAction:true});
+    }
+    await navigate('?list-layout&public&dark');await waitFor('document.querySelectorAll(".tree-map-pin").length===35');
+    await click('Lista');await waitFor('document.querySelectorAll(".arborization-tree-card").length===12');
+    assert.ok(await evaluate(`![...document.querySelectorAll('.arborization-tree-card button')].some(el=>el.textContent==='Editar')`),'Edição respeita as permissões');
+    await capture('inventory-list-public-dark-1920');
+    await navigate('?list-layout');await waitFor('document.querySelectorAll(".tree-map-pin").length===35');await click('Lista');
+    await click('Editar');await waitFor('document.querySelector(".tree-entry-dialog")');
+    assert.ok(await evaluate('document.querySelector(".tree-entry-dialog").textContent.includes("AR1")'),'Editar abre o registro selecionado');
   }else if(process.argv.includes('--most-planted')){
     for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);

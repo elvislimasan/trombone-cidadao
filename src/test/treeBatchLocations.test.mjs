@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_TREE } from '../lib/arborization.js';
-import { treeBatchPayloads } from '../lib/treeBatchLocations.js';
+import { applyTreeBatchAddress, treeBatchPayloads, treeBatchPointKey } from '../lib/treeBatchLocations.js';
+import { findTreeStreet, treeStreetAddressName } from '../lib/treeStreetLocation.js';
 
 const values = { ...EMPTY_TREE, common_name: 'Nim', species_id: 'nim', address: 'Referência compartilhada', neighborhood: 'Bairro errado', bairro_id: 'errado' };
 const points = [{ latitude: -8.60, longitude: -38.57 }, { latitude: -8.61, longitude: -38.58 }];
@@ -63,4 +64,49 @@ test('cancelar a tela interrompe a preparação do lote sem retornar dados para 
   await Promise.resolve(); controller.abort();
   await assert.rejects(pending, /cancelada/);
   finish({ address: 'Resposta atrasada', suburb: 'Centro' });
+});
+
+const streets = [{ id: 'rua-a', name: 'Rua A', city_id: 64, bairro_id: 'centro' }, { id: 'rua-b', name: 'Rua B', city_id: 64, bairro_id: 'marias' }];
+
+test('prévia identifica IDs locais e mantém o endereço completo encontrado no mapa', async () => {
+  const location = { address: 'Rua A, 25 - Centro - Floresta', suburb: 'CENTRO' };
+  const point = applyTreeBatchAddress({ ...points[0], addressStatus: 'success' }, location, 64, { streets, neighborhoods });
+  assert.equal(point.street_id, 'rua-a'); assert.equal(point.bairro_id, 'centro');
+  const cache = new Map([[treeBatchPointKey(point, 64), location]]);
+  const [row] = await treeBatchPayloads(values, [point], 64, { cache, streets, neighborhoods, lookup: () => { throw new Error('Consulta já concluída'); } });
+  assert.equal(row.address, location.address); assert.equal(row.street_id, 'rua-a'); assert.equal(row.neighborhood, 'Centro');
+});
+
+test('consulta tardia preserva referência, rua e bairro corrigidos, inclusive bairro vazio', async () => {
+  const point = { ...points[0], addressStatus: 'loading', manualAddress: true, address: 'Rua B, em frente à praça', manualStreet: true, street_id: 'rua-b', street_name: 'Rua B', manualNeighborhood: true, bairro_id: '', neighborhood: '' };
+  const location = { address: 'Rua A', suburb: 'Centro' };
+  const resolved = applyTreeBatchAddress(point, location, 64, { streets, neighborhoods });
+  assert.equal(resolved.address, point.address); assert.equal(resolved.street_id, 'rua-b'); assert.equal(resolved.bairro_id, '');
+  const [row] = await treeBatchPayloads(values, [resolved], 64, { streets, neighborhoods, cache: new Map([[treeBatchPointKey(point, 64), location]]) });
+  assert.equal(row.address, point.address); assert.equal(row.street_id, 'rua-b'); assert.equal(row.bairro_id, null);
+});
+
+test('endereço manual permite salvar um ponto cuja geocodificação falhou sem perder bairro corrigido', async () => {
+  const [row] = await treeBatchPayloads(values, [{ ...points[0], addressStatus: 'failed', manualAddress: true, address: 'Praça da igreja', manualNeighborhood: true, bairro_id: 'marias', neighborhood: 'Três Marias' }], 64, { streets, neighborhoods, lookup: () => { throw new Error('Não deve consultar'); } });
+  assert.equal(row.address, 'Praça da igreja'); assert.equal(row.bairro_id, 'marias'); assert.equal(row.street_id, null);
+});
+
+test('ruas ambíguas ou de outra cidade não viram vínculos incorretos', () => {
+  const catalogs = { neighborhoods, streets: [...streets, { id: 'duplicada', name: 'Rua A', city_id: 64, bairro_id: 'marias' }, { id: 'fora', name: 'Rua C', city_id: 65 }] };
+  assert.equal(applyTreeBatchAddress(points[0], { address: 'Rua A' }, 64, catalogs).street_id, '');
+  assert.equal(applyTreeBatchAddress(points[0], { address: 'Rua A - Centro', suburb: 'Centro' }, 64, catalogs).street_id, 'rua-a');
+  assert.equal(applyTreeBatchAddress(points[0], { address: 'Rua C', suburb: 'Bairro novo' }, 64, catalogs).street_id, '');
+  assert.equal(applyTreeBatchAddress(points[0], { address: 'Rua C', suburb: 'Bairro novo' }, 64, catalogs).neighborhood, 'Bairro novo');
+});
+
+test('endereço completo e abreviações selecionam a rua encontrada sem perder a referência', () => {
+  const catalog = [{ id: 'avenida', city_id: 64, name: 'Av. Antônio Tito Ferraz', bairro_id: 'centro' }];
+  const address = 'Avenida Antônio Tito Ferraz - Centro - Floresta - Pernambuco';
+  assert.equal(findTreeStreet(address, catalog, 64)?.id, 'avenida');
+  assert.equal(findTreeStreet('AV Antonio Tito Ferraz, 25', catalog, 64)?.id, 'avenida');
+  assert.equal(findTreeStreet(address, catalog, 65), null);
+  assert.equal(findTreeStreet('Avenida Antônio Ferraz', catalog, 64), null);
+  assert.equal(treeStreetAddressName(address), 'Avenida Antônio Tito Ferraz');
+  const resolved = applyTreeBatchAddress(points[0], { address, suburb: 'Centro' }, 64, { neighborhoods, streets: catalog });
+  assert.equal(resolved.street_id, 'avenida'); assert.equal(resolved.address, address);
 });

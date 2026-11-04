@@ -17,22 +17,25 @@ function NeighborhoodList({ rows, maximum }) {
   </ol>;
 }
 
-export default function TreeNeighborhoodSidebar({ neighborhoods, unidentified = 0, loading, error }) {
-  const [open, setOpen] = useState(false);
+export default function TreeNeighborhoodSidebar({ neighborhoods, unidentified = 0, loading, error, open: controlledOpen, onOpenChange, hideTrigger = false, summary }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = value => { if (controlledOpen === undefined) setInternalOpen(value); onOpenChange?.(value); if (!value) setSearch(''); };
   const [search, setSearch] = useState('');
   const total = neighborhoods.reduce((sum, row) => sum + row.count, unidentified);
   const maximum = neighborhoods[0]?.count || 0;
   const results = useMemo(() => neighborhoods.filter(row => treeNameKey(row.name).includes(treeNameKey(search))), [neighborhoods, search]);
 
-  return <Dialog open={open} onOpenChange={value => { setOpen(value); if (!value) setSearch(''); }}>
-      <DialogTrigger asChild><Button variant="outline" className="arborization-statistics-trigger" disabled={loading || Boolean(error)}><BarChart3 className="h-4 w-4" aria-hidden="true" />Estatísticas</Button></DialogTrigger>
+  return <Dialog open={open} onOpenChange={setOpen}>
+      {!hideTrigger && <DialogTrigger asChild><Button variant="outline" className="arborization-statistics-trigger" disabled={loading || Boolean(error)}><BarChart3 className="h-4 w-4" aria-hidden="true" />Estatísticas</Button></DialogTrigger>}
       <DialogContent hideClose placement="right" className="arborization-neighborhood-drawer" overlayClassName="bg-black/40 arborization-neighborhood-overlay" data-testid="tree-neighborhood-drawer">
-        <div className="arborization-drawer-header"><div className="min-w-0"><p className="arborization-neighborhood-caption">Inventário de arborização</p><DialogTitle>Árvores cadastradas por bairro</DialogTitle></div><DialogClose asChild><Button size="icon" variant="ghost" aria-label="Fechar bairros"><X className="h-5 w-5" /></Button></DialogClose></div>
+        <div className="arborization-drawer-header"><div className="min-w-0"><p className="arborization-neighborhood-caption">Inventário de arborização</p><DialogTitle>{summary ? 'Estatísticas de arborização' : 'Árvores cadastradas por bairro'}</DialogTitle></div><DialogClose asChild><Button size="icon" variant="ghost" aria-label="Fechar bairros"><X className="h-5 w-5" /></Button></DialogClose></div>
         <DialogDescription className="arborization-drawer-description">Consulte todos os bairros, do maior para o menor número de árvores vivas nos filtros aplicados.</DialogDescription>
         <div className="arborization-neighborhood-total mx-6"><Trees className="h-5 w-5" aria-hidden="true" /><strong>{total.toLocaleString('pt-BR')}</strong><span>{total === 1 ? 'árvore viva no filtro' : 'árvores vivas no filtro'}</span></div>
         <label className="arborization-drawer-search"><span className="sr-only">Buscar bairro</span><Search className="h-4 w-4" aria-hidden="true" /><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar bairro…" /></label>
         <p role="status" className="arborization-drawer-result-count">{results.length} {results.length === 1 ? 'bairro encontrado' : 'bairros encontrados'}</p>
         <div className="arborization-drawer-scroll">
+          {summary && <div className="arborization-statistics-overview arborization-redesign">{summary}</div>}
           {results.length ? <NeighborhoodList rows={results} maximum={maximum} /> : <p className="arborization-neighborhood-empty">Nenhum bairro encontrado{search.trim() ? ' para esta busca' : ''}.</p>}
         </div>
         <div className="arborization-drawer-footer"><p>{unidentified.toLocaleString('pt-BR')} {unidentified === 1 ? 'árvore viva sem bairro identificado' : 'árvores vivas sem bairro identificado'}.</p><p>A contagem depende do levantamento realizado e não representa a cobertura vegetal.</p></div>

@@ -1,0 +1,72 @@
+/* A listagem usa toda a largura disponível; somente os textos dos cards são limitados. */
+.arborization-redesign.is-list-view .arborization-header { gap: 16px; padding-bottom: 12px; }
+.arborization-redesign.is-list-view .arborization-header-identity { gap: 12px; }
+.arborization-redesign.is-list-view .arborization-intro { gap: 10px; }
+.arborization-redesign.is-list-view .arborization-intro h1 { font-size: 20px; letter-spacing: -.025em; }
+.arborization-redesign.is-list-view .arborization-title-icon { width: 32px; height: 32px; border-radius: 8px; }
+.arborization-redesign.is-list-view .arborization-title-icon svg { width: 21px; height: 21px; }
+.arborization-redesign.is-list-view .arborization-count-badge { gap: 6px; padding: 5px 10px; font-size: 11px; }
+.arborization-redesign.is-list-view .arborization-primary-filters { grid-template-columns: minmax(160px, 1fr) 200px auto auto auto; gap: 12px; padding-block: 12px 18px; }
+.arborization-redesign.is-list-view .arborization-search input,
+.arborization-redesign.is-list-view .arborization-record-select select,
+.arborization-redesign.is-list-view .arborization-filter-trigger { height: 36px; border-radius: 8px; padding-block: 7px; }
+.arborization-redesign.is-list-view .arborization-search > svg,
+.arborization-redesign.is-list-view .arborization-record-select > svg { top: 10px; }
+.arborization-list-view-toggle { display: flex; align-items: center; gap: 3px; padding: 3px; border: 1px solid rgb(var(--border-subtle)); border-radius: 8px; background: rgb(var(--surface-raised)); }
+.arborization-list-view-toggle > button { height: 28px; min-width: 76px; gap: 7px; padding-inline: 12px; border-radius: 5px; font-size: 12px; }
+.arborization-list-view-toggle > button > svg { width: 16px; height: 16px; color: var(--arbor-accent); }
+.arborization-list-view-toggle > button[aria-pressed=true] { background: #15803d; color: #fff; box-shadow: 0 1px 3px rgb(21 128 61 / .2); }
+.arborization-list-view-toggle > button[aria-pressed=true] > svg { color: inherit; }
+.arborization-list-record-count { margin-left: 12px; text-align: right; white-space: nowrap; font-size: 12px; color: rgb(var(--text-secondary)); font-variant-numeric: tabular-nums; }
+.arborization-list { display: flex; flex-direction: column; min-width: 0; gap: 24px; }
+.arborization-tree-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.arborization-redesign .arborization-results .arborization-tree-card { display: flex; flex-direction: column; min-width: 0; padding: 12px 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 10px; background: rgb(var(--surface-raised)); box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
+.arborization-tree-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.arborization-tree-title { min-width: 0; text-align: left; border-radius: 3px; }
+.arborization-tree-title h3 { font-size: 16px; line-height: 1.4; font-weight: 700; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.arborization-tree-status { display: inline-flex; flex-shrink: 0; align-items: center; gap: 5px; max-width: 65%; margin-top: 1px; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--tree-status) 13%, rgb(var(--surface-raised))); color: color-mix(in srgb, var(--tree-status) 65%, rgb(var(--text-primary))); font-size: 11px; line-height: 1.3; font-weight: 600; }
+.arborization-tree-status > span { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--tree-status); }
+.arborization-tree-card-body { display: flex; flex: 1; align-items: flex-start; gap: 12px; min-width: 0; margin-block: 5px 12px; }
+.arborization-tree-description { flex: 1; min-width: 0; color: rgb(var(--text-secondary)); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.arborization-tree-address { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.arborization-tree-thumbnail { flex: 0 0 120px; width: 120px; margin: 0; }
+.arborization-tree-thumbnail-image { width: 100%; height: 64px; border: 1px solid rgb(var(--border-subtle)); border-radius: 4px; background: rgb(var(--surface-subtle)); object-fit: cover; }
+.arborization-tree-thumbnail[data-illustrative] .arborization-tree-thumbnail-image { object-fit: contain; }
+.arborization-tree-thumbnail-caption { margin-top: 3px; color: rgb(var(--text-secondary)); font-size: 9px; line-height: 1.3; }
+.arborization-tree-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid rgb(var(--border-subtle)); }
+.arborization-tree-card-actions > :is(button, a) { display: inline-flex; align-items: center; justify-content: center; height: 28px; gap: 5px; padding: 0 10px; border-radius: 7px; font-size: 12px; font-weight: 500; }
+.arborization-tree-card-actions svg { width: 14px; height: 14px; }
+.arborization-list-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.arborization-redesign .arborization-list-footer .arborization-data-note { padding: 0; }
+.arborization-list-pagination { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+.arborization-list-pagination > button { height: 36px; padding-inline: 18px; border-radius: 9px; font-size: 12px; }
+.arborization-list-pagination > span { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (min-width: 640px) {
+  .arborization-tree-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .arborization-tree-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .arborization-redesign.is-list-view .arborization-primary-filters { grid-template-columns: minmax(160px, 1fr) 180px auto auto; }
+  .arborization-list-record-count { grid-column: 1 / -1; margin: -4px 0 0; }
+}
+@media (max-width: 767px) {
+  .arborization-redesign.is-list-view .arborization-primary-filters { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+  .arborization-redesign.is-list-view .arborization-search { grid-column: 1 / -1; }
+  .arborization-redesign.is-list-view .arborization-search input { min-height: 44px; }
+  .arborization-redesign.is-list-view .arborization-search > svg { top: 14px; }
+  .arborization-redesign.is-list-view .arborization-record-select select,
+  .arborization-redesign.is-list-view .arborization-filter-trigger { height: 44px; }
+  .arborization-redesign.is-list-view .arborization-record-select > svg { top: 14px; }
+  .arborization-list-view-toggle { justify-self: start; }
+  .arborization-list-view-toggle > button { min-height: 38px; }
+  .arborization-list-record-count { margin-left: 0; }
+  .arborization-tree-card-actions > :is(button, a) { min-height: 36px; padding-inline: 8px; }
+  .arborization-list-pagination > button { min-height: 44px; }
+}
+@media (max-width: 379px) {
+  .arborization-redesign.is-list-view .arborization-intro h1 { font-size: 18px; }
+  .arborization-tree-title h3 { font-size: 14px; }
+  .arborization-tree-thumbnail { flex-basis: 88px; width: 88px; }
+}

@@ -16,14 +16,13 @@ const icons = Object.fromEntries(Object.entries(TREE_MAP_STATES).map(([status, {
   className: 'tree-map-pin', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9],
   html: `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M9 2a7 7 0 1 0 0 14A7 7 0 0 0 9 2Z" fill="${color}" stroke="white" stroke-width="2"/></svg>`,
 })]));
-const draftIcon = L.divIcon({
-  className: 'tree-map-draft', iconSize: [22, 22], iconAnchor: [11, 11],
-  html: '<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="9" fill="#15803d" fill-opacity=".4" stroke="#14532d" stroke-width="2" stroke-dasharray="3 2"/><path d="M7 11h8m-4-4v8" stroke="white" stroke-width="2"/></svg>',
+const draftIcon = index => L.divIcon({
+  className: 'tree-map-draft', iconSize: [30, 30], iconAnchor: [15, 15],
+  html: `<svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><circle cx="15" cy="15" r="13" fill="#2563eb" stroke="white" stroke-width="2.5"/><text x="15" y="19" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="white">${index + 1}</text></svg>`,
 });
 const existingTreeIcon = L.divIcon({
-  className: 'tree-map-pin tree-map-existing', iconSize: [24, 24], iconAnchor: [12, 12],
-  // O contorno duplo mantém o marcador legível sobre copas, telhados e ruas.
-  html: '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10.5" fill="#0f172a" fill-opacity=".7"/><circle cx="12" cy="12" r="8.5" fill="#0891b2" fill-opacity=".9" stroke="white" stroke-width="2.5"/><path d="m8.5 12 2.3 2.3 4.7-4.6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  className: 'tree-map-pin tree-map-existing', iconSize: [16, 16], iconAnchor: [8, 8],
+  html: '<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" fill="#15803d" fill-opacity=".8" stroke="white" stroke-width="2"/></svg>',
 });
 const currentPointIcon = L.divIcon({
   className: 'tree-map-current-point', iconSize: [34, 34], iconAnchor: [17, 17],
@@ -108,11 +107,14 @@ function MapController({ trees, city, selected, position, onPick, resetKey, init
   return null;
 }
 
-export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect, onDeselect, canManage = false, onEdit, onDelete, position, onPick, showLegend = false, toolbar, draftPoints = EMPTY_TREES, onRemoveDraft, initialView, onMapReady, selectedIds = EMPTY_TREES, initialLayer = MAP_LAYER.STANDARD, registrationMode = false }) {
-  const [layer, setLayer] = useState(initialLayer);
+export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect, onDeselect, canManage = false, onEdit, onDelete, position, onPick, showLegend = false, toolbar, draftPoints = EMPTY_TREES, onRemoveDraft, initialView, onMapReady, selectedIds = EMPTY_TREES, initialLayer = MAP_LAYER.STANDARD, registrationMode = false, layer: controlledLayer, onLayerChange, externalControls = false }) {
+  const [internalLayer, setInternalLayer] = useState(initialLayer);
+  const layer = controlledLayer ?? internalLayer;
+  const setLayer = value => { setInternalLayer(value); onLayerChange?.(value); };
   const [resetKey, setResetKey] = useState(0);
   const validTrees = useMemo(() => trees.filter(tree => Number.isFinite(Number(tree.latitude)) && Number.isFinite(Number(tree.longitude))), [trees]);
   const selection = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const draftIcons = useMemo(() => draftPoints.map((_, index) => draftIcon(index)), [draftPoints.length]);
   return (
     <MapContainer center={BRAZIL} zoom={4} zoomControl={false} doubleClickZoom={!onPick} scrollWheelZoom className={`tree-map-canvas h-full w-full ${toolbar ? 'tree-map-with-toolbar' : ''}`} style={{ minHeight: 'inherit', cursor: onPick ? 'crosshair' : undefined }}>
       <MapBaseLayer layer={layer} />
@@ -120,11 +122,11 @@ export default function TreeMap({ trees = EMPTY_TREES, city, selected, onSelect,
       <ScaleControl position="bottomright" imperial={false} />
       <MapResizeObserver />
       <MapController trees={validTrees} city={city} selected={selected} position={position} onPick={onPick} resetKey={resetKey} initialView={initialView} onMapReady={onMapReady} />
-      <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} toolbar={toolbar} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />
+      {!externalControls && <MapTools layer={layer} onLayerChange={setLayer} picking={Boolean(onPick)} toolbar={toolbar} onReframe={() => { onDeselect?.(selected?.id); setResetKey(value => value + 1); }} />}
       {validTrees.map(tree => <Marker key={tree.id} position={[tree.latitude, tree.longitude]} icon={registrationMode ? existingTreeIcon : selection.has(tree.id) ? selectedTreeIcon : icons[treeMapMarkerKey(tree)]} zIndexOffset={selection.has(tree.id) ? 1000 : 0}
         alt={treeLabel(tree)} title={registrationMode ? `Árvore já cadastrada: ${treeLabel(tree)}` : treeLabel(tree)} eventHandlers={{ click: () => onSelect?.(tree) }} />)}
       {position && <Marker position={[position.latitude, position.longitude]} icon={currentPointIcon} title="Localização desta árvore · Arraste para ajustar" zIndexOffset={1200} draggable={Boolean(onPick)} eventHandlers={{ dragend: event => { const point = event.target.getLatLng(); onPick?.({ latitude: point.lat, longitude: point.lng }); } }} />}
-      {draftPoints.map((point, index) => <Marker key={`${point.latitude},${point.longitude}`} position={[point.latitude, point.longitude]} icon={draftIcon}
+      {draftPoints.map((point, index) => <Marker key={point.draftId ?? `${point.latitude},${point.longitude}`} position={[point.latitude, point.longitude]} icon={draftIcons[index]} zIndexOffset={1200} bubblingMouseEvents={false}
         title={`Ponto ${index + 1} · Clique para remover`} alt={`Ponto ${index + 1} ainda não salvo`} eventHandlers={{ click: () => onRemoveDraft?.(index) }} />)}
       <TreeDetailsDialog tree={selected} canManage={canManage} onClose={() => onDeselect?.(selected?.id)}
         onEdit={tree => { onDeselect?.(tree.id); onEdit?.(tree); }}

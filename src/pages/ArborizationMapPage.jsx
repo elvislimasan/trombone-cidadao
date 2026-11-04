@@ -1,23 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronsLeft, Download, Filter, Leaf, List, Loader2, Map as MapIcon, MapPin, MoreHorizontal, Pencil, Plus, Scissors, Search, Sprout, Trees, X } from 'lucide-react';
+import { Leaf, List, Loader2, MapPin, Pencil, Search, Filter, Trees, X } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import CitySelector from '@/components/CitySelector';
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import { MAP_LAYER } from '@/components/map/MapDisplayControls';
+import TreeInventorySummary from '@/components/arborization/TreeInventorySummary';
+import '@/components/arborization/treeInventoryRedesign.css';
+import '@/components/arborization/treeInventoryList.css';
 import TreeMap from '@/components/arborization/TreeMap';
 import TreeFormDialog from '@/components/arborization/TreeFormDialog';
 import TreePlanningReport from '@/components/arborization/TreePlanningReport';
-import { treePlanningCsv, treeStreetKey, treeStreetName, isLivingTree } from '@/lib/treePlanning';
+import { treePlanningCsv, treePlanningLocations, treeStreetKey, treeStreetName, isLivingTree } from '@/lib/treePlanning';
 import TreePhoto from '@/components/arborization/TreePhoto';
 import TreeMaintenanceDialog from '@/components/arborization/TreeMaintenanceDialog';
-import TreeAdoptionCard from '@/components/arborization/TreeAdoptionCard';
+import TreeInventoryActions from '@/components/arborization/TreeInventoryActions';
 import TreeNeighborhoodSidebar from '@/components/arborization/TreeNeighborhoodSidebar';
 import { CityViewProvider, useCityView } from '@/contexts/CityContext';
 import { useCanManageArborization } from '@/hooks/useCanManageArborization';
@@ -31,32 +32,12 @@ import { treeMaintenancePayload, treeMaintenanceSelection } from '@/lib/treeMain
 const EMPTY_FILTERS = { street: 'all', registration: 'all', planningYear: '', search: '', species: 'all', status: 'all', origin: 'all', neighborhood: 'all', action: 'all', plantedBy: 'all', plantedYear: '', historic: 'all', centenarian: 'all', minAge: '', maxAge: '' };
 const selectClass = 'arborization-select';
 const COMPACT_FILTERS_QUERY = '(max-width: 979px)';
-
-function InventoryBackdrop() {
-  return <svg className="arborization-backdrop" viewBox="0 0 720 180" fill="none" aria-hidden="true">
-    <path d="M0 170c110-23 175-4 260-15 153-19 264-8 460-21v46H0Z" fill="#d7ebdf" />
-    <g fill="#c9e3d4">
-      <path d="M100 165v-39h27v39m10 0V99h32v66m17 0v-52h25v52m19 0V77h28v88m10 0v-45h38v45m18 0v-57h28v57m88 0v-37h41v37m13 0V90h24v75m15 0v-54h31v54m9 0V65h21v100m12 0v-42h30v42m16 0v-68h31v68m12 0V55h26v110m12 0v-36h29v36" />
-      <path d="m238 77 6-19 6 19m249-12 10-26 10 26m129-10 11-28 11 28" />
-    </g>
-    {[{ x: 52, y: 104, scale: 1.1 }, { x: 376, y: 106, scale: 0.85 }, { x: 578, y: 128, scale: 0.6 }, { x: 695, y: 105, scale: 0.8 }].map(({ x, y, scale }) => <g key={x} transform={`translate(${x} ${y}) scale(${scale})`}>
-      <path d="M0 57V-4m0 37-23-22M0 27 23 5M0 42l31-20" stroke="#8fb59a" strokeWidth="3" strokeLinecap="round" />
-      <path d="M-38 4c-15-21 5-37 22-33 1-18 29-20 37-7 22-5 37 12 30 24 22 21 3 39-17 33-8 16-34 14-41 4-24 9-44-7-31-21Z" fill="#9bc7a3" fillOpacity=".8" />
-      <path d="M-28 6C-6-7 22-11 39 0" stroke="#b9d8bb" strokeWidth="9" strokeLinecap="round" />
-    </g>)}
-  </svg>;
-}
-
-function InventoryViewToggle({ view, onChange }) {
-  return <ToggleGroup type="single" value={view} onValueChange={value => value && onChange(value)} className="arborization-view-toggle" aria-label="Visualização">
-    <ToggleGroupItem value="map" aria-label="Ver mapa"><MapIcon className="h-4 w-4" />Mapa</ToggleGroupItem>
-    <ToggleGroupItem value="list" aria-label="Ver lista"><List className="h-4 w-4" />Lista</ToggleGroupItem>
-  </ToggleGroup>;
-}
+const LIST_PAGE_SIZE = 12;
 
 function StatusBadge({ status }) {
   const info = TREE_STATUS[status];
-  return <span className="inline-flex items-center gap-1.5 text-xs font-semibold"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: info?.color }} />{info?.label}</span>;
+  if (!info) return null;
+  return <span className="arborization-tree-status" style={{ '--tree-status': info.color }}><span aria-hidden="true" />{info.label}</span>;
 }
 
 export function ArborizationContent({ management, embedded = false }) {
@@ -69,8 +50,9 @@ export function ArborizationContent({ management, embedded = false }) {
   const [revision, setRevision] = useState(0);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [planningOpen, setPlanningOpen] = useState(false);
+  const [statisticsOpen, setStatisticsOpen] = useState(false);
   const [compactFilters, setCompactFilters] = useState(() => typeof window !== 'undefined' && window.matchMedia(COMPACT_FILTERS_QUERY).matches);
   const [view, setView] = useState(management && !embedded ? 'list' : 'map');
   const [selected, setSelected] = useState(null);
@@ -86,6 +68,7 @@ export function ArborizationContent({ management, embedded = false }) {
   const [notice, setNotice] = useState('');
   const [page, setPage] = useState(1);
   const [catalogNeighborhoods, setCatalogNeighborhoods] = useState([]);
+  const [catalogStreets, setCatalogStreets] = useState([]);
   const [speciesCatalog, setSpeciesCatalog] = useState([]);
   const [counts, setCounts] = useState(null);
   const [summaryError, setSummaryError] = useState('');
@@ -113,14 +96,16 @@ export function ArborizationContent({ management, embedded = false }) {
   }, []);
   useEffect(() => {
     let cancelled = false;
-    setCounts(null); setCatalogNeighborhoods([]); setSpeciesCatalog([]); setSummaryError('');
+    setCounts(null); setCatalogNeighborhoods([]); setCatalogStreets([]); setSpeciesCatalog([]); setSummaryError('');
     const neighborhoods = cityId ? allTreeRows(supabase, 'bairros', query => query.eq('city_id', cityId)) : Promise.resolve([]);
     const species = allTreeRows(supabase, 'city_tree_species', query => cityId ? query.eq('city_id', cityId) : query);
-    Promise.allSettled([neighborhoods, treeRequestCounts(supabase, cityId), species]).then(([catalogs, requests, speciesResult]) => {
+    const streets = allTreeRows(supabase, 'pavement_streets', query => cityId ? query.eq('city_id', cityId) : query);
+    Promise.allSettled([neighborhoods, treeRequestCounts(supabase, cityId), species, streets]).then(([catalogs, requests, speciesResult, streetsResult]) => {
       if (cancelled) return;
       if (catalogs.status === 'fulfilled') setCatalogNeighborhoods(catalogs.value);
       if (requests.status === 'fulfilled') setCounts(requests.value);
       if (speciesResult.status === 'fulfilled') setSpeciesCatalog(speciesResult.value);
+      if (streetsResult.status === 'fulfilled') setCatalogStreets(streetsResult.value);
       const failed = [];
       if (catalogs.status === 'rejected') failed.push('O cadastro de bairros não pôde ser carregado.');
       if (requests.status === 'rejected') failed.push('Os indicadores de solicitações não puderam ser carregados.');
@@ -141,8 +126,8 @@ export function ArborizationContent({ management, embedded = false }) {
 
   const treesWithImages = useMemo(() => {
     const catalog = new Map(speciesCatalog.map(species => [species.id, species]));
-    return trees.map(tree => withTreeSpecies(tree, catalog.get(tree.species_id)));
-  }, [trees, speciesCatalog]);
+    return treePlanningLocations(trees, catalogNeighborhoods, catalogStreets).map(tree => withTreeSpecies(tree, catalog.get(tree.species_id)));
+  }, [trees, speciesCatalog, catalogNeighborhoods, catalogStreets]);
   const speciesOptions = useMemo(() => {
     const options = new Map(speciesCatalog.map(item => [String(item.id), item]));
     for (const tree of trees) if (tree.species_id && !options.has(String(tree.species_id))) options.set(String(tree.species_id), { id: tree.species_id, common_name: tree.common_name, scientific_name: tree.scientific_name });
@@ -151,8 +136,8 @@ export function ArborizationContent({ management, embedded = false }) {
   const filtered = useMemo(() => filterTrees(treesWithImages, filters).map(tree => ({ ...tree, service_requests: counts ? Number(counts.get(tree.id)?.total || 0) : null })), [treesWithImages, filters, counts]);
   const neighborhoodCounts = useMemo(() => treeNeighborhoodCounts(filtered, catalogNeighborhoods), [filtered, catalogNeighborhoods]);
   const stats = useMemo(() => treeInventoryHighlights(filtered, neighborhoodCounts), [filtered, neighborhoodCounts]);
-  const neighborhoods = useMemo(() => [...new Set(trees.map(tree => tree.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [trees]);
-  const streetOptions = useMemo(() => [...new Map(trees.filter(tree => treeStreetName(tree)).map(tree => [treeStreetKey(tree), treeStreetName(tree)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR')), [trees]);
+  const neighborhoods = useMemo(() => [...new Set(treesWithImages.map(tree => tree.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [treesWithImages]);
+  const streetOptions = useMemo(() => [...new Map(treesWithImages.filter(tree => treeStreetName(tree)).map(tree => [treeStreetKey(tree), treeStreetName(tree)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR')), [treesWithImages]);
   const planningYears = useMemo(() => [...new Set(trees.map(tree => tree.planting_year).filter(Boolean))].sort((a, b) => a - b), [trees]);
   const previewCount = useMemo(() => filterTrees(treesWithImages, draftFilters).length, [treesWithImages, draftFilters]);
   const setFilter = (key, value) => setDraftFilters(current => ({ ...current, [key]: value }));
@@ -164,9 +149,9 @@ export function ArborizationContent({ management, embedded = false }) {
   const applyFilters = event => { event.preventDefault(); setFilters(draftFilters); setPage(1); setSelected(null); setFilterDialogOpen(false); };
   const resetFilters = () => { setFilters(EMPTY_FILTERS); setDraftFilters(EMPTY_FILTERS); setPage(1); setSelected(null); };
   const activeFilterCount = Object.entries(filters).filter(([key, value]) => value !== EMPTY_FILTERS[key]).length;
-  const advancedFilterCount = Object.entries(filters).filter(([key, value]) => !['search', 'status', 'neighborhood', 'street'].includes(key) && value !== EMPTY_FILTERS[key]).length;
+  const advancedFilterCount = Object.entries(filters).filter(([key, value]) => !['search', 'registration'].includes(key) && value !== EMPTY_FILTERS[key]).length;
   const activeFilters = activeFilterCount > 0;
-  const pageCount = Math.max(1, Math.ceil(filtered.length / 30));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / LIST_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
 
   const save = useCallback(async (payload, id, photo) => {
@@ -239,11 +224,11 @@ export function ArborizationContent({ management, embedded = false }) {
     finally { setBusy(false); }
   };
 
-  const download = async (planningYear = null) => {
+  const download = async (planningYear = null, reportTrees = null) => {
     setBusy(true);
     try {
       const planning = typeof planningYear === 'string';
-      const csv = planning ? treePlanningCsv(filtered.filter(tree => planningYear === 'all' || String(tree.planting_year) === planningYear), cities) : treesCsv(filtered, cities);
+      const csv = planning ? treePlanningCsv((reportTrees || filtered).filter(tree => planningYear === 'all' || String(tree.planting_year) === planningYear), cities) : treesCsv(filtered, cities);
       const fileName = `${planning ? 'planejamento_arborizacao' : 'arborizacao'}_${cityId || 'cidades'}_${new Date().toISOString().slice(0, 10)}.csv`;
       if (Capacitor.isNativePlatform()) {
         let binary = ''; for (const byte of new TextEncoder().encode(csv)) binary += String.fromCharCode(byte);
@@ -259,9 +244,13 @@ export function ArborizationContent({ management, embedded = false }) {
 
   const filterForm = (
         <form onSubmit={applyFilters}>
-        <div className="arborization-filter-heading"><h2>Filtros avançados</h2>{!compactFilters && <Button type="button" variant="ghost" size="icon" aria-label="Recolher filtros avançados" onClick={() => setFiltersOpen(false)}><ChevronsLeft className="h-4 w-4" /></Button>}</div>
+        <div className="arborization-filter-heading"><DialogTitle>Filtros avançados</DialogTitle></div>
+        <div className="arborization-filter-scroll">
         <div className="arborization-filter-fields" id="arborization-filter-fields">
           {[
+            ['neighborhood', 'Bairro', [['unidentified', 'Sem bairro identificado'], ...neighborhoods.map(name => [name, name])]],
+            ['street', 'Rua', [['unidentified', 'Sem rua identificada'], ...streetOptions]],
+            ['status', 'Situação', [['living', 'Árvores vivas'], ...Object.entries(TREE_STATUS).map(([value, info]) => [value, info.label])]],
             ['registration', 'Tipo de cadastro', [['existing', 'Árvores existentes'], ['planned', 'Plantios planejados']]],
             ['species', 'Espécie', [['unidentified', 'Não identificada / sem vínculo no catálogo'], ...speciesOptions.map(item => [String(item.id), `${item.common_name}${item.scientific_name ? ` — ${item.scientific_name}` : ''}`])]],
             ['origin', 'Origem', Object.entries(TREE_ORIGINS)],
@@ -273,125 +262,90 @@ export function ArborizationContent({ management, embedded = false }) {
           <div className="arborization-filter-row"><fieldset className="min-w-0 flex-1"><legend>Faixa de idade</legend><div className="arborization-age-range"><Input type="number" min="0" max={draftFilters.maxAge || undefined} aria-label="Idade mínima" placeholder="Mín." value={draftFilters.minAge} onChange={event => setFilter('minAge', event.target.value)} /><span>–</span><Input type="number" min={draftFilters.minAge || '0'} aria-label="Idade máxima" placeholder="Máx." value={draftFilters.maxAge} onChange={event => setFilter('maxAge', event.target.value)} /><span>anos</span></div></fieldset></div>
           <details className="arborization-additional-filters"><summary>Outros filtros</summary><label>Ano do plantio<Input type="number" min="1" max={new Date().getFullYear()} placeholder="Ex.: 2025" value={draftFilters.plantedYear} onChange={event => setFilter('plantedYear', event.target.value)} /></label><label>Idade estimada<select className={selectClass} value={draftFilters.centenarian} onChange={event => setFilter('centenarian', event.target.value)}><option value="all">Todas as idades</option><option value="yes">Centenárias (100 anos ou mais)</option></select></label></details>
         </div>
+        </div>
+        <div className="arborization-filter-footer">
         <Button type="submit" aria-label="Aplicar filtros" className="arborization-primary arborization-apply" disabled={loading}>Aplicar filtros ({previewCount.toLocaleString('pt-BR')})</Button>
         {activeFilters && <Button type="button" variant="ghost" size="sm" aria-label="Limpar filtros" onClick={resetFilters}>Limpar filtros</Button>}
+        </div>
         </form>
   );
 
+  const inventoryActions = <TreeInventoryActions canManage={canManage} loading={loading} error={error} busy={busy} hasResults={filtered.length > 0} hasLivingTrees={trees.some(isLivingTree)} cityId={cityId} view={view}
+    onRegister={() => startSingle({})} onPlan={() => startSingle({ status: 'planejada' })} onBatch={startBatch} onMaintenance={startMaintenance}
+    onPlanning={() => { setMapExpanded(false); setPlanningOpen(true); }} onStatistics={() => { setMapExpanded(false); setStatisticsOpen(true); }} onExport={() => download()} onChangeView={changeView} />;
   const Root = embedded ? 'div' : 'main';
-  return <Root className={`${embedded ? 'min-w-0 arborization-embedded' : 'page-shell-fluid'} arborization-page arborization-inventory-layout`} style={embedded ? undefined : { paddingInline: 'clamp(1rem, 2vw, 2rem)' }} data-testid="arborization-page">
-    <Helmet><title>{management ? 'Gerenciar arborização' : 'Mapa de arborização'} — Trombone Cidadão</title><meta name="description" content="Consulte o inventário de árvores da cidade, espécies, estado de conservação e necessidades de manejo." /></Helmet>
-    {!embedded && <InventoryBackdrop />}
-    {!embedded && <div className="arborization-header">
-      <div className="arborization-intro"><span className="arborization-title-icon"><Trees aria-hidden="true" /></span><div className="min-w-0"><p className="arborization-eyebrow">Meio ambiente · {cityName || 'Todas as cidades'}{city?.state?.uf ? ` · ${city.state.uf}` : ''}</p><h1>{management ? 'Gerenciar arborização' : 'Mapa de arborização'}</h1><p className="arborization-subtitle">Conheça as árvores da cidade e acompanhe os cuidados com cada uma.</p></div></div>
-      <div className="arborization-header-tools">
-        <div className="arborization-city"><CitySelector /><ChevronDown className="arborization-city-chevron" aria-hidden="true" /></div>
-        {!management && <TreeAdoptionCard cityId={cityId} />}
+  const FilterDialogContent = compactFilters ? FormDialogContent : DialogContent;
+  const title = management ? 'Gerenciar arborização' : 'Mapa de arborização';
+  const emptyState = <div className="rounded-xl border border-dashed bg-surface-raised p-5 text-center"><Trees className="mx-auto mb-2 h-7 w-7 text-content-secondary" /><h2 className="font-semibold">Nenhuma árvore encontrada</h2><p className="mt-1 text-sm text-content-secondary">Ajuste os filtros para encontrar outros registros.</p>{activeFilters && <Button variant="outline" className="mt-3" onClick={resetFilters}>Limpar filtros</Button>}</div>;
+  const statusView = error ? <div role="alert" className="grid h-full place-content-center gap-3 p-8 text-center"><p>{error}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></div>
+    : loading ? <div role="status" className="flex h-full min-h-48 items-center justify-center gap-2"><Loader2 className="h-5 w-5 animate-spin" />Carregando árvores…</div> : null;
+  const dataNote = <p className="arborization-data-note">Solicitações conforme sua permissão de acesso. Uma solicitação não significa serviço executado.</p>;
+  const listView = <div className="arborization-list">
+    {statusView || (filtered.length ? <div className="arborization-tree-grid">{filtered.slice((currentPage - 1) * LIST_PAGE_SIZE, currentPage * LIST_PAGE_SIZE).map(tree => <article key={tree.id} className="arborization-tree-card">
+      <div className="arborization-tree-card-heading"><button type="button" className="arborization-tree-title" onClick={() => showTreeOnMap(tree)}><h3>{treeLabel(tree)}</h3></button><StatusBadge status={tree.status} /></div>
+      <div className="arborization-tree-card-body">
+        <div className="arborization-tree-description">
+          <p className="arborization-tree-address" title={[tree.address, tree.neighborhood].filter(Boolean).join(' · ')}>{tree.address || 'Endereço não informado'}{tree.neighborhood ? ` · ${tree.neighborhood}` : ''}</p>
+          {!cityId && <p>{cities.find(item => String(item.id) === String(tree.city_id))?.name || `Cidade ${tree.city_id}`}</p>}
+          <p>{tree.planting_year ? `Ano previsto: ${tree.planting_year} · ` : ''}{TREE_ORIGINS[tree.origin]} · {TREE_ACTIONS[tree.maintenance_action]}</p>
+        </div>
+        <TreePhoto tree={tree} className="arborization-tree-thumbnail" imageClassName="arborization-tree-thumbnail-image" captionClassName="arborization-tree-thumbnail-caption" />
       </div>
+      <div className="arborization-tree-card-actions"><Button variant="outline" size="sm" asChild><Link to={`/arborizacao/arvore/${tree.id}`}>Ver detalhes</Link></Button><Button variant="ghost" size="sm" onClick={() => showTreeOnMap(tree)}><MapPin aria-hidden="true" />No mapa</Button>{canManage && <Button variant="ghost" size="sm" onClick={() => startSingle(tree)}><Pencil aria-hidden="true" />Editar</Button>}</div>
+    </article>)}</div> : emptyState)}
+    <footer className="arborization-list-footer">
+      {dataNote}
+      {!loading && !error && filtered.length > 0 && <nav className="arborization-list-pagination" aria-label="Paginação do inventário"><Button variant="outline" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span aria-live="polite" aria-atomic="true">{currentPage} / {pageCount}</span><Button variant="outline" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Próxima</Button></nav>}
+    </footer>
+  </div>;
+  const emptyMapResults = view === 'map' && !loading && !error && !filtered.length && trees.length > 0;
+  const filterToolbar = <div className="arborization-primary-filters" data-testid="arborization-filters-toolbar" aria-label="Filtros principais">
+    <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input className="h-10 pl-9 text-base sm:text-sm" placeholder="Buscar árvores…" value={filters.search} onChange={event => setMainFilter('search', event.target.value)} /></label>
+    <label className="arborization-record-select"><span className="sr-only">Tipo de registro</span><Leaf className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-secondary" /><select className="h-10 w-full min-w-0 rounded-md border border-input bg-background pl-9 pr-6 text-sm" value={filters.registration} onChange={event => setMainFilter('registration', event.target.value)}><option value="all">Todos os registros</option><option value="existing">Árvores existentes</option><option value="planned">Plantios planejados</option></select></label>
+    <Button variant="outline" className="arborization-filter-trigger h-10 gap-2" aria-expanded={filterDialogOpen} aria-controls="arborization-filters" onClick={() => setFilterDialogOpen(true)}><Filter size={16} />Filtros{advancedFilterCount > 0 && <span className="rounded-full bg-brand px-1.5 text-[10px] font-bold text-content-onBrand">{advancedFilterCount}</span>}</Button>
+    {view === 'list' && <>
+      <div className="arborization-list-view-toggle" role="group" aria-label="Visualização do inventário"><Button variant="ghost" aria-pressed={false} onClick={() => changeView('map')}><MapPin aria-hidden="true" />Mapa</Button><Button variant="ghost" aria-pressed={true} onClick={() => changeView('list')}><List aria-hidden="true" />Lista</Button></div>
+      <p className="arborization-list-record-count" role="status">{loading ? 'Carregando…' : `${filtered.length.toLocaleString('pt-BR')} ${filtered.length === 1 ? 'registro' : 'registros'}`}</p>
+    </>}
+    {(activeFilters || emptyMapResults) && <div className="arborization-filter-feedback" role={emptyMapResults ? 'status' : undefined}>
+      {emptyMapResults && <span>Nenhuma árvore encontrada com estes filtros.</span>}
+      {activeFilters && <Button type="button" variant="ghost" size="sm" className="arborization-reset-filters h-7 gap-1 px-0 text-xs text-brand" onClick={resetFilters}><X size={14} />Limpar filtros ({activeFilterCount})</Button>}
     </div>}
-    <div className="arborization-overview">
-    <section aria-label="Indicadores do inventário filtrado" className="arborization-stats">
-      {[
-        [Trees, 'Árvores no inventário', stats.total, 'green', 'Total de árvores cadastradas na cidade'],
-        [Leaf, 'Espécie mais plantada', stats.mostPlanted?.name || 'Não identificada', 'blue', stats.mostPlanted ? `${stats.mostPlanted.count.toLocaleString('pt-BR')} árvores vivas desta espécie` : 'Nenhuma espécie identificada no resultado', stats.mostPlanted?.count],
-        [MapPin, 'Bairro menos arborizado', stats.leastWooded?.name || 'Não identificado', 'orange', stats.leastWooded ? `${stats.leastWooded.count.toLocaleString('pt-BR')} árvores vivas cadastradas · menor quantidade` : 'Nenhum bairro disponível'],
-        [Sprout, `Plantadas em ${new Date().getFullYear()}`, stats.plantedThisYear, 'green', 'Conforme a data de plantio informada'],
-      ].map(([Icon, label, value, tone, description, count]) => <div key={label} className="arborization-stat">
-        <span className={`arborization-stat-icon arborization-tone-${tone}`}><Icon aria-hidden="true" /></span>
-        <div className="min-w-0"><p className="arborization-stat-value break-words" style={typeof value === 'string' ? { fontSize: 'clamp(1rem, 1.3vw, 1.5rem)' } : undefined}>{loading || value == null ? '—' : value.toLocaleString('pt-BR')}</p>{!loading && count != null && <p className="mt-1 text-xs font-semibold text-content-secondary" data-testid="most-planted-count">{count.toLocaleString('pt-BR')} {count === 1 ? 'árvore viva' : 'árvores vivas'}</p>}<p className="arborization-stat-label">{label}</p><p className="arborization-stat-description">{description}</p></div>
-      </div>)}
+  </div>;
+  return <Root className={`${embedded ? 'min-w-0 arborization-embedded' : 'page-shell-fluid'} arborization-page arborization-inventory-layout arborization-redesign ${view === 'map' ? 'is-map-view' : 'is-list-view'}`} style={embedded ? undefined : { paddingInline: 'clamp(1rem, 1.5vw, 1.5rem)' }} data-testid="arborization-page">
+    <Helmet><title>{title} — Trombone Cidadão</title><meta name="description" content="Consulte o inventário de árvores da cidade, espécies, estado de conservação e planejamento de plantio." /></Helmet>
+    <header className={`arborization-header ${embedded ? 'is-embedded' : ''}`}>
+      <div className="arborization-header-identity">
+        {!embedded && <div className="arborization-intro"><span className="arborization-title-icon"><Trees aria-hidden="true" /></span><h1>{title}</h1></div>}
+        {!embedded && <div className="arborization-city"><CitySelector /></div>}
+        <span className="arborization-count-badge" role="status"><Trees size={15} aria-hidden="true" />{loading ? 'Carregando…' : `${filtered.length.toLocaleString('pt-BR')} ${filtered.length === 1 ? 'árvore' : 'árvores'}`}</span>
+      </div>
+      {inventoryActions}
+    </header>
+    <section className="arborization-explorer" aria-label="Explorar inventário">
+      {(notice || summaryError || (management && !permissionsLoading && !canManage)) && <div className="arborization-notices">
+        {notice && <div role="status" className="flex items-center justify-between gap-3 rounded-xl border bg-surface-raised p-3 text-sm">{notice}<Button variant="ghost" size="icon" aria-label="Fechar aviso" onClick={() => setNotice('')}><X className="h-4 w-4" /></Button></div>}
+        {management && !permissionsLoading && !canManage && <p className="rounded-xl border bg-surface-raised p-3 text-sm text-content-secondary">{cityId ? 'Consulta pública. O gerenciamento exige permissão de Arborização nesta cidade.' : 'Selecione uma cidade para acessar o gerenciamento do inventário.'}</p>}
+        {summaryError && <p role="alert" className="text-sm text-destructive">{summaryError} <Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></p>}
+      </div>}
+      {filterToolbar}
+      <div className="arborization-workspace"><section className="arborization-results min-w-0 space-y-3" aria-label="Resultados do inventário">
+        {view === 'map' ? <div className="arborization-map-panel relative isolate overflow-hidden rounded-2xl border border-edge-subtle" data-testid="tree-map">
+          <FullscreenMapPanel title="Mapa de arborização" open={mapExpanded} onOpenChange={setMapExpanded} buttonClassName="arborization-fullscreen left-3 top-3" actions={inventoryActions}>
+            {statusView || <TreeMap initialLayer={MAP_LAYER.SATELLITE} onMapReady={handleMapReady} showLegend trees={filtered} city={city} selected={selected} onSelect={setSelected} onDeselect={id => setSelected(current => current?.id === id ? null : current)} canManage={canManage} onEdit={startSingle} onDelete={setDeleting} />}
+          </FullscreenMapPanel>
+        </div> : listView}
+      </section></div>
     </section>
-    <div className="arborization-actions">
-      <Button variant="outline" className="arborization-export" disabled={loading || busy || !filtered.length} onClick={() => download()}><Download className="h-4 w-4" />Exportar CSV</Button>
-      <TreePlanningReport trees={filtered} cities={cities} cityName={cityName} loading={loading} onDownload={download} busy={busy} />
-      {canManage && <><Button onClick={() => startSingle({})} className="arborization-primary arborization-create"><Plus className="h-4 w-4" />Cadastrar árvore</Button>
-        <DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button variant="outline"><MoreHorizontal className="h-4 w-4" />Mais ações<ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => startSingle({ status: 'planejada' })}><Sprout className="mr-2 h-4 w-4" />Planejar plantio</DropdownMenuItem><DropdownMenuItem disabled={loading || !!error} onSelect={startBatch}><Trees className="mr-2 h-4 w-4" />Cadastrar em sequência</DropdownMenuItem><DropdownMenuItem disabled={loading || !!error || !trees.some(isLivingTree)} onSelect={startMaintenance}><Scissors className="mr-2 h-4 w-4" />Manejo em lote</DropdownMenuItem></DropdownMenuContent>
-        </DropdownMenu>
-      </>}
-    </div>
-    </div>
-    {(notice || summaryError || (management && !permissionsLoading && !canManage)) && <div className="arborization-notices">
-      {notice && <div role="status" className="flex items-center justify-between gap-3 rounded-xl border bg-surface-raised p-3 text-sm">{notice}<Button variant="ghost" size="icon" aria-label="Fechar aviso" onClick={() => setNotice('')}><X className="h-4 w-4" /></Button></div>}
-      {management && !permissionsLoading && !canManage && <p className="rounded-xl border bg-surface-raised p-3 text-sm text-muted-foreground">{cityId ? 'Consulta pública. O gerenciamento exige permissão de Arborização nesta cidade.' : 'Selecione uma cidade para acessar o gerenciamento do inventário.'}</p>}
-      {summaryError && <p role="alert" className="text-sm text-destructive">{summaryError} <Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></p>}
-    </div>}
-    <div className="arborization-primary-filters" aria-label="Filtros principais">
-      <label className="arborization-search"><span className="sr-only">Buscar árvore</span><Search className="h-4 w-4" aria-hidden="true" /><Input placeholder="Buscar árvore por código, espécie, rua ou bairro…" value={filters.search} onChange={event => setMainFilter('search', event.target.value)} /></label>
-      <label className="arborization-quick-select"><span>Situação</span><select className={selectClass} value={filters.status} onChange={event => setMainFilter('status', event.target.value)}><option value="all">Todos</option><option value="living">Árvores vivas</option>{Object.entries(TREE_STATUS).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label>
-      <label className="arborization-quick-select"><span>Bairro</span><select className={selectClass} value={filters.neighborhood} onChange={event => setMainFilter('neighborhood', event.target.value)}><option value="all">Todos</option><option value="unidentified">Sem bairro identificado</option>{neighborhoods.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
-      <label className="arborization-quick-select"><span>Rua</span><select className={selectClass} value={filters.street} onChange={event => setMainFilter('street', event.target.value)}><option value="all">Todas as ruas</option><option value="unidentified">Sem rua identificada</option>{streetOptions.map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></label>
-      <Button variant="outline" className={`arborization-filter-trigger ${!compactFilters && filtersOpen ? 'is-active' : ''}`} aria-expanded={compactFilters ? filterDialogOpen : filtersOpen} aria-controls="arborization-filters" onClick={() => compactFilters ? setFilterDialogOpen(true) : setFiltersOpen(value => !value)}><Filter className="h-4 w-4" />Mais filtros{advancedFilterCount > 0 && <span className="arborization-filter-count">{advancedFilterCount}</span>}</Button>
-      <TreeNeighborhoodSidebar neighborhoods={neighborhoodCounts} unidentified={filtered.filter(tree => !tree.neighborhood && isLivingTree(tree)).length} loading={loading} error={error} />
-      {activeFilters && <Button type="button" variant="ghost" size="sm" className="arborization-reset-filters" onClick={resetFilters}><X className="h-3.5 w-3.5" />Limpar filtros ({activeFilterCount})</Button>}
-    </div>
-    {compactFilters && <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
-        <FormDialogContent aria-describedby={undefined} id="arborization-filters" className="arborization-filters arborization-filter-dialog">
-          <DialogTitle className="sr-only">Filtros de arborização</DialogTitle>
-          {filterForm}
-        </FormDialogContent>
-      </Dialog>}
-    <div className={`arborization-workspace ${!compactFilters && filtersOpen ? 'has-advanced-filters' : ''}`}>
-      {!compactFilters && filtersOpen && <aside id="arborization-filters" className="arborization-filters">
-        {filterForm}
-      </aside>}
-      <section className="arborization-results min-w-0 space-y-3" aria-label="Resultados do inventário">
-        {error ? <div role="alert" className="rounded-2xl border p-8 text-center"><p>{error}</p><Button variant="outline" className="mt-3" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></div> : loading ? <div className="flex h-[500px] items-center justify-center gap-2 rounded-2xl border"><Loader2 className="h-5 w-5 animate-spin" />Carregando árvores…</div> : <>
-          {!filtered.length && trees.length > 0 && <div className="rounded-xl border border-dashed bg-surface-raised p-5 text-center"><Trees className="mx-auto mb-2 h-7 w-7 text-muted-foreground" /><h2 className="font-semibold">Nenhuma árvore encontrada</h2><p className="mt-1 text-sm text-muted-foreground">Ajuste os filtros para encontrar outros registros.</p>{activeFilters && <Button variant="outline" className="mt-3" onClick={resetFilters}>Limpar filtros</Button>}</div>}
-          {view === 'map' ? (
-            <div className="arborization-map-panel relative isolate overflow-hidden rounded-2xl border border-edge-subtle" data-testid="tree-map">
-              <FullscreenMapPanel title="Mapa de arborização" open={mapExpanded} onOpenChange={setMapExpanded} buttonClassName="arborization-fullscreen right-3 top-3"
-                actions={canManage && <><Button size="sm" onClick={() => startSingle({})}><Plus className="mr-1 h-4 w-4" />Cadastrar árvore</Button><Button size="sm" variant="outline" onClick={startBatch}><Trees className="mr-1 h-4 w-4" />Cadastrar em sequência</Button><Button size="sm" variant="outline" disabled={!trees.some(isLivingTree)} onClick={startMaintenance}><Scissors className="mr-1 h-4 w-4" />Manejo em lote</Button></>}>
-                <TreeMap initialLayer={MAP_LAYER.SATELLITE} onMapReady={handleMapReady} showLegend toolbar={<InventoryViewToggle view={view} onChange={changeView} />} trees={filtered} city={city} selected={selected} onSelect={setSelected}
-                  onDeselect={id => setSelected(current => current?.id === id ? null : current)}
-                  canManage={canManage} onEdit={startSingle} onDelete={setDeleting} />
-              </FullscreenMapPanel>
-            </div>
-          ) : (
-            <div className="space-y-3"><div className="arborization-list-toolbar"><InventoryViewToggle view={view} onChange={changeView} /><p role="status">{filtered.length.toLocaleString('pt-BR')} {filtered.length === 1 ? 'árvore encontrada' : 'árvores encontradas'}</p></div><div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-              {filtered.slice((currentPage - 1) * 30, currentPage * 30).map(tree => (
-                <article key={tree.id} className="min-w-0 rounded-xl border border-edge-subtle bg-surface-raised p-4">
-                  <TreePhoto tree={tree} className="mb-3" imageClassName="h-36 w-full rounded-lg bg-surface-subtle object-contain" />
-                  <div className="flex items-start justify-between gap-2">
-                    <button type="button" className="min-w-0 text-left" onClick={() => showTreeOnMap(tree)}>
-                      <h3 className="break-words font-semibold">{treeLabel(tree)}</h3>
-                      {tree.scientific_name && <p className="mt-0.5 break-words text-xs italic text-muted-foreground">{tree.scientific_name}</p>}
-                    </button>
-                    <StatusBadge status={tree.status} />
-                  </div>
-                  <p className="mt-3 break-words text-sm text-muted-foreground">{tree.address || 'Endereço não informado'}{tree.neighborhood ? ` · ${tree.neighborhood}` : ''}</p>
-                  {!cityId && <p className="mt-1 text-xs text-muted-foreground">{cities.find(item => String(item.id) === String(tree.city_id))?.name || `Cidade ${tree.city_id}`}</p>}
-                  <p className="mt-2 text-xs">{tree.planting_year ? `Ano previsto: ${tree.planting_year} · ` : ''}{TREE_ORIGINS[tree.origin]} · {TREE_ACTIONS[tree.maintenance_action]}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" asChild><Link to={`/arborizacao/arvore/${tree.id}`}>Ver detalhes</Link></Button>
-                    <Button variant="ghost" size="sm" onClick={() => showTreeOnMap(tree)}><MapPin className="mr-1 h-4 w-4" />No mapa</Button>
-                    {canManage && <Button variant="ghost" size="sm" onClick={() => startSingle(tree)}><Pencil className="mr-1 h-4 w-4" />Editar</Button>}
-                  </div>
-                </article>
-              ))}
-            </div></div>
-          )}
-          {view === 'list' && pageCount > 1 && <div className="flex items-center justify-end gap-3"><Button variant="outline" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span className="text-sm">{currentPage} / {pageCount}</span><Button variant="outline" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div>}
-        </>}
-      </section>
-    </div>
-    <p className="arborization-data-note">Solicitações conforme sua permissão de acesso. Uma solicitação não significa serviço executado.</p>
-    {form && canManage && <TreeFormDialog tree={form} city={city} cityId={cityId} onClose={endRegistration} onSave={save} batchMode={batchMode} onSaveBatch={saveBatch} initialMapView={registrationView} existingTrees={treesWithImages}
-      onSpeciesChanged={item => setSpeciesCatalog(current => [...current.filter(species => species.id !== item.id), item])} />}
-    {maintenanceOpen && canManage && <TreeMaintenanceDialog trees={treesWithImages} city={city} cityId={cityId} initialMapView={registrationView} onSave={saveMaintenance}
-      onClose={() => { setMaintenanceOpen(false); setMapExpanded(false); }} />}
-    <Dialog open={Boolean(deleting)} onOpenChange={open => { if (!open && !busy) setDeleting(null); }}>
-      <DialogContent role="alertdialog">
-        <DialogHeader>
-          <DialogTitle>Excluir cadastro de {treeLabel(deleting)}?</DialogTitle>
-          <DialogDescription>Esta ação exclui o registro do inventário. Para manter o histórico de uma árvore retirada, edite sua situação para “Removida”.</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" disabled={busy} onClick={() => setDeleting(null)}>Cancelar</Button>
-          <Button disabled={busy} onClick={remove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{busy ? 'Excluindo…' : 'Excluir cadastro'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    {view === 'map' && dataNote}
+      <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+        <FilterDialogContent {...(!compactFilters ? { placement: 'right' } : {})} aria-describedby={undefined} id="arborization-filters" className={`arborization-filters arborization-filter-dialog ${!compactFilters ? 'arborization-filter-drawer' : ''}`}>{filterForm}</FilterDialogContent>
+      </Dialog>
+      <TreePlanningReport hideTrigger open={planningOpen} onOpenChange={setPlanningOpen} trees={treesWithImages} initialFilters={filters} cities={cities} cityName={cityName} loading={loading} onDownload={download} busy={busy} />
+      <TreeNeighborhoodSidebar hideTrigger open={statisticsOpen} onOpenChange={setStatisticsOpen} neighborhoods={neighborhoodCounts} unidentified={filtered.filter(tree => !tree.neighborhood && isLivingTree(tree)).length} loading={loading} error={error} summary={<TreeInventorySummary alwaysVisible stats={stats} loading={loading} plannedCount={filtered.filter(tree => tree.status === 'planejada').length} />} />
+      {form && canManage && <TreeFormDialog tree={form} city={city} cityId={cityId} onClose={endRegistration} onSave={save} batchMode={batchMode} onSaveBatch={saveBatch} initialMapView={registrationView} existingTrees={treesWithImages} onSpeciesChanged={item => setSpeciesCatalog(current => [...current.filter(species => species.id !== item.id), item])} />}
+      {maintenanceOpen && canManage && <TreeMaintenanceDialog trees={treesWithImages} city={city} cityId={cityId} initialMapView={registrationView} onSave={saveMaintenance} onClose={() => { setMaintenanceOpen(false); setMapExpanded(false); }} />}
+      <Dialog open={Boolean(deleting)} onOpenChange={open => { if (!open && !busy) setDeleting(null); }}><DialogContent role="alertdialog"><DialogHeader><DialogTitle>Excluir cadastro de {treeLabel(deleting)}?</DialogTitle><DialogDescription>Esta ação exclui o registro do inventário. Para manter o histórico de uma árvore retirada, edite sua situação para “Removida”.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" disabled={busy} onClick={() => setDeleting(null)}>Cancelar</Button><Button disabled={busy} onClick={remove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{busy ? 'Excluindo…' : 'Excluir cadastro'}</Button></DialogFooter></DialogContent></Dialog>
   </Root>;
 }
 

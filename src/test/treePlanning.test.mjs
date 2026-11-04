@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_TREE, treePayload, filterTrees, treeStats, treesCsv, treeMapMarkerKey } from '../lib/arborization.js';
-import { treePlanningRows, treePlanningCsv, treeStreetKey } from '../lib/treePlanning.js';
+import { treePlanningRows, treePlanningCsv, treePlanningLocations, treeStreetKey } from '../lib/treePlanning.js';
 import { treeNeighborhoodCounts, nearbyTrees, treeReportSelection } from '../lib/treeInventory.js';
 import { treeInventoryHighlights } from '../lib/treeSpecies.js';
 import { treeBatchPayloads } from '../lib/treeBatchLocations.js';
@@ -81,4 +81,22 @@ test('lote permite corrigir a rua de um ponto sem replicar nos demais e dispensa
   assert.equal(payloads[1].street_id, null);
   assert.equal(payloads[1].address, 'Rua Nova');
   assert.ok(payloads.every(row => row.planting_year === 2027 && row.status === 'planejada'));
+});
+
+test('registros antigos sem IDs e endereço completo não dividem a mesma rua e bairro em linhas diferentes', () => {
+  const records = [plan, { ...plan, id: 'old', bairro_id: null, neighborhood: 'CENTRO', street_id: null, street_name: null, address: 'Rua das Flores - Centro - Floresta' }, { ...plan, id: 'done', status: 'saudavel', planted_at: '2028-01-02' }];
+  const rows = treePlanningRows(records);
+  assert.equal(rows.length, 1); assert.equal(rows[0].total, 3); assert.equal(rows[0].planned, 2); assert.equal(rows[0].planted, 1);
+});
+
+test('nomes canônicos dos catálogos corrigem a leitura sem alterar os registros originais', () => {
+  const old = { ...plan, bairro_id: null, neighborhood: 'centro', street_id: null, street_name: null, address: 'Av. das Flores - Centro - Floresta' };
+  const [resolved] = treePlanningLocations([old], [{ id: 'b1', name: 'Centro', city_id: 64 }], [{ id: 's1', name: 'Avenida das Flores', city_id: 64, bairro_id: 'b1' }]);
+  assert.equal(resolved.street_id, 's1'); assert.equal(resolved.bairro_id, 'b1'); assert.equal(resolved.neighborhood, 'Centro');
+  assert.equal(old.street_id, null); assert.equal(old.bairro_id, null);
+});
+
+test('o total previsto preserva executados e registros sem confirmação sem somar árvores fora do planejamento', () => {
+  const [row] = treePlanningRows([plan, { ...plan, status: 'saudavel', planted_at: '2027-02-01' }, { ...plan, status: 'removida', planted_at: null }, { ...base, planted_at: '2027-02-02' }]);
+  assert.equal(row.total, 3); assert.equal(row.planned, 1); assert.equal(row.planted, 1); assert.equal(row.unconfirmed, 1);
 });

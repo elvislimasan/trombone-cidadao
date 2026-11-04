@@ -119,12 +119,13 @@ export function treesCsv(trees, cities = []) {
 export async function loadCityTrees(client, cityId) {
   const rows = [];
   const size = 1000;
-  for (let start = 0; ; start += size) {
+  for (let start = 0; ;) {
     let query = client.from('city_trees').select('*').order('created_at', { ascending: false }).order('id').range(start, start + size - 1);
     if (cityId) query = query.eq('city_id', cityId);
     const { data, error } = await query;
     if (error) throw error;
     rows.push(...(data || []));
-    if (!data || data.length < size) return rows;
+    if (!data?.length) return rows;
+    start += data.length;
   }
 }

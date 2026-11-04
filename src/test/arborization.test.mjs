@@ -58,12 +58,12 @@ test('carrega mais de mil árvores com filtro de cidade em todas as páginas', a
     const call = { table }; calls.push(call);
     const query = { select: () => query, order: () => query, range: (start, end) => { call.range = [start, end]; return query; },
       eq: (key, value) => { call.filter = [key, value]; return query; },
-      then: resolve => Promise.resolve({ data: Array.from({ length: call.range[0] === 0 ? 1000 : 7 }, (_, index) => ({ id: call.range[0] + index })), error: null }).then(resolve) };
+      then: resolve => Promise.resolve({ data: Array.from({ length: call.range[0] === 0 ? 1000 : call.range[0] === 1000 ? 7 : 0 }, (_, index) => ({ id: call.range[0] + index })), error: null }).then(resolve) };
     return query;
   } };
   const result = await loadCityTrees(client, 64);
   assert.equal(result.length, 1007);
-  assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999]]);
+  assert.deepEqual(calls.map(call => call.range), [[0, 999], [1000, 1999], [1007, 2006]]);
   assert.ok(calls.every(call => call.table === 'city_trees' && call.filter[1] === 64));
 });
 

@@ -6,11 +6,12 @@ export const treeNameKey = value => String(value || '').normalize('NFD').replace
 
 export async function allTreeRows(client, table, configure = query => query) {
   const rows = [];
-  for (let start = 0; ; start += 1000) {
+  for (let start = 0; ;) {
     const { data, error } = await configure(client.from(table).select('*')).order('id').range(start, start + 999);
     if (error) throw error;
     rows.push(...(data || []));
-    if (!data || data.length < 1000) return rows;
+    if (!data?.length) return rows;
+    start += data.length;
   }
 }
 
