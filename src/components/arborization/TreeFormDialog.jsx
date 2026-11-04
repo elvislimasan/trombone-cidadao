@@ -63,6 +63,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
     return () => { cancelled = true; };
   }, [cityId, streetRevision]);
   const planned = isPlannedTree(form);
+  const mapTrees = useMemo(() => planned ? (existingTrees || []).filter(isPlannedTree) : existingTrees, [existingTrees, planned]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
   const [catalogRevision, setCatalogRevision] = useState(0);
@@ -146,7 +147,7 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
   const pick = point => {
     if (savingRef.current || confirmDiscard || speciesCreating) return;
     setNotice('');
-    if (batchMode && nearbyTrees(existingTrees || [], { lat: point.latitude, lng: point.longitude }, 3).length) setNotice('Já existe uma árvore cadastrada a até 3 metros deste ponto. Confira a posição para evitar duplicidade.');
+    if (batchMode && !planned && nearbyTrees(existingTrees || [], { lat: point.latitude, lng: point.longitude }, 3).length) setNotice('Já existe uma árvore cadastrada a até 3 metros deste ponto. Confira a posição para evitar duplicidade.');
     if (batchMode) {
       const draft = { ...point, draftId: ++nextDraftId.current, addressStatus: 'queued' };
       setPoints(current => current.some(item => item.latitude.toFixed(7) === point.latitude.toFixed(7) && item.longitude.toFixed(7) === point.longitude.toFixed(7)) ? current : [...current, draft]);
@@ -268,8 +269,8 @@ export default function TreeFormDialog({ tree, city, cityId, onClose, onSave, on
             <section className="tree-entry-location" aria-label="Localização da árvore">
               <div className="tree-entry-map-heading"><div><MapPin size={18} /><h3>{step === 0 ? 'Localize no mapa' : 'Localização selecionada'}</h3></div><div className="tree-entry-map-actions">{step === 0 ? <Button type="button" variant="outline" size="sm" disabled={locating || blocked} onClick={locate}>{locating ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}Usar GPS</Button> : <Button type="button" variant="outline" size="sm" disabled={blocked} onClick={() => goToStep(0)}><Pencil size={14} />Alterar local</Button>}<MapLayerToggle layer={mapLayer} onLayerChange={setMapLayer} showLabel className="tree-entry-layer-toggle" /></div></div>
               <div className="tree-entry-map" data-testid="tree-form-map">
-                <TreeMap city={city} trees={existingTrees} registrationMode={batchMode} onMapReady={handleMapReady} initialView={initialMapView} layer={mapLayer} onLayerChange={setMapLayer} externalControls position={batchMode ? null : position} onPick={blocked || step !== 0 ? undefined : pick} draftPoints={batchMode ? points : undefined} onRemoveDraft={index => { if (!blocked && step === 0) setPoints(current => current.filter((_, i) => i !== index)); }} />
-                {batchMode && <div className="tree-entry-batch-map-key"><span><i />Já cadastrada</span><span><b>1</b>Novo ponto</span></div>}
+                <TreeMap city={city} trees={mapTrees} registrationMode={batchMode && !planned} onMapReady={handleMapReady} initialView={initialMapView} layer={mapLayer} onLayerChange={setMapLayer} externalControls position={batchMode ? null : position} onPick={blocked || step !== 0 ? undefined : pick} draftPoints={batchMode ? points : undefined} onRemoveDraft={index => { if (!blocked && step === 0) setPoints(current => current.filter((_, i) => i !== index)); }} />
+                {batchMode && <div className="tree-entry-batch-map-key"><span><i style={planned ? { background: TREE_STATUS.planejada.color } : undefined} />{planned ? 'Plantio planejado' : 'Já cadastrada'}</span><span><b>1</b>Novo ponto</span></div>}
               </div>
               <p className="tree-entry-map-instruction">{batchMode ? 'Toque para adicionar. Toque no número para remover o ponto.' : 'A posição do marcador será salva junto com o cadastro.'}</p>
             </section>
