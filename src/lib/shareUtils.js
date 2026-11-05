@@ -40,6 +40,10 @@ export const getBaseAppUrl = () => {
   return 'https://trombonecidadao.com.br';
 };
 
+// Convites sempre usam a origem pública configurada, inclusive no app nativo
+// e durante desenvolvimento local; uma origem de WebView não é compartilhável.
+export const getAppInviteUrl = () => `${getConfiguredPublicUrl()}/app`;
+
 export const getPetitionShareUrl = (id) => {
   const supabaseUrl =
     import.meta.env.VITE_SUPABASE_URL ||

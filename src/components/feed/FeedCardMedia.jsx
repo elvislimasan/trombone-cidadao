@@ -144,6 +144,15 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
 
   const chip = chips[0];
 
+  // Relatos sem anexo priorizam o texto e as ações. Reservar uma capa 4:3
+  // vazia escondia os botões abaixo da primeira tela no celular.
+  // Miniaturas quadradas mantêm a geometria do cartão horizontal.
+  if (!square && !report.coverImage && !report.coverVideo) {
+    return chip ? (
+      <div className="px-4 pb-1"><SignalChip variant={chip.variant} label={chip.label} /></div>
+    ) : null;
+  }
+
   // Video com autoplay: respeita a proporcao real. Nos demais casos o
   // aspect-ratio e fixo, o que evita layout shift.
   const mediaStyle = wantsAutoplay ? { aspectRatio: videoAspect } : undefined;

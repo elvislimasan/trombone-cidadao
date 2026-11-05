@@ -19,7 +19,8 @@ import FeedSkeleton from '@/components/FeedSkeleton';
 import FeedEmptyState from '@/components/FeedEmptyState';
 import ReportModal from '@/components/ReportModal';
 import FeedUpdateModal from '@/components/feed/FeedUpdateModal';
-import FeedTabs, { FEED_TABS } from '@/components/feed/FeedTabs';
+import { FEED_TABS } from '@/components/feed/FeedTabs';
+import FeedSortMenu from '@/components/feed/FeedSortMenu';
 import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed/FeedStates';
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
 import FeedLocationGate from '@/components/feed/FeedLocationGate';
@@ -36,7 +37,7 @@ const ReportStoryModal = React.lazy(
 export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeCityId, activeCityName } = useCity();
+  const { activeCityId, activeCityName, activeCity } = useCity();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState(() => { const tab = new URLSearchParams(location.search).get('aba'); return FEED_TABS.some(item => item.key === tab) ? tab : 'recent'; });
@@ -192,6 +193,16 @@ export default function FeedPage() {
     [user]
   );
 
+  const cityNotice = eventosDoRadar.length > 0 ? (
+    <section className="mt-3 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised lg:hidden" aria-label="Acontecendo na cidade">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 px-4 pt-2">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-content-primary"><Radio className="h-4 w-4 text-brand" aria-hidden="true" />Acontecendo agora</h2>
+        <Link to="/agora" className="inline-flex min-h-12 items-center gap-1 text-xs font-semibold text-brand">Ver alertas<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+      </div>
+      <CityEventCard evento={eventosDoRadar[0]} agora={agora} compact mostrarSelo={false} />
+    </section>
+  ) : null;
+
   return (
     <div className="min-h-full bg-surface-base">
       {/* Em notebooks, conteúdo e contexto dividem a tela em duas colunas.
@@ -254,13 +265,11 @@ export default function FeedPage() {
         </nav>
 
         <main className="min-w-0 lg:col-start-1 2xl:col-start-2 2xl:row-start-1">
-          <FeedWelcomeCard cityName={activeCityName} onCreateReport={handleOpenCreate} />
+          <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
 
           {/* ── Sticky Tab Bar ── */}
-          <div className="sticky z-10 mt-4 rounded-2xl border border-edge-subtle bg-surface-raised/95 backdrop-blur-md lg:static" style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top))' }}>
-            <div className="min-w-0 p-1">
-              <FeedTabs tabs={FEED_TABS} activeTab={activeTab} onChange={handleTabChange} />
-            </div>
+          <div className="sticky z-10 bg-surface-base/95 backdrop-blur-md lg:static" style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top))' }}>
+            <FeedSortMenu activeTab={activeTab} onChange={handleTabChange} />
           </div>
 
           {/* ── "X novas broncas" banner ── */}
@@ -269,7 +278,7 @@ export default function FeedPage() {
           {/* ── Feed Content ── */}
           {/* Arrastar na horizontal troca de aba. Fica neste container, e nao na
               pagina toda, para nao capturar arrasto do header nem do bottom nav. */}
-          <div className="min-w-0 py-4 lg:py-5" {...swipeHandlers}>
+          <div id="feed-panel" role="region" aria-labelledby="feed-content-title" tabIndex={0} className="min-w-0 rounded-2xl py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:py-5" {...swipeHandlers}>
         {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
             ou erro de rede ao lado do gate confundiria a causa real. */}
         {!awaitingLocation && (
@@ -291,6 +300,8 @@ export default function FeedPage() {
         ) : !hasReports ? (
           <FeedEmptyState
             tab={activeTab}
+            cityName={activeCityName}
+            showCreateAction={false}
             onCreateReport={handleOpenCreate}
             onChangeTab={handleTabChange}
           />
@@ -318,6 +329,7 @@ export default function FeedPage() {
                   isNew={report.id === recentCreatedId}
                   index={index}
                 />
+                {index === 0 && cityNotice}
               </React.Fragment>
             ))}
 
@@ -345,6 +357,7 @@ export default function FeedPage() {
             )}
           </div>
         )}
+          {!hasReports && !loading && !error && !isOffline && !awaitingLocation && cityNotice}
           </div>
         </main>
 

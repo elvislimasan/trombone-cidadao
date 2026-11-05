@@ -254,21 +254,21 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
   return (
     <article
       ref={cardRef}
-      className={`tc-animate-in bg-surface-raised rounded-2xl border overflow-hidden shadow-elevation-1 ${
+      className={`tc-animate-in bg-surface-raised rounded-3xl border overflow-hidden ${
         isNew ? 'border-brand ring-2 ring-brand/25' : 'border-edge-subtle'
       }`}
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
       {/* Cabecalho: titulo e status antes da midia. */}
-      <div className="flex items-start gap-3 px-3.5 pt-3.5 pb-2.5">
+      <div className="flex flex-wrap items-start gap-3 px-4 pt-4 pb-3">
         <button
           onClick={goToReport}
-          className="flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
+          className="min-h-12 flex-1 min-w-[min(100%,10rem)] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
         >
-          <h3 className="font-display text-base font-bold leading-tight line-clamp-2 text-content-primary">
+          <h3 className="font-display text-lg font-bold leading-snug line-clamp-2 text-content-primary">
             {report.title}
           </h3>
-          <span className="flex items-center gap-1 mt-1 text-2xs text-content-tertiary min-w-0">
+          <span className="flex flex-wrap items-center gap-1 mt-1.5 text-xs text-content-secondary min-w-0">
             <Icon
               name={categoryIconName(report.category_id)}
               size={12}
@@ -276,7 +276,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             />
             <span className="truncate">{report.categoryName || report.category_id}</span>
             <span aria-hidden="true">·</span>
-            <TimeAgo date={report.created_at} className="text-2xs text-content-tertiary" />
+            <TimeAgo date={report.created_at} className="text-xs text-content-secondary" />
           </span>
         </button>
         <StatusBadge status={localStatus} />
@@ -291,14 +291,14 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
         onClick={goToReport}
       />
 
-      <div className="flex flex-col p-3">
+      <div className="flex flex-col p-4">
         <div className="flex-1 min-w-0 flex flex-col">
           {report.description && (
             <button
               onClick={goToReport}
               className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
             >
-              <p className="text-2xs text-content-secondary line-clamp-2 leading-relaxed">
+              <p className="text-sm text-content-secondary line-clamp-2 leading-relaxed">
                 {report.description}
               </p>
             </button>
@@ -311,7 +311,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
               <Link
                 to={`/${report.authorUsername}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-2 mt-3 py-0.5 min-w-0 hover:opacity-80 transition cursor-pointer group"
+                className="flex min-h-12 items-center gap-2 mt-1 py-0.5 min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand hover:opacity-80 transition cursor-pointer group"
               >
                 <AuthorAvatar
                   name={report.authorName}
@@ -337,23 +337,22 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
           )}
 
 
-          {/* Barra de acoes so com icone: apoiar, comentar e compartilhar a
-              esquerda; salvar isolado a direita, porque e a unica que age sobre
-              a bronca do proprio usuario e nao sobre a conversa. */}
-          <div className="mt-auto pt-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1">
+          {/* Alvos de 48 px; apoiar tem rótulo e estado para explicar a ação. */}
+          <div className="mt-auto pt-3 flex flex-wrap items-center justify-between gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 onClick={() => onToggleUpvote?.(report.id)}
                 aria-label="Apoiar bronca"
                 aria-pressed={report.user_has_upvoted}
-                className={`flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`feed-card-action ${
                   report.user_has_upvoted
                     ? 'text-brand'
                     : 'text-content-secondary hover:text-content-primary'
                 }`}
               >
                 <Icon name="support" size={19} />
+                <span>{report.user_has_upvoted ? 'Apoiado' : 'Apoiar'}</span>
                 {report.upvotes > 0 && <span className="tabular-nums">{report.upvotes}</span>}
               </button>
 
@@ -373,7 +372,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
                   setCommentFocusRequest((request) => request + 1);
                 }}
                 aria-label={isDesktop ? 'Escrever comentário' : 'Ver comentários'}
-                className="flex items-center gap-1.5 p-1.5 rounded-lg text-xs font-semibold text-content-secondary hover:text-content-primary transition-colors"
+                className="feed-card-action text-content-secondary hover:text-content-primary"
               >
                 <Icon name="comment" size={19} />
                 {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
@@ -386,7 +385,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
                     disabled={sharingStory}
                     aria-label="Compartilhar"
                     aria-busy={sharingStory}
-                    className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary transition-colors disabled:opacity-60"
+                    className="feed-card-action text-content-secondary hover:text-content-primary disabled:opacity-60"
                   >
                     {sharingStory ? (
                       <span className="block w-[19px] h-[19px] rounded-full border-2 border-current border-t-transparent animate-spin" />
@@ -433,7 +432,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
               onClick={handleBookmark}
               aria-label={localFav ? 'Remover das salvas' : 'Salvar bronca'}
               aria-pressed={localFav}
-              className={`inline-flex min-h-11 items-center gap-1.5 px-2 rounded-lg text-xs font-semibold transition-colors ${
+              className={`feed-card-action ${
                 localFav
                   ? 'text-brand'
                   : 'text-content-secondary hover:text-content-primary'
@@ -492,11 +491,11 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             // o position:fixed do modal ao proprio card).
             onRequestUpdate?.(report);
           }}
-          className="w-full flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-brand-subtleBg text-brand-subtleFg transition-opacity hover:opacity-90 group"
+          className="w-full min-h-12 flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-surface-subtle text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-opacity hover:opacity-90 group"
           style={{ width: 'calc(100% - 1.5rem)' }}
         >
           <Icon name="trombone" size={16} className="flex-shrink-0" />
-          <p className="flex-1 text-left text-2xs leading-snug min-w-0">
+          <p className="flex-1 text-left text-xs leading-snug min-w-0">
             <span className="font-bold">Esteve no local?</span>{' '}
             <span className="opacity-80">Informe o que viu</span>
           </p>

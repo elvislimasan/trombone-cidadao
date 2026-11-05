@@ -698,3 +698,47 @@ node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/mobil
 ```
 
 Continuam nas próximas entregas: orientação personalizada por rascunho/atualização, restauração de contexto entre telas, refinamento dos formulários, recuperação de envio e expansão do kit às outras páginas. Esta parte entrega organização visual e descoberta de funções; a homologação em aparelho e a validação com usuários continuam pendentes.
+
+### Parte 3 — acabamento dos componentes de Início e Explorar
+
+Refinamento local em 05/11/2026, após o pedido de uma aparência mais moderna e interativa dentro do padrão visual existente. Escopo: componentes públicos dessas duas páginas, sem considerar concluída a modernização de todos os módulos.
+
+- **Identidade preservada:** vermelho, fontes, tokens semânticos, temas claro/escuro e cabeçalho clássico com menu hambúrguer.
+- **Explorar:** objetivos com rótulos curtos no celular e explicações no desktop. Uma ação principal recebe destaque; as demais formam uma lista com divisórias discretas, reduzindo cartões dentro de cartões. Busca, catálogo e retorno de login continuam funcionando.
+- **Início:** apresentação com superfície suave, título em largura completa, botão de registro amplo e acesso a Acompanhando junto à ajuda opcional.
+- **Cartões reais:** títulos e descrição maiores; ações com alvos mínimos de 48 × 48 CSS px e retorno pressionado; apoiar passa a mostrar “Apoiar”/“Apoiado”. Relatos sem imagem ou vídeo deixam de reservar uma capa vazia. A apresentação de miniaturas quadradas permanece própria do cartão horizontal.
+- **Abas:** seleção em controle segmentado, navegação por setas/Home/End, uma aba na sequência de foco e associação entre aba ativa e painel. Transições novas respeitam redução de movimento.
+- **Reuso:** variante `discovery` no `ActionCard` e estilos em `src/design-system/mobile-journeys.css`. O contêiner da página continua fluido; desktop redistribui as ações em duas ou três colunas.
+
+Validação: ESLint dos componentes alterados; 26 testes de navegação, shell, entrada e acesso/resumo municipal; 98 pares de contraste dos tokens aprovados; build final de produção concluído. A tentativa adicional de executar `executorActivities.test.mjs` encontrou a dependência `fake-indexeddb` ausente na instalação local; esse teste não valida a alteração visual. O build final usou a opção local do V8 abaixo para contornar a lentidão observada no processamento de expressões regulares, sem alterar os scripts do projeto.
+
+O comando abaixo usa os componentes reais de cartão, mídia, comentários, Início e Explorar com dados e serviços simulados. Cobre 360, 390, 430, 1440 e 1920 px, dois temas, busca, objetivos, catálogo, retorno do login, navegação das abas, apoio reversível, tamanho das ações e fonte a 200%. Não certifica gravações no backend ou o uso em aparelhos. Evidências em `.tmp/civic-components-ui`.
+
+```sh
+# Se o Chrome não estiver no caminho padrão, informe o executável em CHROME_PATH.
+node tools/validate-mobile-shell-ui.mjs --journeys --real-cards
+node --import ./tools/test-alias.mjs --test src/test/mobileNavigation.test.mjs src/test/mobileShell.test.mjs src/test/homeEntry.test.mjs src/test/municipalityAccess.test.mjs src/test/municipalOverview.test.mjs
+node --max-old-space-size=1536 --enable-experimental-regexp-engine-on-excessive-backtracks node_modules/vite/bin/vite.js build
+```
+
+Os formulários, detalhes e módulos restantes ainda precisam receber esse acabamento por jornada. A homologação em Android/iOS permanece pendente.
+
+### Parte 4 — capa da cidade e ações em uma composição única
+
+Refinamento local em 05/11/2026. A entrada do feed usa a imagem institucional `civic_thumbnail_url`, já carregada pelo contexto de cidade. A capa é baixa, com degradê para leitura do nome e os cards parcialmente sobrepostos. Cidade sem imagem, ou com falha ao carregá-la, mantém o nome e as ações sem reservar uma capa vazia. A tela administrativa de identidade visual informa também o uso da imagem no feed.
+
+- **Cidade:** seleção pelo ícone de localização no cabeçalho clássico, também no feed mobile e na raiz. O nome na capa é informativo; não existe um segundo seletor sobre a foto.
+- **Quatro ações:** Cadastrar sua bronca, Painel do embaixador, Patrulha e missões e Convidar. No celular formam uma grade 2 × 2, com ícones, cantos e espaçamentos comuns; no desktop ficam em uma linha. O painel abre a área do embaixador para esse papel ou a apresentação do programa para os demais usuários, preservando o comportamento anterior.
+- **Convite:** compartilhamento nativo ou Web Share; alternativa de copiar o link e, se necessário, exibição do endereço para cópia manual. O link usa a origem pública configurada, inclusive no desenvolvimento local e na WebView. Cancelar o compartilhamento não exibe confirmação de sucesso.
+- **Ordenação:** Recentes, Perto de mim e Em alta ficam em um menu contextual. A tela deixa de empilhar uma faixa de botões com uma barra de tabs.
+- **Feed vazio:** ilustração SVG da comunidade, mensagem local e acessos a mapa, árvores e serviços. O cadastro fica no card de ação e na navegação inferior, sem outro botão idêntico no estado vazio. A explicação em três passos aparece em ajuda recolhida abaixo dos caminhos.
+- **Conteúdo e acompanhamento:** o aviso “Há novidades nas suas broncas” foi retirado do feed; permanece na área Acompanhando. Alertas municipais reais podem aparecer depois do primeiro relato ou do estado vazio, mantendo a entrada concentrada nas ações e no conteúdo.
+- **Desktop:** contêineres fluidos no feed e no cabeçalho; margens externas conferidas em 1440 e 1920 px. Os novos estados de toque respeitam redução de movimento.
+
+Validação local: build normal de produção e ESLint dos arquivos alterados aprovados; 18 testes de regressão e 20 cenários visuais passaram. O validador usa os componentes reais, com dados e serviços simulados, e cobre os layouts com/sem capa, temas claro/escuro, troca de cidade no cabeçalho, falha da imagem, quatro ações, perfil de embaixador, compartilhamento/cancelamento/cópia de convite, ordenação, estados vazio/carregando/erro e fonte a 200%. Screenshots em `.tmp/civic-components-ui`, incluindo `feed-cover-390-light.png` e as versões de desktop. Não aplica alterações ao banco nem publica um aplicativo; a validação em aparelho continua pendente.
+
+```sh
+node tools/validate-mobile-shell-ui.mjs --journeys --real-cards
+node --import ./tools/test-alias.mjs --test src/test/mobileNavigation.test.mjs src/test/mobileShell.test.mjs src/test/homeEntry.test.mjs src/test/cityEventShareRoute.test.mjs
+npx vite build
+```

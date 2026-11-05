@@ -16,7 +16,7 @@ export default function ManageCityIdentityPage() {
       <header className="rounded-3xl border border-edge-subtle bg-surface-raised p-6 shadow-sm">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-subtleBg text-brand"><ImagePlus className="h-6 w-6" /></span>
         <h1 className="mt-4 text-2xl font-extrabold text-content-primary">Identidade visual da cidade</h1>
-        <p className="mt-2 text-sm leading-6 text-content-secondary">Defina a imagem institucional exibida no Radar, na home desktop e nos perfis públicos de moradores.</p>
+        <p className="mt-2 text-sm leading-6 text-content-secondary">Defina a imagem institucional exibida no feed, no Radar, na home desktop e nos perfis públicos de moradores.</p>
       </header>
       <section className="mt-5 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
         <label className="text-sm font-bold text-content-primary">Cidade</label>

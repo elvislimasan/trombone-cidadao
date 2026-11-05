@@ -230,13 +230,13 @@ const Header = () => {
         style={{ backgroundColor: headerStyle.backgroundColor }}
       />
       <div
-        className="container mx-auto flex items-center justify-between gap-3 px-4"
+        className="page-shell-fluid flex items-center justify-between gap-3"
         style={{ marginTop: 0, height: 'var(--header-bar-height)' }}
       >
         {/* A marca volta a ocupar o lado esquerdo em todas as telas. A cidade
             ativa saiu daqui: virou um icone de pin no lado direito, para o nome
             do site nao competir com o nome da cidade pelo mesmo espaco. */}
-        <div className="flex min-w-0 shrink-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Link to="/" className="flex items-center gap-2 min-w-0">
             <img
               src={logoError ? '/logo.png' : (logoUrl || '/logo.png')}
@@ -253,7 +253,7 @@ const Header = () => {
                 }
               }}
             />
-            <span className="whitespace-nowrap text-base font-extrabold tracking-tight 2xl:text-lg">
+            <span className="min-w-0 truncate whitespace-nowrap text-base font-extrabold tracking-tight 2xl:text-lg">
               {siteName}
             </span>
           </Link>
@@ -337,7 +337,7 @@ const Header = () => {
           </Button>
           {/* Pin da cidade ativa: substitui o chip com o nome da cidade. Abre a
               lista como sheet centralizado, que nao corta na borda da tela. */}
-          {!['/', '/explorar'].includes(location.pathname) && <div className={location.pathname === '/feed' ? 'hidden lg:block' : ''}><FeedCitySelector iconOnly /></div>}
+          {location.pathname !== '/explorar' && <FeedCitySelector inHeader iconOnly />}
           {user ? (
             <>
               <Notifications />
