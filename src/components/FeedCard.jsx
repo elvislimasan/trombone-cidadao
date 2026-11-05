@@ -494,7 +494,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             // o position:fixed do modal ao proprio card).
             onRequestUpdate?.(report);
           }}
-          className="feed-card-update w-full min-h-12 flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-surface-subtle text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-opacity hover:opacity-90 group"
+          className="feed-card-update w-full min-h-12 flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-brand-subtleBg text-brand-subtleFg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-opacity hover:opacity-90 group"
           style={{ width: 'calc(100% - 1.5rem)' }}
         >
           <Icon name="trombone" size={16} className="flex-shrink-0" />

@@ -787,3 +787,42 @@ O primeiro caminho, como Registrar uma bronca, passa a usar superfície suavemen
 Validação: 26 cenários de navegador aprovados, incluindo 360, 390 e 430 px, temas claro/escuro, foco no último objetivo, restauração da seleção, fonte a 200% e desktop em 1440 e 1920 px. Não houve rolagem horizontal da página; a rolagem fica na faixa de objetivos. ESLint, os 98 pares do verificador de contraste dos tokens e o build final de produção passaram. Capturas em `.tmp/civic-components-ui/explorar-<largura>-<tema>.png`.
 
 Os formulários, detalhes e módulos restantes ainda precisam receber esse acabamento por jornada. A homologação em Android/iOS permanece pendente.
+
+### Parte 8 — atualização de bronca em diálogo no desktop
+
+Ajuste local em 05/11/2026. O formulário **Enviar atualização**, compartilhado pelo feed, mapa e detalhe de bronca, usa diálogo centralizado a partir de 980 px, seguindo o breakpoint desktop do projeto. O diálogo tem cantos completos, altura limitada à janela e rolagem interna; a folha inferior com puxador continua no celular. Apenas o formulário tem largura limitada, preservando o contêiner fluido da página.
+
+Texto, situação selecionada e fotos permanecem ao alternar entre os layouts. O preview de foto fecha antes do formulário; durante o envio, Escape e clique externo não fecham a atualização. Ao fechar o formulário, o foco retorna ao controle de origem quando ele ainda está disponível.
+
+Validação local com o componente real e serviços simulados: 12 cenários de navegador em 360, 390, 430, 980, 1440 e 1920 px, nos temas claro/escuro, sem rolagem horizontal. Também conferidos preservação de texto/foto ao redimensionar, preview, proteção durante envio, retorno de foco e ação acessível em janela desktop de 600 px de altura. Evidências em `.tmp/report-update-ui`. O envio ao backend e aparelhos Android/iOS não fazem parte desta verificação.
+
+### Parte 9 — detalhe, cadastro e confirmação de bronca
+
+Implementação local em 05/11/2026. Escopo: acabamento da jornada de bronca em MOB-03, MOB-06, MOB-07 e MOB-09, com aplicação do retorno interno de MOB-01. O cabeçalho clássico e as regras de acesso, publicação e exigência de anexos permanecem vigentes.
+
+- **Detalhe:** participação logo após o resumo no celular, com apoiar, salvar e compartilhar em alvos de pelo menos 48 px. O desktop reutiliza o componente na coluna lateral e recebe contêiner fluido. Relatos sem mídia mostram categoria e situação sem reservar uma capa vazia. Vídeos reutilizam a extração de miniaturas compartilhada com o feed.
+- **Cadastro:** etapas Problema, Local e Evidências, categorias com seleção explícita e texto maior. Conforme os ajustes solicitados durante esta entrega, foram retirados os títulos em forma de pergunta e suas introduções; as orientações permanecem junto aos campos. Cancelar/Voltar e Continuar/Enviar ficam lado a lado também no celular, reduzindo o espaço da barra inferior sem diminuir o alvo de toque. Na alternativa de envio sem conta, a terceira ação ocupa uma segunda linha.
+- **Evidências:** fotos, vídeos e opções de identidade/visibilidade. O bloco “Confira sua bronca” foi retirado conforme solicitação posterior. Voltar permite editar as etapas anteriores mantendo texto e anexos. O modo municipal mantém contato opcional, escolha de visibilidade e evidência opcional.
+- **Correção de poste:** administradores que já podem cadastrar postes encontram “Remover poste do mapa” somente quando a autoria do poste selecionado é confirmada como sendo da própria conta. A atualização filtra ID e `created_by`, usa a política administrativa existente e só confirma a remoção após resposta do servidor. Há confirmação da ação; a remoção lógica preserva cadastro e vínculos. Falhas mantêm a seleção e respostas antigas da consulta não recolocam o marcador removido. Não há migração ou ampliação das permissões existentes.
+- **Foco e rolagem:** mudança de etapa posiciona o foco no conteúdo identificado pela etapa; validação focaliza o campo com problema. O formulário limita a navegação por Tab, devolve foco à origem ao fechar e bloqueia a rolagem da página de fundo. O conteúdo e a barra de ações têm rolagem própria quando necessário.
+- **Confirmação:** mostra título e protocolo quando retornados pelo servidor, distingue recebimento para análise de publicação e oferece o destino correspondente. Envios sem conta não prometem aparecer no Perfil; a confirmação municipal continua a cargo do painel e do comprovante existentes.
+- **Retorno:** o detalhe usa o histórico identificado pelo React Router; acesso direto retorna ao mapa em vez de depender da quantidade de páginas no histórico do navegador.
+
+Verificações da base desta parte: 88 testes de regressão passaram; ESLint sem erros nos arquivos alterados, com avisos já existentes nos componentes extensos. Build de produção concluído. O validador abaixo usa a página e o formulário reais com serviços, sessão, captura e mapa simulados. Cobre 360, 390, 430, 1440 e 1920 px nos dois temas, validação obrigatória, apoio reversível, salvar, retorno entre etapas, falha e nova tentativa, confirmação, retorno direto, foco por teclado, fonte a 200% e solicitação municipal sem anexos. Os testes de poste incluem também confirmação de remoção, filtro de autoria, resposta sem permissão e identificador inválido. Evidências em `.tmp/report-journey-ui`.
+
+```sh
+node tools/validate-report-journey-ui.mjs
+node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/reportDraftReturn.test.mjs src/test/reportCategoryFields.test.mjs src/test/reportTimeline.test.mjs src/test/reportPole.test.mjs src/test/mobileNavigation.test.mjs src/test/mobileShell.test.mjs src/test/videoThumbnail.test.mjs src/test/useVideoThumbnail.test.mjs
+```
+
+Esta entrega não conclui a persistência após encerramento do processo, o isolamento de rascunhos por conta, a restauração de listas/mapas nem a recuperação transacional de registros e anexos. A nova tentativa no validador confirma preservação do formulário diante de erro simulado; não comprova idempotência do backend. Câmera nativa, teclado e safe areas ainda exigem homologação em Android/iOS.
+
+Após os ajustes de Evidências e remoção de poste próprio, passaram 43 testes de navegação, categoria, rascunho e poste, além do build local. O navegador cobriu 12 combinações/cenários, incluindo remover/cancelar, falha de permissão, resposta atrasada da busca e ausência de remoção para poste de outra conta em 390 e 1440 px. Os serviços permanecem simulados nessa verificação.
+
+### Parte 10 — paisagem ilustrada no topo do Explorar
+
+Refinamento local em 05/11/2026. O topo do Explorar recebe uma paisagem SVG de casas, árvores, caminho pontilhado e marcador, concentrada à direita sobre o fundo neutro da página. O degradê rosa inicial foi retirado conforme solicitação do cliente. Título e cidade ficam juntos, e a busca mantém superfície própria. A ilustração é decorativa, não representa lugares reais, usa os tokens dos dois temas, não recebe foco e não intercepta toques. O cabeçalho clássico e o contêiner fluido permanecem.
+
+Validação: build de produção e 26 cenários de regressão de Início/Explorar aprovados, incluindo busca, retorno do login, navegação por objetivos e fonte a 200%. Outras 10 capturas do topo em 360, 390, 430, 1440 e 1920 px, nos temas claro/escuro, confirmam título visível e ausência de rolagem horizontal. Evidências em `.tmp/explore-top-ui` e `.tmp/civic-components-ui`, com dados e serviços simulados. Homologação em aparelho continua pendente.
+
+Refinamento da confirmação em 05/11/2026: aviso mais compacto abaixo do cabeçalho e da área segura, alinhado à direita em telas maiores. Publicação usa ícone de sucesso; recebimento para análise usa relógio. Título do relato e protocolo dividem o rodapé com a ação de acesso, mantendo fechamento explícito e sem deslocar o foco da pessoa. A entrada respeita movimento reduzido. O comando `node tools/validate-report-journey-ui.mjs --notice-only` verifica posição, ações, estados publicado/em análise, fonte a 200%, área segura e temas claro/escuro nas larguras de 360, 390, 430, 1440 e 1920 px, com serviços simulados.

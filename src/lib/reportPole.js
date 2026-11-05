@@ -55,6 +55,23 @@ export async function createReportPole({ client, cityId, location, identifier, a
   return { ...pole, latitude: position.lat, longitude: position.lng, is_broken: !!pole.is_broken, distance_m: 0 };
 }
 
+// Usa a política administrativa de UPDATE já existente. A remoção lógica
+// preserva vínculos e tira o poste das consultas de mapas e de busca atuais.
+export async function removeReportPole({ client, poleId, userId }) {
+  if (!/^[1-9]\d*$/.test(String(poleId))) {
+    throw new Error('Selecione o poste que deseja remover.');
+  }
+  if (!userId) throw new Error('Entre na sua conta para remover o poste.');
+  const { data, error } = await client.from('poles')
+    .update({ lighting_status: 'removido' }).eq('id', poleId).eq('created_by', userId)
+    .select('id,lighting_status').maybeSingle();
+  if (error) throw error;
+  if (!data || String(data.id) !== String(poleId) || data.lighting_status !== 'removido') {
+    throw new Error('A remoção não foi confirmada. Confira sua permissão e tente novamente.');
+  }
+  return data;
+}
+
 // Mantém o poste recém-cadastrado visível enquanto a consulta remota atualiza.
 export function mergeNearbyReportPoles(remote, local, location) {
   const seen = new Set();

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Camera, Image as GalleryIcon, AlertCircle, Clock,
@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Drawer, BottomSheetContent, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useIsDesktopViewport } from '@/hooks/useIsDesktopViewport';
 import MediaViewer from '@/components/MediaViewer';
 import { showAppError } from '@/lib/appError';
 
@@ -68,6 +70,15 @@ const ReportUpdateModal = ({
   onMessageChange,
 }) => {
   const [viewer, setViewer] = useState({ open: false, index: 0 });
+  const returnFocusRef = useRef(typeof document !== 'undefined' ? document.activeElement : null);
+  const isDesktop = useIsDesktopViewport();
+  const Modal = isDesktop ? Dialog : Drawer;
+  const Content = isDesktop ? DialogContent : BottomSheetContent;
+  const Title = isDesktop ? DialogTitle : DrawerTitle;
+  const Description = isDesktop ? DialogDescription : DrawerDescription;
+  const preventDismiss = (event) => {
+    if (submitting || viewer.open) event.preventDefault();
+  };
 
   // Converte photoItems para o formato que MediaViewer espera
   const viewerMedia = cam.photoItems.map((item) => ({
@@ -92,8 +103,28 @@ const ReportUpdateModal = ({
 
   return (
     <>
-    <Drawer open onOpenChange={(open) => { if (!open && !submitting && !viewer.open) onClose(); }} dismissible={!submitting && !viewer.open} modal={!viewer.open}>
-      <BottomSheetContent>
+    <Modal
+      open
+      onOpenChange={(open) => { if (!open && !submitting && !viewer.open) onClose(); }}
+      modal={!viewer.open}
+      {...(!isDesktop && { dismissible: !submitting && !viewer.open })}
+    >
+      {/* Só o formulário tem largura limitada; a página ao fundo continua fluida. */}
+      <Content
+        {...(isDesktop && {
+          hideClose: true,
+          className: 'flex max-h-[calc(100dvh-3rem)] w-[calc(100%-3rem)] max-w-xl flex-col gap-0 overflow-hidden rounded-2xl border-edge-subtle bg-surface-raised p-0 text-content-primary',
+          overlayClassName: 'bg-black/50',
+        })}
+        onEscapeKeyDown={preventDismiss}
+        onInteractOutside={preventDismiss}
+        onCloseAutoFocus={(event) => {
+          if (returnFocusRef.current?.isConnected) {
+            event.preventDefault();
+            returnFocusRef.current.focus();
+          }
+        }}
+      >
         {/* Web fallback file input — DENTRO do painel de proposito: como filho
             direto do overlay, o clique sintetico que o input dispara ao escolher
             o arquivo borbulhava ate o onClick={onClose} e fechava o modal antes
@@ -109,10 +140,10 @@ const ReportUpdateModal = ({
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
           <div>
-            <DrawerTitle className="text-[17px] font-extrabold text-content-primary tracking-tight">
+            <Title className="text-[17px] font-extrabold text-content-primary tracking-tight">
               Enviar Atualização
-            </DrawerTitle>
-            <DrawerDescription className="text-xs text-content-tertiary mt-0.5">O que você encontrou no local?</DrawerDescription>
+            </Title>
+            <Description className="text-xs text-content-tertiary mt-0.5">O que você encontrou no local?</Description>
           </div>
           <button
             type="button"
@@ -387,8 +418,8 @@ const ReportUpdateModal = ({
             </Button>
           </div>
         </div>
-      </BottomSheetContent>
-    </Drawer>
+      </Content>
+    </Modal>
 
     {/* Preview fullscreen das fotos — z-index acima do modal */}
     {viewer.open && viewerMedia.length > 0 && (

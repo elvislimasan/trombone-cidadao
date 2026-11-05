@@ -28,10 +28,8 @@ import DonationModal from "@/components/DonationModal";
 import MarkResolvedModal from "@/components/MarkResolvedModal";
 import MediaViewer from "@/components/MediaViewer";
 import {
-  ThumbsUp,
   Star,
   Share2,
-  FileSignature,
   CheckCircle,
   Image,
   Instagram,
@@ -53,6 +51,7 @@ import {
   ReportProblemDetails,
 } from "@/components/report/ReportProblem";
 import ReportSummary from "@/components/report/ReportSummary";
+import ReportParticipation from "@/components/report/ReportParticipation";
 import ReportTimeline from "@/components/report/ReportTimeline";
 import ReportOfficialStep from "@/components/report/ReportOfficialStep";
 import ReportOfficialResponses from "@/components/report/ReportOfficialResponses";
@@ -82,6 +81,7 @@ import { showAppError } from '@/lib/appError';
 import { linkDuplicateReport } from '@/lib/linkReport';
 import { optimizeImageFile } from '@/lib/optimizeImage';
 import { historiaDeTempoDaBronca } from '@/lib/reportAgeStory';
+import { getMobileRoute, getMobileBackTarget } from '@/lib/mobileNavigation';
 
 // ─────────────────────────────────────────────
 // Main ReportPage
@@ -1476,11 +1476,7 @@ const ReportPage = () => {
 
     setShowBack(true);
     setOnBack(() => () => {
-      if (window.history.length > 1) {
-        navigate(-1);
-      } else {
-        navigate("/", { replace: true });
-      }
+      navigate(getMobileBackTarget(getMobileRoute(location.pathname), window.history.state));
     });
     setTitle(poleReferenceText(report?.title || "Detalhes da Bronca"));
 
@@ -1508,6 +1504,7 @@ const ReportPage = () => {
     return () => reset();
   }, [
     handleShare,
+    location.pathname,
     isInteractive,
     navigate,
     report,
@@ -1552,7 +1549,7 @@ const ReportPage = () => {
           {!isInteractive && (
             <>
               <ReportHeader
-                onBack={() => navigate(-1)}
+                onBack={() => navigate(getMobileBackTarget(getMobileRoute(location.pathname), window.history.state))}
                 showAdminActions={isAdmin || isMaster}
                 canLinkReports={isAdmin || isMaster}
                 handleOpenLinkModal={() => handleOpenLinkModal(report)}
@@ -1562,7 +1559,7 @@ const ReportPage = () => {
                 handleShare={handleShare}
               />
               <div className="hidden lg:block bg-surface-subtle">
-                <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-2 text-2xs text-content-tertiary flex items-center gap-1">
+                <div className="page-shell-fluid py-2 text-2xs text-content-tertiary flex items-center gap-1">
                   <Link to="/" className="hover:text-brand transition-colors">
                     Início
                   </Link>
@@ -1577,8 +1574,8 @@ const ReportPage = () => {
 
           {/* ── PAGE ── */}
           <div className="bg-surface-base min-h-screen overflow-x-hidden">
-            <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 py-4 lg:py-8 grid gap-6 grid-cols-1 lg:grid-cols-3">
-              <div className="lg:col-span-2">
+            <div className="page-shell-fluid report-detail-grid">
+              <div className="report-detail-main">
                 {managementPanel && (
                   <div className="mb-4 lg:hidden">{managementPanel}</div>
                 )}
@@ -1611,6 +1608,8 @@ const ReportPage = () => {
 
                     />
                   </div>
+
+                  <div className="lg:hidden"><ReportParticipation report={report} onSupport={handleUpvoteClick} onShare={handleShare} onSave={() => handleFavoriteToggle(report.id, report.is_favorited)} /></div>
 
                   {/* gallery */}
                   {viewerMedia.length > 1 && (
@@ -1700,68 +1699,6 @@ const ReportPage = () => {
                       setOfficialSteps((atuais) => [...atuais, etapa])
                     }
                   />
-
-                  {/* mobile upvote */}
-                  <div className="bg-surface-subtle rounded-2xl px-4 py-4 lg:hidden">
-                    <div className="text-2xs font-bold uppercase tracking-[0.15em] text-content-tertiary mb-1 text-center">
-                      Apoios da comunidade
-                    </div>
-                    <div className="text-3xl font-extrabold text-content-primary tracking-[-0.02em] text-center">
-                      {report.upvotes || 0}
-                    </div>
-                    <div className="text-xs text-content-tertiary mt-1 mb-4 text-center">
-                      pessoas já apoiaram
-                    </div>
-                    <Button
-                      className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
-                      onClick={handleUpvoteClick}
-                    >
-                      <ThumbsUp
-                        className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
-                        strokeWidth={1.5}
-                      />
-                      {report.user_has_upvoted ? "Apoiada" : "Apoiar"}
-                    </Button>
-                    <Button
-                      className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-raised hover:bg-surface-subtleHover text-content-primary shadow-elevation-1"
-                      onClick={handleShare}
-                    >
-                      <Share2 className="w-4 h-4" strokeWidth={1.5} />
-                      Compartilhar
-                    </Button>
-                    {/* O botão de enviar atualização mora na seção Atualizações,
-                        logo abaixo. Aqui era o mesmo botão pela segunda vez na
-                        mesma tela — e o de lá é melhor: fica junto da lista que
-                        ele alimenta e, quando o limite semanal está batido,
-                        informa quando libera em vez de simplesmente sumir. */}
-                    <Button
-                      className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-raised hover:bg-surface-subtleHover shadow-elevation-1"
-                      onClick={() =>
-                        handleFavoriteToggle(report.id, report.is_favorited)
-                      }
-                    >
-                      <Star
-                        className={`w-4 h-4 ${
-                          report.is_favorited
-                            ? "fill-amber-400 text-amber-400"
-                            : ""
-                        }`}
-                        strokeWidth={1.5}
-                      />
-                      {report.is_favorited ? "Salva" : "Salvar"}
-                    </Button>
-                    {report.petitionId && (
-                      <Button
-                        asChild
-                        className="w-full mt-2 justify-center gap-2 text-sm bg-surface-raised text-content-primary"
-                      >
-                        <Link to={`/abaixo-assinado/${report.petitionId}`}>
-                          <FileSignature className="w-4 h-4" />
-                          Ver abaixo-assinado ligado
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
 
                   {/* ── COMMUNITY UPDATES ── */}
                   <ReportUpdates
@@ -1883,64 +1820,8 @@ const ReportPage = () => {
               </div>
 
               {/* ── SIDEBAR ── */}
-              <aside className="space-y-4">
-                <div className="bg-surface-raised border border-edge-subtle rounded-2xl shadow-elevation-1 px-5 py-6 text-center hidden lg:block">
-                  <div className="text-2xs font-bold uppercase tracking-[0.2em] text-content-tertiary mb-1">
-                    Apoios
-                  </div>
-                  <div className="text-4xl font-extrabold text-content-primary tracking-[-0.02em]">
-                    {report.upvotes || 0}
-                  </div>
-                  <div className="text-xs text-content-tertiary mt-1 mb-4">
-                    pessoas apoiaram essa bronca
-                  </div>
-                  <Button
-                    className="w-full justify-center gap-2 text-sm font-semibold rounded-full bg-brand hover:bg-brand/90 text-content-onBrand shadow-elevation-2"
-                    onClick={handleUpvoteClick}
-                  >
-                    <ThumbsUp
-                      className={`w-4 h-4 ${report.user_has_upvoted ? "fill-content-onBrand" : ""}`}
-                      strokeWidth={1.5}
-                    />
-                    {report.user_has_upvoted ? "Apoiada" : "Apoiar essa bronca"}
-                  </Button>
-                  <Button
-                    className="mt-2 w-full justify-center gap-2 text-sm font-semibold rounded-full bg-surface-subtle hover:bg-surface-subtleHover text-content-primary"
-                    onClick={handleShare}
-                  >
-                    <Share2 className="w-4 h-4" strokeWidth={1.5} />
-                    Compartilhar bronca
-                  </Button>
-                  {/* Duplicata do botão da seção Atualizações — ver comentário
-                      no bloco equivalente acima. */}
-                  <Button
-                    className="w-full mt-2 justify-center gap-2 text-sm text-content-primary rounded-full bg-surface-subtle hover:bg-surface-subtleHover"
-                    onClick={() =>
-                      handleFavoriteToggle(report.id, report.is_favorited)
-                    }
-                  >
-                    <Star
-                      className={`w-4 h-4 ${
-                        report.is_favorited
-                          ? "fill-amber-400 text-amber-400"
-                          : ""
-                      }`}
-                      strokeWidth={1.5}
-                    />
-                    {report.is_favorited ? "Salva" : "Salvar"}
-                  </Button>
-                  {report.petitionId && (
-                    <Button
-                      asChild
-                      className="w-full mt-2 justify-center gap-2 text-sm rounded-full bg-surface-subtle text-content-primary"
-                    >
-                      <Link to={`/abaixo-assinado/${report.petitionId}`}>
-                        <FileSignature className="w-4 h-4" strokeWidth={1.5} />
-                        Ver abaixo-assinado ligado
-                      </Link>
-                    </Button>
-                  )}
-                </div>
+              <aside className="report-detail-sidebar space-y-4">
+                <div className="hidden lg:block"><ReportParticipation report={report} onSupport={handleUpvoteClick} onShare={handleShare} onSave={() => handleFavoriteToggle(report.id, report.is_favorited)} /></div>
 
                 {/* Map Card (Desktop Only) */}
                 <ReportLocation

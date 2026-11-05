@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, BarChart3, Bookmark, Briefcase, Building, Compass, Construction, FileSignature, LayoutGrid, Megaphone, Newspaper, Radio, Route, Search, ShieldCheck, Sprout, Trees, Users, X } from 'lucide-react';
 import CitySelector from '@/components/CitySelector';
 import ActionCard from '@/components/journeys/ActionCard';
+import ExploreCityBackdrop from '@/components/journeys/ExploreCityBackdrop';
 import SuggestedProfiles from '@/components/SuggestedProfiles';
 import { useCity } from '@/contexts/CityContext';
 import { useCityEvents } from '@/hooks/useCityEvents';
@@ -71,17 +72,20 @@ export default function ExplorePage() {
   return (
     <div className="page-shell-fluid discovery-page min-w-0" data-testid="explore-journeys">
       <Helmet><title>Explorar — Trombone Cidadão</title></Helmet>
-      <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0"><p className="text-xs font-semibold text-content-secondary">Explore sua cidade</p><h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-content-primary sm:text-3xl">O que vamos fazer hoje?</h1></div>
-        <CitySelector scope="global" />
-      </header>
+      <div className="discovery-hero">
+        <ExploreCityBackdrop />
+        <header className="discovery-hero-header">
+          <div className="min-w-0"><p className="text-xs font-semibold text-content-secondary">Explore sua cidade</p><h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-content-primary sm:text-3xl">O que vamos fazer hoje?</h1></div>
+          <CitySelector scope="global" />
+        </header>
 
-      {!showProfiles && <div className="discovery-search flex min-h-14 items-center gap-3 rounded-2xl bg-surface-raised px-4 focus-within:ring-2 focus-within:ring-brand">
-        <Search className="h-5 w-5 shrink-0 text-content-tertiary" aria-hidden="true" />
-        <label htmlFor="explore-function-search" className="sr-only">Buscar uma função</label>
-        <input id="explore-function-search" type="search" value={search} onChange={event => updateSearch(event.target.value)} placeholder="Árvore, rua, serviço…" className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-content-primary outline-none placeholder:text-content-tertiary [&::-webkit-search-cancel-button]:appearance-none" />
-        {search && <button type="button" onClick={() => updateSearch('')} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Limpar busca"><X className="h-4 w-4" /></button>}
-      </div>}
+        {!showProfiles && <div className="discovery-search flex min-h-14 items-center gap-3 rounded-2xl bg-surface-raised px-4 focus-within:ring-2 focus-within:ring-brand">
+          <Search className="h-5 w-5 shrink-0 text-content-tertiary" aria-hidden="true" />
+          <label htmlFor="explore-function-search" className="sr-only">Buscar uma função</label>
+          <input id="explore-function-search" type="search" value={search} onChange={event => updateSearch(event.target.value)} placeholder="Árvore, rua, serviço…" className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-content-primary outline-none placeholder:text-content-tertiary [&::-webkit-search-cancel-button]:appearance-none" />
+          {search && <button type="button" onClick={() => updateSearch('')} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Limpar busca"><X className="h-4 w-4" /></button>}
+        </div>}
+      </div>
 
       <section ref={objectivesRef} aria-label="Escolha seu objetivo" className="discovery-objectives">
         {journeys.map(({ id, label, title, description, icon: Icon }) => {

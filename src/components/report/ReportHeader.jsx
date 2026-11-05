@@ -32,12 +32,12 @@ const ReportHeader = ({
 }) => {
   return (
     <div className="bg-surface-raised sticky top-0 z-30 border-b border-edge-subtle">
-      <div className="max-w-5xl lg:max-w-6xl 2xl:max-w-[100rem] mx-auto px-4 h-14 flex items-center justify-between gap-3">
+      <div className="page-shell-fluid min-h-16 py-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <Button
             size="icon"
             variant="ghost"
-            className="h-9 w-9 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover flex-shrink-0"
+            className="h-12 w-12 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover flex-shrink-0"
             onClick={onBack}
             aria-label="Voltar"
           >
@@ -49,9 +49,9 @@ const ReportHeader = ({
               Repetido no cabeçalho fixo, o mesmo código ficava duas vezes na
               mesma tela sem que a segunda servisse para nada. */}
           <div className="min-w-0">
-            <h1 className="text-sm font-bold text-content-primary leading-tight truncate">
-              Detalhes da denúncia
-            </h1>
+            <p className="text-sm font-bold text-content-primary leading-tight truncate">
+              Detalhes da bronca
+            </p>
           </div>
         </div>
 
@@ -59,7 +59,7 @@ const ReportHeader = ({
           <Button
             variant="outline"
             size="sm"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-full border-cta-border text-brand bg-transparent hover:bg-surface-subtle"
+            className="hidden min-h-12 sm:inline-flex items-center gap-1.5 rounded-full border-cta-border text-brand bg-transparent hover:bg-surface-subtle"
             onClick={handleShare}
           >
             <Icon name="share" size={14} />
@@ -71,7 +71,7 @@ const ReportHeader = ({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-9 w-9 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover"
+                className="h-12 w-12 rounded-xl bg-surface-subtle hover:bg-surface-subtleHover"
                 aria-label="Mais opções"
               >
                 <MoreVertical className="w-4 h-4 text-content-primary" strokeWidth={1.75} />
