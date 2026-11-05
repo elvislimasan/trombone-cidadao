@@ -721,8 +721,6 @@ node --import ./tools/test-alias.mjs --test src/test/mobileNavigation.test.mjs s
 node --max-old-space-size=1536 --enable-experimental-regexp-engine-on-excessive-backtracks node_modules/vite/bin/vite.js build
 ```
 
-Os formulários, detalhes e módulos restantes ainda precisam receber esse acabamento por jornada. A homologação em Android/iOS permanece pendente.
-
 ### Parte 4 — capa da cidade e ações em uma composição única
 
 Refinamento local em 05/11/2026. A entrada do feed usa a imagem institucional `civic_thumbnail_url`, já carregada pelo contexto de cidade. A capa é baixa, com degradê para leitura do nome e os cards parcialmente sobrepostos. Cidade sem imagem, ou com falha ao carregá-la, mantém o nome e as ações sem reservar uma capa vazia. A tela administrativa de identidade visual informa também o uso da imagem no feed.
@@ -742,3 +740,50 @@ node tools/validate-mobile-shell-ui.mjs --journeys --real-cards
 node --import ./tools/test-alias.mjs --test src/test/mobileNavigation.test.mjs src/test/mobileShell.test.mjs src/test/homeEntry.test.mjs src/test/cityEventShareRoute.test.mjs
 npx vite build
 ```
+
+### Parte 5 — composição desktop e refinamento da capa da cidade
+
+Refinamento local em 05/11/2026, a partir das referências enviadas pelo cliente. O desktop recebe uma composição própria; no celular, a alteração fica restrita à capa e ao pequeno ajuste de posição das ações solicitado em seguida.
+
+- **Desktop:** navegação Comunidade à esquerda, feed central e contexto da cidade à direita a partir de 1200 px. Notebooks entre 980 e 1199 px usam duas colunas. O contêiner permanece fluido, com margens externas de até 64 px.
+- **Entrada:** ações compactas abaixo da capa, título Na comunidade com ordenação e acesso a Acompanhando. Mantidos os quatro destinos de ação e o cabeçalho atual.
+- **Cartões:** foto ou miniatura de vídeo ao lado do texto no desktop; relatos sem mídia continuam sem reservar uma imagem vazia. O campo de comentário aparece ao acionar Escrever comentário, recebendo foco. A contagem de apoio continua nas ações, sem repetir a mesma informação em uma segunda linha no desktop.
+- **Contexto:** entrada ilustrada para o mapa e lista dos alertas reais disponíveis. A ilustração de mapa é decorativa, sem representar ruas ou ocorrências reais. Atalhos de área de trabalho continuam condicionados ao papel.
+- **Capa:** preservada a fotografia institucional configurada pela cidade, com um leve ajuste de brilho e saturação. Degradê vinho concentrado à esquerda, identificação MINHA CIDADE e nome mais altos, cantos arredondados e botão de acompanhamento sobre fundo translúcido. No celular, os quatro botões continuam em grade 2 × 2, ligeiramente mais altos sobre a capa. A altura de referência da imagem continua em 124 px no celular e 148 px no desktop, podendo acomodar nomes longos ou fonte ampliada.
+- **Identidade:** tokens atuais, cores da marca e temas claro/escuro preservados. As regras novas de composição ficam em `src/design-system/feed-desktop.css`; os demais módulos não recebem esse layout automaticamente.
+
+Validação: 18 testes de navegação, shell, entrada e compartilhamento passaram; ESLint dos componentes alterados aprovado; build de produção concluído. Os 26 cenários do navegador incluem 360, 390 e 430 px, fonte a 200%, capa com/sem imagem, busca e ordenação, além de composição desktop em 980, 1200, 1440 e 1920 px. As verificações de desktop cobrem mídia lateral, ausência de sobreposição/rolagem horizontal, abertura do registro, acesso ao mapa e foco no comentário após a ação. Foram comparadas também capturas mobile anteriores ao ajuste. As imagens de cidade e os relatos do validador são simulados; a foto real continua vindo do cadastro da cidade. Evidências em `.tmp/civic-components-ui`, com capturas `feed-desktop-1440-light.png`, `feed-desktop-1920-light.png` e `feed-cover-390-light.png`. Homologação em aparelho e backend de produção não fazem parte desta verificação local.
+
+```sh
+node tools/validate-mobile-shell-ui.mjs --journeys --real-cards
+node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/mobileNavigation.test.mjs src/test/mobileShell.test.mjs src/test/homeEntry.test.mjs src/test/cityEventShareRoute.test.mjs
+node --max-old-space-size=1536 --enable-experimental-regexp-engine-on-excessive-backtracks node_modules/vite/bin/vite.js build
+```
+
+### Parte 6 — previews reais dos vídeos no feed
+
+Correção local em 05/11/2026. Vídeos sem foto de capa passam a gerar miniaturas em todos os cartões que entram na área visível, incluindo itens após o 13º relato. A extração registra os listeners antes de iniciar carregamento ou busca de quadro e considera também o estado já decodificado, evitando esperas por eventos que já ocorreram.
+
+- **Preview:** quadro próximo ao início do vídeo, com até 640 px na maior dimensão, mantendo a proporção original. O desktop apresenta a miniatura com indicação de reprodução; no celular ela serve também como poster do player atual.
+- **Alternativa imediata:** enquanto a miniatura é preparada, o cartão desktop usa um quadro do próprio vídeo. Essa alternativa permanece quando a extração falha, inclusive por restrição de canvas; continua dependendo de um vídeo acessível e de um formato decodificável pelo navegador.
+- **Fila e cache:** uma extração por vez, compartilhamento de solicitações do mesmo vídeo e cache limitado em memória. Retirar uma miniatura do cache não invalida a imagem de um cartão ainda aberto. Não há gravação nova no banco ou no armazenamento remoto.
+- **Troca e recuperação:** mudar a URL descarta o preview anterior imediatamente; um resultado atrasado não substitui o vídeo atual. Falhas liberam os elementos de mídia, permitem nova tentativa e não bloqueiam o próximo item da fila.
+
+Validação específica: 8 testes passaram cobrindo eventos rápidos, quadro já decodificado, timeout, falha de canvas, cache, fila e troca de URL/tentativa. Quatro cenários de Chrome usam vídeos reais gerados no próprio navegador: poster mobile em 390 px, miniaturas em 1440 e 1920 px, cartão com índice posterior ao 13º, troca entre vídeos de cores distintas e alternativa visual com exportação de canvas bloqueada. Evidências em `.tmp/video-previews-ui`. As verificações locais não certificam todos os codecs ou aparelhos Android/iOS.
+
+Também passaram os 26 cenários de regressão do feed/Explorar com cartões reais, o ESLint dos componentes alterados e o build local de produção.
+
+```sh
+node --test --test-isolation=none src/test/videoThumbnail.test.mjs src/test/useVideoThumbnail.test.mjs
+node tools/validate-mobile-shell-ui.mjs --video-previews
+```
+
+### Parte 7 — objetivos mais espaçosos e destaque suave no Explorar
+
+Refinamento local em 05/11/2026. Os objetivos Resolver, Cuidar, Descobrir e Pessoas recebem largura própria no celular, com mais espaço interno e rolagem horizontal sem barra visível. O foco por teclado e a seleção restaurada pela URL devem revelar o cartão na faixa, sem deslocar verticalmente a página ao restaurar a seleção. Tablet e desktop mantêm a grade de objetivos e o contêiner fluido.
+
+O primeiro caminho, como Registrar uma bronca, passa a usar superfície suavemente tingida, contorno discreto, ícone e indicação em vermelho. O título conserva maior peso para destacar a ação; o fundo vermelho sólido e o hover intenso foram retirados dessa variante. Os demais cartões, a paleta atual e o cabeçalho permanecem no padrão existente.
+
+Validação: 26 cenários de navegador aprovados, incluindo 360, 390 e 430 px, temas claro/escuro, foco no último objetivo, restauração da seleção, fonte a 200% e desktop em 1440 e 1920 px. Não houve rolagem horizontal da página; a rolagem fica na faixa de objetivos. ESLint, os 98 pares do verificador de contraste dos tokens e o build final de produção passaram. Capturas em `.tmp/civic-components-ui/explorar-<largura>-<tema>.png`.
+
+Os formulários, detalhes e módulos restantes ainda precisam receber esse acabamento por jornada. A homologação em Android/iOS permanece pendente.

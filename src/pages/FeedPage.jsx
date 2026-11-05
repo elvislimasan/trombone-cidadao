@@ -1,11 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, Briefcase, Compass, Download, MapPin, Megaphone, Radio,
-  ShieldCheck, Smartphone,
+  ArrowRight, Radio,
 } from 'lucide-react';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
-import { Capacitor } from '@capacitor/core';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -23,6 +21,7 @@ import { FEED_TABS } from '@/components/feed/FeedTabs';
 import FeedSortMenu from '@/components/feed/FeedSortMenu';
 import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed/FeedStates';
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
+import { FeedDesktopMap, FeedDesktopNavigation } from '@/components/feed/FeedDesktopContext';
 import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
 import CityEventCard from '@/components/agora/CityEventCard';
@@ -178,21 +177,6 @@ export default function FeedPage() {
   const eventosDoRadar = radar.eventos || [];
   const agora = useMemo(() => new Date(), []);
 
-  // Missões só para quem tem conta: a central é toda sobre progresso pessoal e
-  // abre vazia para visitante — a mesma regra que o cartão do topo do celular já
-  // aplica. No lugar dela, o convite para virar embaixador.
-  const atalhos = useMemo(
-    () => [
-      user
-        ? { nome: 'Missões', path: '/missoes', Icone: Compass }
-        : { nome: 'Seja embaixador', path: '/seja-embaixador', Icone: ShieldCheck },
-      { nome: 'Explorar', path: '/explorar', Icone: Compass },
-      { nome: 'Acompanhando', path: '/seguindo', Icone: Briefcase },
-      ...(user?.is_admin || user?.is_master ? [{ nome: 'Área de trabalho', path: '/admin', Icone: ShieldCheck }] : user?.is_ambassador ? [{ nome: 'Área de trabalho', path: '/embaixador', Icone: ShieldCheck }] : []),
-    ],
-    [user]
-  );
-
   const cityNotice = eventosDoRadar.length > 0 ? (
     <section className="mt-3 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised lg:hidden" aria-label="Acontecendo na cidade">
       <div className="flex flex-wrap items-center justify-between gap-x-3 px-4 pt-2">
@@ -205,66 +189,9 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-full bg-surface-base">
-      {/* Em notebooks, conteúdo e contexto dividem a tela em duas colunas.
-          A página cresce com a viewport; as laterais acompanham o próprio grid. */}
-      <div className="page-shell-fluid grid min-w-0 gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:py-6 xl:gap-6 2xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
-        {/* Em telas largas, esta coluna fica ancorada abaixo do cabeçalho. */}
-        <nav
-          className="hidden min-w-0 2xl:sticky 2xl:col-start-1 2xl:row-start-1 2xl:block 2xl:self-start"
-          style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top) + 1rem)' }}
-          aria-label="Outras seções do Trombone"
-        >
-          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-            <h2 className="px-1 text-sm font-extrabold text-content-primary">Explorar o app</h2>
-            <p className="mt-1 px-1 text-xs leading-5 text-content-secondary">
-              Seus caminhos pela cidade.
-            </p>
-
-            <ul className="mt-3 space-y-0.5">
-              {atalhos.map(({ nome, path, Icone }) => (
-                <li key={path}>
-                  <Link
-                    to={path}
-                    className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm font-bold text-content-primary transition hover:bg-brand/5"
-                  >
-                    <Icone className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate">{nome}</span>
-                    <ArrowRight
-                      className="h-3.5 w-3.5 shrink-0 text-content-tertiary opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Dentro do app instalado isto seria oferecer o que a pessoa já tem —
-              e a coluna só existe em 1520px, largura que um tablet alcança. */}
-          {!Capacitor.isNativePlatform() && (
-            <section className="mt-4 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                <Smartphone className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <h2 className="mt-3 text-sm font-extrabold text-content-primary">
-                Trombone no celular
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-content-secondary">
-                Registre com foto na hora e receba aviso quando sua bronca andar.
-              </p>
-              <Link
-                to="/app"
-                className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-surface-sunken text-xs font-bold text-content-primary transition hover:bg-edge-subtle"
-              >
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                Baixar o app
-              </Link>
-            </section>
-          )}
-
-        </nav>
-
-        <main className="min-w-0 lg:col-start-1 2xl:col-start-2 2xl:row-start-1">
+      <div className="page-shell-fluid feed-desktop-shell grid min-w-0 gap-5 py-4 lg:items-start lg:py-6">
+        <FeedDesktopNavigation user={user} onCreateReport={handleOpenCreate} />
+        <main className="feed-desktop-main min-w-0">
           <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
 
           {/* ── Sticky Tab Bar ── */}
@@ -364,45 +291,14 @@ export default function FeedPage() {
         {/* Somente os dois cards de contexto ficam fixos. O restante da lateral
             continua no fluxo normal, para que um bloco alto não desative o sticky. */}
         <aside
-          className="hidden min-w-0 lg:col-start-2 lg:row-start-1 lg:block lg:self-stretch 2xl:col-start-3"
+          className="feed-desktop-aside hidden min-w-0 lg:block lg:self-stretch"
           aria-label="Atalhos do feed"
         >
           <div
             className="space-y-4 lg:sticky"
             style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top) + 1rem)' }}
           >
-          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
-              <MapPin className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <h2 className="mt-4 text-lg font-extrabold text-content-primary">Explore {cityLabel}</h2>
-            <p className="mt-1 text-sm leading-5 text-content-secondary">
-              Veja onde estão as broncas e consulte os alertas que afetam a rotina da cidade.
-            </p>
-
-            <div className="mt-4 space-y-2">
-              <Link
-                to="/mapa"
-                className="group flex items-center justify-between rounded-xl border border-edge-subtle px-3.5 py-3 text-sm font-bold text-content-primary transition hover:border-brand/30 hover:bg-brand/5"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Megaphone className="h-4 w-4 text-brand" aria-hidden="true" />
-                  Mapa de broncas
-                </span>
-                <ArrowRight className="h-4 w-4 text-content-tertiary transition group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-              <Link
-                to="/agora"
-                className="group flex items-center justify-between rounded-xl border border-edge-subtle px-3.5 py-3 text-sm font-bold text-content-primary transition hover:border-brand/30 hover:bg-brand/5"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Radio className="h-4 w-4 text-brand" aria-hidden="true" />
-                  Radar da cidade
-                </span>
-                <ArrowRight className="h-4 w-4 text-content-tertiary transition group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-            </div>
-          </section>
+          <FeedDesktopMap cityLabel={cityLabel} />
 
           {/* O cartão só existe quando há alerta. Um "nada acontecendo agora"
               permanente ocuparia a lateral inteira para não dizer nada — e nesta
@@ -414,9 +310,6 @@ export default function FeedPage() {
                   <Radio className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
                   Acontecendo agora
                 </h2>
-                <p className="mt-1 text-xs leading-5 text-content-secondary">
-                  Falta de água, rua interditada, energia programada.
-                </p>
               </div>
 
               <div className="divide-y divide-edge-subtle border-t border-edge-subtle">

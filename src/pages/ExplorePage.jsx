@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, BarChart3, Bookmark, Briefcase, Building, Compass, Construction, FileSignature, LayoutGrid, Megaphone, Newspaper, Radio, Route, Search, ShieldCheck, Sprout, Trees, Users, X } from 'lucide-react';
@@ -36,6 +36,14 @@ const journeys = [
 
 const searchable = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
 
+const revealObjective = (container, card) => {
+  if (!container || !card || container.scrollWidth <= container.clientWidth) return;
+  const viewport = container.getBoundingClientRect();
+  const bounds = card.getBoundingClientRect();
+  if (bounds.left < viewport.left + 6) container.scrollBy({ left: bounds.left - viewport.left - 6 });
+  else if (bounds.right > viewport.right - 6) container.scrollBy({ left: bounds.right - viewport.right + 6 });
+};
+
 export default function ExplorePage() {
   const { activeCityId } = useCity();
   const { user } = useAuth();
@@ -44,6 +52,12 @@ export default function ExplorePage() {
   const selected = journeys.find(item => item.id === params.get('jornada')) || journeys[0];
   const showAll = params.get('todas') === '1';
   const showProfiles = selected.id === 'pessoas' && !search.trim() && !showAll;
+  const objectivesRef = useRef(null);
+  useLayoutEffect(() => {
+    const container = objectivesRef.current;
+    // Restaura a seleção da URL sem deslocar verticalmente a página.
+    revealObjective(container, container?.querySelector('[aria-pressed="true"]'));
+  }, [selected.id, showAll, search]);
   const radar = useCityEvents(activeCityId, { limite: 1, escopo: 'abertos' });
   const results = useMemo(() => {
     const actions = search.trim() || showAll ? journeys.flatMap(item => item.actions) : selected.actions;
@@ -69,10 +83,10 @@ export default function ExplorePage() {
         {search && <button type="button" onClick={() => updateSearch('')} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Limpar busca"><X className="h-4 w-4" /></button>}
       </div>}
 
-      <section aria-label="Escolha seu objetivo" className="discovery-objectives">
+      <section ref={objectivesRef} aria-label="Escolha seu objetivo" className="discovery-objectives">
         {journeys.map(({ id, label, title, description, icon: Icon }) => {
           const active = !showAll && !search.trim() && selected.id === id;
-          return <button key={id} type="button" aria-label={`${label}: ${title}`} aria-pressed={active} aria-controls="explore-actions" onClick={() => selectJourney(id)} className="discovery-objective">
+          return <button key={id} type="button" aria-label={`${label}: ${title}`} aria-pressed={active} aria-controls="explore-actions" onFocus={event => revealObjective(objectivesRef.current, event.currentTarget)} onClick={() => selectJourney(id)} className="discovery-objective">
             <span className="discovery-objective-icon"><Icon className="h-6 w-6" aria-hidden="true" /></span>
             <span className="min-w-0"><span className="discovery-objective-label md:hidden">{label}</span><span className="discovery-objective-label hidden md:block">{title}</span><span className="mt-1 hidden text-sm leading-5 text-content-secondary md:block">{description}</span></span>
           </button>;

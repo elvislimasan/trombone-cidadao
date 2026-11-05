@@ -9,7 +9,7 @@ import postcss from 'postcss';
 import tailwind from 'tailwindcss';
 import loadConfig from 'tailwindcss/loadConfig.js';
 
-const root = process.cwd(), journeysPreview = process.argv.includes('--journeys'), realCards = process.argv.includes('--real-cards'), out = path.join(root, realCards ? '.tmp/civic-components-ui' : journeysPreview ? '.tmp/civic-journeys-ui' : '.tmp/mobile-shell-ui');
+const root = process.cwd(), videoPreviews = process.argv.includes('--video-previews'), journeysPreview = process.argv.includes('--journeys') || videoPreviews, realCards = process.argv.includes('--real-cards') || videoPreviews, out = path.join(root, videoPreviews ? '.tmp/video-previews-ui' : realCards ? '.tmp/civic-components-ui' : journeysPreview ? '.tmp/civic-journeys-ui' : '.tmp/mobile-shell-ui');
 await fs.mkdir(out, { recursive: true });
 const stubs = {
   '@capacitor/core': `export const Capacitor={isNativePlatform:()=>window.nativePlatform!==false};`,
@@ -50,6 +50,7 @@ if (realCards) {
   stubs['@/hooks/useFeed'] = `import {useState} from 'react';const initial=[{id:'report-1',title:'Iluminação precisa de atenção na nossa rua',description:'Moradores acompanham a manutenção do poste no Centro.',category_id:'iluminacao',categoryName:'Iluminação',status:'pending',created_at:new Date().toISOString(),authorName:'Ana Cidadã',authorUsername:'ana',address:'Rua do Centro, Floresta',upvotes:12,comments_count:3},{id:'report-2',title:'Uma cidade melhor começa com a nossa participação',description:'Veja os relatos e apoie o que importa para seu bairro.',category_id:'other',categoryName:'Outros',status:'resolved',created_at:new Date().toISOString(),upvotes:0,comments_count:0}];export const useFeed=()=>{const [reports,setReports]=useState(initial);return {reports:window.feedState==='empty'?[]:reports,loading:window.feedState==='loading',loadingMore:false,hasMore:false,loadMore(){},refresh(){},toggleUpvote(id){setReports(list=>list.map(item=>item.id===id?{...item,user_has_upvoted:!item.user_has_upvoted,upvotes:item.upvotes+(item.user_has_upvoted?-1:1)}:item))},error:null,isSlow:false,loadMoreError:null,isSlowMore:false}};`;
 }
 stubs['@/hooks/useFeed'] = stubs['@/hooks/useFeed']
+  .replace('useState(initial)', "useState(()=>initial.map(report=>({...report,coverImage:window.feedMedia&&report.id==='report-1'?'/city-fixture.svg':undefined})))")
   .replace("window.feedState==='empty'?[]:reports", "['empty','loading','error'].includes(window.feedState)?[]:reports")
   .replace('error:null', "error:window.feedState==='error'?{message:'Não foi possível carregar.'}:null");
 await build({
@@ -61,8 +62,10 @@ await build({
     import Header from '@/components/Header';import CompactHeader from '@/components/MobileHeader';import BottomNav from '@/components/BottomNav';
     import {getMobileRoute} from '@/lib/mobileNavigation';
     import Feed from '@/pages/FeedPage';import Explore from '@/pages/ExplorePage';
+    import FeedCardMedia from '@/components/feed/FeedCardMedia';
+    function VideoPreview(){const [url,setUrl]=React.useState(window.previewVideoUrl);window.setPreviewVideo=setUrl;return <main className="page-shell-fluid py-5"><div style={{width:'min(100%,640px)'}}><FeedCardMedia report={{id:'video-preview',title:'Vídeo da comunidade',category_id:'other',coverVideo:url}} index={14} isInView square={window.previewSquare} onClick={()=>window.previewOpened=true}/></div></main>}
     function Screen(){const location=useLocation();window.go=useNavigate();window.previewRoute=location.pathname;const {isInteractive}=useNativeUIMode();
-      return <>{isInteractive?<CompactHeader/>:<Header/>}{${journeysPreview}?<div style={{paddingTop:'calc(var(--header-bar-height) + var(--header-safe-top))',paddingBottom:100}}><Routes><Route path="/feed" element={<Feed/>}/><Route path="/explorar" element={<Explore/>}/><Route path="*" element={<main className="page-shell-fluid py-5"><h1>{getMobileRoute(location.pathname).title}</h1></main>}/></Routes></div>:<main className="page-shell-fluid min-h-screen py-24"><h1>{getMobileRoute(location.pathname).title}</h1><p>Avaliação de cabeçalho, destinos ativos e menu hambúrguer.</p></main>}<BottomNav/></>}
+      return <>{isInteractive?<CompactHeader/>:<Header/>}{${journeysPreview}?<div style={{paddingTop:'calc(var(--header-bar-height) + var(--header-safe-top))',paddingBottom:100}}><Routes><Route path="/feed" element={<Feed/>}/><Route path="/explorar" element={<Explore/>}/><Route path="/video-preview" element={<VideoPreview/>}/><Route path="*" element={<main className="page-shell-fluid py-5"><h1>{getMobileRoute(location.pathname).title}</h1></main>}/></Routes></div>:<main className="page-shell-fluid min-h-screen py-24"><h1>{getMobileRoute(location.pathname).title}</h1><p>Avaliação de cabeçalho, destinos ativos e menu hambúrguer.</p></main>}<BottomNav/></>}
     createRoot(document.getElementById('root')).render(<BrowserRouter><NativeUIModeProvider><MobileHeaderProvider><Screen/></MobileHeaderProvider></NativeUIModeProvider></BrowserRouter>);
   ` },
   bundle: true, jsx: 'automatic', outfile: path.join(out, 'preview.js'),
@@ -75,6 +78,7 @@ await build({
 let source = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) source = source.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
 source = source.replace("@import './design-system/mobile-journeys.css';", await fs.readFile('src/design-system/mobile-journeys.css', 'utf8'));
+source = source.replace("@import './design-system/feed-desktop.css';", await fs.readFile('src/design-system/feed-desktop.css', 'utf8'));
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
 const css = await postcss([tailwind({ ...config, content: ['src/pages/FeedPage.jsx','src/pages/ExplorePage.jsx','src/components/FeedCard.jsx','src/components/PersonalUpdates.jsx','src/components/CitySelector.jsx','src/components/agora/*.jsx','src/design-system/primitives/*.jsx','src/components/feed/*.jsx','src/components/journeys/*.jsx','src/components/FeedEmptyState.jsx','src/components/Header.jsx', 'src/components/MobileHeader.jsx', 'src/components/BottomNav.jsx', 'src/components/ui/*.jsx', { raw: Object.values(stubs).join('\n')+' h-10 w-10 h-12 w-12 rounded-full page-shell-fluid min-h-screen py-24', extension: 'html' }] })]).process(source, { from: 'src/index.css' });
 await fs.writeFile(path.join(out, 'preview.css'), css.css);
@@ -135,7 +139,48 @@ try {
   await wait('window.go && document.querySelector("header")');
   await evaluate(`window.previewClicks=[];window.previewNavigation=[];document.addEventListener('click',event=>{const target=event.target.closest('button,a,[role=menuitemradio]');if(target)window.previewClicks.push({label:target.getAttribute('aria-label')||target.textContent,to:target.getAttribute('href')})},true);for(const method of ['pushState','replaceState']){const original=history[method].bind(history);history[method]=(...args)=>{window.previewNavigation.push(args[2]);return original(...args)}}`);
   const reportSelector = realCards ? '#feed-panel article' : '[data-fixture-report]';
-  if (journeysPreview) {
+  if (videoPreviews) {
+    // Um vídeo real, gravado do canvas no próprio navegador, sem baixar mídia
+    // nem substituir o extrator. A cor permite conferir o quadro recuperado.
+    await evaluate(`(async()=>{window.recordPreview=async color=>{
+      const canvas=document.createElement('canvas');canvas.width=960;canvas.height=540;
+      const context=canvas.getContext('2d');const paint=()=>{context.fillStyle=color;context.fillRect(0,0,960,540);context.fillStyle='#fff';context.fillRect(420,210,120,120)};
+      paint();const stream=canvas.captureStream(12),chunks=[],recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp8'});
+      const stopped=new Promise(resolve=>{recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onstop=resolve});
+      recorder.start();const frames=setInterval(paint,50);await new Promise(resolve=>setTimeout(resolve,650));recorder.stop();await stopped;clearInterval(frames);stream.getTracks().forEach(track=>track.stop());return URL.createObjectURL(new Blob(chunks,{type:'video/webm'}))
+    };window.previewVideoUrl=await window.recordPreview('#d62525');window.previewSquare=true})()`);
+    for (const width of [390,1440,1920]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false},sessionId);
+      await evaluate(`window.previewSquare=${width>=980}`);
+      await evaluate('window.go("/mapa")');
+      await pause(50);
+      await evaluate('window.go("/video-preview")');
+      if(width>=980) {
+        await wait('document.querySelector("img[data-video-thumbnail]")?.naturalWidth>0');
+        const frame=await evaluate(`(()=>{const image=document.querySelector('img[data-video-thumbnail]'),c=document.createElement('canvas');c.width=10;c.height=10;const ctx=c.getContext('2d');ctx.drawImage(image,0,0,10,10);return {width:image.naturalWidth,height:image.naturalHeight,pixel:[...ctx.getImageData(1,1,1,1).data]}})()`);
+        assert.equal(frame.width,640);assert.equal(frame.height,360);assert.ok(frame.pixel[0]>150&&frame.pixel[1]<90,'A miniatura não contém o quadro do vídeo');
+        assert.ok(await evaluate('!document.querySelector("video[data-video-preview]")'),'A miniatura pronta não substituiu a prévia provisória');
+      } else {
+        await wait('document.querySelector("video[data-feed-video]")?.poster.startsWith("data:image/jpeg")');
+        assert.ok(await evaluate('document.querySelector("video[data-feed-video]").muted'),'Vídeo iniciou com som');
+      }
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Preview causou overflow');
+      const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+      await fs.writeFile(path.join(out,`video-preview-${width}.png`),Buffer.from(shot.data,'base64'));
+      await evaluate('document.querySelector("[aria-label=\\"Ver detalhes: Vídeo da comunidade\\"]").click()');
+      assert.ok(await evaluate('window.previewOpened'),'Preview perdeu abertura de detalhe');
+      results.push({width,videoFrame:true,indexBeyond13:true,noOverflow:true});
+    }
+    await evaluate('(async()=>{window.previewVideoUrl=await window.recordPreview("#2563d6");window.setPreviewVideo(window.previewVideoUrl)})()');
+    await wait(`(()=>{const image=document.querySelector('img[data-video-thumbnail]');if(!image?.naturalWidth)return false;const c=document.createElement('canvas');c.width=10;c.height=10;const ctx=c.getContext('2d');ctx.drawImage(image,0,0,10,10);const p=ctx.getImageData(1,1,1,1).data;return p[2]>150&&p[0]<90})()`);
+    await evaluate(`(async()=>{window.originalCanvasExport=HTMLCanvasElement.prototype.toDataURL;HTMLCanvasElement.prototype.toDataURL=function(...args){if(window.blockVideoExport)throw new DOMException('Canvas bloqueado','SecurityError');return window.originalCanvasExport.apply(this,args)};window.blockVideoExport=true;window.setPreviewVideo(await window.recordPreview('#25a345'))})()`);
+    await wait('document.querySelector("video[data-video-preview]")?.readyState>=2');
+    assert.ok(await evaluate('!document.querySelector("img[data-video-thumbnail]")'),'Uma prévia antiga foi mantida após trocar de vídeo');
+    assert.ok(await evaluate('document.querySelector("video[data-video-preview]").paused'),'Prévia alternativa começou a reproduzir no desktop');
+    const fallbackShot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+    await fs.writeFile(path.join(out,'video-preview-fallback.png'),Buffer.from(fallbackShot.data,'base64'));
+    results.push({urlChange:true,canvasFailureFallback:true});
+  } else if (journeysPreview) {
     const enter = async route => {
       await evaluate(`window.go(${JSON.stringify(route)})`);
       await wait(`window.previewRoute===${JSON.stringify(route.split('?')[0])}`);
@@ -249,6 +294,16 @@ try {
         if (width >= 1200) assert.ok(await evaluate('(()=>{const box=document.querySelector("[data-testid=explore-journeys]").getBoundingClientRect();return box.left<=64&&innerWidth-box.right<=64})()'),'Explorar com margens externas excessivas');
         shot=await send('Page.captureScreenshot',{format:'png'},sessionId);
         await fs.writeFile(path.join(out,`explorar-${width}-${theme}.png`),Buffer.from(shot.data,'base64'));
+        if(width<768) {
+          assert.ok(await evaluate('(()=>{const list=document.querySelector(".discovery-objectives");return list.scrollWidth>list.clientWidth&&[...list.querySelectorAll("button")].every(button=>button.offsetWidth>=100)})()'),'Objetivos ficaram comprimidos no celular');
+          await evaluate('document.querySelector(".discovery-objectives button:last-child").focus({preventScroll:false})');
+          await wait('document.querySelector(".discovery-objectives").scrollLeft>0');
+          assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Foco nos objetivos deslocou a largura da página');
+          await enter('/explorar?jornada=informacoes');
+          await wait('document.querySelector(".discovery-objective[aria-pressed=true]").getBoundingClientRect().right<=document.querySelector(".discovery-objectives").getBoundingClientRect().right+1');
+          await enter('/explorar');
+          await wait('document.querySelector(".discovery-objectives").scrollLeft<2');
+        }
         await clickText('section[aria-label="Escolha seu objetivo"] button','Cuidar da cidade');
         await wait('document.querySelector("#explore-actions-title").textContent==="Cuidar da cidade"');
         assert.ok(await evaluate('Boolean(document.querySelector("#explore-actions a[href=\\"/adoteumaarvore\\"]"))'));
@@ -364,6 +419,39 @@ try {
     await wait('document.querySelector(".feed-quick-missions[href=\\"/missoes\\"]")');
     await clickText('.feed-quick-missions','Patrulha e missões');
     await wait('window.previewRoute==="/missoes"');
+    if (realCards) {
+      await evaluate("window.member=true;window.feedMedia=true;window.feedState='ready';window.hasCityEvents=true");
+      for (const width of [980,1200,1440,1920]) {
+        await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false},sessionId);
+        for (const theme of width>=1440?['light','dark']:['light']) {
+          await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'})`);
+          await enter('/explorar');
+          await enter('/feed');
+          await wait('document.querySelector(".feed-card-media-slot img")?.complete');
+          assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Desktop com rolagem horizontal');
+          assert.ok(await evaluate(`(()=>{const main=document.querySelector('.feed-desktop-main').getBoundingClientRect(),aside=document.querySelector('.feed-desktop-aside').getBoundingClientRect(),nav=document.querySelector('.feed-desktop-navigation'),shell=document.querySelector('.feed-desktop-shell').getBoundingClientRect();return main.right<aside.left&&main.width>400&&shell.left<=64&&innerWidth-shell.right<=64&&(${width}<1200?getComputedStyle(nav).display==='none':nav.getBoundingClientRect().right<main.left)})()`),'Colunas desktop sobrepostas ou estreitas');
+          const cardLayout=await evaluate(`(()=>{const text=document.querySelector('.feed-card-heading').getBoundingClientRect(),media=document.querySelector('.feed-card-media-slot').getBoundingClientRect();return {textRight:text.right,mediaLeft:media.left,mediaHeight:media.height}})()`);
+          assert.ok(cardLayout.mediaLeft+1>=cardLayout.textRight&&cardLayout.mediaHeight>80,'Mídia não está ao lado do texto: '+JSON.stringify(cardLayout));
+          assert.ok(await evaluate('!document.querySelector("article input[placeholder=\\"Adicione seu comentário...\\"]")'),'Formulário de comentário aberto sem intenção');
+          await evaluate('document.activeElement.blur();window.scrollTo(0,0)');
+          await pause(350);
+          const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+          await fs.writeFile(path.join(out,`feed-desktop-${width}-${theme}.png`),Buffer.from(shot.data,'base64'));
+          await clickText('article button[aria-label="Escrever comentário"]','Escrever comentário');
+          await wait('document.activeElement?.placeholder==="Adicione seu comentário..."');
+          if(width>=1200) {
+            await clickText('.feed-desktop-create','Fazer uma bronca');
+            await wait('document.querySelector("[role=dialog][aria-label=\\"Registrar bronca\\"]")');
+            await evaluate('document.querySelector("[role=dialog] button").click()');
+            await wait('!document.querySelector("[role=dialog]")');
+          }
+          await clickText('.feed-desktop-map-link','Abrir mapa de');
+          await wait('window.previewRoute==="/mapa"');
+          results.push({width,theme,desktopComposition:true,sideMedia:true,contextActions:true,noOverflow:true});
+        }
+      }
+      await evaluate('window.feedMedia=false;window.hasCityEvents=false;window.member=false;document.documentElement.classList.remove("dark")');
+    }
     await evaluate('window.nativePlatform=true');
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:900,deviceScaleFactor:1,mobile:false},sessionId);
     await evaluate('window.member=false;document.documentElement.style.fontSize="200%"');
@@ -414,7 +502,7 @@ try {
   }
   assert.deepEqual(errors, []);
   await fs.writeFile(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
-  console.log(JSON.stringify({ out, scenarios: results.length, noOverflow: true, ...(journeysPreview ? {feed:true,explore:true,search:true,authReturn:true,font200:true} : {activeSections: true, classicHeader: true, hamburgerNavigation: true}) }));
+  console.log(JSON.stringify({ out, scenarios: results.length, noOverflow: true, ...(videoPreviews ? {videoFrames:true,indexBeyond13:true,urlChange:true,canvasFailureFallback:true} : journeysPreview ? {feed:true,explore:true,search:true,authReturn:true,font200:true} : {activeSections: true, classicHeader: true, hamburgerNavigation: true}) }));
 } finally {
   if (ws) { try { ws.send(JSON.stringify({ id: 99999, method: 'Browser.close' })); } catch {} ws.close(); }
   chrome.kill();

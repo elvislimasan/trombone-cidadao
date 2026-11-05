@@ -7,6 +7,7 @@
 @import './design-system/tokens/typography.css';
 @import './design-system/tokens/motion.css';
 @import './design-system/mobile-journeys.css';
+@import './design-system/feed-desktop.css';
 
 @tailwind base;
 @tailwind components;

@@ -254,13 +254,13 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
   return (
     <article
       ref={cardRef}
-      className={`tc-animate-in bg-surface-raised rounded-3xl border overflow-hidden ${
+      className={`community-feed-card ${report.coverImage || report.coverVideo ? 'community-feed-card-has-media' : ''} tc-animate-in bg-surface-raised rounded-3xl border overflow-hidden ${
         isNew ? 'border-brand ring-2 ring-brand/25' : 'border-edge-subtle'
       }`}
       style={{ animationDelay: `${Math.min(index, 4) * 40}ms` }}
     >
       {/* Cabecalho: titulo e status antes da midia. */}
-      <div className="flex flex-wrap items-start gap-3 px-4 pt-4 pb-3">
+      <div className="feed-card-heading flex flex-wrap items-start gap-3 px-4 pt-4 pb-3">
         <button
           onClick={goToReport}
           className="min-h-12 flex-1 min-w-[min(100%,10rem)] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand rounded"
@@ -282,17 +282,20 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
         <StatusBadge status={localStatus} />
       </div>
 
-      {/* Midia em largura cheia: a foto e a prova do problema. */}
-      <FeedCardMedia
-        report={report}
-        index={index}
-        isInView={isInView}
-        chips={signals.chips}
-        onClick={goToReport}
-      />
+      {/* No desktop a mídia vira miniatura lateral; no celular mantém a capa. */}
+      <div className="feed-card-media-slot">
+        <FeedCardMedia
+          report={report}
+          index={index}
+          isInView={isInView}
+          chips={signals.chips}
+          square={isDesktop && Boolean(report.coverImage || report.coverVideo)}
+          onClick={goToReport}
+        />
+      </div>
 
-      <div className="flex flex-col p-4">
-        <div className="flex-1 min-w-0 flex flex-col">
+      <div className="feed-card-body flex flex-col p-4">
+        <div className="feed-card-content flex-1 min-w-0 flex flex-col">
           {report.description && (
             <button
               onClick={goToReport}
@@ -311,7 +314,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
               <Link
                 to={`/${report.authorUsername}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex min-h-12 items-center gap-2 mt-1 py-0.5 min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand hover:opacity-80 transition cursor-pointer group"
+                className="feed-card-author flex min-h-12 items-center gap-2 mt-1 py-0.5 min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand hover:opacity-80 transition cursor-pointer group"
               >
                 <AuthorAvatar
                   name={report.authorName}
@@ -323,7 +326,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
                 </span>
               </Link>
             ) : (
-              <div className="flex items-center gap-2 mt-3 py-0.5 min-w-0">
+              <div className="feed-card-author flex items-center gap-2 mt-3 py-0.5 min-w-0">
                 <AuthorAvatar
                   name={report.authorName}
                   avatarUrl={report.authorAvatar}
@@ -338,7 +341,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
 
 
           {/* Alvos de 48 px; apoiar tem rótulo e estado para explicar a ação. */}
-          <div className="mt-auto pt-3 flex flex-wrap items-center justify-between gap-1">
+          <div className="feed-card-actions mt-auto pt-3 flex flex-wrap items-center justify-between gap-1">
             <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
@@ -448,18 +451,18 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             reportId={report.id}
             reportTitle={report.title}
             onCountChange={setCommentsCount}
-            inlineOnDesktop
+            inlineOnDesktop={commentFocusRequest > 0}
             focusRequest={commentFocusRequest}
           />
 
           {/* O sinal de comunidade ja era calculado em computeSignals mas o card
               nao mostrava — e ele que da a dimensao de quanta gente esta junto. */}
           {signals.community && (
-            <p className="mt-3 text-2xs text-brand font-medium">{signals.community}</p>
+            <p className="feed-card-community mt-3 text-2xs text-brand font-medium">{signals.community}</p>
           )}
 
           {(report.address || report.distanceMeters != null) && (
-            <div className="flex items-start gap-1 mt-1.5 text-2xs text-content-secondary">
+            <div className="feed-card-location flex items-start gap-1 mt-1.5 text-2xs text-content-secondary">
               <Icon name="location" size={12} className="flex-shrink-0 mt-0.5 text-content-tertiary" />
               <span className="line-clamp-1">
                 {report.address}
@@ -491,7 +494,7 @@ const FeedCard = ({ report, onToggleUpvote, onRequestUpdate, onRequestStory, isN
             // o position:fixed do modal ao proprio card).
             onRequestUpdate?.(report);
           }}
-          className="w-full min-h-12 flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-surface-subtle text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-opacity hover:opacity-90 group"
+          className="feed-card-update w-full min-h-12 flex items-center gap-2.5 mx-3 mb-3 px-3 py-2.5 rounded-xl bg-surface-subtle text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand transition-opacity hover:opacity-90 group"
           style={{ width: 'calc(100% - 1.5rem)' }}
         >
           <Icon name="trombone" size={16} className="flex-shrink-0" />
