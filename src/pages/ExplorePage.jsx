@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bookmark, Briefcase, Building, Compass, Construction, FileSignature, LayoutGrid, Megaphone, Newspaper, Radio, Route, Search, ShieldCheck, Sprout, Trees, X } from 'lucide-react';
+import { ArrowRight, BarChart3, Bookmark, Briefcase, Building, Compass, Construction, FileSignature, LayoutGrid, Megaphone, Newspaper, Radio, Route, Search, ShieldCheck, Sprout, Trees, Users, X } from 'lucide-react';
 import CitySelector from '@/components/CitySelector';
 import ActionCard from '@/components/journeys/ActionCard';
+import SuggestedProfiles from '@/components/SuggestedProfiles';
 import { useCity } from '@/contexts/CityContext';
 import { useCityEvents } from '@/hooks/useCityEvents';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -30,6 +31,7 @@ const journeys = [
     { to: '/imoveis-alugados', title: 'Imóveis públicos alugados', description: 'Consulte os imóveis e contratos públicos.', icon: Building, keywords: 'aluguel contrato prefeitura' },
     { to: '/estatisticas', title: 'Indicadores da cidade', description: 'Veja a participação e os resultados.', icon: BarChart3, keywords: 'estatísticas números dados' },
   ] },
+  { id: 'pessoas', label: 'Pessoas', title: 'Conhecer pessoas', description: 'Encontre perfis públicos para acompanhar.', icon: Users, actions: [] },
 ];
 
 const searchable = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
@@ -41,6 +43,7 @@ export default function ExplorePage() {
   const search = params.get('q') || '';
   const selected = journeys.find(item => item.id === params.get('jornada')) || journeys[0];
   const showAll = params.get('todas') === '1';
+  const showProfiles = selected.id === 'pessoas' && !search.trim() && !showAll;
   const radar = useCityEvents(activeCityId, { limite: 1, escopo: 'abertos' });
   const results = useMemo(() => {
     const actions = search.trim() || showAll ? journeys.flatMap(item => item.actions) : selected.actions;
@@ -59,12 +62,12 @@ export default function ExplorePage() {
         <CitySelector scope="global" />
       </header>
 
-      <div className="discovery-search flex min-h-14 items-center gap-3 rounded-2xl bg-surface-raised px-4 focus-within:ring-2 focus-within:ring-brand">
+      {!showProfiles && <div className="discovery-search flex min-h-14 items-center gap-3 rounded-2xl bg-surface-raised px-4 focus-within:ring-2 focus-within:ring-brand">
         <Search className="h-5 w-5 shrink-0 text-content-tertiary" aria-hidden="true" />
         <label htmlFor="explore-function-search" className="sr-only">Buscar uma função</label>
         <input id="explore-function-search" type="search" value={search} onChange={event => updateSearch(event.target.value)} placeholder="Árvore, rua, serviço…" className="min-h-14 min-w-0 flex-1 bg-transparent text-base text-content-primary outline-none placeholder:text-content-tertiary [&::-webkit-search-cancel-button]:appearance-none" />
         {search && <button type="button" onClick={() => updateSearch('')} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label="Limpar busca"><X className="h-4 w-4" /></button>}
-      </div>
+      </div>}
 
       <section aria-label="Escolha seu objetivo" className="discovery-objectives">
         {journeys.map(({ id, label, title, description, icon: Icon }) => {
@@ -76,14 +79,14 @@ export default function ExplorePage() {
         })}
       </section>
 
-      <section id="explore-actions" aria-labelledby="explore-actions-title" className="discovery-results">
+      {showProfiles ? <div id="explore-actions"><SuggestedProfiles id="explore-public-profiles" cityId={activeCityId} limit={8} variant="discovery" /></div> : <section id="explore-actions" aria-labelledby="explore-actions-title" className="discovery-results">
         <div className="mb-4 flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1"><h2 id="explore-actions-title" className="text-lg font-bold tracking-tight text-content-primary">{search.trim() ? 'Resultados da busca' : showAll ? 'Todas as funções' : selected.title}</h2><p className="mt-1 text-sm leading-5 text-content-secondary" role="status">{search.trim() ? `${results.length} ${results.length === 1 ? 'opção encontrada' : 'opções encontradas'}` : showAll ? 'Todos os caminhos para participar.' : selected.description}</p></div>
           <button type="button" onClick={toggleAll} aria-label={showAll ? 'Voltar aos objetivos' : 'Ver todas as funções'} aria-expanded={showAll} aria-controls="explore-actions" className="inline-flex min-h-12 max-w-[45%] items-center gap-2 rounded-xl px-2 text-sm font-semibold text-brand hover:bg-brand-subtleBg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><LayoutGrid className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{showAll ? 'Ver objetivos' : <><span className="sm:hidden">Ver todas</span><span className="hidden sm:inline">Ver todas as funções</span></>}</span></button>
         </div>
         {results.length ? <div className="discovery-action-list" key={search.trim() ? 'search' : showAll ? 'all' : selected.id}>{results.map((action, index) => <ActionCard key={action.to} {...action} variant="discovery" primary={!search.trim() && !showAll && index === 0} to={action.requiresAuth && !user ? '/login' : action.to} state={action.requiresAuth && !user ? { from: { pathname: action.to } } : undefined} />)}</div>
           : <div className="rounded-2xl border border-dashed border-edge-default bg-surface-raised px-5 py-8 text-center"><Search className="mx-auto h-7 w-7 text-content-tertiary" aria-hidden="true" /><h3 className="mt-3 text-base font-bold text-content-primary">Nenhuma função encontrada</h3><p className="mt-2 text-sm text-content-secondary">Tente outro termo ou escolha um dos objetivos acima.</p><button type="button" onClick={() => updateSearch('')} className="mt-4 min-h-12 rounded-xl px-4 text-sm font-semibold text-brand hover:bg-brand-subtleBg">Limpar busca</button></div>}
-      </section>
+      </section>}
 
       <footer className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-edge-subtle pt-3">
         {!radar.carregando && !radar.erro && radar.eventos?.length > 0 && <Link to="/agora" className="inline-flex min-h-12 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-content-secondary hover:text-brand"><Radio className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />Acontecendo agora<ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" /></Link>}
