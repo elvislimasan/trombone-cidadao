@@ -1,210 +1,89 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ChevronLeft, Search, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import Notifications from '@/components/Notifications';
-import { Capacitor } from '@capacitor/core';
 import { useMobileHeader } from '@/contexts/MobileHeaderContext';
 import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
+import { getMobileBackTarget, getMobileRoute } from '@/lib/mobileNavigation';
 
 const MobileHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { title: ctxTitle, actions: ctxActions, showBack: ctxShowBack, onBack: ctxOnBack } = useMobileHeader();
+  const { title, actions, showBack, onBack } = useMobileHeader();
   const { isInteractive } = useNativeUIMode();
-  const [siteName, setSiteName] = useState('Trombone Cidadão');
-  const [logoUrl, setLogoUrl] = useState('/logo.png');
-  const [pageTitle, setPageTitle] = useState('');
-
-  // Rotas que são consideradas "raízes" (mostram logo em vez de botão voltar)
-  const rootRoutes = ['/', '/feed', '/explorar', '/seguindo', '/estatisticas', '/favoritos', '/perfil', '/buscar'];
-  const isRoot = rootRoutes.includes(location.pathname);
-  const authRoutes = ['/login', '/cadastro', '/recuperar-senha'];
-  const isAuthRoute = authRoutes.includes(location.pathname);
-  const shouldShowBack = typeof ctxShowBack === 'boolean' ? ctxShowBack : !isRoot;
-  
-  // So no feed. O seletor do header muda a cidade do APP (persiste); telas de
-  // exploracao — obras, estatisticas, servicos — tem filtro proprio, local, e
-  // mostrar os dois juntos daria dois controles com escopos diferentes e
-  // aparencia parecida na mesma tela.
-
-  const headerTitle = (() => {
-    const path = location.pathname;
-    if (path === '/' || path === '/feed') return siteName;
-    if (path === '/explorar') return 'Explorar';
-    if (path === '/seguindo') return 'Acompanhando';
-
-    if (path === '/agora') return 'Radar da cidade';
-    if (path.startsWith('/agora/')) return 'Acontecimento';
-
-    if (path === '/obras-publicas') return 'Obras';
-    if (path.startsWith('/obras-publicas/')) return 'Obras • Detalhes';
-
-    if (path === '/noticias') return 'Notícias';
-    if (path.startsWith('/noticias/')) return 'Notícias • Detalhes';
-
-    if (path.startsWith('/bronca/')) return 'Broncas • Detalhes';
-
-    if (path === '/abaixo-assinados') return 'Abaixo-assinados';
-    if (path.startsWith('/abaixo-assinado/')) return 'Abaixo-assinados • Detalhes';
-
-    if (path === '/estatisticas') return 'Estatísticas';
-    if (path === '/favoritos') return 'Favoritos';
-    if (path === '/perfil') return 'Perfil';
-    if (path === '/buscar') return 'Buscar';
-    if (path === '/settings/notifications') return 'Notificações';
-
-    return ctxTitle || pageTitle || siteName;
-  })();
-
-  // Header neutro: branco no claro, preto no escuro. A cor da marca fica no
-  // logo e nos icones, nao no fundo. Os tokens --header-* ja acompanham o tema.
+  const [branding, setBranding] = useState({ name: 'Trombone Cidadão', logo: '/logo.png' });
+  const route = getMobileRoute(location.pathname);
+  const headerTitle = title || route.title || branding.name;
+  const shouldShowBack = showBack ?? !route.root;
+  const hasActions = actions.length > 0;
+  const iconButtonClass = 'h-12 w-12 shrink-0 rounded-full';
   const headerStyle = {
     backgroundColor: 'rgb(var(--header-bg))',
     color: 'rgb(var(--header-fg))',
   };
 
-  const fetchSiteSettings = useCallback(async () => {
-    const { data } = await supabase
-      .from('site_config')
-      .select('site_name, logo_url')
-      .eq('id', 1)
-      .single();
-
-    if (data) {
-      setSiteName(data.site_name || 'Trombone Cidadão');
-      setLogoUrl(data.logo_url || '/logo.png');
-    }
-  }, []);
-
   useEffect(() => {
-    fetchSiteSettings();
-    
-    // Mapeamento simples de títulos para páginas conhecidas
-    const path = location.pathname;
-    if (path.startsWith('/bronca/')) setPageTitle('Detalhes da Bronca');
-    else if (path.startsWith('/noticias/')) setPageTitle('Notícia');
-    else if (path === '/noticias') setPageTitle('Notícias');
-    else if (path.startsWith('/obras-publicas/')) setPageTitle('Detalhes da Obra');
-    else if (path === '/obras-publicas') setPageTitle('Obras');
-    else if (path === '/agora') setPageTitle('Radar da cidade');
-    else if (path.startsWith('/agora/')) setPageTitle('Acontecimento');
-    else if (path === '/sobre') setPageTitle('Sobre o Projeto');
-    else if (path === '/guia-da-cidade') setPageTitle('Guia da Cidade');
-    else if (path === '/contato') setPageTitle('Contato');
-    else if (path === '/mapa-pavimentacao') setPageTitle('Pavimentação');
-    else if (path === '/mapa-arborizacao') setPageTitle('Arborização');
-    else if (path.startsWith('/arborizacao/arvore/')) setPageTitle('Detalhes da árvore');
-    else if (path === '/arborizacao/gerenciar' || path === '/admin/arborizacao') setPageTitle('Gerenciar arborização');
-    else if (path === '/abaixo-assinados') setPageTitle('Abaixo-Assinados');
-    else if (path === '/estatisticas') setPageTitle('Estatísticas');
-    else if (path === '/favoritos') setPageTitle('Favoritos');
-    else if (path === '/perfil') setPageTitle('Perfil');
-    else if (path === '/buscar') setPageTitle('Buscar');
-    else if (path === '/settings/notifications') setPageTitle('Notificações');
-    else setPageTitle('');
-  }, [location.pathname, fetchSiteSettings]);
+    if (!isInteractive) return undefined;
+    let active = true;
+    const loadBranding = async () => {
+      try {
+        const { data } = await supabase.from('site_config').select('site_name, logo_url').eq('id', 1).single();
+        if (active && data) setBranding({ name: data.site_name || 'Trombone Cidadão', logo: data.logo_url || '/logo.png' });
+      } catch { /* A marca local mantém o cabeçalho disponível sem conexão. */ }
+    };
+    void loadBranding();
+    window.addEventListener('site-settings-updated', loadBranding);
+    return () => { active = false; window.removeEventListener('site-settings-updated', loadBranding); };
+  }, [isInteractive]);
 
-  if (!Capacitor.isNativePlatform() || !isInteractive) return null;
+  if (!isInteractive) return null;
+
+  const goBack = () => {
+    if (onBack) return onBack();
+    const target = getMobileBackTarget(route, window.history.state);
+    navigate(target, typeof target === 'number' ? undefined : { replace: true });
+  };
 
   return (
-    <header 
-      className="fixed top-0 left-0 right-0 z-[1001] border-b transition-all duration-300"
-      style={{
-        ...headerStyle,
-        paddingTop: 'var(--header-safe-top)',
-        height: 'calc(var(--header-bar-height) + var(--header-safe-top))'
-      }}
+    <header
+      className="fixed inset-x-0 top-0 z-[1001] border-b border-edge-subtle"
+      style={{ ...headerStyle, paddingTop: 'var(--header-safe-top)', height: 'calc(var(--header-bar-height) + var(--header-safe-top))' }}
     >
-      {/* Preenche o vão acima do header durante o overscroll (rubber-band) do iOS,
-          evitando a faixa branca. Usa a mesma cor do header. */}
-      <div
-        aria-hidden="true"
-        className="absolute left-0 right-0 bottom-full h-screen pointer-events-none"
-        style={{ backgroundColor: headerStyle.backgroundColor }}
-      />
-      <div
-        className="container px-4 flex items-center justify-between"
-        style={{ height: 'var(--header-bar-height)' }}
-      >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-full h-screen" style={{ backgroundColor: headerStyle.backgroundColor }} />
+      <div className="flex w-full min-w-0 items-center justify-between gap-1 px-2" style={{ height: 'var(--header-bar-height)', paddingLeft: 'max(8px, var(--safe-area-left, 0px))', paddingRight: 'max(8px, var(--safe-area-right, 0px))' }}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {shouldShowBack ? (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => {
-                if (ctxOnBack) {
-                  ctxOnBack();
-                  return;
-                }
-                if (isAuthRoute) {
-                  navigate('/', { replace: true });
-                  return;
-                }
-                if (window.history.length > 1) {
-                  navigate(-1);
-                } else {
-                  navigate('/', { replace: true });
-                }
-              }}
-              className="rounded-full"
-            >
-              <ChevronLeft size={28} />
+            <Button type="button" variant="ghost" size="icon" onClick={goBack} className={iconButtonClass} aria-label="Voltar">
+              <ChevronLeft size={26} aria-hidden="true" />
             </Button>
           ) : (
-            <Link to="/" className="flex items-center">
-              <img src={logoUrl} alt="Logo" className="h-7 w-auto" />
+            <Link to="/" aria-label="Ir para o início" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+              <img src={branding.logo} alt="" className="h-7 w-7 object-contain" onError={() => setBranding(current => current.logo === '/logo.png' ? current : { ...current, logo: '/logo.png' })} />
             </Link>
           )}
-          <span className="shrink-0 whitespace-nowrap text-sm font-bold sm:text-base">
-            {headerTitle}
-          </span>
+          <span className="min-w-0 truncate text-sm font-bold sm:text-base" title={headerTitle}>{headerTitle}</span>
         </div>
-
-        <div className="flex items-center gap-1">
-          {/* A cidade ativa virou um pin no lado direito: o nome dela competia
-              com o titulo da tela pelo mesmo espaco. Segue so no feed, onde o
-              filtro define o conteudo. */}
-          {isRoot && location.pathname !== '/buscar' && (!ctxActions || ctxActions.length === 0) && (
-            <Button variant="ghost" size="icon" onClick={() => navigate('/buscar')} className="rounded-full">
-              <Search size={22} />
+        <div className="flex shrink-0 items-center">
+          {route.root && !hasActions && (
+            <Button type="button" variant="ghost" size="icon" onClick={() => navigate('/buscar')} className={iconButtonClass} aria-label="Buscar na cidade">
+              <Search size={22} aria-hidden="true" />
             </Button>
           )}
-          {ctxActions && ctxActions.length > 0 ? (
-            ctxActions.map((a) => (
-              <Button
-                key={a.key}
-                variant="ghost"
-                size="icon"
-                className={`rounded-full ${a.isActive ? (a.activeClassName || 'bg-black/10') : ''}`}
-                onClick={a.onPress}
-                aria-label={a.ariaLabel || a.key}
-                title={a.ariaLabel || a.key}
-                type="button"
-              >
-                <a.icon size={22} className={a.iconClassName || (a.isActive ? 'text-yellow-300' : '')} />
-              </Button>
-            ))
-          ) : (
+          {hasActions ? actions.map(action => (
+            <Button key={action.key} type="button" variant="ghost" size="icon"
+              className={`${iconButtonClass} ${action.isActive ? (action.activeClassName || 'bg-brand-subtleBg') : ''}`}
+              onClick={action.onPress} aria-label={action.ariaLabel || action.key} title={action.ariaLabel || action.key}>
+              <action.icon size={22} aria-hidden="true" className={action.iconClassName || (action.isActive ? 'text-brand' : '')} />
+            </Button>
+          )) : (
             <>
               <Notifications />
-              {!isRoot && (location.pathname.includes('/bronca/') || location.pathname.includes('/noticias/')) && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="rounded-full"
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: pageTitle,
-                        url: window.location.href
-                      }).catch(() => {});
-                    }
-                  }}
-                  type="button"
-                >
-                  <Share2 size={22} />
+              {route.share && typeof navigator.share === 'function' && (
+                <Button type="button" variant="ghost" size="icon" className={iconButtonClass} aria-label="Compartilhar"
+                  onClick={() => { navigator.share({ title: headerTitle, url: window.location.href }).catch(() => {}); }}>
+                  <Share2 size={22} aria-hidden="true" />
                 </Button>
               )}
             </>

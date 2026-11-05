@@ -36,7 +36,7 @@ const ReportStoryModal = React.lazy(
 export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeCityId, activeCityName, activeCity } = useCity();
+  const { activeCityId, activeCityName } = useCity();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState(() => { const tab = new URLSearchParams(location.search).get('aba'); return FEED_TABS.some(item => item.key === tab) ? tab : 'recent'; });
@@ -49,9 +49,6 @@ export default function FeedPage() {
   const [recentCreatedId, setRecentCreatedId] = useState(null);
   const recentCreatedTimerRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
-  const leftSidebarRef = useRef(null);
-  const rightSidebarRef = useRef(null);
-  const [sidebarShift, setSidebarShift] = useState({ left: 0, right: 0 });
 
   const { createReport } = useCreateReport({ onCreated: () => setShowReportModal(false) });
 
@@ -180,39 +177,6 @@ export default function FeedPage() {
   const eventosDoRadar = radar.eventos || [];
   const agora = useMemo(() => new Date(), []);
 
-  useEffect(() => {
-    let frame = 0;
-
-    const updateSidebarShift = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const footer = document.querySelector('[data-site-footer]');
-        const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
-        const availableBottom = Math.min(window.innerHeight - 16, footerTop - 16);
-        const shiftFor = (element) => element
-          ? Math.max(0, Math.ceil(80 + element.offsetHeight - availableBottom))
-          : 0;
-        const next = {
-          left: shiftFor(leftSidebarRef.current),
-          right: shiftFor(rightSidebarRef.current),
-        };
-
-        setSidebarShift((current) => (
-          current.left === next.left && current.right === next.right ? current : next
-        ));
-      });
-    };
-
-    updateSidebarShift();
-    window.addEventListener('scroll', updateSidebarShift, { passive: true });
-    window.addEventListener('resize', updateSidebarShift);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', updateSidebarShift);
-      window.removeEventListener('resize', updateSidebarShift);
-    };
-  }, [eventosDoRadar.length]);
-
   // Missões só para quem tem conta: a central é toda sobre progresso pessoal e
   // abre vazia para visitante — a mesma regra que o cartão do topo do celular já
   // aplica. No lugar dela, o convite para virar embaixador.
@@ -230,22 +194,13 @@ export default function FeedPage() {
 
   return (
     <div className="min-h-full bg-surface-base">
-      {/* O seletor de cidade agora vive no header (Header/MobileHeader): e um
-          filtro global, nao um controle desta pagina. O titulo "Feed" e o botao
-          "Nova denuncia" sairam — as abas ja identificam a secao, e criar bronca
-          continua no FAB do bottom nav e no atalho abaixo. */}
-      <div className="lg:hidden">
-        <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
-      </div>
-
       {/* Em notebooks, conteúdo e contexto dividem a tela em duas colunas.
-          A navegação exploratória ganha uma terceira coluna apenas em telas largas. */}
-      <div className="lg:mx-auto lg:grid lg:w-full lg:max-w-[100rem] lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-5 lg:px-6 lg:py-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6 xl:py-7 2xl:grid-cols-[17rem_minmax(0,1fr)_21rem]">
+          A página cresce com a viewport; as laterais acompanham o próprio grid. */}
+      <div className="page-shell-fluid grid min-w-0 gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:py-6 xl:gap-6 2xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
         {/* Em telas largas, esta coluna fica ancorada abaixo do cabeçalho. */}
         <nav
-          ref={leftSidebarRef}
-          className="hidden 2xl:fixed 2xl:top-20 2xl:z-10 2xl:block 2xl:max-h-[calc(100dvh-6rem)] 2xl:w-[17rem] 2xl:overflow-y-auto 2xl:overscroll-contain 2xl:pb-2 2xl:scrollbar-none"
-          style={{ left: 'max(1.5rem, calc((100vw - 100rem) / 2 + 1.5rem))', transform: `translateY(-${sidebarShift.left}px)` }}
+          className="hidden min-w-0 2xl:sticky 2xl:col-start-1 2xl:row-start-1 2xl:block 2xl:self-start"
+          style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top) + 1rem)' }}
           aria-label="Outras seções do Trombone"
         >
           <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
@@ -298,33 +253,12 @@ export default function FeedPage() {
 
         </nav>
 
-        <main className="min-w-0 lg:col-start-1 2xl:col-start-2">
-          <section className="hidden overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised p-7 shadow-sm lg:flex lg:items-center lg:justify-between lg:gap-8">
-            <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/5 px-3 py-1 text-xs font-bold text-brand">
-                <Radio className="h-3.5 w-3.5" aria-hidden="true" />
-                Participação cidadã
-              </div>
-              <h1 className="text-3xl font-black tracking-tight text-content-primary">
-                Acontecendo em {cityLabel}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-content-secondary">
-                Acompanhe relatos da comunidade, apoie prioridades e veja as atualizações mais recentes da cidade.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenCreate}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-            >
-              <Megaphone className="h-4 w-4" aria-hidden="true" />
-              Registrar bronca
-            </button>
-          </section>
+        <main className="min-w-0 lg:col-start-1 2xl:col-start-2 2xl:row-start-1">
+          <FeedWelcomeCard cityName={activeCityName} onCreateReport={handleOpenCreate} />
 
           {/* ── Sticky Tab Bar ── */}
-          <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md lg:static lg:mt-5 lg:overflow-hidden lg:rounded-2xl lg:border lg:bg-surface-raised lg:shadow-sm">
-            <div className="container mx-auto max-w-2xl px-3 lg:max-w-none lg:px-5">
+          <div className="sticky z-10 mt-4 rounded-2xl border border-edge-subtle bg-surface-raised/95 backdrop-blur-md lg:static" style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top))' }}>
+            <div className="min-w-0 p-1">
               <FeedTabs tabs={FEED_TABS} activeTab={activeTab} onChange={handleTabChange} />
             </div>
           </div>
@@ -335,7 +269,7 @@ export default function FeedPage() {
           {/* ── Feed Content ── */}
           {/* Arrastar na horizontal troca de aba. Fica neste container, e nao na
               pagina toda, para nao capturar arrasto do header nem do bottom nav. */}
-          <div className="container mx-auto max-w-2xl px-3 py-4 lg:max-w-[45rem] lg:px-0 lg:py-5" {...swipeHandlers}>
+          <div className="min-w-0 py-4 lg:py-5" {...swipeHandlers}>
         {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
             ou erro de rede ao lado do gate confundiria a causa real. */}
         {!awaitingLocation && (
@@ -417,13 +351,12 @@ export default function FeedPage() {
         {/* Somente os dois cards de contexto ficam fixos. O restante da lateral
             continua no fluxo normal, para que um bloco alto não desative o sticky. */}
         <aside
-          className="hidden lg:col-start-2 lg:block lg:self-stretch 2xl:col-start-3"
+          className="hidden min-w-0 lg:col-start-2 lg:row-start-1 lg:block lg:self-stretch 2xl:col-start-3"
           aria-label="Atalhos do feed"
         >
           <div
-            ref={rightSidebarRef}
-            className="space-y-4 lg:fixed lg:top-20 lg:z-10 lg:max-h-[calc(100dvh-6rem)] lg:w-[19rem] lg:overflow-y-auto lg:overscroll-contain lg:pb-2 lg:scrollbar-none xl:w-[20rem] 2xl:w-[21rem]"
-            style={{ right: 'max(1.5rem, calc((100vw - 100rem) / 2 + 1.5rem))', transform: `translateY(-${sidebarShift.right}px)` }}
+            className="space-y-4 lg:sticky"
+            style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top) + 1rem)' }}
           >
           <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">

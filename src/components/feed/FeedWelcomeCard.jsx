@@ -1,37 +1,35 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, MapPin, Megaphone, ShieldCheck, Target } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ChevronDown, MapPin, Megaphone } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
-const FeedWelcomeCard = ({ onCreateReport, cityName, cityImage }) => {
-  const navigate = useNavigate();
+export default function FeedWelcomeCard({ onCreateReport, cityName }) {
   const { user } = useAuth();
-  const displayCity = cityName || 'Todas as cidades';
-
   return (
-    <div className="space-y-3 px-3 pb-3 pt-2">
-      <button type="button" onClick={() => navigate('/mapa')} className="relative block h-[4.25rem] w-full overflow-hidden rounded-2xl text-left shadow-sm">
-        {cityImage ? <img src={cityImage} alt={`Paisagem de ${displayCity}`} className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 bg-brand" />}
-        <span className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/25 to-black/10" />
-        <span className="relative flex h-full items-center justify-between px-3.5 text-white">
-          <span className="min-w-0"><span className="flex items-center gap-1.5 text-sm font-extrabold"><MapPin className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="truncate">{displayCity}</span></span><span className="mt-0.5 block pl-5 text-[9px] font-bold uppercase tracking-[0.12em] text-white/80">Ver mapa da cidade</span></span>
-          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-        </span>
-      </button>
-
-      <div className="flex items-end justify-between gap-3 px-1">
-        <div><h1 className="text-xl font-black tracking-tight text-content-primary">Olá, {user?.name?.split(' ')[0] || 'cidadão'}!</h1><p className="text-xs text-content-secondary">O que vamos fazer hoje?</p></div>
-        <button type="button" onClick={() => navigate(user ? '/missoes' : '/login')} className="flex h-11 shrink-0 items-center gap-2 rounded-xl border border-edge-subtle bg-surface-raised px-3 text-left shadow-sm"><span className="flex items-end gap-0.5 text-brand"><span className="h-3 w-1 rounded-full bg-current" /><span className="h-5 w-1 rounded-full bg-current" /><span className="h-7 w-1 rounded-full bg-current" /></span><span><strong className="block text-xs font-extrabold text-content-primary">Nível 12</strong><small className="block text-[9px] text-content-secondary">Patrulheiro</small></span><ArrowRight className="h-3.5 w-3.5 text-content-tertiary" aria-hidden="true" /></button>
+    <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 sm:p-5" aria-labelledby="feed-welcome-title" data-testid="feed-welcome">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-content-secondary">{user?.name ? `Olá, ${user.name.trim().split(/\s+/)[0]}` : 'Bem-vindo ao Trombone'}</p>
+          <h1 id="feed-welcome-title" className="mt-1 font-display text-xl font-extrabold tracking-tight text-content-primary sm:text-2xl">Sua cidade, sua voz.</h1>
+        </div>
+        <Link to="/mapa" className="flex min-h-12 max-w-[45%] items-center gap-1.5 rounded-xl px-2 text-sm font-semibold text-content-secondary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" aria-label={`Ver mapa de ${cityName || 'todas as cidades'}`}>
+          <MapPin className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" /><span className="min-w-0 break-words leading-5">{cityName || 'Todas as cidades'}</span>
+        </Link>
       </div>
-
-      <div className="grid grid-cols-3 gap-2.5">
-        <button type="button" onClick={onCreateReport} className="flex min-h-[5.75rem] min-w-0 flex-col items-center justify-center rounded-xl border border-brand/30 bg-surface-raised px-1.5 py-2 text-center text-brand shadow-sm transition hover:border-brand/50 hover:bg-brand-subtleBg"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-subtleBg"><Megaphone className="h-4 w-4" aria-hidden="true" /></span><strong className="mt-1.5 block text-[10px] leading-tight text-content-primary">Cadastrar<br />sua bronca</strong></button>
-        <button type="button" onClick={() => navigate(user?.is_ambassador ? '/embaixador' : '/seja-embaixador')} className="flex min-h-[5.75rem] min-w-0 flex-col items-center justify-center rounded-xl border border-edge-subtle bg-surface-raised px-1.5 py-2 text-center shadow-sm"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-subtleBg text-brand"><ShieldCheck className="h-4 w-4" aria-hidden="true" /></span><strong className="mt-1.5 block text-[10px] leading-tight text-content-primary">Painel do<br />Embaixador</strong><small className="mt-0.5 text-[8px] leading-tight text-content-secondary">Acompanhe e gerencie</small></button>
-        <button type="button" onClick={() => navigate(user ? '/missoes' : '/login')} className="flex min-h-[5.75rem] min-w-0 flex-col items-center justify-center rounded-xl border border-edge-subtle bg-surface-raised px-1.5 py-2 text-center shadow-sm"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-subtleBg text-brand"><Target className="h-4 w-4" aria-hidden="true" /></span><strong className="mt-1.5 block text-[10px] leading-tight text-content-primary">Missões</strong><small className="mt-0.5 text-[8px] leading-tight text-content-secondary">3 disponíveis</small><span className="mt-1 block h-1 w-full max-w-12 rounded-full bg-surface-sunken"><span className="block h-1 w-1/4 rounded-full bg-brand" /></span></button>
+      <p className="mt-2 text-sm leading-6 text-content-secondary">Veja o que acontece e participe do que importa.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onCreateReport} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-bold text-content-onBrand transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 active:opacity-90">
+          <Megaphone className="h-4 w-4" aria-hidden="true" />Registrar bronca
+        </button>
+        <Link to="/seguindo" className="inline-flex min-h-12 items-center justify-center rounded-xl px-2 py-3 text-sm font-semibold text-content-secondary transition-colors hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Acompanhando</Link>
       </div>
-
-    </div>
+      <details className="group mt-3 border-t border-edge-subtle pt-1">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-lg py-2 text-sm font-semibold text-content-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [&::-webkit-details-marker]:hidden">Primeira vez por aqui?<ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" /></summary>
+        <ol className="grid gap-3 pb-3 pt-1 sm:grid-cols-3">
+          {['Escolha o problema.', 'Confirme onde acontece.', 'Envie e acompanhe o retorno.'].map((step, index) => <li key={step} className="flex items-start gap-2 text-sm leading-5 text-content-secondary"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-subtleBg text-xs font-bold text-brand">{index + 1}</span><span>{step}</span></li>)}
+        </ol>
+        <Link to="/explorar" className="mb-2 inline-flex min-h-12 items-center gap-2 text-sm font-semibold text-brand">Conhecer outras formas de participar<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+      </details>
+    </section>
   );
-};
-
-export default FeedWelcomeCard;
+}

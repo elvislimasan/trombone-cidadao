@@ -52,8 +52,8 @@ const stubs = {
       if(name==='detalhar_ordem_executor')data={order:{...workOrder},reports:[{...linkedReport}],events:[],attachments:[],results:executionResults};
       if(name==='registrar_execucao_executor'){workOrder.status=params.p_acao==='concluir'?'concluida':'em_andamento';workOrder.versao++;if(params.p_acao==='concluir')linkedReport.status='resolved';executionResults.push({id:params.p_operacao});data={id:workOrder.id,status:workOrder.status,versao:workOrder.versao};}
       if(name==='estatisticas_executor')data={completed:4,impediments:1,assets:2,this_month:3,neighborhoods:1,services:[{service:specialty==='arborizacao'?'poda':specialty==='ruas'?'reparo':'limpeza',total:4}],top_neighborhoods:[{name:'Centro',count:4}],ranking:[{user_id:'worker',nome:'Servidor municipal',servicos:4}],recent:[]};
-      const response={data,error:name==='convidar_funcionario_secretaria'&&window.inviteFailure?{message:'A secretaria não possui execução de campo habilitada.'}:null};return {then(resolve,reject){return Promise.resolve(response).then(resolve,reject)},order(){return this},range(){return this},abortSignal(){return this}};
-    },from(table){let start=0,end=999;let singular=false;const filters=[];const builder={select(){return this},eq(key,value){filters.push([key,value]);return this},in(key,values){filters.push([key,values]);return this},or(){return this},abortSignal(){return this},order(){return this},range(a,b){start=a;end=b;return this},maybeSingle(){singular=true;return this},single(){singular=true;return this},then(resolve,reject){let data=table==='reports'?overviewReports:table==='prefeitura_membros'?memberships:table==='orgao_canais'?channels:table==='categories'?[{id:'poda',name:'Poda'},{id:'iluminacao',name:'Iluminação'},{id:'buracos',name:'Buracos'},{id:'limpeza',name:'Limpeza'}]:table==='orgao_membros'?[member]:table==='orgao_categorias'?mappings:table==='site_config'?[{site_name:'Trombone Cidadão',logo_url:'/logo.png'}]:[];
+      const response={data,error:name==='convidar_funcionario_secretaria'&&window.inviteFailure?{message:'A secretaria não possui execução de campo habilitada.'}:null};return {then(resolve,reject){return Promise.resolve(response).then(resolve,reject)},maybeSingle(){return this},order(){return this},range(){return this},abortSignal(){return this}};
+    },from(table){let start=0,end=999;let singular=false;const filters=[];const builder={select(){return this},gte(){return this},lt(){return this},eq(key,value){filters.push([key,value]);return this},in(key,values){filters.push([key,values]);return this},or(){return this},abortSignal(){return this},order(){return this},range(a,b){start=a;end=b;return this},maybeSingle(){singular=true;return this},single(){singular=true;return this},then(resolve,reject){let data=table==='reports'?overviewReports:table==='prefeitura_membros'?memberships:table==='orgao_canais'?channels:table==='categories'?[{id:'poda',name:'Poda'},{id:'iluminacao',name:'Iluminação'},{id:'buracos',name:'Buracos'},{id:'limpeza',name:'Limpeza'}]:table==='orgao_membros'?[member]:table==='orgao_categorias'?mappings:table==='site_config'?[{site_name:'Trombone Cidadão',logo_url:'/logo.png'}]:[];
       for(const [key,value] of filters)if(key!=='user_id'&&key!=='papel')data=data.filter(row=>Array.isArray(value)?value.includes(row[key]):row[key]===value);if(table==='reports')window.overviewQueries.push(filters);data=data.slice(start,end+1);return Promise.resolve({data:singular?data[0]||null:data,error:table==='reports'&&window.failOverview?{message:'Consulta indisponível'}:null}).then(resolve,reject)}};return builder}};`,
 };
 await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {MemoryRouter,Routes,Route,useLocation} from 'react-router-dom';import Layout from '@/components/municipality/MunicipalityLayout';import Executor from '@/pages/ExecutorPanelPage';import ExecutorOrder from '@/pages/ExecutorOrderPage';import ExecutorStats from '@/pages/ExecutorStatsPage';import Inventory from '@/pages/TerritorialPanelPage';import Overview from '@/pages/MunicipalOverviewPage';import Team from '@/pages/MunicipalityTeamPage';import Departments from '@/pages/admin/ManageAgencyChannelsPage';function RouteObserver(){const route=useLocation();window.previewRoute=route.pathname+route.search;return null;}const page=new URLSearchParams(location.search).get('page')||'/prefeitura/visao-geral';createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={[page]}><RouteObserver/><Routes><Route element={<Layout/>}><Route path="/prefeitura/executor/:activity" element={<Executor/>}/><Route path="/prefeitura/executor/:activity/ordem/:id" element={<ExecutorOrder/>}/><Route path="/prefeitura/executor/:activity/estatisticas" element={<ExecutorStats/>}/><Route path="/prefeitura/visao-geral" element={<Overview/>}/><Route path="/prefeitura/iluminacao" element={<h1>Lighting</h1>}/><Route path="/prefeitura/eletricista" element={<h1>Serviços do eletricista</h1>}/><Route path="/prefeitura/demandas" element={<h1>Ordens de serviço</h1>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações</h1>}/><Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<Inventory/>}/><Route path="/prefeitura/equipe" element={<Team/>}/><Route path="/prefeitura/secretarias" element={<Departments/>}/></Route></Routes></MemoryRouter>);`, loader: 'jsx', resolveDir: root },
@@ -64,7 +64,7 @@ await build({ stdin: { contents: `import React from 'react';import {createRoot} 
 let source = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) source = source.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
-const css = await postcss([tailwind({ ...config, content: ['src/components/arborization/TreeDetailsDialog.jsx','src/components/municipality/*.jsx','src/components/ui/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/MunicipalityTeamPage.jsx','src/pages/admin/ManageAgencyChannelsPage.jsx','src/pages/Executor*.jsx','src/pages/ElectricianPanelPage.jsx','src/pages/MunicipalOverviewPage.jsx'] })]).process(source, { from: 'src/index.css' });
+const css = await postcss([tailwind({ ...config, content: ['src/components/arborization/TreeDetailsDialog.jsx','src/components/municipality/*.jsx','src/components/journeys/*.jsx','src/components/ui/*.jsx','src/pages/TerritorialPanelPage.jsx','src/pages/MunicipalityTeamPage.jsx','src/pages/admin/ManageAgencyChannelsPage.jsx','src/pages/Executor*.jsx','src/pages/ElectricianPanelPage.jsx','src/pages/MunicipalOverviewPage.jsx'] })]).process(source, { from: 'src/index.css' });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + await fs.readFile('node_modules/leaflet/dist/leaflet.css','utf8'));
 const server = http.createServer(async (req,res) => {
   const resource = req.url.split('?')[0];
@@ -89,8 +89,63 @@ try {
   const wait=async expression=>{for(let i=0;i<120;i++){if(await evaluate('Boolean('+expression+')'))return;await pause(50);}throw Error('Timeout: '+expression+' / route: '+await evaluate('window.previewRoute')+' / browser errors: '+JSON.stringify(errors)+' / console errors: '+JSON.stringify(consoleErrors)+' / '+await evaluate('document.body.innerText')+' / paths: '+await evaluate("[...document.querySelectorAll('.leaflet-overlay-pane path')].map(el=>el.outerHTML).join('')"));};
   const visit=async(mode,page)=>{await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/?`+new URLSearchParams({mode,page})},sessionId);await wait('document.querySelector("main")||document.querySelector("[role=alert]")');};
   const results=[];
-  for(const width of [390,1440,1920]){
+  for(const width of (process.argv.includes('--mobile-navigation') ? [360,390,430,1440,1920] : [390,1440,1920])){
     await send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false},sessionId);
+    if (process.argv.includes('--mobile-navigation')) {
+      for (const mode of ['admin','attendant','inventory']) {
+        await visit(mode, '/prefeitura/visao-geral?cidade=64&secretaria=agri');
+        await wait('document.querySelector(".municipality-shell")');
+        await wait('!document.body.innerText.includes("Algo deu errado") && document.querySelector("main h1")');
+        const mobile = width < 1024;
+        assert.equal(await evaluate('document.querySelectorAll(".municipality-header").length'), 1);
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), mode + ': rolagem horizontal');
+        assert.equal(await evaluate('getComputedStyle(document.querySelector("nav[aria-label=\\"Atalhos da prefeitura\\"]")).display!=="none"'), mobile);
+        if (mode!=='inventory') {
+          await wait('document.querySelector("[data-journey-disclosure]")');
+          assert.ok(await evaluate('!document.querySelector("[data-journey-disclosure]").open'),'Estatísticas não devem ocupar a primeira visualização');
+          const overviewShot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+          await fs.writeFile(path.join(out,`journey-overview-${mode}-${width}.png`),Buffer.from(overviewShot.data,'base64'));
+          assert.ok(await evaluate('document.querySelector("main .journey-action").getBoundingClientRect().top<innerHeight'),'Ações de trabalho ficaram escondidas');
+          await evaluate('document.querySelector("[data-journey-disclosure] summary").click()');
+          assert.ok(await evaluate('document.querySelector("[data-journey-disclosure]").open'));
+          assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Detalhes estatísticos com overflow');
+          await evaluate('document.querySelector("[data-journey-disclosure] summary").click()');
+        }
+        if (mobile) {
+          const links = await evaluate(`[...document.querySelectorAll('nav[aria-label="Atalhos da prefeitura"] a')].map(a=>({label:a.textContent.trim(),href:a.getAttribute('href'),height:a.getBoundingClientRect().height}))`);
+          assert.ok(links.length>0 && links.length<=3);
+          assert.ok(links.every(link=>link.height>=48 && new URL(link.href,'http://localhost').searchParams.get('cidade')==='64'));
+          if (mode==='inventory') assert.ok(links.every(link=>link.href.startsWith('/prefeitura/gestao-territorial')||link.href.startsWith('/prefeitura/adote-uma-arvore')),'Inventário recebeu atendimento');
+          else assert.deepEqual(links.map(link=>link.label), ['Resumo','Solicitações','Ordens']);
+          await evaluate('document.querySelector("button[aria-label=\\"Mais opções da prefeitura\\"]").click()');
+          await wait('document.querySelector(".municipality-mobile-menu")');
+          assert.ok(await evaluate('document.querySelector(".municipality-mobile-menu").contains(document.activeElement)'),'Menu não recebeu foco');
+          await evaluate('window.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape"}))');
+          await wait('!document.querySelector(".municipality-mobile-menu")');
+          assert.equal(await evaluate('document.activeElement.getAttribute("aria-label")'),'Mais opções da prefeitura');
+          assert.ok(await evaluate('(()=>{const main=document.querySelector("main").getBoundingClientRect();const nav=document.querySelector("nav[aria-label=\\"Atalhos da prefeitura\\"]").getBoundingClientRect();return main.bottom<=nav.top+1&&nav.bottom<=innerHeight})()'),'Atalhos cobrem o conteúdo');
+          if (mode!=='inventory') {
+            await evaluate('document.querySelector("nav[aria-label=\\"Atalhos da prefeitura\\"] a[aria-label=\\"Solicitações da cidade\\"]").click()');
+            await wait('window.previewRoute.startsWith("/prefeitura/broncas?")');
+            const scoped = new URL(await evaluate('window.previewRoute'),'http://localhost');
+            assert.equal(scoped.searchParams.get('cidade'),'64');
+            assert.equal(scoped.searchParams.get('secretaria'),mode==='admin'?null:'agri');
+          }
+        }
+        const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+        await fs.writeFile(path.join(out,`mobile-navigation-${mode}-${width}.png`),Buffer.from(shot.data,'base64'));
+        results.push({width,mode,mobileNavigation:mobile,permissions:true,contextPreserved:true,noOverflow:true});
+      }
+      for (const mode of ['tree-executor','road-executor','general-executor']) {
+        await visit(mode,'/prefeitura/visao-geral');
+        await wait('document.querySelector("[data-testid=executor-panel]")');
+        assert.equal(await evaluate('document.querySelectorAll("header").length'),1);
+        assert.equal(await evaluate('document.querySelector("nav[aria-label=\\"Atalhos da prefeitura\\"]")'),null,'Executor recebeu navegação do gestor');
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'),'Cabeçalho de execução com overflow');
+        results.push({width,mode,ownWorkspace:true,noOverflow:true});
+      }
+      continue;
+    }
     if(process.argv.includes('--temporary-access')){
       await visit('admin','/prefeitura/equipe');await wait('document.body.innerText.includes("Equipe e acessos")');
       await evaluate(`[...document.querySelectorAll('button')].find(el=>el.textContent.includes('Criar acesso de funcionário')).click()`);
@@ -261,6 +316,8 @@ try {
       const viewport = main.getBoundingClientRect();
       return { shellHeight: shell.height, barTop: bar.top, barLeft: bar.left, barRight: bar.right,
         headerBottom: header.bottom, mainBottom: viewport.bottom, mainLeft: viewport.left,
+        navigationTop: document.querySelector('nav[aria-label="Atalhos da prefeitura"]').getBoundingClientRect().top,
+        navigationBottom: document.querySelector('nav[aria-label="Atalhos da prefeitura"]').getBoundingClientRect().bottom,
         mainRight: viewport.right, contentBottom: content.bottom, scrolled: main.scrollTop > 0,
         noOverflow: document.documentElement.scrollWidth <= innerWidth };
     })()`);
@@ -268,7 +325,8 @@ try {
     assert.equal(bounds.barTop,top,'Header overlaps or duplicates the top safe area');
     assert.ok(bounds.barLeft>=left && bounds.barRight<=width-right,'Header overlaps the side safe areas');
     assert.ok(bounds.mainLeft>=left && bounds.mainRight<=width-right,'Inventory overlaps the side safe areas');
-    assert.equal(bounds.mainBottom,height-bottom,'Inventory overlaps or duplicates the bottom safe area');
+    assert.equal(bounds.navigationBottom,height-bottom,'Navigation overlaps or duplicates the bottom safe area');
+    assert.equal(bounds.mainBottom,bounds.navigationTop,'Navigation overlaps the inventory');
     assert.ok(bounds.scrolled && bounds.contentBottom<=bounds.mainBottom,'End of inventory is inaccessible');
     assert.ok(bounds.noOverflow,'Safe areas caused horizontal overflow');
     await evaluate('document.querySelector("button[aria-label=\\"Abrir menu\\"]").click()');

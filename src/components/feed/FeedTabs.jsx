@@ -10,16 +10,17 @@ export const FEED_TABS = [
 ];
 
 const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange }) => (
-  <div role="tablist" className="flex gap-1 rounded-xl bg-surface-raised p-1">
+  <div role="tablist" aria-label="Ordenar broncas" className="flex min-w-0 gap-1 rounded-xl bg-surface-raised p-1">
     {tabs.map((tab) => {
       const active = activeTab === tab.key;
       return (
         <button
           key={tab.key}
+          type="button"
           role="tab"
           aria-selected={active}
           onClick={() => onChange(tab.key)}
-          className={`relative flex-1 rounded-lg px-1.5 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+          className={`relative min-h-12 min-w-0 flex-1 rounded-lg px-1.5 py-3 text-center text-sm font-semibold leading-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
             active ? 'border border-transparent bg-surface-raised text-brand' : 'border border-transparent text-content-secondary hover:text-content-primary'
           }`}
         >
