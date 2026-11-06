@@ -7,7 +7,7 @@ function fixture({ failedTable } = {}) {
   const counts = { reports: 1205, favorite_reports: 7, community_trees: 3, tree_adoption_requests: 1 };
   return { calls, from(table) {
     const call = { table, filters: [] }; calls.push(call);
-    return { select(columns, options) { Object.assign(call, { columns, options }); return this; }, eq(key, value) { call.filters.push([key, value]); return this; }, then(resolve, reject) { return Promise.resolve(table === failedTable ? { error: new Error('Sem acesso') } : { count: counts[table] }).then(resolve, reject); } };
+    return { select(columns, options) { Object.assign(call, { columns, options }); return this; }, eq(key, value) { call.filters.push([key, value]); return this; }, or(expression) { call.or = expression; return this; }, then(resolve, reject) { return Promise.resolve(table === failedTable ? { error: new Error('Sem acesso') } : { count: counts[table] }).then(resolve, reject); } };
   } };
 }
 test('quantidades usam contagem exata no servidor, a conta atual e a cidade dos destinos locais', async () => {

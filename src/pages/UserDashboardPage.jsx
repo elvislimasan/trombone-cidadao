@@ -18,6 +18,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUpvote } from '../hooks/useUpvotes';
 import { showAppError } from '@/lib/appError';
 import ProfileReportGallery from '@/components/journeys/ProfileReportGallery';
+import { profileReportsQuery } from '@/lib/profileReports';
 
 const throwIfAborted = (signal) => {
   if (!signal?.aborted) return;
@@ -78,10 +79,8 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     setLoading(true);
     setLoadError(false);
     try {
-    const { data: reportsData, error: reportsError } = await supabase
-      .from('reports')
-      .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:signatures(count), timeline:report_timeline(*)')
-      .eq('author_id', user.id)
+    const { data: reportsData, error: reportsError } = await profileReportsQuery(supabase, user.id,
+      '*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:signatures(count), timeline:report_timeline(*)')
       .order('created_at', { ascending: false });
     
     if (request !== contributionRequest.current) return;
@@ -279,6 +278,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     if (error) {
       showAppError({ title: "Erro ao remover bronca", description: error.message, variant: "destructive" });
     } else {
+      if (selectedReport?.id === reportToDelete.id) handleCloseReportDetails();
       fetchUserContributions();
       window.dispatchEvent(new Event('reports-updated'));
     }
@@ -645,7 +645,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                     <p className="text-lg font-semibold">Carregando suas broncas...</p>
                   </div>
                 </motion.div>
-              ) : loadError ? <motion.div key="load-error">{failureState}</motion.div> : profileMode && broncasDaPagina.length > 0 ? <ProfileReportGallery reports={broncasDaPagina} onOpen={setSelectedReport} onDelete={openDeleteConfirmation} /> : broncasDaPagina.length > 0 ? (
+              ) : loadError ? <motion.div key="load-error">{failureState}</motion.div> : profileMode && broncasDaPagina.length > 0 ? <ProfileReportGallery reports={broncasDaPagina} onOpen={setSelectedReport} /> : broncasDaPagina.length > 0 ? (
                 <motion.div key={`reports-list-${paginaAtualBroncas}`} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" variants={containerVariants} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
                   {broncasDaPagina.map((report) => {
                     const statusDaBronca = getReportStatusInfo(report.status);
@@ -817,7 +817,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
         </div>
 
       </div>
-      {selectedReport && <ReportDetails report={selectedReport} onClose={handleCloseReportDetails} onUpdate={handleUpdateReport} onUpvote={handleUpvote} onLink={() => {}} />}
+      {selectedReport && !reportToDelete && <ReportDetails report={selectedReport} onClose={handleCloseReportDetails} onUpdate={handleUpdateReport} onDelete={openDeleteConfirmation} onUpvote={handleUpvote} onLink={() => {}} />}
       
       <Dialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
         <DialogContent>

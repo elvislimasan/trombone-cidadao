@@ -4,6 +4,8 @@ Data: 04/11/2026. Status: implementação por etapas iniciada; acompanhamento na
 
 **Preferência do cliente confirmada em 05/11/2026:** manter o cabeçalho antigo com menu hambúrguer também no aplicativo. As melhorias de fluxo e organização partem desse cabeçalho; a variante compacta não é o padrão.
 
+**Preferência de texto confirmada em 06/11/2026:** usar títulos curtos, campos e ações, sem subtítulos ou parágrafos explicativos permanentes. Ajuda adicional deve ser opcional ou contextual; erros, estados e informações essenciais de visibilidade/efeito da ação permanecem junto aos controles. Aplicar às próximas revisões de telas. A regra também está registrada no `AGENTS.md`.
+
 ## 1. Direção do projeto
 
 **Transformar as funções do Trombone em jornadas guiadas, visuais e fáceis de concluir.** A pessoa deve abrir o app, entender o que está acontecendo na cidade, encontrar uma forma de participar e receber retorno sobre o que fez.
@@ -889,3 +891,73 @@ Os validadores usam componentes reais com serviços e dados simulados; não cert
 Ajustes adicionais de 06/11/2026: o validador também confere a posição de Meus pedidos abaixo de Solicitar uma muda, a navegação por esse botão, os bairros limitados à cidade e ordenados, a preservação da seleção entre etapas e no envio, e a recuperação após falha ao carregar o cadastro de bairros.
 
 No envio sem a confirmação de cuidado, a revisão rola até a caixa de compromisso e coloca o foco nela, inclusive em tentativas repetidas. A mensagem fica associada ao campo por `aria-describedby`, e a rolagem respeita a preferência de movimento reduzido. O validador confere foco, visibilidade da caixa, associação do erro e ausência de envio ao servidor sem confirmação.
+
+### Parte 13 — prefeitura e painéis por responsabilidade
+
+Evolução local em 06/11/2026. Escopo: organização das entradas, consultas e filas de MOB-17, com componentes compartilhados de MOB-03 e MOB-09. Esta parte não conclui todos os formulários e detalhes operacionais.
+
+- **Solicitações:** Nova solicitação recebe destaque; Mapa fica ao lado e exportação/geração de ordem ficam no menu de ações. No celular, visibilidade pública/interna usa um seletor; andamento continua visível. Categoria, subcategoria, ordenação e formato lista/grade ficam em Filtros, junto de bairro, idade e período. Filtros aplicados têm indicação e limpeza. O acesso ao mapa mantém cidade e parâmetros da consulta.
+- **Ordens:** título e orientação mais curtos, criação conforme o cargo e exportação secundária. Os indicadores ficam em Resumo da equipe, recolhido inicialmente. No celular, um seletor apresenta todas as situações; o desktop mantém o acesso às etapas. Os acessos alterados de criação e indicadores preservam o contexto municipal.
+- **Administrador:** Painel da prefeitura destaca solicitações, ordens e pontos de atenção; os pontos de atenção usam linhas mais compactas no celular. Estatísticas detalhadas continuam recolhidas.
+- **Gestor, atendente e consulta:** entradas identificadas como Gestão da secretaria, Painel de atendimento e Consulta da secretaria. A orientação diferencia organizar a equipe, preparar uma ordem para aprovação e consultar registros. A apresentação usa as capacidades existentes; não concede novas permissões.
+- **Inventário:** entrada no mapa explica consulta ou atualização conforme a permissão existente, mantendo os módulos autorizados.
+- **Eletricistas e executores:** busca e atualização com alvos maiores, seleção de etapa em controle acessível e cartões com título/descrição mais legíveis. As navegações operacionais próprias e os fluxos de aceitar/executar permanecem nas regras atuais.
+- **Base visual:** cabeçalhos, ações e filtros compartilham `src/components/municipality/MunicipalPageUi.jsx` e `src/design-system/municipal-journeys.css`, com tokens existentes e respeito à redução de movimento. Desktop permanece fluido.
+
+Validação local: 58 testes de acesso, escopo, consulta, regras de ordens e atividades; ESLint dos componentes alterados e build de produção. O navegador cobre 20 combinações de solicitações/ordens com 360, 390, 430, 1440 e 1920 px nos dois temas, quatro apresentações por cargo e recuperação de falha. Inclui filtros, menu por teclado, quantidades, fonte a 200% em 390 px e ausência de overflow. Outros 32 cenários verificam navegação municipal, inventário, executores de arborização/ruas/serviços gerais e áreas seguras simuladas; três cenários do eletricista verificam busca, paginação e mudança de etapa em 390, 1440 e 1920 px.
+
+```sh
+node tools/validate-municipal-responsibilities-ui.mjs --journeys
+node tools/validate-municipal-responsibilities-ui.mjs --mobile-navigation
+node tools/validate-electrician-pagination-ui.mjs
+node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/municipalityAccess.test.mjs src/test/municipalAccess.test.mjs src/test/municipalOverview.test.mjs src/test/municipalReports.test.mjs src/test/municipalDemand.test.mjs src/test/executorActivities.test.mjs src/test/electricianPanel.test.mjs
+```
+
+Evidências em `.tmp/municipal-responsibilities-ui` e `.tmp/electrician-pagination-validation`. As consultas e os serviços são simulados; os diálogos de cadastro, detalhe e exportação não são exercitados pelo recorte `--journeys`. Os testes não certificam gravações, autorização no servidor ou funcionamento em aparelho. Não houve migração ou publicação. Formulários municipais, detalhes operacionais e homologação Android/iOS seguem como próximas etapas.
+
+### Parte 14 — topos municipais com menos informação no celular
+
+Refinamento local em 06/11/2026, após a revisão da tela de Iluminação. Esta parte amplia o tratamento de densidade para Iluminação, Estatísticas, Equipe, Secretarias e Regras de atendimento.
+
+- **Iluminação:** cabeçalho curto, Adicionar poste como ação principal e menu com Pendências e alteração de lâmpadas em massa, conforme permissão. No celular, os indicadores e a explicação ficam em Resumo da iluminação, inicialmente recolhido, com o total de postes no resumo. O mapa aparece na primeira tela. Corrigido o deslocamento global do zoom que o colocava sobre Busca e filtros neste mapa.
+- **Estatísticas:** cabeçalho reduzido, indicadores em grade compacta e tempos por serviço recolhidos no celular. Período e atualização permanecem disponíveis.
+- **Equipe:** Criar acesso em destaque e Vincular conta existente no menu secundário. Texto de entrada mais curto.
+- **Equipe e Secretarias:** filtros recolhidos no celular, com indicação das seleções aplicadas no resumo; busca permanece visível.
+- **Secretarias e Regras:** explicações extensas ficam em ajuda expansível no celular. Títulos e descrições foram encurtados.
+- **Componente comum:** `MunicipalMobileDisclosure` mantém uma única cópia do conteúdo e abre automaticamente a partir de 640 px. Abertura manual no celular e redimensionamento são verificados; desktop mantém os indicadores, filtros e explicações disponíveis no layout fluido.
+
+Validação: 34 testes de filtros geográficos, acesso, regras de ordens, resumo municipal e tabelas; ESLint dos componentes alterados e build de produção aprovados. Os 50 cenários de navegador cobrem as cinco páginas em 360, 390, 430, 1440 e 1920 px, nos dois temas. Incluem abertura/fechamento dos resumos, menus por teclado, busca do mapa com foco, ausência de sobreposição entre busca e zoom, fonte a 200% em 390 px, redimensionamento e ausência de overflow da página.
+
+```sh
+node tools/validate-municipal-responsibilities-ui.mjs --compact-tops
+node tools/validate-municipal-responsibilities-ui.mjs --temporary-access
+node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/municipalTable.test.mjs src/test/lightingCoordinateSearch.test.mjs src/test/municipalAccess.test.mjs src/test/municipalOverview.test.mjs src/test/municipalDemand.test.mjs
+```
+
+Capturas em `.tmp/municipal-responsibilities-ui/compact-*`. Mapas usam Leaflet real com tiles desativados e dados simulados. A tabela de equipe/secretarias mantém rolagem interna; sua transformação em lista mobile não faz parte deste ajuste de topo. Não houve alteração de permissões, migração ou publicação. Homologação em aparelho permanece pendente.
+
+### Parte 15 — modais de tarefa, atendimento de adoção e mapa da ordem
+
+Evolução local em 06/11/2026. A reclamação de rolagem em Adote uma árvore revelou uma colisão de CSS: o detalhe do pedido herdava o tamanho e o bloqueio de overflow destinados ao formulário de criação. O estilo de criação agora tem escopo próprio; o detalhe tem corpo rolável, cabeçalho e ações fixos. Histórico longo, rolagem por toque, retorno de foco e recuperação de falha foram verificados. Para gestor e atendente, **Atender solicitação** aparece antes do resumo; o cidadão continua encontrando primeiro o contexto do pedido.
+
+- **Padrão de formulário:** `TaskDialogContent`, `TaskDialogBody` e `TaskDialogFooter` compartilham a geometria do cadastro de broncas: tela cheia no celular, modal central no desktop, campos com rolagem e ações alcançáveis. Aplicado aos pedidos de muda, viveiros/ofertas, criação/edição de ordem, equipe, secretarias, regras, cadastro de poste, alteração de lâmpadas, geração de ordem e exportação. Não altera permissões ou contratos de envio.
+- **Ordem guiada:** progresso comum, etapa atual legível e ações Voltar/Continuar lado a lado. Os acessos por rota abrem o formulário em modal sobre a página de origem.
+- **Mapa da ordem:** busca e resultados ficam fora do mapa. A cidade institucional recebe a UF pelo catálogo, evitando a abertura na visão do Brasil quando o workspace retorna somente o nome. Mantidos o componente de mapa, satélite e desenhos de poste usados no cadastro de broncas; zoom e altura foram alinhados e o deslocamento global do zoom foi neutralizado nesse painel.
+- **Postes por área:** a visão geral não carrega os ícones de toda a cidade. Ao aproximar até o zoom 17, consulta somente os limites visíveis; mover ou afastar o mapa atualiza/remove os ícones. Resultados da busca não são desenhados em conjunto no mapa; somente o poste selecionado é mantido identificado. Buscar por número continua possível antes de aproximar.
+- **Auditoria explícita:** a [matriz de cobertura da prefeitura](AUDITORIA_MOBILE_PREFEITURA.md) inventaria todas as famílias de rota, distingue testes reais de navegador de inspeção de código e registra as pendências de campo, perfil, convites, pavimentação e backend. A revisão não representa homologação de todas as telas.
+
+Validação local: 49 testes de regras de adoção, detalhes, acesso e envio municipal; ESLint dos componentes alterados e build de produção. No navegador, passaram 78 combinações de formulários municipais, 60 de detalhe de adoção, 32 de viveiros, 10 de pedido público e 10 do mapa da ordem. O mapa é verificado com cidade institucional diferente da cidade de navegação, UF ausente no workspace, zoom inicial, postes próximos/fora da área, mudança de região, busca e seleção. Também foram executadas a moderação de árvores da comunidade em três larguras e a jornada de inventário em quatro larguras menores e duas desktop.
+
+```sh
+node tools/validate-municipal-responsibilities-ui.mjs --form-audit
+node tools/validate-municipal-responsibilities-ui.mjs --form-audit --location-map
+node tools/validate-tree-adoption-ui.mjs --details-audit
+node tools/validate-tree-adoption-ui.mjs --nursery-audit
+node tools/validate-tree-adoption-ui.mjs --consistent-forms
+node tools/validate-community-trees-ui.mjs --review-only
+node tools/validate-tree-inventory-ui.mjs --mobile-flow
+```
+
+Os componentes e diálogos são reais nos recortes indicados, com serviços simulados. A matriz detalha quais detalhes e fluxos ainda não foram exercitados. A homologação em aparelho e a validação com backend continuam pendentes. Não houve migração ou publicação.
+
+Refinamento do mapa em 06/11/2026: a abertura da etapa Local passa a mostrar o centro da cidade da prefeitura também quando a ordem já tem coordenadas. Vista e ponto do registro são tratados separadamente: centralizar não altera os campos, e a seleção explícita de um poste continua aproximando o mapa. Retirado o subtítulo “Selecione um poste cadastrado no mapa ou na busca para definir o local da ordem”. O recorte `--location-map` foi ampliado para 20 combinações de criação/edição, cinco larguras e dois temas, incluindo preservação da coordenada salva.

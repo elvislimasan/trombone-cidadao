@@ -1,3 +1,5 @@
+import { profileReportsQuery } from './profileReports.js';
+
 const JOURNEYS = [
   { key: 'reports', table: 'reports', owner: 'author_id' },
   { key: 'following', table: 'favorite_reports', owner: 'user_id', columns: 'report:reports!inner(id)' },
@@ -8,7 +10,9 @@ const JOURNEYS = [
 export async function fetchProfileJourneySummary(client, userId, cityId) {
   if (!userId) return {};
   const results = await Promise.allSettled(JOURNEYS.map(async journey => {
-    let query = client.from(journey.table).select(journey.columns || 'id', { count: 'exact', head: true }).eq(journey.owner, userId);
+    let query = journey.key === 'reports'
+      ? profileReportsQuery(client, userId, 'id', { count: 'exact', head: true })
+      : client.from(journey.table).select(journey.columns || 'id', { count: 'exact', head: true }).eq(journey.owner, userId);
     if (journey.local && cityId) query = query.eq('city_id', cityId);
     const { count, error } = await query;
     if (error) throw error;
