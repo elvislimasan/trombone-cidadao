@@ -35,7 +35,7 @@ export function TreeAdoptionHomeSection({ cityId }) {
   </section>;
 }
 
-export default function TreeAdoptionIntroduction({ city, onStart }) {
+export default function TreeAdoptionIntroduction({ city, onStart, onShowRequests }) {
   const cityLabel = city ? [city.name, cityStateUf(city)].filter(Boolean).join(' · ') : 'Sua cidade';
   // The program presentation has an intentional 1800px cap, following the
   // approved visual direction. The request form and map keep fluid layouts.
@@ -47,8 +47,9 @@ export default function TreeAdoptionIntroduction({ city, onStart }) {
           <p className="adoption-program-eyebrow"><Sprout size={17} aria-hidden="true" />Programa de arborização<span>·</span>{cityLabel}</p>
           <h2 id="adoption-program-title">Plante uma árvore.<br /><span>Transforme sua cidade.</span></h2>
           <p>Escolha as espécies disponíveis em {city?.name || 'sua cidade'}, informe o local de plantio e acompanhe a avaliação da equipe. Mais sombra e uma cidade melhor para todos.</p>
-          <div className="adoption-program-actions">
+          <div className="adoption-program-actions adoption-program-request-actions">
             <Button onClick={onStart}>Solicitar uma muda<ArrowRight size={19} aria-hidden="true" /></Button>
+            <Button variant="outline" onClick={onShowRequests}>Meus pedidos</Button>
             <Button asChild variant="outline"><a href="#como-adotar-uma-arvore"><PlayCircle size={20} aria-hidden="true" />Como funciona</a></Button>
           </div>
           <ul className="adoption-program-benefits" aria-label="Um cuidado para toda a cidade"><li><Leaf size={20} aria-hidden="true" />Mais áreas verdes</li><li><Trees size={21} aria-hidden="true" />Cuidado com a cidade</li><li><Sprout size={20} aria-hidden="true" />Um futuro melhor</li></ul>

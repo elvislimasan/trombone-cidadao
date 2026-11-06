@@ -1,0 +1,15 @@
+.wizard-progress { display: grid; grid-template-columns: repeat(var(--wizard-steps), minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.wizard-progress[data-step-count="4"] { grid-template-columns: repeat(auto-fit, minmax(min(100%, 4rem), 1fr)); }
+.wizard-progress li { display: flex; min-width: 0; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 3px solid rgb(var(--border-subtle)); color: rgb(var(--text-secondary)); font-size: .8125rem; font-weight: 600; overflow-wrap: anywhere; }
+.wizard-step-number { display: grid; width: 1.75rem; height: 1.75rem; flex-shrink: 0; place-items: center; border-radius: 10px; background: rgb(var(--surface-subtle)); line-height: 1; }
+.wizard-progress [aria-current=step], .wizard-progress [data-complete=true] { border-color: rgb(var(--brand)); color: rgb(var(--brand-subtle-fg)); }
+.wizard-progress [aria-current=step] .wizard-step-number { color: rgb(var(--text-on-brand)); background: rgb(var(--brand)); }
+.wizard-progress [data-complete=true] .wizard-step-number { background: rgb(var(--brand-subtle-bg)); }
+.wizard-progress button { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 48px; text-align: left; color: inherit; font: inherit; }
+.wizard-progress button:disabled { cursor: default; opacity: 1; }
+.wizard-progress button:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; border-radius: 8px; }
+.wizard-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 10px; min-width: 0; }
+.wizard-actions > button { min-width: 0; min-height: 48px; height: auto; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 479px) {
+  .wizard-progress[data-step-count="4"] button { flex-direction: column; justify-content: center; gap: 6px; text-align: center; }
+}

@@ -46,6 +46,11 @@ const stubs = {
       if(newSpecies){const row={id:'created-species',...newSpecies};species.push(row);return Promise.resolve({data:row,error:null}).then(ok,fail);}
       if(payload){if(window.failAvailabilitySave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);window.availabilitySaves.push(payload);for(const row of Array.isArray(payload)?payload:[payload]){availability=availability.filter(r=>r.species_id!==row.species_id||r.provider!==row.provider);availability.push({...row,updated_at:new Date().toISOString()});}return Promise.resolve({data:payload}).then(ok,fail);}
       if(table==='tree_species_availability'&&window.failAvailabilityLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
+      if(table==='bairros'){
+        if(window.failNeighborhoodLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
+        const rows=(window.emptyNeighborhoods?[]:[{id:'bairro-centro',name:'Centro',city_id:64},{id:'bairro-sao-jose',name:'São José',city_id:64},{id:'bairro-outra-cidade',name:'Bairro de outra cidade',city_id:65}]).filter(row=>filters.every(([key,value])=>String(row[key])===String(value)));
+        return Promise.resolve({data:rows.slice(start,end+1),error:null}).then(ok,fail);
+      }
       if(['city_trees','poles'].includes(table))window.mapQueries.push({table,filters});
       let rows=table==='city_trees'&&!location.search.includes('empty-map')?[{city_id:65,latitude:-8.05,longitude:-34.9},{city_id:64,latitude:-8.612345,longitude:-38.591234}]:table==='city_tree_species'?species:table==='tree_species_availability'?availability:table==='tree_adoption_availability_alerts'?window.alerts:table==='tree_adoption_requests'?window.requests:table==='tree_adoption_events'?window.events:table==='categories'?[{id:'poda',name:'Arborização'}]:[];
       rows=rows.filter(r=>filters.every(([k,v])=>k==='species.city_id'?String(v)==='64':String(r[k])===String(v))&&excludes.every(([k,vs])=>!vs.includes(r[k])));
@@ -67,9 +72,9 @@ await build({
 });
 let sourceCss = await fs.readFile('src/index.css', 'utf8');
 for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCss = sourceCss.replace(`@import './design-system/tokens/${token}.css';`, await fs.readFile(`src/design-system/tokens/${token}.css`, 'utf8'));
-sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoption.css', 'utf8');
-sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionIntroduction.css', 'utf8');
-sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionManagement.css', 'utf8');
+for (const match of [...sourceCss.matchAll(/@import '(.+?)';/g)]) sourceCss = sourceCss.replace(match[0], await fs.readFile(path.join(root, 'src', match[1]), 'utf8'));
+// Use every stylesheet imported by the real components, in application order.
+sourceCss += '\n' + await fs.readFile(path.join(out, 'preview.css'), 'utf8');
 // Mesma geometria do App real: header fixo de 56 px, main flexível e sem a
 // reserva inferior/rodapé institucional na rota desktop de adoção.
 sourceCss += '\n.qa-app-root{display:flex;flex-direction:column;min-height:100vh}.qa-app-main,.qa-route-outlet{display:flex;flex-direction:column;flex:1;min-height:0}.qa-site-header{position:fixed;inset:0 0 auto;height:56px;z-index:1001;display:flex;align-items:center;padding-inline:32px;background:rgb(var(--brand));color:rgb(var(--text-on-brand));font-weight:700}';
@@ -139,6 +144,103 @@ try {
     if (stage==='revisao' && height>=900) assert.ok(await evaluate('[...document.querySelectorAll(".adoption-review-column")].every(el=>el.scrollHeight<=el.clientHeight+1)'), 'Revisão resumida deve caber sem rolagem interna');
     if (await evaluate('document.querySelector(".adoption-form").dataset.step==="0"')) assert.ok(await evaluate(`(()=>{const fields=document.querySelector('.adoption-request-form'),body=document.querySelector('.adoption-form-body'),f=fields.getBoundingClientRect(),b=body.getBoundingClientRect();return f.top>=b.top&&f.bottom<=b.bottom&&fields.scrollHeight<=fields.clientHeight+1})()`), 'Campos iniciais precisam caber na área do formulário');
   };
+  if (process.argv.includes('--consistent-forms')) {
+    const draft = { requestId: '95000000-0000-0000-0000-000000000001', step: 0, form: { request_type: 'muda', purpose: 'sombra', zone: 'urbana', planting_place: 'quintal', overhead_wiring: 'nao', address: 'Rua do Plantio, 20', neighborhood: 'Centro', latitude: -8.6, longitude: -38.57, requester_name: 'Maria da Silva', requester_phone: '87999999999', requester_email: 'maria@example.test', items: [{ species_id: 'species1', quantity: 2, provider: 'viveiro_municipal' }], commitment: false } };
+    for (const width of [360, 390, 430, 1440, 1920]) for (const theme of ['light', 'dark']) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
+      await navigate(); await waitFor('document.querySelector(".adoption-form")');
+      await evaluate(`sessionStorage.clear();sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',${JSON.stringify(JSON.stringify(draft))})`);
+      await navigate(theme === 'dark' ? '?dark' : ''); await waitFor('document.querySelector(".wizard-progress")');
+      if (width < 980) await evaluate(`document.documentElement.style.setProperty('--bottom-nav-occupied-height','92px');const nav=document.createElement('div');nav.id='qa-bottom-nav';nav.style.cssText='position:fixed;bottom:0;height:80px;width:100%;z-index:40;background:rgb(var(--surface-subtle))';document.body.append(nav)`);
+      const check = async step => {
+        await waitFor(`document.querySelector('.adoption-form').dataset.step==='${step}'`);
+        await pause(250); // Wait for the desktop dialog's opening animation.
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), `Sem overflow: ${width}/${theme}/${step}`);
+        assert.equal(await evaluate('document.querySelectorAll(".wizard-progress > li").length'), 4);
+        assert.equal(await evaluate('document.querySelectorAll(".wizard-progress [aria-current=step]").length'), 1);
+        assert.ok(await evaluate(`[...document.querySelectorAll('.wizard-progress li')].every(el=>el.getClientRects().length)`), 'Todas as etapas visíveis no celular');
+        assert.ok(await evaluate(`[...document.querySelectorAll('.wizard-actions button')].every(el=>el.getBoundingClientRect().height>=48)`), 'Ações com 48px');
+        assert.ok(await evaluate(`(()=>{const group=document.querySelector('.wizard-actions'),buttons=group.querySelectorAll('button');return Math.abs(buttons[0].getBoundingClientRect().width-buttons[1].getBoundingClientRect().width)<=1&&group.clientWidth>=group.parentElement.clientWidth-50})()`), 'Ações usam duas colunas iguais e largura disponível');
+        await evaluate('window.scrollTo(0,0)'); await pause(50);
+        const footer = await evaluate(`(()=>{const el=document.querySelector('.adoption-form-footer'),r=el.getBoundingClientRect(),parents=[];let p=el.parentElement;while(p){parents.push({tag:p.className||p.tagName,overflow:getComputedStyle(p).overflow,height:p.getBoundingClientRect().height});p=p.parentElement}return {top:r.top,bottom:r.bottom,position:getComputedStyle(el).position,offset:getComputedStyle(el).bottom,parents}})()`);
+        assert.ok(footer.top>=0&&footer.bottom<=900, `Rodapé dentro do diálogo: ${width}/${step}: ${JSON.stringify(footer)}`);
+        assert.ok(await evaluate(`(()=>{const dialog=document.querySelector('.adoption-request-dialog'),r=dialog.getBoundingClientRect();return dialog.getAttribute('aria-modal')==='true'&&r.top>=-1&&r.bottom<=901&&r.left>=-1&&r.right<=innerWidth+1&&${width < 768 ? 'r.height>=899&&r.width>=innerWidth-1' : 'r.width<=760&&Math.abs(r.left-(innerWidth-r.width)/2)<=1'}})()`), 'Tela cheia no celular; diálogo central no desktop');
+        assert.equal(await evaluate('document.querySelectorAll(".tree-journey-nav,.adoption-page-tabs").length'), 0, 'Sem abas entre programa, pedidos e árvores');
+        assert.ok(await evaluate('document.querySelector("#root").getAttribute("aria-hidden")==="true"'), 'Página ao fundo fica fora do foco');
+        if (width >= 1200) assert.ok(await evaluate(`(()=>{const el=document.querySelector('.tree-adoption-page'),r=el.getBoundingClientRect(),p=getComputedStyle(el);return r.left+parseFloat(p.paddingLeft)<=64&&innerWidth-r.right+parseFloat(p.paddingRight)<=64})()`), 'Margens fluidas');
+        await capture(`padrao-${step}-${width}-${theme}`);
+      };
+      await check(0);
+      await click('Continuar'); await check(1);
+      assert.ok(await evaluate('document.activeElement===document.querySelector(".adoption-form-intro h2")'), 'Foco no título da etapa');
+      await waitFor('document.querySelector("select[name=neighborhood] option[value=Centro]")');
+      assert.deepEqual(await evaluate('[...document.querySelector("select[name=neighborhood]").options].map(option=>option.value)'), ['', 'Centro', 'São José'], 'Bairros ordenados e limitados à cidade do pedido');
+      assert.equal(await evaluate('document.querySelector("select[name=neighborhood]").value'), 'Centro', 'Bairro do rascunho mantido');
+      await select('Bairro ou localidade','São José');
+      if (width === 390 && theme === 'light') {
+        await click('Voltar'); await evaluate('window.failNeighborhoodLoad=true'); await click('Continuar');
+        await waitFor('document.querySelector(".adoption-address-fields [role=alert]")');
+        await evaluate('window.failNeighborhoodLoad=false'); await click('Tentar novamente');
+        await waitFor('!document.querySelector("select[name=neighborhood]").disabled');
+        assert.equal(await evaluate('document.querySelector("select[name=neighborhood]").value'), 'São José', 'Falha e retomada preservam bairro');
+      }
+      await click('Voltar'); await check(0);
+      await click('Continuar'); await check(1);
+      await waitFor('!document.querySelector("select[name=neighborhood]").disabled');
+      assert.equal(await evaluate('document.querySelector("select[name=neighborhood]").value'), 'São José', 'Voltar preserva seleção');
+      await click('Continuar'); await check(2);
+      await waitFor('document.querySelector(".tree-seedling-card")');
+      await navigate(theme === 'dark' ? '?dark' : ''); await waitFor('document.querySelector(".tree-seedling-card")');
+      assert.equal(await evaluate('document.querySelector(".adoption-form").dataset.step'), '2', 'Reabrir retoma etapa e seleção');
+      if (width < 980) await evaluate(`document.documentElement.style.setProperty('--bottom-nav-occupied-height','92px')`);
+      await click('Revisar pedido'); await check(3);
+      await click('Enviar solicitação'); await waitFor('document.querySelector(".adoption-form-error")');
+      await waitFor('document.activeElement===document.querySelector(".adoption-commitment input")');
+      const commitmentVisible = `(()=>{const label=document.querySelector('.adoption-commitment').getBoundingClientRect(),body=document.querySelector('.adoption-form-body').getBoundingClientRect();return label.top>=body.top&&label.bottom<=body.bottom})()`;
+      await waitFor(commitmentVisible);
+      assert.equal(await evaluate('document.querySelector(".adoption-commitment input").getAttribute("aria-invalid")'), 'true', 'Caixa pendente recebe foco e indicação de erro');
+      assert.ok(await evaluate('document.getElementById(document.querySelector(".adoption-commitment input").getAttribute("aria-describedby"))?.textContent.includes("Confirme o compromisso")'), 'Erro associado à caixa');
+      await evaluate('document.querySelector(".adoption-form-body").scrollTo({top:0,behavior:"instant"})');
+      await click('Enviar solicitação'); await waitFor(commitmentVisible);
+      assert.ok(await evaluate('document.activeElement===document.querySelector(".adoption-commitment input")'), 'Repetir envio também revela a caixa pendente');
+      assert.equal(await evaluate('window.calls.filter(c=>c.name==="submit_tree_adoption").length'), 0, 'Compromisso exigido antes do envio');
+      await evaluate('document.querySelector(".wizard-progress button").click()'); await check(0);
+      await evaluate('document.querySelector(".wizard-actions button:last-child").focus()');
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, sessionId);
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 }, sessionId);
+      assert.ok(await evaluate('document.activeElement===document.querySelector(".adoption-dialog-heading > button")'), 'Tab permanece no diálogo');
+      await click('Sair'); await waitFor('!document.querySelector(".adoption-request-dialog")');
+      assert.ok(await evaluate(`(()=>{const [start,requests]=document.querySelectorAll('.adoption-program-request-actions > button'),s=start.getBoundingClientRect(),r=requests.getBoundingClientRect();return r.top>=s.bottom&&Math.abs(r.left-s.left)<=1})()`), 'Meus pedidos fica logo abaixo de Solicitar uma muda');
+      await capture(`programa-acoes-${width}-${theme}`);
+      await click('Meus pedidos'); await waitFor('document.querySelector(".tree-requests-page")');
+      await click('Sobre o programa'); await waitFor('document.querySelector(".adoption-program-request-actions")');
+      await click('Solicitar uma muda'); await waitFor('document.querySelector(".adoption-request-dialog")');
+      assert.ok(await evaluate('document.querySelector("input[autocomplete=name]").value==="Maria da Silva"'), 'Sair mantém preenchimento');
+      await click('Continuar'); await click('Continuar'); await click('Revisar pedido'); await check(3);
+      if (width === 390) {
+        await evaluate('document.documentElement.style.fontSize="200%"');
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Fonte a 200% sem overflow');
+        await pause(100); await evaluate('const body=document.querySelector(".adoption-form-body");body.scrollTo(0,body.scrollHeight)'); await pause(100);
+        await capture(`padrao-fonte200-${theme}`);
+        const lastField = await evaluate(`(()=>{const field=document.querySelector('.adoption-commitment'),footer=document.querySelector('.adoption-form-footer');return {fieldBottom:field.getBoundingClientRect().bottom,footerTop:footer.getBoundingClientRect().top,footerHeight:footer.getBoundingClientRect().height,reserve:getComputedStyle(field.closest('form')).paddingBottom,margin:getComputedStyle(field).scrollMarginBottom,scroll:scrollY,height:document.scrollingElement.scrollHeight}})()`);
+        assert.ok(lastField.fieldBottom<=lastField.footerTop, 'Compromisso alcançável acima das ações com fonte ampliada: '+JSON.stringify(lastField));
+        await evaluate('document.documentElement.style.fontSize=""');
+      }
+      await evaluate('document.querySelector(".adoption-commitment input").click();window.failSave=true');
+      await click('Enviar solicitação'); await waitFor('document.querySelector(".adoption-form-error")');
+      assert.ok(await evaluate('JSON.parse(sessionStorage.getItem("tc_tree_adoption_draft:64:citizen")).form.items.length===1'), 'Falha mantém rascunho');
+      await evaluate('window.failSave=false'); await click('Enviar solicitação'); await waitFor('document.querySelector(".adoption-success-panel")');
+      assert.equal(await evaluate('window.requests.length'), 1, 'Reenvio não duplica pedido');
+      assert.equal(await evaluate('window.requests[0].neighborhood'), 'São José', 'Pedido envia o nome do bairro cadastrado');
+      assert.equal(await evaluate('sessionStorage.getItem("tc_tree_adoption_draft:64:citizen")'), null, 'Sucesso limpa rascunho');
+      await click('Acompanhar solicitação'); await waitFor('!document.querySelector(".adoption-request-dialog")');
+      await click('Solicitar muda'); await waitFor('document.querySelector(".adoption-form")');
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId);
+      await waitFor('!document.querySelector(".adoption-request-dialog")');
+      assert.ok(await evaluate('document.querySelector(".tree-requests-page")!==null'), 'Fechar retorna a Meus pedidos quando o pedido partiu dali');
+      console.log(`${width}px/${theme}: quatro etapas, foco, ações, rascunho, erro e reenvio OK.`);
+    }
+  } else {
   const layoutOnly = process.argv.includes('--layout-only');
   if (layoutOnly) {
     for (const [width,height] of [[390,844],[1366,768],[1440,768],[1440,900],[1920,1080],[1920,921]]) {
@@ -482,6 +584,7 @@ try {
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
     console.log(`${width}px: múltiplas espécies/quantidades, contato, rascunho, conclusão direta e disponibilidade em lote OK.`);
   }
+  }
   assert.deepEqual(errors, []);
-  console.log('Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
+  console.log(process.argv.includes('--consistent-forms') ? 'Padronização: 10 combinações de largura/tema, quatro etapas e erros de execução: 0.' : 'Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
 } finally { ws?.close(); chrome.kill(); server.close(); }

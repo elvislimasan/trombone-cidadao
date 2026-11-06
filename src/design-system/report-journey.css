@@ -16,12 +16,7 @@
 .report-participation button:active { transform: scale(.98); }
 .report-participation button:focus-visible, .report-participation a:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 3px; }
 .report-wizard-dialog { min-height: 0; color: rgb(var(--text-primary)); }
-.report-wizard-progress { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
-.report-wizard-progress li { display: flex; min-width: 0; align-items: center; gap: 8px; padding-bottom: 12px; border-bottom: 3px solid rgb(var(--border-subtle)); color: rgb(var(--text-secondary)); font-size: .8125rem; font-weight: 600; overflow-wrap: anywhere; }
-.report-step-number { display: grid; width: 28px; height: 28px; flex-shrink: 0; place-items: center; border-radius: 10px; background: rgb(var(--surface-subtle)); }
-.report-wizard-progress [aria-current=step], .report-wizard-progress [data-complete=true] { border-color: rgb(var(--brand)); color: rgb(var(--brand-subtle-fg)); }
-.report-wizard-progress [aria-current=step] .report-step-number { color: rgb(var(--text-on-brand)); background: rgb(var(--brand)); }
-.report-wizard-progress [data-complete=true] .report-step-number { background: rgb(var(--brand-subtle-bg)); }
+.report-wizard-progress { margin-top: 16px; }
 .report-wizard-dialog [role=group][tabindex="-1"] { outline: none; }
 .report-category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .report-category-choice { display: flex; min-width: 0; min-height: 76px; align-items: center; gap: 10px; padding: 12px; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; background: rgb(var(--surface-raised)); text-align: left; }

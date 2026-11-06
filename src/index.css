@@ -8,6 +8,8 @@
 @import './design-system/tokens/motion.css';
 @import './design-system/mobile-journeys.css';
 @import './design-system/report-journey.css';
+@import './design-system/wizard.css';
+@import './design-system/personal-journeys.css';
 @import './design-system/feed-desktop.css';
 
 @tailwind base;

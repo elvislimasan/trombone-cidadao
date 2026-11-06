@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportDetails from '@/components/ReportDetails';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -18,6 +17,7 @@ import ReportModal from '@/components/ReportModal';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUpvote } from '../hooks/useUpvotes';
 import { showAppError } from '@/lib/appError';
+import ProfileReportGallery from '@/components/journeys/ProfileReportGallery';
 
 const throwIfAborted = (signal) => {
   if (!signal?.aborted) return;
@@ -34,6 +34,7 @@ const normalizarBusca = (value) => String(value || '')
   .toLowerCase();
 
 const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAfterImpact = null, profileMode = false }) => {
+  const reportsPerPage = profileMode ? 18 : BRONCAS_POR_PAGINA;
   const { user } = useAuth();
   const location = useLocation();
   const [reports, setReports] = useState([]);
@@ -43,6 +44,8 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const suppressReportAutoOpenRef = useRef(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const contributionRequest = useRef(0);
   const [activeTab, setActiveTab] = useState('reports');
   const [buscaBronca, setBuscaBronca] = useState('');
   const [filtroSituacao, setFiltroSituacao] = useState('all');
@@ -71,25 +74,27 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
   const fetchUserContributions = useCallback(async () => {
     if (!user) return;
+    const request = ++contributionRequest.current;
     setLoading(true);
-
+    setLoadError(false);
+    try {
     const { data: reportsData, error: reportsError } = await supabase
       .from('reports')
       .select('*, pole_number, category:categories(name, icon), author:profiles!reports_author_id_fkey(name, avatar_type, avatar_url, avatar_config), comments!left(*, author:profiles!comments_author_id_fkey(name, avatar_type, avatar_url, avatar_config)), report_media(*), upvotes:signatures(count), timeline:report_timeline(*)')
       .eq('author_id', user.id)
       .order('created_at', { ascending: false });
     
-    if (reportsError) {
-      showAppError({ title: "Erro ao buscar suas broncas", description: reportsError.message, variant: "destructive" });
-    } else {
-      const formattedReports = reportsData.map(r => ({
+    if (request !== contributionRequest.current) return;
+    if (reportsError) throw reportsError;
+    {
+      const formattedReports = (reportsData || []).map(r => ({
         ...r,
         location: r.location ? { lat: r.location.coordinates[1], lng: r.location.coordinates[0] } : null,
         category: r.category_id,
         categoryName: r.category?.name,
         categoryIcon: r.category?.icon,
         authorName: r.author?.name || 'Anônimo',
-        upvotes: r.upvotes[0]?.count || 0,
+        upvotes: r.upvotes?.[0]?.count || 0,
         comments: (r.comments || []).filter(c => c.moderation_status === 'approved'),
         photos: (r.report_media || []).filter(m => m.type === 'photo'),
         videos: (r.report_media || []).filter(m => m.type === 'video'),
@@ -103,10 +108,14 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
       .eq('author_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (commentsError) showAppError({ title: "Erro ao buscar seus comentários", description: commentsError.message, variant: "destructive" });
-    else setComments(commentsData.map(c => ({...c, reportTitle: c.report?.title})));
-
-    setLoading(false);
+    if (request !== contributionRequest.current) return;
+    if (commentsError) throw commentsError;
+    setComments((commentsData || []).map(c => ({...c, reportTitle: c.report?.title})));
+    } catch {
+      if (request === contributionRequest.current) setLoadError(true);
+    } finally {
+      if (request === contributionRequest.current) setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -116,9 +125,9 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
   useEffect(() => {
     if (tabParam === 'guide') {
       navigate('/guia-da-cidade?adicionar=1', { replace: true });
-    } else if (tabParam) {
+    } else if (['reports', 'comments'].includes(tabParam)) {
       setActiveTab(tabParam);
-    } else if (reportParam) {
+    } else {
       setActiveTab('reports');
     }
   }, [tabParam, reportParam, navigate]);
@@ -271,6 +280,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
       showAppError({ title: "Erro ao remover bronca", description: error.message, variant: "destructive" });
     } else {
       fetchUserContributions();
+      window.dispatchEvent(new Event('reports-updated'));
     }
     setReportToDelete(null);
   };
@@ -404,10 +414,10 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     setPaginaBroncas(1);
   }, [buscaBronca, filtroSituacao, filtroModeracao, ordemBroncas]);
 
-  const totalPaginasBroncas = Math.max(1, Math.ceil(broncasFiltradas.length / BRONCAS_POR_PAGINA));
+  const totalPaginasBroncas = Math.max(1, Math.ceil(broncasFiltradas.length / reportsPerPage));
   const paginaAtualBroncas = Math.min(paginaBroncas, totalPaginasBroncas);
-  const inicioDaPagina = (paginaAtualBroncas - 1) * BRONCAS_POR_PAGINA;
-  const broncasDaPagina = broncasFiltradas.slice(inicioDaPagina, inicioDaPagina + BRONCAS_POR_PAGINA);
+  const inicioDaPagina = (paginaAtualBroncas - 1) * reportsPerPage;
+  const broncasDaPagina = broncasFiltradas.slice(inicioDaPagina, inicioDaPagina + reportsPerPage);
   const quantidadeFiltrosAtivos = Number(filtroSituacao !== 'all')
     + Number(filtroModeracao !== 'all')
     + Number(ordemBroncas !== 'recentes');
@@ -462,6 +472,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
     </section>
   );
 
+  const failureState = <div role="alert" className="personal-list-state"><p>Não foi possível carregar suas contribuições.</p><button type="button" onClick={fetchUserContributions}>Tentar novamente</button></div>;
   return (
     <>
       {!embedded && (
@@ -472,15 +483,15 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
       )}
       <div className={embedded
         ? 'w-full py-2'
-        : 'mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8'}>
+        : 'page-shell-fluid py-8'}>
         {impactFirst && impactBanner}
         {impactFirst && navigationAfterImpact && <div className="mb-6">{navigationAfterImpact}</div>}
 
-        <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        {!profileMode && <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             {profileMode ? (
               <>
-                <h2 className="text-xl font-extrabold text-content-primary md:text-2xl">Minha atividade</h2>
+                <h2 className="text-xl font-extrabold text-content-primary md:text-2xl">Minhas contribuições</h2>
                 <p className="mt-1 text-sm text-content-secondary">Publique e gerencie suas contribuições na cidade.</p>
               </>
             ) : (
@@ -492,22 +503,24 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
           </div>
           <div className="flex flex-wrap gap-3">
             <Button
-              className="h-10 gap-2 rounded-xl px-4 font-semibold"
+              className="min-h-12 gap-2 rounded-xl px-4 font-semibold"
               onClick={() => setIsReportModalOpen(true)}
             >
               <PlusCircle className="h-4 w-4" /> {reports.length ? 'Nova bronca' : 'Cadastrar primeira bronca'}
             </Button>
-            <Button
+            {!profileMode && <Button
               asChild
               variant="outline"
               className="h-10 gap-2 rounded-xl px-4 font-semibold"
             >
               <Link to="/minhas-peticoes"><FileText className="h-4 w-4" /> Criar abaixo-assinado</Link>
-            </Button>
+            </Button>}
           </div>
-        </motion.header>
+        </motion.header>}
 
-        <section aria-labelledby="resumo-painel" className="mb-6">
+        {!profileMode && <details className="personal-stats" open>
+          <summary>Resumo da participação<span>{loading ? 'Carregando…' : loadError ? 'Informações indisponíveis' : `${reports.length} broncas · ${comments.length} comentários`}</span></summary>
+          <section aria-labelledby="resumo-painel" className="mb-6">
           <h2 id="resumo-painel" className="sr-only">Resumo da sua participação</h2>
           <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
             {metricas.map(({ rotulo, valor, detalhe, Icone, tom }) => (
@@ -516,41 +529,26 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${tom}`}><Icone className="h-4 w-4 sm:h-5 sm:w-5" /></span>
                   <div className="min-w-0">
                     <p className="truncate text-[11px] font-semibold text-content-secondary sm:text-xs">{rotulo}</p>
-                    <p className="mt-0.5 text-lg font-extrabold text-content-primary tabular-nums sm:text-xl">{loading ? '—' : valor}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-content-primary tabular-nums sm:text-xl">{loading || loadError ? '—' : valor}</p>
                     <p className="truncate text-[10px] text-content-tertiary sm:text-[11px]">{detalhe}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+          </section>
+        </details>}
 
         {!profileMode && !impactFirst && impactBanner}
 
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2></div>
-        </div>
+        {!profileMode && <div className="mb-4 flex items-end justify-between gap-4">
+          {!profileMode && <div><h2 className="text-xl font-extrabold text-content-primary">Minhas contribuições</h2></div>}
+        </div>}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="hidden" aria-hidden="true">
-            <TabsTrigger 
-              value="reports" 
-              className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
-            >
-              <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
-              <span className="truncate ml-0.5 sm:ml-0">Broncas</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="comments" 
-              className="gap-1 sm:gap-2 px-1.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-center min-w-0 w-full"
-            >
-              <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" /> 
-              <span className="truncate ml-0.5 sm:ml-0">Comentários</span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="w-full">
           
-          <TabsContent value="reports" className="relative min-h-[300px]">
-            <div className="mb-5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm">
+          <section hidden={activeTab !== 'reports'} aria-label="Minhas broncas" className="relative min-h-[300px]">
+            <div className={profileMode ? 'personal-gallery-search' : 'mb-5 rounded-2xl border border-edge-subtle bg-surface-raised p-3 shadow-sm'}>
               <div className="flex items-center gap-2">
                 <label className="relative min-w-0 flex-1">
                   <span className="sr-only">Buscar nas minhas broncas</span>
@@ -568,6 +566,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                   variant="outline"
                   size="sm"
                   aria-expanded={filtrosAbertos}
+                  aria-label="Filtrar minhas broncas"
                   aria-controls="filtros-das-broncas"
                   onClick={() => setFiltrosAbertos((abertos) => !abertos)}
                   className={`h-10 shrink-0 gap-1.5 rounded-lg px-3 ${quantidadeFiltrosAtivos ? 'border-brand/40 text-brand' : 'text-content-secondary'}`}
@@ -626,7 +625,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                 )}
               </AnimatePresence>
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-edge-subtle pt-3 text-xs text-content-tertiary">
+              {(!profileMode || buscaBronca || quantidadeFiltrosAtivos > 0) && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-edge-subtle pt-3 text-xs text-content-tertiary">
                 <span className="inline-flex items-center gap-1.5"><SlidersHorizontal className="h-3.5 w-3.5" /> {broncasFiltradas.length} {broncasFiltradas.length === 1 ? 'bronca encontrada' : 'broncas encontradas'}</span>
                 {(buscaBronca || filtroSituacao !== 'all' || filtroModeracao !== 'all' || ordemBroncas !== 'recentes') && (
                   <button type="button" className="font-bold text-brand hover:underline" onClick={() => {
@@ -636,7 +635,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                     setOrdemBroncas('recentes');
                   }}>Limpar filtros</button>
                 )}
-              </div>
+              </div>}
             </div>
 
             <AnimatePresence mode="wait">
@@ -646,7 +645,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                     <p className="text-lg font-semibold">Carregando suas broncas...</p>
                   </div>
                 </motion.div>
-              ) : broncasDaPagina.length > 0 ? (
+              ) : loadError ? <motion.div key="load-error">{failureState}</motion.div> : profileMode && broncasDaPagina.length > 0 ? <ProfileReportGallery reports={broncasDaPagina} onOpen={setSelectedReport} onDelete={openDeleteConfirmation} /> : broncasDaPagina.length > 0 ? (
                 <motion.div key={`reports-list-${paginaAtualBroncas}`} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" variants={containerVariants} initial="hidden" animate="visible" exit={{ opacity: 0 }}>
                   {broncasDaPagina.map((report) => {
                     const statusDaBronca = getReportStatusInfo(report.status);
@@ -657,7 +656,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                         className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-elevation-2"
                         onClick={() => setSelectedReport(report)}
                       >
-                        <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-sunken">
+                        <div className={`relative w-full overflow-hidden bg-surface-sunken ${report.photos?.length ? 'aspect-[16/9]' : 'personal-report-no-media min-h-[120px]'}`}>
                           {report.photos && report.photos.length > 0 ? (
                             <img
                               src={report.photos[0].url}
@@ -665,11 +664,9 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                               className="w-full h-full object-cover transform transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-[#1D4ED8] via-[#2563EB] to-[#0EA5E9] flex items-center justify-center">
-                              <span className="text-4xl">{report.categoryIcon || '📍'}</span>
-                            </div>
+                            null
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                          {!!report.photos?.length && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />}
                           
                           <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">
                             <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold shadow-sm ${
@@ -686,11 +683,11 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
 
                           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
+                                <span data-report-count className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
                                   <Eye className="w-3.5 h-3.5" />
                                   {report.views || 0}
                                 </span>
-                                <span className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
+                                <span data-report-count className="text-[11px] text-white/90 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
                                   <Heart className="w-3.5 h-3.5" />
                                   {report.upvotes || 0}
                                 </span>
@@ -738,7 +735,7 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                           </div>
 
                           <h3 className="mt-2 line-clamp-2 text-base font-extrabold leading-snug text-content-primary">
-                            {report.title}
+                            <button type="button" className="w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand" aria-label={`Abrir bronca: ${report.title}`} onClick={event => { event.stopPropagation(); setSelectedReport(report); }}>{report.title}</button>
                           </h3>
                           
                           <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
@@ -770,10 +767,10 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
               )}
             </AnimatePresence>
 
-            {!loading && broncasFiltradas.length > 0 && (
+            {!loading && !loadError && broncasFiltradas.length > 0 && (!profileMode || totalPaginasBroncas > 1) && (
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-edge-subtle bg-surface-raised px-4 py-3">
                 <span className="text-xs text-content-tertiary tabular-nums">
-                  {inicioDaPagina + 1}–{Math.min(inicioDaPagina + BRONCAS_POR_PAGINA, broncasFiltradas.length)} de {broncasFiltradas.length}
+                  {inicioDaPagina + 1}–{Math.min(inicioDaPagina + reportsPerPage, broncasFiltradas.length)} de {broncasFiltradas.length}
                 </span>
                 <div className="flex items-center gap-2">
                   <Button type="button" size="icon" variant="outline" className="h-9 w-9" disabled={paginaAtualBroncas <= 1} onClick={() => setPaginaBroncas((pagina) => Math.max(1, pagina - 1))} aria-label="Página anterior">
@@ -786,10 +783,11 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                 </div>
               </div>
             )}
-          </TabsContent>
+          </section>
 
-          <TabsContent value="comments" className="mt-8">
-            {comments.length > 0 ? (
+          <section hidden={activeTab !== 'comments'} aria-label="Meus comentários">
+            <div className="personal-comments-heading"><h2>Meus comentários</h2><Link to="/perfil?tab=reports#minhas-contribuicoes">Ver minhas broncas</Link></div>
+            {loading ? <p role="status">Carregando seus comentários…</p> : loadError ? failureState : comments.length > 0 ? (
               <motion.div className="space-y-4" variants={containerVariants} initial="hidden" animate="visible">
                 {comments.map((comment) => (
                   <motion.div key={comment.id} variants={itemVariants}>
@@ -814,9 +812,9 @@ const UserDashboardPage = ({ embedded = false, impactFirst = false, navigationAf
                 <p className="text-muted-foreground mt-2">Sua opinião é importante! Participe das discussões.</p>
               </motion.div>
             )}
-          </TabsContent>
+          </section>
 
-        </Tabs>
+        </div>
 
       </div>
       {selectedReport && <ReportDetails report={selectedReport} onClose={handleCloseReportDetails} onUpdate={handleUpdateReport} onUpvote={handleUpvote} onLink={() => {}} />}
