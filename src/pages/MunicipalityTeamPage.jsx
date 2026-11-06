@@ -10,11 +10,13 @@ import {
   Copy,
   Loader2,
   Mail,
+  MoreHorizontal,
   Phone,
   ShieldCheck,
   UserPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -244,7 +246,10 @@ export default function MunicipalityTeamPage() {
     <>
       <Helmet><title>Equipe | Painel da Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
       <div className="page-shell-fluid py-6 sm:py-8">
-        <MunicipalPageHeader eyebrow="Administração municipal" title="Equipe e acessos" description="Vincule contas Órgão Público existentes ou crie acessos com senha temporária e atribua as secretarias e os cargos." action={channels.length > 0 && <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => { setAssignError(''); setAssignOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Vincular conta existente</Button><Button className="w-full sm:w-auto" onClick={() => { setInviteAccess(EMPTY_ACCESS); setInviteError(''); setCredentials(null); setEmail(''); setInviteOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Criar acesso de funcionário</Button></div>} />
+        <MunicipalPageHeader eyebrow="Administração municipal" title="Equipe e acessos" description="Gerencie as pessoas e os cargos de cada secretaria." action={channels.length > 0 && <>
+          <Button onClick={() => { setInviteAccess(EMPTY_ACCESS); setInviteError(''); setCredentials(null); setEmail(''); setInviteOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Criar acesso</Button>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Mais ações da equipe"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setAssignError(''); setAssignOpen(true); }}>Vincular conta existente</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+        </>} />
 
         {channels.length === 0 ? (
           <section className="mt-6 rounded-2xl border border-dashed border-edge-strong bg-surface-raised p-10 text-center">
@@ -255,9 +260,10 @@ export default function MunicipalityTeamPage() {
           </section>
         ) : (
           <div className="mt-6 min-w-0 space-y-4">
-            <MunicipalDrawer open={assignOpen} onClose={() => !working && setAssignOpen(false)} busy={working} title="Vincular conta existente" description={`Contas Órgão Público de ${municipality?.cidade?.name || municipality?.nome} que ainda não estão nesta secretaria.`}>
+            <MunicipalDrawer task open={assignOpen} onClose={() => !working && setAssignOpen(false)} busy={working} title="Vincular conta existente" description={`Contas Órgão Público de ${municipality?.cidade?.name || municipality?.nome} que ainda não estão nesta secretaria.`}
+              footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setAssignOpen(false)} disabled={working}>Cancelar</Button><Button type="submit" form="municipal-assign-form" disabled={working || !assignChannelId || !assignUserId || !assignAccess.cargos.length}>Vincular à secretaria</Button></div>}>
               <section className="self-start rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
-                <form onSubmit={assignExistingOfficial} className="grid gap-4">
+                <form id="municipal-assign-form" onSubmit={assignExistingOfficial} className="grid gap-4">
                   <div><Label htmlFor="assign-channel">Secretaria</Label><select id="assign-channel" required disabled={working} value={assignChannelId} onChange={event => {
                     const nextId = event.target.value;
                     const nextChannel = channels.find(channel => String(channel.id) === String(nextId));
@@ -269,12 +275,12 @@ export default function MunicipalityTeamPage() {
                   </div>
                   <MunicipalStaffResponsibilities value={assignAccess} onChange={setAssignAccess} disabled={working} roles={assignRoles} />
                   {assignError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{assignError}</p>}
-                  <Button type="submit" disabled={working || !assignChannelId || !assignUserId || !assignAccess.cargos.length}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Vincular à secretaria</Button>
                 </form>
               </section>
             </MunicipalDrawer>
 
-            <MunicipalDrawer open={inviteOpen} onClose={() => { if (!working) { setInviteOpen(false); setCredentials(null); } }} busy={working} title="Criar acesso de funcionário" description={`Município: ${municipality?.cidade?.name || municipality?.nome}.`}>
+            <MunicipalDrawer task open={inviteOpen} onClose={() => { if (!working) { setInviteOpen(false); setCredentials(null); } }} busy={working} title="Criar acesso de funcionário" description={`Município: ${municipality?.cidade?.name || municipality?.nome}.`}
+              footer={!credentials && <div className="flex gap-2"><Button variant="outline" disabled={working} onClick={() => setInviteOpen(false)}>Cancelar</Button><Button type="submit" form="municipal-create-access-form" disabled={working || !inviteChannelId || !email.trim() || !inviteAccess.cargos.length}>{working ? 'Criando acesso…' : 'Criar acesso e gerar senha'}</Button></div>}>
             <section className="self-start rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><Mail className="h-5 w-5" /></div>
@@ -284,14 +290,13 @@ export default function MunicipalityTeamPage() {
                 </div>
               </div>
 
-              {!credentials && <form onSubmit={createAccess} className="mt-5 grid gap-4">
+              {!credentials && <form id="municipal-create-access-form" onSubmit={createAccess} className="mt-5 grid gap-4">
                 <div className="rounded-xl bg-surface-subtle p-3 text-sm"><p className="font-semibold">{municipality?.cidade?.name || municipality?.nome}{municipality?.cidade?.states?.uf ? ` · ${municipality.cidade.states.uf}` : ''}</p><p className="mt-1 text-xs text-content-secondary">Conta Órgão Público vinculada à prefeitura ativa. Cadastro pessoal no primeiro acesso e troca obrigatória da senha após 24 horas da geração.</p></div>
                 <div><Label htmlFor="invite-channel">Secretaria do funcionário</Label><select id="invite-channel" required disabled={working || Boolean(credentials)} value={inviteChannelId} onChange={(event) => { const nextId = event.target.value; const nextChannel = channels.find(channel => String(channel.id) === String(nextId)); setInviteChannelId(nextId); setInviteAccess(nextChannel && !(nextChannel.categorias || []).length ? { cargos: ['inventario'] } : EMPTY_ACCESS); }} className="mt-1 h-10 w-full min-w-0 rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map((channel) => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
                 <div><Label htmlFor="team-email">E-mail institucional</Label><Input id="team-email" type="email" required disabled={working || Boolean(credentials)} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="servidor@prefeitura.gov.br" /></div>
                 <MunicipalStaffResponsibilities value={inviteAccess} onChange={setInviteAccess} disabled={working || Boolean(credentials)} roles={inviteRoles} />
 
                 {inviteError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{inviteError}</p>}
-                <Button type="submit" disabled={working || Boolean(credentials) || !inviteChannelId || !email.trim() || !inviteAccess.cargos.length}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Criar acesso e gerar senha</Button>
               </form>}
 
               <MunicipalCredentials credentials={credentials} />
@@ -312,6 +317,7 @@ export default function MunicipalityTeamPage() {
 
             {emailLookupFailed && <p role="status" className="rounded-xl border border-edge-subtle p-3 text-xs text-content-secondary">Não foi possível consultar os e-mails da equipe.</p>}
             <MunicipalTable title="Equipe municipal" rows={channelMembers.filter((member) => (statusFilter === 'all' || member.ativo === (statusFilter === 'active')) && (roleFilter === 'all' || member.access?.cargos?.includes(roleFilter)))}
+              filterHint={[channelId !== 'all' && channelName(channelId), statusFilter !== 'all' && (statusFilter === 'active' ? 'Ativos' : 'Suspensos'), roleFilter !== 'all' && MUNICIPAL_STAFF_ROLES.find(role => role.id === roleFilter)?.label].filter(Boolean).join(' · ')}
               filterKey={channelId + statusFilter + roleFilter} onOpen={openMember}
               searchPlaceholder="Nome, e-mail, telefone ou secretaria"
               searchText={(member) => [member.perfil?.name, member.email, member.perfil?.phone, channelName(member.canal_id)].join(' ')}
@@ -328,7 +334,7 @@ export default function MunicipalityTeamPage() {
                 { key: 'status', label: 'Situação', value: (member) => member.ativo ? 'Ativo' : 'Suspenso', render: (member) => <span className={`rounded-full px-2 py-1 text-xs font-semibold ${member.ativo ? 'bg-success-bg text-success-fg' : 'bg-surface-subtle text-content-secondary'}`}>{member.ativo ? 'Ativo' : 'Suspenso'}</span> },
                 { key: 'date', label: 'Na plataforma desde', value: (member) => member.created_at || '', render: (member) => memberDate(member.created_at) },
               ]} />
-            <MunicipalDrawer open={Boolean(selected)} onClose={() => setSelected(null)} busy={saving} title={selected?.perfil?.name || 'Funcionário'} description={channelName(selected?.canal_id)}
+            <MunicipalDrawer task open={Boolean(selected)} onClose={() => setSelected(null)} busy={saving} title={selected?.perfil?.name || 'Funcionário'} description={channelName(selected?.canal_id)}
               footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={saving} onClick={() => setSelected(null)}>Cancelar</Button><Button onClick={updateMember} disabled={saving || !editAccess.cargos?.length || (JSON.stringify(editAccess) === JSON.stringify(selected?.access) && editActive === selected?.ativo)}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
               {selected && <div className="space-y-6">
                 <dl className="space-y-4 text-sm">

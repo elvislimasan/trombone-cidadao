@@ -14,6 +14,7 @@ import { PavementContent } from '@/pages/PavementMapPage';
 import { TERRITORIAL_BASE, territorialModules } from '@/lib/territorialAccess';
 import { TREE_ADOPTION_MANAGEMENT_PATH } from '@/lib/treeAdoption';
 import { municipalContextPath } from '@/lib/municipalAccess';
+import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 
 const AREAS = { ruas: { title: 'Ruas e pavimentações', Icon: Route }, arborizacao: { title: 'Arborização', Icon: Trees } };
 
@@ -96,7 +97,8 @@ export default function TerritorialPanelPage() {
   </>;
 
   if (embedded) return <div className="page-shell-fluid min-w-0 py-4" data-testid="territorial-panel">
-    <Helmet><title>{title} ? {city.name}</title></Helmet><h1 className="mb-3 text-xl font-bold">{title}</h1>
+    <Helmet><title>{title} | {city.name}</title></Helmet>
+    <MunicipalPageHeader eyebrow="Inventário municipal" title={title} description={access.canWrite(active === 'ruas' ? 'urban_planning' : 'arborization') ? 'Encontre um item no mapa para consultar ou atualizar o cadastro.' : 'Consulte os itens e as informações disponíveis no mapa.'} />
     {active === 'ruas' && <nav aria-label="Visualização de ruas" className="mb-3 flex gap-2">{[['mapa','Mapa'],['estatisticas','Estatísticas']].map(([section,label]) => <Button asChild key={section} variant={streetSection === section ? 'default' : 'outline'}><Link to={href('ruas',city,section)}>{label}</Link></Button>)}</nav>}
     <CityViewProvider value={cityValue}><Panels key={user.id + ':' + city.id} modules={modules} active={active} section={streetSection} readOnly={!access.canWrite(active === 'ruas' ? 'urban_planning' : 'arborization')} /></CityViewProvider>
   </div>;

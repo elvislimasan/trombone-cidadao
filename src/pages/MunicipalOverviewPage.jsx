@@ -163,12 +163,12 @@ function AdministrativeOverview() {
   const active = number(summary?.abertas) + number(summary?.em_andamento) + number(summary?.aguardando_confirmacao);
   const completion = total ? Math.round(concluded / total * 100) : 0;
 
-  return <div className="page-shell-fluid min-w-0 pb-10 pt-6 text-content-primary sm:pt-8">
+  return <div className="municipal-overview municipal-workspace-page page-shell-fluid min-w-0 pb-10 text-content-primary sm:pt-8">
     <Helmet><title>Visão geral | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Gestão municipal" title="Visão geral" description="Acompanhe o ritmo dos serviços e identifique onde a equipe precisa agir." action={context.canEdit && <Button onClick={() => setReportCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Criar solicitação de serviço</Button>} />
+    <MunicipalPageHeader eyebrow="Gestão municipal" title="Painel da prefeitura" description="Priorize os atendimentos e acompanhe o trabalho da equipe." action={context.canEdit && <Button onClick={() => setReportCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Nova solicitação</Button>} />
     <section className="mt-5 grid min-w-0 gap-3 md:grid-cols-2" aria-label="Comece por aqui">
-      <ActionCard to={municipalContextPath('/prefeitura/broncas', context.municipality.city_id)} icon={List} title="Ver solicitações da cidade" description="Encontre o que precisa de atendimento." primary />
-      <ActionCard to={municipalContextPath('/prefeitura/demandas', context.municipality.city_id)} icon={ClipboardList} title="Acompanhar ordens de serviço" description="Consulte a execução e os responsáveis." />
+      <ActionCard to={municipalContextPath('/prefeitura/broncas', context.municipality.city_id)} icon={List} title="Solicitações da cidade" description="Receba e organize os atendimentos." primary variant="discovery" />
+      <ActionCard to={municipalContextPath('/prefeitura/demandas', context.municipality.city_id)} icon={ClipboardList} title="Ordens de serviço" description="Confira a execução e os responsáveis." variant="discovery" />
     </section>
     {summaryError && <div role="alert" className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-danger/20 bg-danger-subtleBg p-4 text-sm text-danger"><span>Não foi possível carregar os indicadores. {summaryError}</span><Button variant="outline" size="sm" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</Button></div>}
     {loading ? <div className="flex min-h-72 items-center justify-center" role="status" aria-label="Carregando visão geral"><Loader2 className="h-6 w-6 animate-spin text-content-secondary" /></div> : summary && <>
@@ -248,14 +248,14 @@ function DepartmentOverview({ context }) {
   const description = [names.join(', '), categoryNames.join(', ')].filter(Boolean).join(' • ') || 'Nenhuma categoria habilitada para atendimento';
   const retry = () => setRevision(value => value + 1);
   const newOrderPath = municipalContextPath('/prefeitura/demandas/nova', context.municipality?.city_id, context.activeChannelId);
-  return <div className="page-shell-fluid min-w-0 space-y-6 pb-10 pt-6 sm:pt-8" data-testid="department-overview">
+  return <div className="municipal-overview municipal-workspace-page page-shell-fluid min-w-0 space-y-5 pb-10 sm:pt-8" data-testid="department-overview">
     <Helmet><title>Visão geral | Secretaria</title><meta name="robots" content="noindex" /></Helmet>
-    <header className="flex min-w-0 flex-wrap items-end justify-between gap-4 pb-1"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Atendimento da secretaria</p><h1 className="mt-1 font-display text-3xl font-black tracking-tight">Visão geral</h1><p className="mt-2 text-sm leading-6 text-content-secondary">{description}</p></div><Button variant="outline" className="shrink-0 bg-surface-raised" onClick={retry} disabled={!current} aria-label="Atualizar visão geral"><RotateCcw className={'mr-2 h-4 w-4 ' + (!current ? 'animate-spin' : '')} />Atualizar</Button></header>
+    <MunicipalPageHeader className="municipal-header-with-refresh" eyebrow="Atendimento da secretaria" title={context.canDispatch ? 'Gestão da secretaria' : context.canReceive ? 'Painel de atendimento' : 'Consulta da secretaria'} description={description} action={<Button variant="outline" size="icon" onClick={retry} disabled={!current} aria-label="Atualizar visão geral"><RotateCcw className={'h-4 w-4 ' + (!current ? 'animate-spin' : '')} /></Button>} />
     <section aria-labelledby="overview-shortcuts">
       <h2 id="overview-shortcuts" className="text-base font-bold text-content-primary">Por onde começar?</h2>
       <div className={'mt-3 grid min-w-0 gap-3 ' + (context.canReceive ? 'md:grid-cols-2' : '')}>
-        <ActionCard to={overviewReportPath(context)} icon={List} title="Ver solicitações" description="Encontre o próximo atendimento da secretaria." primary />
-        {context.canReceive && <ActionCard to={newOrderPath} icon={Plus} title="Nova ordem de serviço" description={context.canDispatch ? 'Organize um serviço para a equipe.' : 'Prepare a ordem para aprovação do gestor.'} />}
+        <ActionCard to={overviewReportPath(context)} icon={List} title="Ver solicitações" description={context.canReceive ? 'Encontre o próximo atendimento.' : 'Acompanhe os registros da secretaria.'} primary variant="discovery" />
+        {context.canReceive && <ActionCard to={newOrderPath} icon={Plus} title={context.canDispatch ? 'Nova ordem de serviço' : 'Preparar ordem de serviço'} description={context.canDispatch ? 'Organize um serviço para a equipe.' : 'Envie para aprovação do gestor.'} variant="discovery" />}
       </div>
     </section>
     {!categoryIds.length ? <p className="rounded-xl border border-edge-subtle bg-surface-raised p-5 text-sm">A secretaria ainda não tem categorias de atendimento habilitadas. O administrador municipal pode conferir essa configuração.</p> : !current ? <div role="status" className="flex min-h-64 items-center justify-center gap-2 text-sm text-content-secondary"><Loader2 className="h-5 w-5 animate-spin" />Carregando solicitações da secretaria…</div> : current.error ? <div role="alert" className="space-y-3 rounded-xl border border-danger/30 bg-danger-subtleBg p-4 text-sm text-danger"><p>Não foi possível carregar os indicadores. {current.error}</p><Button variant="outline" size="sm" onClick={retry}>Tentar novamente</Button></div> : <>

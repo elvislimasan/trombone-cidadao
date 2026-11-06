@@ -1,9 +1,11 @@
+import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { TaskDialogContent, TaskDialogBody, TaskDialogFooter } from '@/components/ui/task-dialog';
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
+import { MunicipalMobileDisclosure, MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import useMunicipalityWorkspace, { WORKSPACE_EVENT } from '@/hooks/useMunicipalityWorkspace';
 import { DEMAND_PRIORITIES, suggestDemandAssignment } from '@/lib/municipalDemand';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -15,6 +17,7 @@ export default function MunicipalServiceSettingsPage() {
   const context = useMunicipalityWorkspace();
   const [rules, setRules] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
   useEffect(() => { setRules(context.serviceRules.filter((rule) => context.enabledCategoryIds?.includes(rule.category_id)).map((rule) => ({ ...rule, key: rule.category_id, canal_id: rule.canal_id || '', atendimento_horas: rule.atendimento_horas ?? '', primeira_resposta_horas: rule.primeira_resposta_horas ?? '' }))); }, [context.serviceRules, context.enabledCategoryIds]);
   const update = (key, values) => setRules((current) => current.map((rule) => rule.key === key ? { ...rule, ...values } : rule));
   const save = async (event) => {
@@ -31,16 +34,22 @@ export default function MunicipalServiceSettingsPage() {
       });
       if (error) throw error;
       showAppNotice({ title: 'Regras de preenchimento salvas', description: 'Os valores serão sugeridos nas próximas ordens de serviço.' });
+      setEditing(false);
       window.dispatchEvent(new CustomEvent(WORKSPACE_EVENT));
     } catch (error) { showAppError({ title: 'Não foi possível salvar as regras', description: error.message }); }
     finally { setSaving(false); }
   };
   if (context.loading) return <div className="flex min-h-96 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!context.isAdministrator) return <div className="page-shell-fluid py-10"><h1 className="text-2xl font-bold">Configuração do atendimento</h1><p className="mt-3 text-sm text-content-secondary">{context.error || 'Somente o administrador municipal pode configurar as regras.'}</p></div>;
-  return <form onSubmit={save} className="page-shell-fluid space-y-6 pb-10 pt-8">
+  return <div className="municipal-workspace-page page-shell-fluid space-y-4 pb-10">
     <Helmet><title>Regras de atendimento | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Configuração municipal" title="Preenchimento das ordens de serviço" description="Defina sugestões de secretaria, prioridade e prazos por categoria. A prefeitura decide quando abrir cada ordem de serviço." action={<Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar regras'}</Button>} />
-    <div className="rounded-xl border border-brand/20 bg-brand-subtleBg p-4 text-sm leading-6 text-content-secondary">Os prazos usam horas corridas a partir da criação da ordem. Deixe em branco quando não houver um prazo padrão. As sugestões podem ser ajustadas em cada atendimento.</div>
+    <MunicipalPageHeader eyebrow="Configuração municipal" title="Regras de atendimento" description="Defina as sugestões usadas nas ordens de serviço." action={<Button onClick={() => setEditing(true)}>Editar regras</Button>} />
+    <section className="grid gap-3 sm:grid-cols-2" aria-label="Regras configuradas">{rules.map(rule => <article key={rule.key} className="rounded-xl border border-edge-subtle bg-surface-raised p-4"><h2 className="font-semibold">{context.categories.find(category => category.id === rule.category_id)?.name || 'Categoria'}</h2><p className="mt-2 text-sm text-content-secondary">Prioridade {DEMAND_PRIORITIES.find(([value]) => value === rule.prioridade)?.[1] || rule.prioridade}</p><p className="text-sm text-content-secondary">{rule.atendimento_horas ? `Atendimento sugerido: ${rule.atendimento_horas} horas` : 'Sem prazo de atendimento sugerido'}</p></article>)}</section>
+    {!rules.length && <p className="text-sm text-content-secondary">Nenhuma regra definida. Abra Editar regras para configurar.</p>}
+    <Dialog open={editing} onOpenChange={open => { if (!saving) setEditing(open); }}><TaskDialogContent hideClose={saving}>
+      <DialogHeader className="task-dialog-heading"><DialogTitle>Editar regras de atendimento</DialogTitle><DialogDescription>Defina as sugest?es por categoria.</DialogDescription></DialogHeader>
+      <form id="municipal-rules-form" onSubmit={save} className="flex min-h-0 flex-1 flex-col"><TaskDialogBody className="space-y-4">
+    <MunicipalMobileDisclosure title="Como funcionam as sugestões" className="municipal-help-disclosure"><p className="text-sm leading-6 text-content-secondary">Os prazos usam horas corridas a partir da criação da ordem. Deixe em branco quando não houver um prazo padrão. As sugestões podem ser ajustadas em cada atendimento. A prefeitura decide quando abrir cada ordem de serviço.</p></MunicipalMobileDisclosure>
     {!rules.length && <p className="rounded-xl border border-dashed border-edge-subtle p-6 text-sm text-content-secondary">Nenhuma regra definida. Os prazos permanecerão em branco até serem informados pela equipe.</p>}
     <div className="grid gap-4 2xl:grid-cols-2">{rules.map((rule) => <section key={rule.key} className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-5">
       <div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-bold">{context.categories.find((category) => category.id === rule.category_id)?.name || 'Nova regra'}</h2><Button type="button" variant="ghost" size="icon" disabled={saving} aria-label="Remover regra" onClick={() => setRules((current) => current.filter((item) => item.key !== rule.key))}><Trash2 className="h-4 w-4" /></Button></div>
@@ -54,5 +63,7 @@ export default function MunicipalServiceSettingsPage() {
       </div>
     </section>)}</div>
     <Button type="button" variant="outline" disabled={saving || rules.length >= context.categories.length} onClick={() => setRules((current) => [...current,newRule()])}><Plus className="mr-2 h-4 w-4" />Adicionar regra por categoria</Button>
-  </form>;
+      </TaskDialogBody><TaskDialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>Fechar</Button><Button type="submit" disabled={saving}>{saving ? 'Salvando?' : 'Salvar regras'}</Button></TaskDialogFooter></form>
+    </TaskDialogContent></Dialog>
+  </div>;
 }

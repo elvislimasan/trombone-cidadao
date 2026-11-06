@@ -2,7 +2,7 @@ import { poleReferenceText } from '@/lib/poleDisplay';
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Download, Filter, LayoutGrid, LayoutList, Loader2, LockKeyhole, Map as MapIcon, MapPin, Megaphone, MoreHorizontal, Search, Signpost, Trash2 } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Download, Filter, LayoutList, Loader2, Map as MapIcon, MapPin, Megaphone, MoreHorizontal, Search, Signpost, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -23,6 +23,7 @@ import { TIPOS_DE_PROBLEMA_ESGOTO, TIPOS_DE_PROBLEMA_ILUMINACAO, rotuloDoTipoDeP
 import { confirmApp } from '@/lib/appConfirm';
 import { showAppError, showAppNotice } from '@/lib/appError';
 import { renderMunicipalReportReceiptPdf } from '@/lib/municipalReportReceipt';
+import { municipalContextPath } from '@/lib/municipalAccess';
 
 const ReportsMap = lazy(() => import('@/components/municipality/MunicipalReportsMap'));
 const date = (value) => value ? new Date(value).toLocaleDateString('pt-BR') : '—';
@@ -46,7 +47,6 @@ const categoryTones = {
 };
 const primaryCategoryIds = ['iluminacao', 'buracos', 'esgoto', 'poda', 'limpeza', 'sinalizacao'];
 const filterKeys = ['q', 'categoria', 'subtipo', 'idade', 'bairro', 'status', 'sem_ordem', 'de', 'ate'];
-const advancedFilterKeys = ['idade', 'bairro', 'de', 'ate'];
 const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFinite(new Date(value + 'T00:00:00').getTime()) ? value : '';
 const selectClass = 'h-9 min-w-0 rounded-lg border border-edge-subtle bg-surface-raised px-2.5 text-xs text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand';
 
@@ -161,11 +161,6 @@ export default function MunicipalReportsPage({ view = 'list' }) {
     [...filterKeys, 'pagina'].forEach((key) => next.delete(key));
     return next;
   }, { replace: true });
-  const clearAdvancedFilters = () => setParams((current) => {
-    const next = new URLSearchParams(current);
-    [...advancedFilterKeys, 'pagina'].forEach((key) => next.delete(key));
-    return next;
-  }, { replace: true });
   const closeReport = () => {
     if (reportId) { navigate('/prefeitura/broncas', { replace: true }); return; }
     change('bronca', '');
@@ -233,12 +228,6 @@ export default function MunicipalReportsPage({ view = 'list' }) {
     return (aIndex < 0 ? primaryCategoryIds.length : aIndex) - (bIndex < 0 ? primaryCategoryIds.length : bIndex) || a.name.localeCompare(b.name, 'pt-BR');
   });
   const rankedCategories = [...orderedCategories].sort((a, b) => (facets?.counts[b.id] || 0) - (facets?.counts[a.id] || 0));
-  const featuredCategories = rankedCategories.slice(0, 3);
-  if (category !== 'all' && !featuredCategories.some((item) => item.id === category)) {
-    const selectedCategory = rankedCategories.find((item) => item.id === category);
-    if (selectedCategory) featuredCategories.splice(2, 1, selectedCategory);
-  }
-  const extraCategories = rankedCategories.filter((item) => !featuredCategories.some((featured) => featured.id === item.id));
   const hasAdvancedFilters = Boolean(neighborhood !== 'all' || age !== 'all' || dateFrom || dateTo);
   const hasFilters = Boolean(query || (categories.length > 1 && category !== 'all') || issueType !== 'all' || hasAdvancedFilters);
   const subtypeOptions = category === 'iluminacao' ? TIPOS_DE_PROBLEMA_ILUMINACAO : category === 'esgoto' ? TIPOS_DE_PROBLEMA_ESGOTO : [];
@@ -270,44 +259,46 @@ export default function MunicipalReportsPage({ view = 'list' }) {
     {canDeleteReport(item) && linkedIds.has(item.id) && <p className="px-2 py-1 text-xs text-content-secondary">Remova primeiro a ordem de serviço vinculada.</p>}
   </DropdownMenuContent></DropdownMenu></div>;
 
-  return <div className="page-shell-fluid min-w-0 pb-10 pt-6 sm:pt-8" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
+  return <div className="municipal-workspace-page page-shell-fluid min-w-0 pb-10 sm:pt-8" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
     <Helmet><title>{view === 'map' ? 'Mapa de solicitações' : 'Consulta de solicitações'} | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Escuta da cidade" title="Solicitações da cidade" description="Acompanhe as solicitações públicas e internas da cidade e gere ordens de serviço." action={<div className="flex flex-wrap gap-2">
-      {view !== 'map' && <Button variant="outline" onClick={() => setExportOpen(true)} className="h-9 px-3 text-xs sm:h-10 sm:text-sm"><Download className="mr-1.5 h-4 w-4" />Baixar PDF ou planilha</Button>}
-      {context.canEdit && <><Button onClick={() => setReportCreateOpen(true)} variant="outline" className="h-9 border-amber-400 bg-amber-400 shadow-md px-3 text-xs text-amber-950 hover:border-amber-500 hover:bg-amber-500 hover:text-amber-950 sm:h-10 sm:text-sm"><Megaphone className="mr-1.5 h-4 w-4" />Criar solicitação de serviço</Button>{view !== 'map' && <Button onClick={() => setServiceOrderOpen(true)} className="h-9 px-3 text-xs sm:h-10 sm:text-sm"><Download className="mr-1.5 h-4 w-4" /><span className="sm:hidden">Gerar OS</span><span className="hidden sm:inline">Gerar Ordem de Serviço</span></Button>}</>}
-    </div>}>
-      <nav className="flex gap-1 rounded-lg border border-edge-subtle bg-surface-subtle p-1" aria-label="Visualização das solicitações">{[['list', '/prefeitura/broncas', 'Lista', LayoutList], ['map', '/prefeitura/mapa', 'Mapa', MapIcon]].map(([key, to, label, ViewIcon]) => <Button key={key} asChild variant={view === key ? 'default' : 'ghost'} size="sm" className="h-8 text-xs"><Link to={to} aria-current={view === key ? 'page' : undefined}><ViewIcon className="mr-2 h-4 w-4" />{label}</Link></Button>)}</nav>
-    </MunicipalPageHeader>
+    <MunicipalPageHeader eyebrow="Escuta da cidade" title="Solicitações da cidade" description={context.canEdit ? 'Abra uma solicitação para consultar e dar continuidade ao atendimento.' : 'Consulte as solicitações e acompanhe o atendimento.'} action={<>
+      {context.canEdit && <Button onClick={() => setReportCreateOpen(true)}><Megaphone className="mr-2 h-4 w-4" />Nova solicitação</Button>}
+      <Button asChild variant="outline"><Link to={municipalContextPath((view === 'map' ? '/prefeitura/broncas' : '/prefeitura/mapa') + (params.size ? '?' + params.toString() : ''), cityId, context.activeChannelId)}>{view === 'map' ? <LayoutList className="mr-2 h-4 w-4" /> : <MapIcon className="mr-2 h-4 w-4" />}{view === 'map' ? 'Lista' : 'Mapa'}</Link></Button>
+      {view !== 'map' && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Mais ações das solicitações"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+        {context.canEdit && <DropdownMenuItem onSelect={() => setServiceOrderOpen(true)}>Gerar ordem de serviço</DropdownMenuItem>}
+        <DropdownMenuItem onSelect={() => setExportOpen(true)}><Download className="mr-2 h-4 w-4" />Baixar PDF ou planilha</DropdownMenuItem>
+      </DropdownMenuContent></DropdownMenu>}
+    </>} />
     {view === 'map' ? <Suspense fallback={<div className="mt-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}><ReportsMap cityId={cityId} municipalityId={municipalityId} enabledCategoryIds={context.enabledCategoryIds} revision={revision} onSelect={(id) => change('bronca', id)} /></Suspense> : <>
-      <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-x-8 gap-y-3 border-b border-edge-subtle pb-3">
-        <nav aria-label="Visibilidade das solicitações" className="flex min-w-0 flex-wrap items-center gap-2">
-          {[["public", "Públicas", Megaphone], ["internal", "Internas", LockKeyhole]].map(([id, label, TabIcon]) => <button key={id} type="button" aria-current={visibility === id ? 'page' : undefined} onClick={() => change('visibilidade', id === 'internal' ? 'internas' : 'all')} className={'inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (visibility === id ? 'border-brand bg-brand text-content-onBrand' : 'border-edge-subtle bg-surface-raised text-content-primary hover:bg-surface-subtle')}><TabIcon className="h-4 w-4" />{label}<span className={'rounded-md px-1.5 py-0.5 text-[10px] tabular-nums ' + (visibility === id ? 'bg-white/20' : 'bg-surface-subtle text-content-secondary')}>{facets ? facets.visibilityCounts[id].toLocaleString('pt-BR') : '—'}</span></button>)}
-        </nav>
-        <nav aria-label="Andamento das solicitações" className="flex min-w-0 flex-wrap items-center gap-2">
-          {REPORT_PHASES.map(([id, label]) => <button key={id} type="button" aria-current={phase === id ? 'page' : undefined} onClick={() => change('fase', id)} className={'inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (phase === id ? 'border-brand bg-brand-subtleBg text-brand-subtleFg' : 'border-edge-subtle bg-surface-raised text-content-secondary hover:bg-surface-subtle')}><span>{label}</span>{showPhaseCount(id) && <span className="font-medium text-[10px] tabular-nums text-content-secondary">{facets ? facets.phaseCounts[id].toLocaleString('pt-BR') : '—'}</span>}</button>)}
+      <div className="municipal-request-phase-row">
+        <label className="municipal-scope-control"><span>Exibir</span><select aria-label="Visibilidade das solicitações" value={visibility} onChange={event => change('visibilidade', event.target.value === 'internal' ? 'internas' : 'all')}>
+          {[['public', 'Públicas'], ['internal', 'Internas']].map(([id, label]) => <option key={id} value={id}>{label}{facets ? ` (${facets.visibilityCounts[id].toLocaleString('pt-BR')})` : ''}</option>)}
+        </select></label>
+        <nav aria-label="Andamento das solicitações" className="municipal-request-phases">
+          {REPORT_PHASES.map(([id, label]) => <button key={id} type="button" aria-current={phase === id ? 'page' : undefined} onClick={() => change('fase', id)}><span>{label}</span>{showPhaseCount(id) && <span>{facets ? facets.phaseCounts[id].toLocaleString('pt-BR') : '—'}</span>}</button>)}
         </nav>
       </div>
       {categories.length > 1 && <nav aria-label="Categorias de solicitações" className="mt-4 hidden min-w-0 flex-wrap gap-2 sm:flex">
         {categoryButton('all', 'Todas')}{orderedCategories.map((item) => categoryButton(item.id, item.name))}
       </nav>}
-      {categories.length > 1 && <nav aria-label="Categorias de solicitações no celular" className="mt-4 grid min-w-0 grid-cols-5 gap-1.5 sm:hidden">
-        {categoryButton('all', 'Todas', true)}{featuredCategories.map((item) => categoryButton(item.id, ({ poda: 'Poda', 'vazamento-de-agua': 'Vazamento', sinalizacao: 'Sinalização' })[item.id] || item.name, true))}
-        {extraCategories.length > 0 && <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-edge-subtle bg-surface-raised px-1 py-1.5 text-[10px] font-semibold" aria-label="Mais categorias"><MoreHorizontal className="h-4 w-4" /><span>Mais</span><ChevronDown className="h-3 w-3" /></button></DropdownMenuTrigger><DropdownMenuContent align="end">{extraCategories.map((item) => <DropdownMenuItem key={item.id} onSelect={() => change('categoria', item.id)}>{item.name}{showCategoryCount(item.id) && <span className="ml-2 text-content-secondary tabular-nums">{countLabel(item.id)}</span>}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>}
-      </nav>}
       {facetsError && <p role="status" className="mt-2 text-xs text-content-secondary">Não foi possível carregar as categorias e os bairros. <button type="button" onClick={() => setRevision((value) => value + 1)} className="font-medium text-brand underline">Tentar novamente</button></p>}
       <section aria-label="Solicitações e solicitações da cidade" className="mt-3 min-w-0 overflow-hidden rounded-xl border border-edge-subtle bg-surface-raised shadow-sm">
         <div className="space-y-3 border-b border-edge-subtle p-3 sm:p-4">
           <h2 aria-live="polite" className="text-base font-semibold tabular-nums">{loading ? 'Carregando solicitações…' : error ? 'Solicitações' : `${total.toLocaleString('pt-BR')} ${total === 1 ? 'solicitação' : 'solicitações'}`}</h2>
-          <div className="flex min-w-0 flex-wrap items-end gap-2">
-            <label className="relative min-w-0 basis-full sm:flex-1 sm:basis-0"><span className="sr-only">Buscar solicitações</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={query} onChange={(event) => change('q', event.target.value)} placeholder="Título, protocolo, número do poste ou endereço…" className="h-10 bg-surface-subtle pl-9 text-xs" /></label>
-            <Popover><PopoverTrigger asChild><Button variant="outline" className="h-10 gap-2 text-xs"><Filter className="h-4 w-4" />Filtros{hasAdvancedFilters && <span className="h-1.5 w-1.5 rounded-full bg-brand" />}<ChevronDown className="h-3 w-3" /></Button></PopoverTrigger><PopoverContent align="end" className="max-w-[calc(100vw-2rem)] space-y-4">
-              <p className="text-sm font-semibold">Filtros adicionais</p>
+          <div className="municipal-list-search">
+            <label className="relative min-w-0"><span className="sr-only">Buscar solicitações</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={query} onChange={(event) => change('q', event.target.value)} placeholder="Título, protocolo, número do poste ou endereço…" className="h-10 bg-surface-subtle pl-9 text-xs" /></label>
+            <Popover><PopoverTrigger asChild><Button variant="outline" className="h-10 gap-2 text-xs"><Filter className="h-4 w-4" />Filtros{hasAdvancedFilters && <span className="h-1.5 w-1.5 rounded-full bg-brand" />}<ChevronDown className="h-3 w-3" /></Button></PopoverTrigger><PopoverContent align="end" className="municipal-filter-sheet max-w-[calc(100vw-2rem)] space-y-4">
+              <p className="text-sm font-semibold">Filtrar solicitações</p>
+              {categories.length > 1 && <label className="grid gap-1.5 text-xs text-content-secondary">Categoria<select aria-label="Categoria das solicitações" value={category} onChange={event => change('categoria', event.target.value)} className={selectClass}><option value="all">Todas as categorias</option>{rankedCategories.map(item => <option key={item.id} value={item.id}>{item.name}{facets ? ` (${countLabel(item.id)})` : ''}</option>)}</select></label>}
+              {subtypeOptions.length > 0 && <label className="municipal-mobile-only grid gap-1.5 text-xs text-content-secondary">Subcategoria<select value={issueType} onChange={event => change('subtipo', event.target.value)} className={selectClass}><option value="all">Todas as subcategorias</option>{issueType !== 'all' && !subtypeOptions.some(item => item.value === issueType) && <option value={issueType}>{rotuloDoTipoDeProblema(category, issueType)}</option>}{subtypeOptions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>}
+              <label className="municipal-mobile-only grid gap-1.5 text-xs text-content-secondary">Ordenação<select aria-label="Ordenar solicitações no celular" value={sort} onChange={event => change('ordem', event.target.value)} className={selectClass}><option value="recentes">Mais recentes</option><option value="antigas">Mais antigas</option><option value="status_asc">Status: fluxo de atendimento</option><option value="status_desc">Status: fluxo inverso</option></select></label>
+              <div className="municipal-mobile-only"><p className="mb-2 text-xs text-content-secondary">Formato da lista</p><div role="group" aria-label="Formato da lista no celular"><button type="button" aria-pressed={mobileLayout === 'list'} onClick={() => setMobileLayout('list')}>Lista</button><button type="button" aria-pressed={mobileLayout === 'grid'} onClick={() => setMobileLayout('grid')}>Grade</button></div></div>
               <label className="grid gap-1.5 text-xs text-content-secondary">Idade<select value={age} onChange={(event) => change('idade', event.target.value)} className={selectClass}>{REPORT_AGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
               <label className="grid gap-1.5 text-xs text-content-secondary">Bairro<select value={neighborhood} onChange={(event) => change('bairro', event.target.value)} className={selectClass}><option value="all">Todos</option>{(facets?.neighborhoods || []).map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
               <div className="grid grid-cols-2 gap-2"><label className="grid gap-1.5 text-xs text-content-secondary">Registrada de<Input type="date" value={dateFrom} onChange={(event) => change('de', event.target.value)} className={selectClass + ' w-full'} /></label><label className="grid gap-1.5 text-xs text-content-secondary">Registrada até<Input type="date" min={dateFrom || undefined} value={dateTo} onChange={(event) => change('ate', event.target.value)} className={selectClass + ' w-full'} /></label></div>
-              <Button variant="outline" size="sm" className="w-full" disabled={!hasAdvancedFilters} onClick={clearAdvancedFilters}>Limpar filtros adicionais</Button>
+              <Button variant="outline" size="sm" className="w-full" disabled={!hasFilters} onClick={clearFilters}>Limpar filtros</Button>
             </PopoverContent></Popover>
-            {subtypeOptions.length > 0 && <label className="grid min-w-0 flex-1 gap-1 text-xs font-medium text-content-secondary sm:w-56 sm:flex-none">
+            {subtypeOptions.length > 0 && <label className="hidden min-w-0 flex-1 gap-1 text-xs font-medium text-content-secondary sm:grid sm:w-56 sm:flex-none">
               <span>Subcategoria</span>
               <select aria-label="Subcategoria" value={issueType} onChange={(event) => change('subtipo', event.target.value)} className={selectClass + ' h-10 w-full'}>
                 <option value="all">Todas as subcategorias</option>
@@ -317,11 +308,7 @@ export default function MunicipalReportsPage({ view = 'list' }) {
             </label>}
             <label className="relative ml-auto hidden sm:block"><span className="sr-only">Ordenar solicitações</span><select value={sort} onChange={(event) => change('ordem', event.target.value)} className={selectClass + ' h-10 cursor-pointer appearance-none pl-3 pr-9'}><option value="recentes">Mais recentes</option><option value="antigas">Mais antigas</option><option value="status_asc">Status: fluxo de atendimento</option><option value="status_desc">Status: fluxo inverso</option></select><ArrowUpDown className="pointer-events-none absolute right-3 top-3.5 h-3 w-3 text-content-secondary" /></label>
           </div>
-        </div>
-        <div className="flex items-center justify-end gap-2 border-b border-edge-subtle px-3 py-2 text-[11px] text-content-secondary sm:hidden">
-
-          <label className="relative"><span className="sr-only">Ordenar solicitações</span><select value={sort} onChange={(event) => change('ordem', event.target.value)} className="h-8 max-w-40 cursor-pointer appearance-none rounded-lg border border-edge-subtle bg-surface-raised pl-2 pr-6 text-[11px]"><option value="recentes">Mais recentes</option><option value="antigas">Mais antigas</option><option value="status_asc">Status: fluxo</option><option value="status_desc">Status: inverso</option></select><ArrowUpDown className="pointer-events-none absolute right-2 top-2.5 h-3 w-3" /></label>
-          <div className="flex rounded-lg border border-edge-subtle bg-surface-subtle p-0.5" role="group" aria-label="Formato da lista"><button type="button" aria-label="Exibir lista" aria-pressed={mobileLayout === 'list'} onClick={() => setMobileLayout('list')} className={'rounded-md p-1.5 ' + (mobileLayout === 'list' ? 'bg-surface-raised text-brand shadow-sm' : '')}><LayoutList className="h-3.5 w-3.5" /></button><button type="button" aria-label="Exibir grade" aria-pressed={mobileLayout === 'grid'} onClick={() => setMobileLayout('grid')} className={'rounded-md p-1.5 ' + (mobileLayout === 'grid' ? 'bg-surface-raised text-brand shadow-sm' : '')}><LayoutGrid className="h-3.5 w-3.5" /></button></div>
+          {(category !== 'all' || issueType !== 'all' || hasAdvancedFilters) && <p className="text-xs text-content-secondary">{category !== 'all' ? categories.find(item => item.id === category)?.name || category : 'Todas as categorias'}{issueType !== 'all' ? ` · ${rotuloDoTipoDeProblema(category, issueType)}` : ''}{hasAdvancedFilters ? ' · Filtros adicionais aplicados' : ''} <button type="button" onClick={clearFilters} className="ml-2 min-h-12 font-semibold text-brand">Limpar</button></p>}
         </div>
         {!loading && reports.length > 0 && <label className="flex cursor-pointer items-center gap-2 border-b border-edge-subtle px-4 py-2 text-xs text-content-secondary xl:hidden"><input type="checkbox" checked={allSelected} disabled={!selectableReports.length} onChange={(event) => setSelectedIds((current) => selectPageRecords(current, selectableReports.map((item) => item.id), event.target.checked))} className="h-3.5 w-3.5 accent-brand" />Selecionar todos desta página</label>}
         {selectedIds.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-edge-subtle bg-brand-subtleBg px-4 py-2"><p role="status" className="text-xs font-medium text-brand">{selectedIds.length} {selectedIds.length === 1 ? 'solicitação selecionada' : 'solicitações selecionadas'}</p><div className="flex flex-wrap items-center gap-2">{context.canEdit && <Button size="sm" onClick={() => setServiceOrderOpen(true)} className="h-8 text-xs">Gerar ordem de serviço</Button>}<Button variant="ghost" size="sm" onClick={() => setSelectedIds([])} className="h-8 text-xs">Limpar seleção</Button></div></div>}

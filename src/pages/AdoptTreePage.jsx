@@ -1,9 +1,10 @@
+import { TaskDialogContent } from '@/components/ui/task-dialog';
 import React, { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle2, Flower2, Leaf, Loader2, Plus, ShieldCheck, Sprout, Sun, Trees, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import WizardProgress from '@/components/ui/wizard-progress';
 import TreeCollectionIntro, { TreeCollectionToolbar } from '@/components/arborization/TreeCollectionIntro';
 import TreeAdoptionHeader from '@/components/arborization/TreeAdoptionHeader';
@@ -113,14 +114,14 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
   const showRequests = () => { onShowRequests(); if (success) resetRequest(); };
   const renderDialog = content => <Dialog open={open} onOpenChange={value => { if (!value) closeDialog(); }}>
     {/* Only the focused task has a comfortable maximum width; the page stays fluid. */}
-    <DialogContent className="adoption-request-dialog" overlayClassName="adoption-request-overlay" hideClose aria-modal="true"
+    <TaskDialogContent className="adoption-create-dialog" overlayClassName="adoption-request-overlay" hideClose aria-modal="true"
       onEscapeKeyDown={event => { if (busyRef.current) event.preventDefault(); }}
       onPointerDownOutside={event => event.preventDefault()}
       onOpenAutoFocus={event => { event.preventDefault(); returnFocusRef.current = document.activeElement; dialogTitleRef.current?.focus(); }}
       onCloseAutoFocus={event => { event.preventDefault(); const target = returnFocusRef.current; if (target?.isConnected) target.focus(); }}>
       <header className="adoption-dialog-heading"><div><DialogTitle ref={dialogTitleRef} tabIndex={-1}>{success ? 'Solicitação enviada' : 'Solicitar muda ou plantio'}</DialogTitle><DialogDescription>{cityLabel}</DialogDescription></div><button type="button" aria-label="Fechar solicitação" disabled={busy} onClick={closeDialog}><X size={22} aria-hidden="true" /></button></header>
       {content}
-    </DialogContent>
+    </TaskDialogContent>
   </Dialog>;
   if (!user) return renderDialog(<section className="adoption-auth-panel"><span className="adoption-auth-icon"><Sprout className="h-8 w-8" /></span><h2 className="text-2xl font-bold">O primeiro passo para uma cidade mais verde</h2><p className="max-w-xl text-sm leading-relaxed text-content-secondary">Entre na sua conta para solicitar uma muda ou plantio, escolher uma espécie e acompanhar as orientações da equipe.</p><Button asChild><Link to="/login" state={loginState}>Entrar para solicitar</Link></Button></section>);
   if (success) return renderDialog(<section className="adoption-auth-panel adoption-success-panel" role="status"><CheckCircle2 className="h-10 w-10 text-primary" /><h2 className="text-2xl font-bold">Sua solicitação foi enviada</h2><div className="adoption-receipt"><span>Protocolo do pedido</span><strong>{adoptionProtocol(success)}</strong></div><p className="max-w-xl text-sm leading-relaxed text-content-secondary">A equipe de arborização de {cityLabel} avaliará o local e a espécie. Aguarde a confirmação antes de ir ao fornecedor.</p><ol className="adoption-success-steps" aria-label="Próximos passos"><li><span>1</span>Veja o andamento e responda às orientações em Meus pedidos.</li><li><span>2</span>Aguarde a confirmação para retirar as mudas ou acompanhar o plantio.</li><li><span>3</span>Depois de plantar, cadastre sua árvore e comece o diário de cuidados.</li></ol><div className="flex flex-wrap justify-center gap-3"><Button onClick={showRequests}>Acompanhar solicitação</Button><Button variant="outline" onClick={() => { setSuccess(null); setForm(initialForm()); requestId.current = crypto.randomUUID(); move(0); }}>Fazer outra solicitação</Button></div></section>);

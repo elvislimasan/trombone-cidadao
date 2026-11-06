@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import { comLoja, LOJA_ELETRICISTA } from '../lib/offlineDb.js';
 import { queueElectricianJob, listElectricianJobs, syncElectricianJobs, sendElectricianJob,
-  readElectricianCache, writeElectricianCache, electricianCachedRead, projectElectricianOrder } from '../lib/electricianOffline.js';
+  readElectricianCache, writeElectricianCache, electricianCachedRead, projectElectricianOrder,
+  prepareElectricianOrders, orderCacheKey } from '../lib/electricianOffline.js';
 
 const base = { userId: 'worker', municipalityId: 'city', resource: 'order:one', label: 'Reparo',
   rpc: 'resolver_ordem_eletricista', args: { p_prefeitura: 'city', p_ordem: 'one', p_versao: 3 } };
@@ -92,4 +93,49 @@ test('local progress retains linked requests and permits the next service withou
   assert.equal(projected.order.status, 'em_andamento'); assert.equal(projected.linkedReports[0].status, 'resolved');
   assert.equal(projected.linkedReports[1].status, 'pending'); assert.equal(projected.pending, true);
   assert.equal(projected.previousId, 'repair'); assert.equal(snapshot.linkedReports[0].status, 'pending');
+});
+
+test('automatic preparation saves orders, linked requests and the city poles for offline use', async () => {
+  await reset();
+  const order = { id: 'one', pole_id: 1, status: 'programada' };
+  const pole = { id: 1, identifier: 'P001' };
+  const linked = [{ report_id: 'r1', pole_id: 1 }];
+  const api = {
+    from(table) {
+      const query = {
+        select() { return query; }, eq() { return query; }, not() { return query; },
+        order() { return query; }, or() { return query; }, in() { return query; },
+        async range() { return { data: table === 'demandas_municipais' ? [{ id: order.id }] : [pole] }; },
+        async maybeSingle() { return { data: order }; },
+        then(resolve) { return Promise.resolve({ data: [pole] }).then(resolve); },
+      };
+      return query;
+    },
+    async rpc(name) { return { data: name === 'solicitacoes_ordem_eletricista' ? linked : [pole] }; },
+  };
+  const prepared = await prepareElectricianOrders(api, 'worker', 'city', undefined, 64, new AbortController().signal);
+  assert.equal(prepared, 1);
+  const snapshot = await readElectricianCache('worker', orderCacheKey('city', 'one'));
+  assert.deepEqual(snapshot.order, order);
+  assert.deepEqual(snapshot.linkedReports, linked);
+  assert.deepEqual(snapshot.poles, [pole]);
+  assert.deepEqual(await readElectricianCache('worker', 'poles:city'), [pole]);
+  assert.equal(await readElectricianCache('other-worker', 'poles:city'), null);
+});
+
+test('leaving an account cancels preparation before downloading more order details', async () => {
+  const controller = new AbortController();
+  let queries = 0;
+  const api = {
+    from() {
+      queries++;
+      const query = {
+        select() { return query; }, eq() { return query; }, not() { return query; }, order() { return query; },
+        async range() { controller.abort(); return { data: [{ id: 'one' }] }; },
+      };
+      return query;
+    },
+  };
+  await assert.rejects(prepareElectricianOrders(api, 'worker', 'city', undefined, 64, controller.signal), { name: 'AbortError' });
+  assert.equal(queries, 1);
 });

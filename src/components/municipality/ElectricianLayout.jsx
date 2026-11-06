@@ -15,6 +15,7 @@ import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { EXECUTION_ACTIVITIES, executionActivity } from '@/lib/executorActivities';
 import { municipalContextPath } from '@/lib/municipalAccess';
 import ElectricianOfflineStatus from '@/components/municipality/ElectricianOfflineStatus';
+import { useAutomaticElectricianPreparation } from '@/hooks/useAutomaticElectricianPreparation';
 
 export default function ElectricianLayout(props) { return <ExecutorLayout {...props} activity={EXECUTION_ACTIVITIES.eletricista} />; }
 
@@ -23,6 +24,12 @@ export function ExecutorLayout({ context, branding, activity = EXECUTION_ACTIVIT
   const scoped = path => municipalContextPath(path, context.municipality?.city_id, context.activeChannelId);
   const executionContext = { ...context, executionActivity: activity };
   const { user, signOut } = useAuth();
+  useAutomaticElectricianPreparation({
+    userId: user?.id,
+    municipalityId: context.municipality?.id,
+    cityId: context.municipality?.city_id,
+    enabled: activity.id === 'eletricista',
+  });
   const access = usePermissions();
   const { resolved: theme, setPreference } = useTheme();
   const { isNative } = useNativeUIMode();
@@ -72,7 +79,7 @@ export function ExecutorLayout({ context, branding, activity = EXECUTION_ACTIVIT
       </div>
     </header>
     <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
-      {activity.id === 'eletricista' && <ElectricianOfflineStatus userId={user?.id} municipalityId={context.municipality?.id} cityId={context.municipality?.city_id} />}
+      {activity.id === 'eletricista' && <ElectricianOfflineStatus userId={user?.id} municipalityId={context.municipality?.id} />}
       {desktopUnavailable ? <ElectricianDesktopUnavailable /> : <Outlet context={executionContext} />}
     </main>
     {!desktopUnavailable && <nav aria-label={activity.title} className="relative z-40 shrink-0 border-t border-edge-subtle bg-surface-raised pb-[env(safe-area-inset-bottom)] shadow-elevation-2">

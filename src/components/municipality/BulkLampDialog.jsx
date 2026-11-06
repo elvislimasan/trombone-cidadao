@@ -80,7 +80,7 @@ export default function BulkLampDialog({ open, onClose, cityId, onSaved }) {
   };
 
   const valid = selected.length > 0 && selected.length <= 1000 && Number(power) > 0 && Number(power) <= 999999.99;
-  return <MunicipalDrawer open={open} onClose={onClose} title="Atualizar lâmpadas em massa"
+  return <MunicipalDrawer task open={open} onClose={onClose} title="Atualizar lâmpadas em massa"
     description="Pesquise cada poste, adicione à lista e confira antes de aplicar."
     busy={busy} footer={<div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button><Button type="button" onClick={() => check(false)} disabled={!valid || busy}>Conferir postes</Button><Button type="button" onClick={() => check(true)} disabled={busy || !preview || preview.key !== previewKey}>Atualizar {preview?.matched || 0} postes</Button></div>}>
     <div className="space-y-5">

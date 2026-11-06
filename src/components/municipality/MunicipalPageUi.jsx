@@ -1,17 +1,44 @@
-import React from 'react';
-import { ArrowRight, Inbox } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, ChevronDown, Inbox } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
-export function MunicipalPageHeader({ eyebrow, title, description, action, children }) {
-  return <header className="flex min-w-0 flex-col gap-5 border-b border-edge-subtle pb-6 lg:flex-row lg:items-end lg:justify-between">
+export function MunicipalPageHeader({ eyebrow, title, description, action, children, className = '' }) {
+  return <header className={`municipal-page-header ${className}`}>
     <div className="min-w-0">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">{eyebrow}</p>
+      {eyebrow && <p className="municipal-page-eyebrow text-xs font-bold uppercase tracking-[0.16em] text-brand">{eyebrow}</p>}
       <h1 className="mt-1 font-display text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
       {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-content-secondary">{description}</p>}
     </div>
-    {(action || children) && <div className="flex shrink-0 flex-wrap items-center gap-2">{children}{action}</div>}
+    {(action || children) && <div className="municipal-page-actions">{children}{action}</div>}
   </header>;
+}
+
+// These are filters over one list, rather than tabs with independent panels.
+export function MunicipalStageFilter({ stages, value, counts, onChange, loading = false }) {
+  return <label className="municipal-stage-select">
+    <span>Etapa</span>
+    <select aria-label="Etapa das minhas ordens" value={value} onChange={event => onChange(event.target.value)}>
+      {stages.map(([id, label]) => <option key={id} value={id}>{label}{!loading && counts?.[id] != null ? ` (${counts[id].toLocaleString('pt-BR')})` : ''}</option>)}
+    </select>
+  </label>;
+}
+
+// One copy of the content: expanded on desktop, optional on small screens.
+export function MunicipalMobileDisclosure({ title, hint, children, className = '' }) {
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 640px)');
+    const changed = () => setWide(media.matches);
+    changed();
+    media.addEventListener('change', changed);
+    return () => media.removeEventListener('change', changed);
+  }, []);
+  return <details className={`municipal-mobile-disclosure ${className}`} open={wide || expanded} data-municipal-disclosure onToggle={event => { if (!wide) setExpanded(event.currentTarget.open); }}>
+    <summary><span className="min-w-0"><strong>{title}</strong>{hint && <small>{hint}</small>}</span><ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" /></summary>
+    <div className="municipal-disclosure-content">{children}</div>
+  </details>;
 }
 
 export function MunicipalMetricCard({ label, value, icon: Icon, tone = 'default', to, hint }) {

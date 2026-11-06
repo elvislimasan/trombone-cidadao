@@ -15,6 +15,7 @@ const mocks = {
   '@/components/ui/button': { Button: ({ variant, size, asChild, children, ...props }) => asChild ? React.cloneElement(children, props) : React.createElement('button', props, children) },
   '@/components/ui/input': { Input: props => React.createElement('input', props) },
   '@/components/ui/dialog': Object.fromEntries(['Dialog', 'DialogContent', 'DialogDescription', 'DialogHeader', 'DialogTitle'].map(name => [name, panel])),
+  '@/components/ui/task-dialog': { TaskDialogContent: panel, TaskDialogBody: panel, TaskDialogFooter: panel },
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user: { id: 'citizen' } }) },
   '@/lib/customSupabaseClient': { supabase: {} },
   '@/hooks/useTreeAdoptionCatalog': { __esModule: true, default: () => ({}) },

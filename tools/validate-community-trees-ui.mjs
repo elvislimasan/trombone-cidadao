@@ -91,6 +91,21 @@ try {
   };
   for (const [width, height] of [[1440,900],[1920,1080],[390,844]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+    if(process.argv.includes('--review-only')) {
+      await navigate('/revisao?manager&pending');await waitFor('document.querySelector(".community-tree-card")');
+      await click('Revisar cadastro');await waitFor('document.querySelector(".community-review-summary")');
+      await input('[role=dialog] textarea','Orientação registrada pela equipe.');
+      await evaluate('window.fixture.fail=true');await click('Confirmar revisão');await waitFor('document.querySelector("[role=dialog] [role=alert]")');
+      assert.ok(await evaluate('document.querySelector("[role=dialog] textarea").value.includes("Orientação")'));
+      await evaluate('window.fixture.fail=false');await click('Confirmar revisão');await waitFor('!document.querySelector("[role=dialog]")');
+      assert.equal(await evaluate('window.fixture.tree.status'),'approved');
+      await click('Denúncias de cuidados');await waitFor('document.querySelector(".community-report-card")');
+      await click('Revisar denúncia');await waitFor('document.querySelector("[role=dialog] textarea")');
+      await input('[role=dialog] textarea','Conteúdo revisado e ocultado.');
+      await capture(`municipal-review-${width}`);await layout(width);
+      await click('Ocultar registro');await waitFor('!document.querySelector("[role=dialog]")&&!document.querySelector(".community-report-card")');
+      console.log(`${width}px: revisão de cadastro, falha recuperável e denúncia OK.`);continue;
+    }
     await navigate('/programa'); await waitFor('document.querySelector(".adoption-program")'); assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Entrada do programa sem overflow'); await click('Começar solicitação'); await waitFor('document.querySelector(".adoption-page-tabs button")'); assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Navegação de solicitações sem overflow'); await capture(`navegacao-${width}`);
     await navigate('/arvores-da-comunidade?visitor'); await waitFor('document.querySelector(".community-tree-card")'); await capture(`galeria-${width}`); await layout(width);
     assert.ok(await evaluate(`(()=>{const card=document.querySelector('.community-tree-card'),photo=card.querySelector('.community-tree-card-photo'),copy=card.querySelector('.community-tree-card-copy');const p=photo.getBoundingClientRect(),c=copy.getBoundingClientRect();return p.bottom<=c.top+1&&c.bottom<=card.getBoundingClientRect().bottom&&p.height<=231&&card.getBoundingClientRect().width<=600})()`), 'Foto e identificação devem caber no card da árvore');
