@@ -165,14 +165,16 @@ export function projectElectricianOrder(snapshot, jobs) {
   return value;
 }
 
-export async function prepareElectricianOrders(client, userId, municipalityId, onProgress = () => {}, cityId = null) {
+export async function prepareElectricianOrders(client, userId, municipalityId, onProgress = () => {}, cityId = null, signal) {
   let prepared = 0;
   for (let offset = 0; ; offset += 100) {
+    signal?.throwIfAborted();
     const { data, error } = await client.from('demandas_municipais').select('id').eq('prefeitura_id', municipalityId)
       .eq('atribuido_a', userId).eq('category_id', 'iluminacao')
       .not('status', 'in', '(concluida,cancelada,recusada)').order('id').range(offset, offset + 99);
     if (error) throw error;
     for (const order of data || []) {
+      signal?.throwIfAborted();
       const snapshot = await loadElectricianOrderSnapshot(client, userId, municipalityId, order.id);
       if (snapshot.offline) throw new Error('A conexão caiu durante a preparação. Tente novamente.');
       // Unlike opportunistic caches, explicit preparation must report quota failures.
@@ -184,12 +186,14 @@ export async function prepareElectricianOrders(client, userId, municipalityId, o
   if (cityId) {
     const poles = [];
     for (let offset = 0; ; offset += 500) {
+      signal?.throwIfAborted();
       const result = await client.from('poles').select('id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w,raw_properties')
         .eq('city_id', cityId).or('lighting_status.is.null,lighting_status.neq.removido').order('id').range(offset, offset + 499);
       if (result.error) throw result.error;
       poles.push(...(result.data || []));
       if (!result.data || result.data.length < 500) break;
     }
+    signal?.throwIfAborted();
     await writeElectricianCache(userId, `poles:${municipalityId}`, poles);
   }
   return prepared;

@@ -8,7 +8,8 @@ import React, {
   useCallback,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import ReportWizardProgress, { REPORT_STEPS } from "@/components/report/ReportWizardProgress";
 import {
   X,
   Camera,
@@ -66,7 +67,8 @@ import {
 import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
 import { notifyNative } from '@/lib/nativeNotification';
 import PoleNumberSearch from '@/components/report/PoleNumberSearch';
-import { createReportPole, mergeNearbyReportPoles, resolveReportSubmissionLocation } from '@/lib/reportPole';
+import { createReportPole, removeReportPole, mergeNearbyReportPoles, resolveReportSubmissionLocation } from '@/lib/reportPole';
+import { confirmApp } from '@/lib/appConfirm';
 import { resolveReportPoleAddress } from '@/lib/reportPoleAddress';
 import ReportTreePicker from '@/components/report/ReportTreePicker';
 import { useReportMapTrees } from '@/hooks/useReportMapTrees';
@@ -107,6 +109,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     const replacement = word.toLowerCase() === 'broncas' ? 'solicitações' : 'solicitação';
     return word[0] === word[0].toUpperCase() ? replacement[0].toUpperCase() + replacement.slice(1) : replacement;
   }) : value, [municipalMode]);
+  const reduceMotion = useReducedMotion();
+  const returnFocusRef = useRef(typeof document === 'undefined' ? null : document.activeElement);
   const isNative = Capacitor.isNativePlatform();
   const navigate = useNavigate();
   const location = useLocation();
@@ -205,6 +209,11 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   const [duplicatePoleReportsError, setDuplicatePoleReportsError] =
     useState(null);
   const [isCreatingPendingPole, setIsCreatingPendingPole] = useState(false);
+  const [isRemovingPole, setIsRemovingPole] = useState(false);
+  const [ownPole, setOwnPole] = useState(null);
+  const canRemovePole = user?.is_admin && ownPole?.userId === user?.id && String(ownPole?.id) === String(formData.pole_id);
+  const removingPoleRef = useRef(false);
+  const removedPoleIdsRef = useRef(new Set());
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState("photo");
@@ -237,11 +246,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       issueTypeFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 100);
   };
-  const wizardStepTitles = ["Info", "Local", "Mídia"];
-  const wizardStepTitle = wizardStepTitles[wizardStep] || reportCopy("Nova Bronca");
-  const wizardProgressPct = Math.round(
-    ((wizardStep + 1) / wizardStepTitles.length) * 100
-  );
+  const wizardStepTitles = REPORT_STEPS.map(step => step.label);
 
   useEffect(() => {
     if (municipalMode) {
@@ -302,7 +307,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   });
 
   const handleCreatePendingPole = async () => {
-    if (isCreatingPendingPole || formData.pole_id) return;
+    if (isCreatingPendingPole || removingPoleRef.current || formData.pole_id) return;
     if (!user) {
       showAppError({
         title: "Acesso restrito",
@@ -397,6 +402,51 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     }
   };
 
+  const handleRemovePole = async () => {
+    if (!user?.is_admin || !formData.pole_id || !canRemovePole || isCreatingPendingPole || removingPoleRef.current || isSubmitting) return;
+    const poleId = formData.pole_id;
+    removingPoleRef.current = true;
+    setIsRemovingPole(true);
+    try {
+      const confirmed = await confirmApp({
+        title: `Remover poste ${formatPoleLabel(formData.pole_number) || poleId}?`,
+        description: 'O poste sairá do mapa ativo para todos. O cadastro e o histórico serão mantidos.',
+        confirmLabel: 'Remover poste', destructive: true,
+      });
+      if (!confirmed) return;
+      await removeReportPole({ client: supabase, poleId, userId: user.id });
+      removedPoleIdsRef.current.add(String(poleId));
+      const keep = pole => String(pole.pole_id) !== String(poleId);
+      setLocalPendingPoles(current => current.filter(keep));
+      setNearbyPoles(current => current.filter(keep));
+      setDuplicatePoleReports([]);
+      setOwnPole(null);
+      setFormData(current => String(current.pole_id) === String(poleId) ? {
+        ...current, pole_id: null, pole_number: '', reported_post_identifier: null,
+        reported_plate: null, reported_pole_distance_m: null,
+      } : current);
+      setErrors(current => ({ ...current, pole_number: undefined }));
+      showAppNotice({ title: 'Poste removido do mapa', description: 'Você pode selecionar outro poste ou cadastrar o correto neste local.' });
+    } catch (error) {
+      showAppError({ title: 'Não foi possível remover o poste', description: error?.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      removingPoleRef.current = false;
+      setIsRemovingPole(false);
+    }
+  };
+
+  useEffect(() => {
+    setOwnPole(null);
+    if (!user?.is_admin || !formData.pole_id) return;
+    let active = true;
+    const poleId = formData.pole_id;
+    supabase.from('poles').select('id,created_by').eq('id', poleId).eq('created_by', user.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (active && !error && data?.created_by === user.id && String(data.id) === String(poleId)) setOwnPole({ id: poleId, userId: user.id });
+      }).catch(() => { /* Sem autoria confirmada, a ação de remoção fica indisponível. */ });
+    return () => { active = false; };
+  }, [formData.pole_id, user?.id, user?.is_admin]);
+
   // Referência para armazenar dados da foto capturada enquanto processa
   const pendingPhotoRef = useRef(null);
   // Flag para controlar processamento em background
@@ -427,8 +477,22 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     if (!useWizardLayout) return;
     try {
       wizardBodyRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      wizardBodyRef.current?.focus({ preventScroll: true });
     } catch {}
   }, [useWizardLayout, wizardStep]);
+
+  useEffect(() => {
+    const origin = returnFocusRef.current;
+    const previousOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+      if (origin?.isConnected) origin.focus?.({ preventScroll: true });
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -516,13 +580,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       if (cancelled) return;
 
       if (error) {
-        setNearbyPoles(mergeNearbyReportPoles([], localPendingPoles, { lat, lng }));
+        setNearbyPoles(mergeNearbyReportPoles([], localPendingPoles, { lat, lng })
+          .filter(pole => !removedPoleIdsRef.current.has(String(pole.pole_id))));
         setNearbyPolesError(error.message || "Falha ao buscar postes próximos");
         setNearbyPolesLoading(false);
         return;
       }
 
-      setNearbyPoles(mergeNearbyReportPoles(Array.isArray(data) ? data : [], localPendingPoles, { lat, lng }));
+      setNearbyPoles(mergeNearbyReportPoles(Array.isArray(data) ? data : [], localPendingPoles, { lat, lng })
+        .filter(pole => !removedPoleIdsRef.current.has(String(pole.pole_id))));
       setNearbyPolesLoading(false);
     }, 350);
 
@@ -2771,7 +2837,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         `[data-error-field="${firstErrorField}"]`
       );
       if (errorElement) {
-        errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        errorElement.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
         try {
           errorElement.focus();
         } catch {}
@@ -2826,6 +2892,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (removingPoleRef.current || isCreatingPendingPole) return;
 
     // A medição da sugestão de categoria, comparada com a escolha FINAL. Falha
     // em silêncio: medir o assistente não pode impedir o registro de uma bronca.
@@ -2934,7 +3001,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
           `[data-error-field="${firstErrorField}"]`
         );
         if (errorElement) {
-          errorElement.scrollIntoView({ behavior: "smooth", block: "center" });
+          errorElement.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
           try {
             errorElement.focus();
           } catch {}
@@ -3099,6 +3166,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   };
 
   const handleLocationChange = (newLocation) => {
+    if (removingPoleRef.current) return;
     userPickedLocationRef.current = true;
     // A edição manual vale para o ponto atual. Mover o pin inicia outra busca,
     // inclusive depois de selecionar uma árvore com endereço cadastrado.
@@ -3126,6 +3194,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   };
 
   const handlePoleSelect = (marker) => {
+    if (removingPoleRef.current || removedPoleIdsRef.current.has(String(marker.id))) return false;
     const lat = marker.location?.lat;
     const lng = marker.location?.lng;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
@@ -3587,12 +3656,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       }
 
       window.dispatchEvent(new CustomEvent("reports-updated", { detail: { id: data.id } }));
-      if (!Capacitor.isNativePlatform()) {
-        showAppNotice({
-          title: "Bronca enviada",
-          description: "Sua bronca foi recebida e aguarda moderação antes de aparecer no feed.",
-        });
-      }
+      window.dispatchEvent(new CustomEvent('report-submitted', { detail: {
+        id: data.id, title: formData.title, protocol: data.protocol, published: false, anonymous: true,
+      } }));
       updateSubmissionLock(false);
       handleClose();
     } catch (err) {
@@ -3624,11 +3690,31 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       } z-[1200]`}
       onClick={safeHandleClose}
     >
+      {/* A largura máxima limita apenas a tarefa em modal; a página atrás continua fluida. */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: reduceMotion ? 1 : 0.97, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className={`bg-card shadow-2xl w-full border border-border ${
+        exit={{ scale: reduceMotion ? 1 : 0.97, opacity: 0 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-wizard-title"
+        onKeyDown={(event) => {
+          if (event.defaultPrevented || showCamera || viewingPhotoIndex !== null || viewingVideoIndex !== null) return;
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            if (!isSubmitting) handleClose();
+          }
+          if (event.key !== 'Tab') return;
+          const controls = [...event.currentTarget.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')]
+            .filter(element => element.getClientRects().length && element.tabIndex >= 0);
+          const first = controls[0], last = controls.at(-1);
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === wizardBodyRef.current)) {
+            event.preventDefault(); last?.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault(); first?.focus();
+          }
+        }}
+        className={`report-wizard-dialog bg-card shadow-2xl w-full border border-border ${
           isFullScreenModal
             ? "h-full max-h-full rounded-none overflow-hidden flex flex-col"
             : "rounded-2xl max-w-2xl h-[90vh] max-h-[90vh] overflow-hidden flex flex-col"
@@ -3636,24 +3722,23 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         onClick={(e) => e.stopPropagation()}
       >
         {useWizardLayout ? (
-          <form onSubmit={handleSubmit} className="h-full flex flex-col">
+          <form onSubmit={handleSubmit} noValidate className="h-full min-h-0 flex flex-col">
             <div
               className="border-b border-border px-4 pb-3"
               style={{ paddingTop: "var(--header-safe-top)" }}
             >
               <div className="flex items-center justify-between pt-3">
                 <div className="flex flex-col min-w-0">
-                  <h2 className="text-lg font-bold text-foreground truncate">
-                    {reportCopy("Nova Bronca")}
+                  <h2 id="report-wizard-title" className="text-lg font-bold text-foreground">
+                    {municipalMode ? "Nova solicitação" : "Registrar bronca"}
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    Etapa {wizardStep + 1} de {wizardStepTitles.length} •{" "}
-                    {wizardStepTitle}
+                    Etapa {wizardStep + 1} de {wizardStepTitles.length}
                   </p>
                 </div>
                 <button
                   onClick={handleClose}
-                  className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted rounded-xl transition-colors"
                   aria-label="Fechar modal"
                   disabled={isSubmitting}
                   type="button"
@@ -3661,25 +3746,23 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="mt-3 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full"
-                  style={{ width: `${wizardProgressPct}%` }}
-                />
-              </div>
+              <ReportWizardProgress step={wizardStep} />
             </div>
 
             <div
               ref={wizardBodyRef}
-              className={`flex-1 overflow-y-auto ${
-                wizardStep === 1 ? "p-0" : "p-4 pb-24"
+              role="group"
+              aria-labelledby={`report-step-label-${wizardStep}`}
+              tabIndex={-1}
+              className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${
+                wizardStep === 1 ? "p-0" : "p-4"
               } space-y-6`}
             >
               {wizardStep === 0 && (
                 <>
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-foreground">
+                      <label htmlFor="report-title" className="block text-sm font-medium text-foreground">
                         {reportCopy("Título da Bronca *")}
                       </label>
                       <span className="text-xs text-muted-foreground">
@@ -3694,6 +3777,9 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                         if (errors.title)
                           setErrors((prev) => ({ ...prev, title: undefined }));
                       }}
+                      id="report-title"
+                      aria-invalid={!!errors.title}
+                      aria-describedby={errors.title ? "report-title-error" : undefined}
                       data-error-field="title"
                       maxLength="65"
                       className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
@@ -3703,7 +3789,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                       required
                     />
                     {errors.title && (
-                      <p className="text-xs text-destructive mt-1">
+                      <p id="report-title-error" role="alert" className="text-xs text-destructive mt-1">
                         {errors.title}
                       </p>
                     )}
@@ -3713,11 +3799,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Categoria *
                     </label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="report-category-grid" role="group" aria-label="Categoria do problema" aria-describedby={errors.category ? 'report-category-error' : undefined}>
                       {categories.map((c) => (
                         <button
                           key={c.id}
                           type="button"
+                          aria-pressed={formData.category === c.id}
                           data-error-field="category"
                           onClick={() => {
                             setFormData((prev) => ({
@@ -3741,23 +3828,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                               }));
                             if (c.id === "iluminacao") scrollToIssueTypeField();
                           }}
-                          className={`p-3 rounded-xl border-2 transition-all text-center ${
-                            formData.category === c.id
-                              ? "border-primary bg-primary/10"
-                              : errors.category
-                              ? "border-destructive"
-                              : "border-border hover:border-accent"
-                          }`}
+                          className="report-category-choice"
                         >
-                          <div className="text-2xl mb-1">{c.icon}</div>
-                          <div className="text-[11px] font-medium leading-tight">
-                            {c.name}
-                          </div>
+                          <span data-category-icon aria-hidden="true">{c.icon}</span>
+                          <span data-category-name>{c.name}</span>
                         </button>
                       ))}
                     </div>
                     {errors.category && (
-                      <p className="text-xs text-destructive mt-1">
+                      <p id="report-category-error" role="alert" className="text-xs text-destructive mt-1">
                         {errors.category}
                       </p>
                     )}
@@ -3822,6 +3901,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                                 issue_type: undefined,
                               }));
                           }}
+                          aria-label="Tipo do problema"
+                          aria-invalid={!!errors.issue_type}
                           data-error-field="issue_type"
                           className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
                             errors.issue_type
@@ -3924,6 +4005,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
                   <div
                     id="location-picker-map"
+                    tabIndex={-1}
+                    aria-label="Local do problema no mapa"
                     data-error-field="location"
                     className={`relative isolate w-full overflow-hidden border-y ${
                       errors.location ? "border-destructive" : "border-input"
@@ -4016,6 +4099,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                             address: undefined,
                           }));
                       }}
+                      aria-label="Endereço de referência"
+                      aria-invalid={!!errors.address}
                       data-error-field="address"
                       className={`w-full bg-background px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent ${
                         errors.address ? "border-destructive" : "border-input"
@@ -4118,25 +4203,23 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                             </p>
                           )}
 
-                        {user?.is_admin && (
+                        {user?.is_admin && (!formData.pole_id || canRemovePole) && (
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={handleCreatePendingPole}
+                            onClick={formData.pole_id ? handleRemovePole : handleCreatePendingPole}
                             disabled={
-                              isCreatingPendingPole ||
-                              !!formData.pole_id ||
-                              !formData.location ||
-                              !formatPoleLabel(formData.pole_number)
+                              isCreatingPendingPole || isRemovingPole || isSubmitting ||
+                              (!formData.pole_id && (!formData.location || !formatPoleLabel(formData.pole_number)))
                             }
                             className="w-full"
                           >
-                            {isCreatingPendingPole ? (
+                            {isRemovingPole ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Removendo poste…</> : isCreatingPendingPole ? (
                               <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                 Cadastrando poste...
                               </>
-                            ) : (
+                            ) : formData.pole_id ? <><Trash2 className="mr-2 h-4 w-4" />Remover poste do mapa</> : (
                               "Cadastrar poste no mapa"
                             )}
                           </Button>
@@ -4211,10 +4294,10 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     }}
                   />
 
-                  <div>
+                  <div data-error-field="photos" tabIndex={-1} aria-label="Fotos e vídeos do problema">
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-sm font-medium text-foreground">
-                        Mídia {municipalMode ? <span className="text-muted-foreground">(opcional)</span> : <span className="text-destructive">*</span>}
+                        Evidências {municipalMode ? <span className="text-muted-foreground">(opcional)</span> : <span className="text-destructive">*</span>}
                       </label>
                       {(formData.photos.length > 0 ||
                         formData.videos.length > 0) && (
@@ -4358,7 +4441,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                                 e.stopPropagation();
                                 removeFile("photos", index);
                               }}
-                              className="text-muted-foreground hover:text-destructive p-2 ml-2"
+                              className="flex min-h-12 min-w-12 items-center justify-center text-muted-foreground hover:text-destructive p-2 ml-2"
                               aria-label="Remover foto"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -4404,7 +4487,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                                 e.stopPropagation();
                                 removeFile("videos", index);
                               }}
-                              className="text-muted-foreground hover:text-destructive p-2 ml-2"
+                              className="flex min-h-12 min-w-12 items-center justify-center text-muted-foreground hover:text-destructive p-2 ml-2"
                               aria-label="Remover vídeo"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -4444,7 +4527,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
             </div>
 
             <div
-              className="border-t border-border p-4"
+              className="report-wizard-footer border-t border-border p-4"
               style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}
             >
               {isSubmitting && !user && (
@@ -4504,7 +4587,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-3 pb-2">
+              <div className="report-wizard-actions">
                 <Button
                   type="button"
                   variant={isSubmitting && !submissionLocked ? "destructive" : "outline"}
@@ -4555,7 +4638,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                         className="flex-1 bg-primary hover:bg-primary/90"
                         disabled={isSubmitting}
                       >
-                        {municipalMode ? 'Cadastrar solicitação de serviço' : 'Cadastrar Bronca'}
+                        {municipalMode ? 'Enviar solicitação' : 'Enviar bronca'}
                       </Button>
                     ) : (
                       <>
@@ -4990,25 +5073,23 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                         </p>
                       )}
 
-                    {user?.is_admin && (
+                    {user?.is_admin && (!formData.pole_id || canRemovePole) && (
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={handleCreatePendingPole}
+                        onClick={formData.pole_id ? handleRemovePole : handleCreatePendingPole}
                         disabled={
-                          isCreatingPendingPole ||
-                          !!formData.pole_id ||
-                          !formData.location ||
-                          !formatPoleLabel(formData.pole_number)
+                          isCreatingPendingPole || isRemovingPole || isSubmitting ||
+                          (!formData.pole_id && (!formData.location || !formatPoleLabel(formData.pole_number)))
                         }
                         className="w-full sm:w-auto"
                       >
-                        {isCreatingPendingPole ? (
+                        {isRemovingPole ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Removendo poste…</> : isCreatingPendingPole ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             Cadastrando poste...
                           </>
-                        ) : (
+                        ) : formData.pole_id ? <><Trash2 className="mr-2 h-4 w-4" />Remover poste do mapa</> : (
                           "Cadastrar poste no mapa"
                         )}
                       </Button>

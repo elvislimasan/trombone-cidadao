@@ -6,6 +6,8 @@ export default {
     './components/**/*.{js,jsx}',
     './app/**/*.{js,jsx}',
     './src/**/*.{js,jsx}',
+    // Dados vetoriais gerados, sem classes CSS. A linha de ~500 KB trava o extrator.
+    '!./src/data/maps/florestaPeOfficialMap.js',
   ],
   theme: {
     screens: {

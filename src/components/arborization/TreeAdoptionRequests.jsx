@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ClipboardList, Clock3, Leaf, Loader2, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TaskDialogBody, TaskDialogContent, TaskDialogFooter } from '@/components/ui/task-dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import useTreeAdoptionCatalog from '@/hooks/useTreeAdoptionCatalog';
@@ -26,6 +27,8 @@ export function AdoptionSelect({ label, value, onChange, options, placeholder = 
 
 function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, onUpdated }) {
   const { user } = useAuth();
+  const formId = useId();
+  const returnFocus = useRef(typeof document === 'undefined' ? null : document.activeElement);
   const [events, setEvents] = useState([]);
   const [eventsError, setEventsError] = useState('');
   const [eventsLoading, setEventsLoading] = useState(true);
@@ -74,10 +77,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   };
   const options = manager ? [request.status, ...adoptionNextStatuses(request).filter(key => dispatcher || ['solicitada', 'em_analise', 'aguardando_informacao', 'aguardando_disponibilidade'].includes(key) || (key === 'cancelada' && request.author_id === user?.id))]
     : [...(request.status === 'aguardando_informacao' ? [request.status] : []), 'cancelada'];
-  return <Dialog open onOpenChange={open => { if (!open && !busyRef.current) onClose(); }}>
-    <DialogContent className={`adoption-request-dialog${!manager ? ' adoption-citizen-detail' : ''} max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-5xl overflow-y-auto`} onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
-      <DialogHeader className="adoption-detail-header"><div className="adoption-detail-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Adote uma árvore</p><DialogTitle>{adoptionProtocol(request)}</DialogTitle><DialogDescription>{ADOPTION_TYPES[request.request_type]}</DialogDescription></div></div><AdoptionStatus status={request.status} /></DialogHeader>
-      <div className="adoption-detail-layout"><div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
+  const context = <div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
         {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', adoptionProviderLabel(request.provider, catalog)], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
       </dl>
       <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {adoptionProviderLabel(item.provider, catalog)}</li>)}</ul>
@@ -86,8 +86,8 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
       {request.tree_id && <Link className="text-sm font-semibold text-primary underline" to={`/arborizacao/arvore/${request.tree_id}`}>Ver árvore plantada no inventário</Link>}
       </section>{request.status === 'pronta_retirada' && request.request_type === 'muda' && <section className="adoption-detail-pickup" aria-label="Retirada da muda"><h3>Retirada da muda</h3><TreeAdoptionPickup request={request} catalog={catalog} city={city} />{!manager && <TreeAdoptionReceiptButton request={request} onReceived={onClose} />}</section>}<section className="adoption-detail-history"><h3><Clock3 size={16} />Histórico e orientações da equipe</h3>
         {eventsError ? <div role="alert"><p>{eventsError}</p><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></div> : eventsLoading ? <p role="status" className="flex items-center gap-2 text-xs text-content-secondary"><Loader2 className="h-4 w-4 animate-spin" />Carregando histórico…</p> : !events.length ? <p className="text-xs text-content-secondary">Nenhuma atualização registrada.</p> : <ol className="adoption-timeline">{events.map(item => <li key={item.id}><span className="adoption-timeline-dot" aria-hidden="true" /><AdoptionStatus status={item.status} /><p>{item.message}</p><time dateTime={item.created_at}>{formatDate(item.created_at)}</time></li>)}</ol>}
-      </section></div>
-      {!terminal ? <form onSubmit={submit} className="adoption-detail-action">
+      </section></div>;
+  const action = !terminal ? <form id={formId} onSubmit={submit} className="adoption-detail-action">
         <h3 className="font-semibold">{manager ? 'Atender solicitação' : 'Falar com a equipe'}</h3>
         <fieldset disabled={busy} className="min-w-0">
           {!dispatcher && manager && <p className="text-sm text-content-secondary">Você pode receber, orientar e registrar pendências. O gestor aprova, agenda e confirma a conclusão.</p>}
@@ -99,10 +99,16 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
           {status === 'concluida' && <><label className="grid gap-1.5 text-sm font-medium">{request.request_type === 'muda' ? 'Data da entrega da muda' : 'Data do plantio realizado'}<Input required type="date" min={localDate(request.created_at)} max={localDate()} value={fulfilledOn} onChange={event => setFulfilledOn(event.target.value)} /></label><p className="text-sm text-content-secondary">{request.request_type === 'plantio' ? 'Confirme somente após a execução no ponto solicitado. A árvore será cadastrada no inventário com a espécie aprovada.' : 'Confirme somente após a entrega. A retirada de uma muda não comprova que ela foi plantada.'}</p></>}
           <label className="grid gap-1.5 text-sm font-medium">{manager ? 'Mensagem e orientações para o cidadão' : 'Mensagem para a equipe'}<textarea required minLength={5} maxLength={3000} rows={4} className="w-full rounded-md border bg-background p-3 font-normal" value={message} onChange={event => setMessage(event.target.value)} /></label>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={!status || message.trim().length < 5}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar atualização</Button>
         </fieldset>
-      </form> : <aside className="adoption-detail-action"><span className="adoption-request-icon"><ClipboardList size={24} /></span><h3>Atendimento encerrado</h3><p className="text-sm text-content-secondary">O resultado e as orientações ficam registrados no histórico deste pedido.</p>{!manager && request.status === 'concluida' && <TreePlantingNextStep cityId={request.city_id} />}</aside>}</div>
-    </DialogContent>
+      </form> : <aside className="adoption-detail-action"><span className="adoption-request-icon"><ClipboardList size={24} /></span><h3>Atendimento encerrado</h3><p className="text-sm text-content-secondary">O resultado e as orientações ficam registrados no histórico deste pedido.</p>{!manager && request.status === 'concluida' && <TreePlantingNextStep cityId={request.city_id} />}</aside>;
+  return <Dialog open onOpenChange={open => { if (!open && !busyRef.current) onClose(); }}>
+    <TaskDialogContent className={`adoption-request-dialog${manager ? ' adoption-manager-detail' : ''}${!manager ? ' adoption-citizen-detail' : ''}`} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true }); }} onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
+      <DialogHeader className="adoption-detail-header task-dialog-heading"><div className="adoption-detail-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Adote uma árvore</p><DialogTitle>{adoptionProtocol(request)}</DialogTitle><DialogDescription>{ADOPTION_TYPES[request.request_type]}</DialogDescription></div></div><AdoptionStatus status={request.status} /></DialogHeader>
+      <TaskDialogBody className="adoption-detail-scroll">
+      <div className="adoption-detail-layout">{manager && !terminal && action}{context}{(!manager || terminal) && action}</div>
+      </TaskDialogBody>
+      <TaskDialogFooter><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Fechar</Button>{!terminal && <Button type="submit" form={formId} disabled={busy || !status || message.trim().length < 5}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar atualização</Button>}</TaskDialogFooter>
+    </TaskDialogContent>
   </Dialog>;
 }
 

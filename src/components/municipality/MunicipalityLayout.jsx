@@ -34,6 +34,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import useMunicipalityWorkspace, { MunicipalityWorkspaceProvider, selectMunicipalityWorkspace } from '@/hooks/useMunicipalityWorkspace';
 import ElectricianLayout, { ExecutorLayout } from '@/components/municipality/ElectricianLayout';
+import { municipalMobileNavigation, municipalNavigationActive } from '@/lib/municipalMobileNavigation';
 
 const navigation = [
   { to: '/prefeitura/visao-geral', label: 'Visão geral', icon: LayoutDashboard, adminOnly: false },
@@ -64,6 +65,8 @@ function MunicipalityLayoutContent() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const contentRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+  const menuTriggerRef = useRef(null);
   const workspace = useMunicipalityWorkspace();
   const { memberships, municipality, enabledCategoryIds, isAdministrator, isElectrician: assignedElectrician } = workspace;
   const isElectrician = assignedElectrician && pathname.startsWith('/prefeitura/eletricista');
@@ -91,9 +94,13 @@ function MunicipalityLayoutContent() {
 
   useEffect(() => {
     if (!menuOpen) return undefined;
+    mobileMenuRef.current?.querySelector('a, button')?.focus();
     const closeOnEscape = (event) => { if (event.key === 'Escape') setMenuOpen(false); };
     window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      menuTriggerRef.current?.focus();
+    };
   }, [menuOpen]);
 
   useEffect(() => {
@@ -124,6 +131,12 @@ function MunicipalityLayoutContent() {
   const newOrderActive = pathname === '/prefeitura/demandas/nova';
   const ordersListActive = pathname === '/prefeitura/demandas';
   const scopedHref = href => municipalContextPath(href, municipality?.city_id, municipalWorkspaceChannel(href, isAdministrator, workspace.activeChannelId));
+  const mobileNavigation = municipalMobileNavigation(visibleNavigation);
+  const roleLabel = isAdministrator ? 'Administrador' : workspace.canDispatch ? 'Gestor' : workspace.canReceive ? 'Atendente' : 'Inventário e consulta';
+  const toggleMenu = event => {
+    menuTriggerRef.current = event.currentTarget;
+    setMenuOpen(open => !open);
+  };
   const renderNavigation = (mobile = false) => visibleNavigation.map(({ to, label, icon: Icon }) => {
     if (to === TREE_ADOPTION_MANAGEMENT_PATH) {
       const submenuId = mobile ? 'municipality-mobile-adoption' : 'municipality-desktop-adoption';
@@ -199,8 +212,8 @@ function MunicipalityLayoutContent() {
               type="button"
               variant="ghost"
               size="icon"
-              className="shrink-0 lg:hidden"
-              onClick={() => setMenuOpen((open) => !open)}
+              className="h-12 w-12 shrink-0 lg:hidden"
+              onClick={toggleMenu}
               aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
               aria-expanded={menuOpen}
               aria-controls="municipality-mobile-nav"
@@ -218,22 +231,27 @@ function MunicipalityLayoutContent() {
 
           <div className="flex items-center gap-2">
             {memberships.length > 1 && <label className="min-w-0"><span className="sr-only">Prefeitura ativa</span><select aria-label="Prefeitura ativa" className="h-9 max-w-[9rem] rounded-lg border border-edge-subtle bg-surface-raised px-2 text-xs text-content-primary sm:max-w-[14rem]" value={municipality?.id || ''} onChange={(event) => { selectMunicipalityWorkspace(user.id, event.target.value); navigate('/prefeitura/visao-geral'); }}>{memberships.map((item) => <option key={item.prefeitura.id} value={item.prefeitura.id}>{item.prefeitura.nome}</option>)}</select></label>}
-            <Button type="button" variant="ghost" size="icon" onClick={() => setPreference(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>
+            <Button type="button" variant="ghost" size="icon" className="h-12 w-12 shrink-0" onClick={() => setPreference(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
             <div className="hidden text-right md:block">
               <p className="max-w-48 truncate text-xs font-bold">{user?.name || user?.email || 'Servidor municipal'}</p>
               <p className="text-[10px] opacity-75">{isAdministrator ? 'Administrador municipal' : workspace.canDispatch ? 'Gestor da secretaria' : workspace.canReceive ? 'Atendente' : 'Inventário e consulta'}</p>
             </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-black text-content-onBrand">{initials || 'SM'}</div>
+            <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-black text-content-onBrand sm:flex">{initials || 'SM'}</div>
           </div>
+        </div>
+        <div className="page-shell-fluid flex min-w-0 items-center gap-2 border-t border-edge-subtle py-2 lg:hidden">
+          <Building2 className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
+          <p className="min-w-0 flex-1 truncate text-xs font-semibold" title={[municipality?.nome, locationLabel].filter(Boolean).join(' · ')}>{locationLabel || municipality?.nome || 'Gestão municipal'}</p>
+          <span className="shrink-0 rounded-full bg-brand-subtleBg px-2 py-1 text-[10px] font-bold text-brand-subtleFg">{roleLabel}</span>
         </div>
       </header>
 
       <div className="municipality-workspace relative grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[16rem_minmax(0,1fr)]">
         {menuOpen && <button type="button" className="absolute inset-0 z-30 bg-black/30 lg:hidden" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
         {menuOpen && (
-          <div className="municipality-mobile-menu absolute inset-x-0 top-0 z-40 max-h-full overflow-y-auto border-b border-edge-subtle bg-surface-raised px-4 py-3 shadow-lg lg:hidden">
+          <div ref={mobileMenuRef} className="municipality-mobile-menu absolute inset-x-0 top-0 z-40 max-h-full overflow-y-auto border-b border-edge-subtle bg-surface-raised px-4 py-3 shadow-lg lg:hidden">
             <p className="mb-3 px-3 text-xs font-semibold text-content-secondary">{municipality?.nome || 'Gestão municipal'}{locationLabel ? ` · ${locationLabel}` : ''}</p>
             <nav id="municipality-mobile-nav" aria-label="Painel da prefeitura" className="grid gap-1">
               {workspace.executionSpecialties?.map(id => <NavLink key={id} to={scopedHref(executionActivity(id).path)} className={navClass}>Meus serviços · {executionActivity(id).label}</NavLink>)}{renderNavigation(true)}
@@ -266,6 +284,21 @@ function MunicipalityLayoutContent() {
           <ErrorBoundary key={pathname}><Outlet context={workspace} /></ErrorBoundary>
         </main>
       </div>
+      <nav aria-label="Atalhos da prefeitura" className="relative z-40 shrink-0 border-t border-edge-subtle bg-surface-raised lg:hidden" style={{ paddingLeft: 'var(--safe-area-left, 0px)', paddingRight: 'var(--safe-area-right, 0px)' }}>
+        <div className="grid min-h-16 items-center gap-1 px-2" style={{ gridTemplateColumns: `repeat(${mobileNavigation.length + 1}, minmax(0, 1fr))` }}>
+          {mobileNavigation.map(({ to, shortLabel, label, icon: Icon }) => {
+            const active = municipalNavigationActive(to, pathname);
+            return <Link key={to} to={scopedHref(to)} onClick={() => setMenuOpen(false)} aria-label={label} aria-current={active ? 'page' : undefined}
+              className={'flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (active ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary active:bg-surface-subtle')}>
+              <Icon className="h-5 w-5 shrink-0" aria-hidden="true" /><span className="max-w-full break-words leading-tight">{shortLabel}</span>
+            </Link>;
+          })}
+          <button type="button" aria-label="Mais opções da prefeitura" aria-expanded={menuOpen} aria-controls="municipality-mobile-nav" onClick={toggleMenu}
+            className={'flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (menuOpen ? 'bg-brand-subtleBg text-brand-subtleFg' : 'text-content-secondary active:bg-surface-subtle')}>
+            <Menu className="h-5 w-5" aria-hidden="true" /><span>Mais</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

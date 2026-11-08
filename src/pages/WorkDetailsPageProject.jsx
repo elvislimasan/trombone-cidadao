@@ -2504,6 +2504,10 @@ export default function WorkDetailsPageProject() {
                 ) : null}
                 <div className="mt-4 2xl:hidden">
                   <ObraDelayMeter
+                    photoUrl={heroImageUrl}
+                    work={work}
+                    phaseName={phase?.name}
+                    shareUrl={seo.url}
                     expectedEndDate={phase?.expectedEndDate}
                     endDate={phase?.endDate}
                     status={phase?.status}
@@ -2763,6 +2767,10 @@ export default function WorkDetailsPageProject() {
           <aside className="space-y-6 lg:col-span-12 2xl:col-span-3 3xl:col-span-3">
             <div className="hidden 2xl:block">
               <ObraDelayMeter
+                photoUrl={heroImageUrl}
+                work={work}
+                phaseName={phase?.name}
+                shareUrl={seo.url}
                 expectedEndDate={phase?.expectedEndDate}
                 endDate={phase?.endDate}
                 status={phase?.status}

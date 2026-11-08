@@ -3,8 +3,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search } fr
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { municipalTableRows } from '@/lib/municipalTable';
+import { MunicipalMobileDisclosure } from '@/components/municipality/MunicipalPageUi';
 
-export default function MunicipalTable({ rows, columns, searchText, onOpen, title, searchPlaceholder, filters, filterKey = '', defaultSort = 'nome', loading = false }) {
+export default function MunicipalTable({ rows, columns, searchText, onOpen, title, searchPlaceholder, filters, filterHint, filterKey = '', defaultSort = 'nome', loading = false }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState(defaultSort);
   const [direction, setDirection] = useState('asc');
@@ -23,7 +24,7 @@ export default function MunicipalTable({ rows, columns, searchText, onOpen, titl
       <label className="min-w-0 flex-[1_1_18rem] text-xs font-semibold text-content-secondary">Pesquisar
         <div className="relative mt-1"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder} className="pl-9" /></div>
       </label>
-      {filters}
+      {filters && <MunicipalMobileDisclosure title="Filtros" hint={filterHint} className="municipal-table-filters">{filters}</MunicipalMobileDisclosure>}
     </div>
     <div className="flex flex-wrap justify-between gap-2 px-5 py-3 text-xs text-content-secondary"><p aria-live="polite">{loading ? 'Carregando registros…' : `${sorted.length} ${sorted.length === 1 ? 'registro encontrado' : 'registros encontrados'}`}</p><p>Clique em uma linha para consultar e editar.</p></div>
     <div className="w-full overflow-x-auto">

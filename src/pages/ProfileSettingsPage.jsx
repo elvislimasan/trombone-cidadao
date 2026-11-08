@@ -1,14 +1,14 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { Capacitor } from '@capacitor/core';
-import { ArrowLeft, Bell, Briefcase, KeyRound, LogOut, Shield, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, KeyRound, LogOut, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { useNotifications } from '@/contexts/NotificationContext';
 import Icon from '@/design-system/icons';
+import { useNativeUIMode } from '@/contexts/NativeUIModeContext';
 
 function SettingsLink({ to, icon, label, description, danger = false }) {
   return (
@@ -23,6 +23,7 @@ function SettingsLink({ to, icon, label, description, danger = false }) {
 export default function ProfileSettingsPage() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { isInteractive } = useNativeUIMode();
   const { preference, setPreference } = useTheme();
   const { notificationsEnabled, toggleNotifications, loading: notificationsLoading } = useNotifications();
 
@@ -35,12 +36,12 @@ export default function ProfileSettingsPage() {
     <main className="min-h-screen bg-surface-base pb-20">
       <Helmet><title>Configurações — Trombone Cidadão</title></Helmet>
 
-      <div className="sticky top-0 z-20 border-b border-edge-subtle bg-surface-raised/95 backdrop-blur">
+      {isInteractive ? <h1 className="sr-only">Configurações</h1> : <div className="sticky top-0 z-20 border-b border-edge-subtle bg-surface-raised/95 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-2xl items-center gap-3 px-4">
           <Button type="button" size="icon" variant="ghost" className="h-9 w-9 rounded-xl" onClick={() => navigate('/perfil')} aria-label="Voltar ao perfil"><ArrowLeft className="h-5 w-5" /></Button>
           <div><h1 className="text-base font-extrabold text-content-primary">Configurações</h1><p className="text-2xs text-content-secondary">Preferências, segurança e conta</p></div>
         </div>
-      </div>
+      </div>}
 
       <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-5">
         <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-elevation-1">
@@ -66,7 +67,6 @@ export default function ProfileSettingsPage() {
         <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-2 shadow-elevation-1">
           <SettingsLink to="/alterar-senha" icon={<KeyRound className="h-4 w-4" />} label="Alterar senha" />
           <SettingsLink to="/termos-de-uso" icon={<Shield className="h-4 w-4" />} label="Privacidade e termos" />
-          {Capacitor.isNativePlatform() && <SettingsLink to="/perfil/preferencias" icon={<Briefcase className="h-4 w-4" />} label="Preferências do aplicativo" />}
         </section>
 
         <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-2 shadow-elevation-1">

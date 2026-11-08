@@ -98,6 +98,9 @@ ChatGPT Image*.png
 .temp/
 .tmp/
 
+# Artefatos gerados localmente (vídeos, áudios, imagens e prévias)
+/artifacts/
+
 # Exportações e prévias locais (PDFs permanecem disponíveis no computador)
 /tmp_pavement_prod/
 

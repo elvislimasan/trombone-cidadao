@@ -7,6 +7,8 @@ import { ADOPTION_PLACES, ADOPTION_WIRING } from '@/lib/treeAdoption';
 import { cityStateUf } from '@/lib/cityLocation';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { supabase } from '@/lib/customSupabaseClient';
+import { allTreeRows } from '@/lib/treeInventory';
+import { registeredNeighborhood } from '../../../supabase/functions/_shared/reportNeighborhoods';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 const normalized = value => String(value || '').normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/^municipio de\s+/, '');
@@ -16,6 +18,27 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
   const [notice, setNotice] = useState('');
   const [wrongCity, setWrongCity] = useState(false);
   const [recenter, setRecenter] = useState(null);
+  const [neighborhoodCatalog, setNeighborhoodCatalog] = useState({ cityId: null, rows: [], loading: true, error: false });
+  const [neighborhoodRevision, setNeighborhoodRevision] = useState(0);
+  const cityId = city?.id;
+  const neighborhoods = neighborhoodCatalog.cityId === cityId ? neighborhoodCatalog.rows : [];
+  const loadingNeighborhoods = neighborhoodCatalog.cityId !== cityId || neighborhoodCatalog.loading;
+  const neighborhoodError = neighborhoodCatalog.cityId === cityId && neighborhoodCatalog.error;
+  const matchedNeighborhood = registeredNeighborhood(form.neighborhood, neighborhoods);
+  useEffect(() => {
+    let active = true;
+    setNeighborhoodCatalog({ cityId, rows: [], loading: true, error: false });
+    if (!cityId) { setNeighborhoodCatalog({ cityId, rows: [], loading: false, error: false }); return; }
+    allTreeRows(supabase, 'bairros', query => query.select('id,name,city_id').eq('city_id', cityId))
+      .then(rows => {
+        if (active) setNeighborhoodCatalog({ cityId, rows: rows.filter(row => row.name?.trim()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), loading: false, error: false });
+      })
+      .catch(() => { if (active) setNeighborhoodCatalog({ cityId, rows: [], loading: false, error: true }); });
+    return () => { active = false; };
+  }, [cityId, neighborhoodRevision]);
+  useEffect(() => {
+    if (matchedNeighborhood && matchedNeighborhood !== form.neighborhood) onChange({ neighborhood: matchedNeighborhood });
+  }, [matchedNeighborhood, form.neighborhood, onChange]);
   const request = useRef(0);
   const edits = useRef({ address: 0, neighborhood: 0 });
   const uf = cityStateUf(city);
@@ -70,7 +93,12 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
       <div className="tree-form-location-heading"><h3>Confira o local</h3><p>Endereço preenchido pelo mapa. Ajuste se precisar.</p></div>
       <div className="adoption-address-fields">
         <label className="adoption-field">{form.zone === 'rural' ? 'Propriedade ou referência' : 'Endereço e número'}<Input maxLength={300} placeholder={form.zone === 'rural' ? 'Ex.: Sítio, comunidade e estrada de acesso' : 'Rua, número ou ponto de referência'} value={form.address} onChange={event => correct('address', event.target.value)} /></label>
-        <label className="adoption-field">Bairro ou localidade<Input maxLength={160} placeholder="Informe o bairro ou a comunidade" value={form.neighborhood} onChange={event => correct('neighborhood', event.target.value)} /></label>
+        <label className="adoption-field">Bairro ou localidade<select name="neighborhood" aria-label="Bairro ou localidade" disabled={busy || loadingNeighborhoods || neighborhoodError || !neighborhoods.length} value={matchedNeighborhood || form.neighborhood || ''} onChange={event => correct('neighborhood', event.target.value)}>
+          <option value="">{loadingNeighborhoods ? 'Carregando bairros…' : neighborhoodError ? 'Não foi possível carregar' : neighborhoods.length ? 'Selecione o bairro' : 'Nenhum bairro cadastrado'}</option>
+          {form.neighborhood && !matchedNeighborhood && <option value={form.neighborhood} disabled>{form.neighborhood} (não cadastrado)</option>}
+          {neighborhoods.map(row => <option key={row.id} value={row.name}>{row.name}</option>)}
+        </select></label>
+        {neighborhoodError ? <div role="alert" className="space-y-2 text-sm"><p>Não foi possível carregar os bairros de {city.name}.</p><Button type="button" variant="outline" className="min-h-12" onClick={() => setNeighborhoodRevision(value => value + 1)}>Tentar novamente</Button></div> : !loadingNeighborhoods && (!neighborhoods.length ? <p className="text-sm text-content-secondary">Esta cidade ainda não tem bairros cadastrados. Informe a localidade no endereço ou na referência.</p> : form.neighborhood && !matchedNeighborhood && <p className="text-sm text-content-secondary">O bairro identificado não está no cadastro da cidade. Selecione uma das opções cadastradas.</p>)}
       </div>
       <AdoptionChoiceGroup legend="Zona" value={form.zone} onChange={zone => onChange({ zone })} compact options={[
         { value: 'urbana', label: 'Urbana', icon: Building2 }, { value: 'rural', label: 'Rural', icon: Trees },

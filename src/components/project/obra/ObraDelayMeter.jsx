@@ -1,4 +1,8 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+const ObraDelayStoryModal = lazy(() => import('./ObraDelayStoryModal'));
 
 function toUtcDayNumber(date) {
   return Math.floor(
@@ -43,8 +47,12 @@ export function ObraDelayMeter({
   endDate,
   status,
   executionDays,
+  work,
+  phaseName,
+  shareUrl,
+  photoUrl,
 }) {
-  if (status === "completed") return null;
+  const [storyOpen, setStoryOpen] = useState(false);
 
   const computed = useMemo(() => {
     const expected = parseDate(expectedEndDate);
@@ -129,16 +137,19 @@ export function ObraDelayMeter({
       badge,
       colors,
       isCompleted,
+      isOverdue,
+      isDueToday,
       metricLabel,
       metricNumber,
       ringValue,
       expectedDateText: formatDateShortPtBrUtc(expected),
       expectedDateLongText: formatDatePtBrUtc(expected),
       completedDateText: isCompleted ? formatDatePtBrUtc(parsedEndDate) : "",
+      asOfDateText: formatDatePtBrUtc(actual),
     };
   }, [endDate, expectedEndDate, executionDays, status]);
 
-  if (!computed) return null;
+  if (!computed || status === 'completed') return null;
 
   const size = 190;
   const strokeWidth = 10;
@@ -209,7 +220,13 @@ export function ObraDelayMeter({
         <div className="mt-1 text-base font-extrabold text-content-primary">
           {computed.expectedDateText}
         </div>
+        {work?.id && shareUrl && <Button type="button" variant="outline" className="mt-4 w-full gap-2" onClick={() => setStoryOpen(true)}>
+          <Download className="h-4 w-4" aria-hidden="true" />Compartilhar story
+        </Button>}
       </div>
+      {storyOpen && <Suspense fallback={<p role="status" className="px-5 pb-4 text-sm text-content-secondary">Preparando modelos…</p>}>
+        <ObraDelayStoryModal computed={computed} work={work} phaseName={phaseName} shareUrl={shareUrl} photoUrl={photoUrl} onClose={() => setStoryOpen(false)} />
+      </Suspense>}
     </section>
   );
 }

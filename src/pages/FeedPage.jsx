@@ -1,11 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, Briefcase, Compass, Download, MapPin, Megaphone, Radio,
-  ShieldCheck, Smartphone,
+  ArrowRight, Radio,
 } from 'lucide-react';
 import TromboneSpinner from '@/design-system/feedback/TromboneSpinner';
-import { Capacitor } from '@capacitor/core';
 import { useFeed } from '@/hooks/useFeed';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -19,9 +17,11 @@ import FeedSkeleton from '@/components/FeedSkeleton';
 import FeedEmptyState from '@/components/FeedEmptyState';
 import ReportModal from '@/components/ReportModal';
 import FeedUpdateModal from '@/components/feed/FeedUpdateModal';
-import FeedTabs, { FEED_TABS } from '@/components/feed/FeedTabs';
+import { FEED_TABS } from '@/components/feed/FeedTabs';
+import FeedSortMenu from '@/components/feed/FeedSortMenu';
 import FeedStates, { FeedFatalState, FeedLoadMoreError } from '@/components/feed/FeedStates';
 import FeedWelcomeCard from '@/components/feed/FeedWelcomeCard';
+import { FeedDesktopMap, FeedDesktopNavigation } from '@/components/feed/FeedDesktopContext';
 import FeedLocationGate from '@/components/feed/FeedLocationGate';
 import FeedNewReportsBanner from '@/components/feed/FeedNewReportsBanner';
 import CityEventCard from '@/components/agora/CityEventCard';
@@ -49,9 +49,6 @@ export default function FeedPage() {
   const [recentCreatedId, setRecentCreatedId] = useState(null);
   const recentCreatedTimerRef = useRef(null);
   const preloadedImagesRef = useRef(new Set());
-  const leftSidebarRef = useRef(null);
-  const rightSidebarRef = useRef(null);
-  const [sidebarShift, setSidebarShift] = useState({ left: 0, right: 0 });
 
   const { createReport } = useCreateReport({ onCreated: () => setShowReportModal(false) });
 
@@ -180,153 +177,26 @@ export default function FeedPage() {
   const eventosDoRadar = radar.eventos || [];
   const agora = useMemo(() => new Date(), []);
 
-  useEffect(() => {
-    let frame = 0;
-
-    const updateSidebarShift = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const footer = document.querySelector('[data-site-footer]');
-        const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
-        const availableBottom = Math.min(window.innerHeight - 16, footerTop - 16);
-        const shiftFor = (element) => element
-          ? Math.max(0, Math.ceil(80 + element.offsetHeight - availableBottom))
-          : 0;
-        const next = {
-          left: shiftFor(leftSidebarRef.current),
-          right: shiftFor(rightSidebarRef.current),
-        };
-
-        setSidebarShift((current) => (
-          current.left === next.left && current.right === next.right ? current : next
-        ));
-      });
-    };
-
-    updateSidebarShift();
-    window.addEventListener('scroll', updateSidebarShift, { passive: true });
-    window.addEventListener('resize', updateSidebarShift);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', updateSidebarShift);
-      window.removeEventListener('resize', updateSidebarShift);
-    };
-  }, [eventosDoRadar.length]);
-
-  // Missões só para quem tem conta: a central é toda sobre progresso pessoal e
-  // abre vazia para visitante — a mesma regra que o cartão do topo do celular já
-  // aplica. No lugar dela, o convite para virar embaixador.
-  const atalhos = useMemo(
-    () => [
-      user
-        ? { nome: 'Missões', path: '/missoes', Icone: Compass }
-        : { nome: 'Seja embaixador', path: '/seja-embaixador', Icone: ShieldCheck },
-      { nome: 'Explorar', path: '/explorar', Icone: Compass },
-      { nome: 'Acompanhando', path: '/seguindo', Icone: Briefcase },
-      ...(user?.is_admin || user?.is_master ? [{ nome: 'Área de trabalho', path: '/admin', Icone: ShieldCheck }] : user?.is_ambassador ? [{ nome: 'Área de trabalho', path: '/embaixador', Icone: ShieldCheck }] : []),
-    ],
-    [user]
-  );
+  const cityNotice = eventosDoRadar.length > 0 ? (
+    <section className="mt-3 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised lg:hidden" aria-label="Acontecendo na cidade">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 px-4 pt-2">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-content-primary"><Radio className="h-4 w-4 text-brand" aria-hidden="true" />Acontecendo agora</h2>
+        <Link to="/agora" className="inline-flex min-h-12 items-center gap-1 text-xs font-semibold text-brand">Ver alertas<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>
+      </div>
+      <CityEventCard evento={eventosDoRadar[0]} agora={agora} compact mostrarSelo={false} />
+    </section>
+  ) : null;
 
   return (
     <div className="min-h-full bg-surface-base">
-      {/* O seletor de cidade agora vive no header (Header/MobileHeader): e um
-          filtro global, nao um controle desta pagina. O titulo "Feed" e o botao
-          "Nova denuncia" sairam — as abas ja identificam a secao, e criar bronca
-          continua no FAB do bottom nav e no atalho abaixo. */}
-      <div className="lg:hidden">
-        <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
-      </div>
-
-      {/* Em notebooks, conteúdo e contexto dividem a tela em duas colunas.
-          A navegação exploratória ganha uma terceira coluna apenas em telas largas. */}
-      <div className="lg:mx-auto lg:grid lg:w-full lg:max-w-[100rem] lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-5 lg:px-6 lg:py-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6 xl:py-7 2xl:grid-cols-[17rem_minmax(0,1fr)_21rem]">
-        {/* Em telas largas, esta coluna fica ancorada abaixo do cabeçalho. */}
-        <nav
-          ref={leftSidebarRef}
-          className="hidden 2xl:fixed 2xl:top-20 2xl:z-10 2xl:block 2xl:max-h-[calc(100dvh-6rem)] 2xl:w-[17rem] 2xl:overflow-y-auto 2xl:overscroll-contain 2xl:pb-2 2xl:scrollbar-none"
-          style={{ left: 'max(1.5rem, calc((100vw - 100rem) / 2 + 1.5rem))', transform: `translateY(-${sidebarShift.left}px)` }}
-          aria-label="Outras seções do Trombone"
-        >
-          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-            <h2 className="px-1 text-sm font-extrabold text-content-primary">Explorar o app</h2>
-            <p className="mt-1 px-1 text-xs leading-5 text-content-secondary">
-              Seus caminhos pela cidade.
-            </p>
-
-            <ul className="mt-3 space-y-0.5">
-              {atalhos.map(({ nome, path, Icone }) => (
-                <li key={path}>
-                  <Link
-                    to={path}
-                    className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm font-bold text-content-primary transition hover:bg-brand/5"
-                  >
-                    <Icone className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate">{nome}</span>
-                    <ArrowRight
-                      className="h-3.5 w-3.5 shrink-0 text-content-tertiary opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Dentro do app instalado isto seria oferecer o que a pessoa já tem —
-              e a coluna só existe em 1520px, largura que um tablet alcança. */}
-          {!Capacitor.isNativePlatform() && (
-            <section className="mt-4 rounded-2xl border border-edge-subtle bg-surface-raised p-4 shadow-sm">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                <Smartphone className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <h2 className="mt-3 text-sm font-extrabold text-content-primary">
-                Trombone no celular
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-content-secondary">
-                Registre com foto na hora e receba aviso quando sua bronca andar.
-              </p>
-              <Link
-                to="/app"
-                className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-surface-sunken text-xs font-bold text-content-primary transition hover:bg-edge-subtle"
-              >
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                Baixar o app
-              </Link>
-            </section>
-          )}
-
-        </nav>
-
-        <main className="min-w-0 lg:col-start-1 2xl:col-start-2">
-          <section className="hidden overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised p-7 shadow-sm lg:flex lg:items-center lg:justify-between lg:gap-8">
-            <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/5 px-3 py-1 text-xs font-bold text-brand">
-                <Radio className="h-3.5 w-3.5" aria-hidden="true" />
-                Participação cidadã
-              </div>
-              <h1 className="text-3xl font-black tracking-tight text-content-primary">
-                Acontecendo em {cityLabel}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-content-secondary">
-                Acompanhe relatos da comunidade, apoie prioridades e veja as atualizações mais recentes da cidade.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenCreate}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-            >
-              <Megaphone className="h-4 w-4" aria-hidden="true" />
-              Registrar bronca
-            </button>
-          </section>
+      <div className="page-shell-fluid feed-desktop-shell grid min-w-0 gap-5 py-4 lg:items-start lg:py-6">
+        <FeedDesktopNavigation user={user} onCreateReport={handleOpenCreate} />
+        <main className="feed-desktop-main min-w-0">
+          <FeedWelcomeCard cityName={activeCityName} cityImage={activeCity?.civic_thumbnail_url} onCreateReport={handleOpenCreate} />
 
           {/* ── Sticky Tab Bar ── */}
-          <div className="sticky top-0 z-10 bg-surface-base/90 backdrop-blur-md lg:static lg:mt-5 lg:overflow-hidden lg:rounded-2xl lg:border lg:bg-surface-raised lg:shadow-sm">
-            <div className="container mx-auto max-w-2xl px-3 lg:max-w-none lg:px-5">
-              <FeedTabs tabs={FEED_TABS} activeTab={activeTab} onChange={handleTabChange} />
-            </div>
+          <div className="sticky z-10 bg-surface-base/95 backdrop-blur-md lg:static" style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top))' }}>
+            <FeedSortMenu activeTab={activeTab} onChange={handleTabChange} />
           </div>
 
           {/* ── "X novas broncas" banner ── */}
@@ -335,7 +205,7 @@ export default function FeedPage() {
           {/* ── Feed Content ── */}
           {/* Arrastar na horizontal troca de aba. Fica neste container, e nao na
               pagina toda, para nao capturar arrasto do header nem do bottom nav. */}
-          <div className="container mx-auto max-w-2xl px-3 py-4 lg:max-w-[45rem] lg:px-0 lg:py-5" {...swipeHandlers}>
+          <div id="feed-panel" role="region" aria-labelledby="feed-content-title" tabIndex={0} className="min-w-0 rounded-2xl py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:py-5" {...swipeHandlers}>
         {/* Enquanto falta a posicao nao ha requisicao em curso: mostrar "lento"
             ou erro de rede ao lado do gate confundiria a causa real. */}
         {!awaitingLocation && (
@@ -357,6 +227,8 @@ export default function FeedPage() {
         ) : !hasReports ? (
           <FeedEmptyState
             tab={activeTab}
+            cityName={activeCityName}
+            showCreateAction={false}
             onCreateReport={handleOpenCreate}
             onChangeTab={handleTabChange}
           />
@@ -384,6 +256,7 @@ export default function FeedPage() {
                   isNew={report.id === recentCreatedId}
                   index={index}
                 />
+                {index === 0 && cityNotice}
               </React.Fragment>
             ))}
 
@@ -411,52 +284,21 @@ export default function FeedPage() {
             )}
           </div>
         )}
+          {!hasReports && !loading && !error && !isOffline && !awaitingLocation && cityNotice}
           </div>
         </main>
 
         {/* Somente os dois cards de contexto ficam fixos. O restante da lateral
             continua no fluxo normal, para que um bloco alto não desative o sticky. */}
         <aside
-          className="hidden lg:col-start-2 lg:block lg:self-stretch 2xl:col-start-3"
+          className="feed-desktop-aside hidden min-w-0 lg:block lg:self-stretch"
           aria-label="Atalhos do feed"
         >
           <div
-            ref={rightSidebarRef}
-            className="space-y-4 lg:fixed lg:top-20 lg:z-10 lg:max-h-[calc(100dvh-6rem)] lg:w-[19rem] lg:overflow-y-auto lg:overscroll-contain lg:pb-2 lg:scrollbar-none xl:w-[20rem] 2xl:w-[21rem]"
-            style={{ right: 'max(1.5rem, calc((100vw - 100rem) / 2 + 1.5rem))', transform: `translateY(-${sidebarShift.right}px)` }}
+            className="space-y-4 lg:sticky"
+            style={{ top: 'calc(var(--header-bar-height) + var(--header-safe-top) + 1rem)' }}
           >
-          <section className="rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
-              <MapPin className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <h2 className="mt-4 text-lg font-extrabold text-content-primary">Explore {cityLabel}</h2>
-            <p className="mt-1 text-sm leading-5 text-content-secondary">
-              Veja onde estão as broncas e consulte os alertas que afetam a rotina da cidade.
-            </p>
-
-            <div className="mt-4 space-y-2">
-              <Link
-                to="/mapa"
-                className="group flex items-center justify-between rounded-xl border border-edge-subtle px-3.5 py-3 text-sm font-bold text-content-primary transition hover:border-brand/30 hover:bg-brand/5"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Megaphone className="h-4 w-4 text-brand" aria-hidden="true" />
-                  Mapa de broncas
-                </span>
-                <ArrowRight className="h-4 w-4 text-content-tertiary transition group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-              <Link
-                to="/agora"
-                className="group flex items-center justify-between rounded-xl border border-edge-subtle px-3.5 py-3 text-sm font-bold text-content-primary transition hover:border-brand/30 hover:bg-brand/5"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Radio className="h-4 w-4 text-brand" aria-hidden="true" />
-                  Radar da cidade
-                </span>
-                <ArrowRight className="h-4 w-4 text-content-tertiary transition group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-            </div>
-          </section>
+          <FeedDesktopMap cityLabel={cityLabel} />
 
           {/* O cartão só existe quando há alerta. Um "nada acontecendo agora"
               permanente ocuparia a lateral inteira para não dizer nada — e nesta
@@ -468,9 +310,6 @@ export default function FeedPage() {
                   <Radio className="h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
                   Acontecendo agora
                 </h2>
-                <p className="mt-1 text-xs leading-5 text-content-secondary">
-                  Falta de água, rua interditada, energia programada.
-                </p>
               </div>
 
               <div className="divide-y divide-edge-subtle border-t border-edge-subtle">

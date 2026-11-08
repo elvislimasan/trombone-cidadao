@@ -4,12 +4,15 @@ import { Loader2, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
+import { useCity } from '@/contexts/CityContext';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { cityStateUf } from '@/lib/cityLocation';
 import { demandReportLocations } from '@/lib/municipalDemand';
 import MunicipalDemandReportMarkers from '@/components/municipality/MunicipalDemandReportMarkers';
 
 const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
+const POLE_LOCATION_FIELDS = 'id,identifier,plate,address,latitude,longitude,lighting_status,is_broken';
+const POLE_AREA_ZOOM = 17;
 const hasPolePosition = (pole) => pole?.latitude != null && pole?.longitude != null
   && Number.isFinite(Number(pole.latitude)) && Number.isFinite(Number(pole.longitude));
 const parseCoordinate = (value, limit) => {
@@ -20,6 +23,7 @@ const parseCoordinate = (value, limit) => {
 };
 
 export default function MunicipalDemandLocation({ form, fieldErrors = {}, reports = [], municipality, editable, busy, onChange, onLocatingChange, title = 'Local do serviço', description }) {
+  const { cities } = useCity();
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -44,7 +48,12 @@ export default function MunicipalDemandLocation({ form, fieldErrors = {}, report
   const latitude = parseCoordinate(form.latitude, 90);
   const longitude = parseCoordinate(form.longitude, 180);
   const position = latitude != null && longitude != null ? { lat: latitude, lng: longitude } : null;
-  const city = municipality?.cidade;
+  // The workspace returns the city row without its state relation. Resolve
+  // metadata by workspace ID, rather than using the citizen's browsing city.
+  const city = useMemo(() => {
+    const metadata = cities?.find(item => String(item.id) === String(municipality?.city_id));
+    return metadata ? { ...municipality?.cidade, ...metadata } : municipality?.cidade;
+  }, [cities, municipality?.cidade, municipality?.city_id]);
   const isLighting = form.category_id === 'iluminacao';
   const cityId = municipality?.city_id;
   const allPoles = useMemo(() => {
@@ -53,21 +62,26 @@ export default function MunicipalDemandLocation({ form, fieldErrors = {}, report
     return [...unique.values()];
   }, [poles, nearbyPoles, selectedPole]);
   const searchMatches = useMemo(() => poles.filter(hasPolePosition).slice(0, 8), [poles]);
-  const selectedPolePosition = selectedPole && String(selectedPole.id) === String(form.pole_id)
-    && hasPolePosition(selectedPole)
-    ? { lat: Number(selectedPole.latitude), lng: Number(selectedPole.longitude) } : null;
-  const updateViewport = useCallback((bounds) => {
-    const next = { south: bounds.getSouth(), north: bounds.getNorth(), west: bounds.getWest(), east: bounds.getEast() };
+  const visiblePoles = useMemo(() => {
+    const inArea = viewport?.zoom >= POLE_AREA_ZOOM ? nearbyPoles.filter(pole => hasPolePosition(pole)
+      && Number(pole.latitude) >= viewport.south && Number(pole.latitude) <= viewport.north
+      && Number(pole.longitude) >= viewport.west && Number(pole.longitude) <= viewport.east) : [];
+    const unique = new Map(inArea.map(pole => [String(pole.id), pole]));
+    if (hasPolePosition(selectedPole) && String(selectedPole.id) === String(form.pole_id)) unique.set(String(selectedPole.id), selectedPole);
+    return [...unique.values()];
+  }, [viewport, nearbyPoles, selectedPole, form.pole_id]);
+  const updateViewport = useCallback((bounds, zoom) => {
+    const next = { south: bounds.getSouth(), north: bounds.getNorth(), west: bounds.getWest(), east: bounds.getEast(), zoom };
     setViewport((current) => current && Object.keys(next).every((key) => current[key] === next[key]) ? current : next);
   }, []);
 
   useEffect(() => {
-    if (!isLighting || !cityId) { setPoles([]); setPoleSearching(false); return undefined; }
+    const term = poleSearch.trim().replace(/[%,()"'\\]/g, '');
+    if (!isLighting || !cityId || !term) { setPoles([]); setPoleSearching(false); return undefined; }
     let active = true;
     setPoleSearching(Boolean(poleSearch.trim()));
     const timer = window.setTimeout(async () => {
-      const term = poleSearch.trim().replace(/[%,()"'\\]/g, '');
-      let query = supabase.from('poles').select('id,identifier,plate,address,latitude,longitude')
+      let query = supabase.from('poles').select(POLE_LOCATION_FIELDS)
         .eq('city_id', cityId).neq('lighting_status', 'removido').order('identifier').limit(80);
       if (term) query = query.or(`identifier.ilike.%${term}%,plate.ilike.%${term}%,address.ilike.%${term}%`);
       const { data, error: failure } = await query;
@@ -79,18 +93,18 @@ export default function MunicipalDemandLocation({ form, fieldErrors = {}, report
   useEffect(() => {
     if (!isLighting || !cityId || !form.pole_id) { setSelectedPole(null); return undefined; }
     let active = true;
-    supabase.from('poles').select('id,identifier,plate,address,latitude,longitude')
+    supabase.from('poles').select(POLE_LOCATION_FIELDS)
       .eq('city_id', cityId).eq('id', form.pole_id).maybeSingle()
       .then(({ data }) => { if (active) setSelectedPole(data || null); });
     return () => { active = false; };
   }, [isLighting, cityId, form.pole_id]);
 
   useEffect(() => {
-    if (!isLighting || !cityId || !viewport) { setNearbyPoles([]); return undefined; }
+    if (!isLighting || !cityId || !viewport || viewport.zoom < POLE_AREA_ZOOM) { setNearbyPoles([]); return undefined; }
     let active = true;
     const timer = window.setTimeout(async () => {
       const { data, error: failure } = await supabase.from('poles')
-        .select('id,identifier,plate,address,latitude,longitude')
+        .select(POLE_LOCATION_FIELDS)
         .eq('city_id', cityId).neq('lighting_status', 'removido')
         .gte('latitude', viewport.south).lte('latitude', viewport.north)
         .gte('longitude', viewport.west).lte('longitude', viewport.east)
@@ -190,27 +204,31 @@ export default function MunicipalDemandLocation({ form, fieldErrors = {}, report
 
   return <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm" aria-label={title === 'Local do serviço' ? 'Localização do serviço' : title}>
     <div className="mb-3"><h2 className="flex items-center gap-2 text-sm font-bold"><span className="rounded-lg bg-brand-subtleBg p-2 text-brand"><MapPin className="h-4 w-4" /></span>{title}</h2>
-      <p className="mt-1 text-xs text-content-secondary">{description || (isLighting ? 'Selecione um poste cadastrado no mapa ou na busca para definir o local da ordem.' : locations.length ? 'Os pontos das solicitações vinculadas aparecem no mapa.' : editable ? 'Clique no mapa ou arraste o pino para localizar a demanda.' : 'Localização registrada para o serviço.')}</p>
+      {(description || !isLighting) && <p className="mt-1 text-xs text-content-secondary">{description || (locations.length ? 'Os pontos das solicitações vinculadas aparecem no mapa.' : editable ? 'Clique no mapa ou arraste o pino para localizar a demanda.' : 'Localização registrada para o serviço.')}</p>}
     </div>
     <div className="grid min-h-0 min-w-0 flex-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)]">
-      <div className="relative isolate h-60 min-w-0 overflow-hidden rounded-lg border border-edge-subtle sm:h-72 xl:h-full xl:min-h-0" style={busy ? { pointerEvents: 'none' } : undefined}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center bg-surface-subtle"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>
-          <LocationPickerMap key={revision} initialPosition={position || locations.find((location) => location.position)?.position} focusPosition={mapFocus || selectedPolePosition} onViewportChange={isLighting ? updateViewport : undefined} onLocationChange={locate} showMarker={Boolean(position)} readOnly={!editable || busy} showLocateButton={editable} showSatelliteToggle={isLighting} initialZoom={16} fallbackCityCenter={city ? { name: city.name, uf: cityStateUf(city) } : null}
-            overlayMarkers={isLighting ? allPoles.filter(hasPolePosition).map((pole) => ({ id: pole.id, title: poleCode(pole.identifier || pole.plate || `Poste ${pole.id}`), location: { lat: Number(pole.latitude), lng: Number(pole.longitude) } })) : []}
-            selectedOverlayMarkerId={form.pole_id} onOverlayMarkerSelect={(marker) => { if (!editable || busy) return false; selectPole(marker.id); }} snapToOverlayOnSelect>
-            {locations.length > 0 && <MunicipalDemandReportMarkers locations={locations} servicePosition={position} selectedLocation={selectedLocation} />}
-          </LocationPickerMap>
-        </Suspense>
-        {isLighting && <div className="absolute right-3 top-3 z-[1000] w-[min(20rem,calc(100%-1.5rem))] min-w-0">
-          <label className="relative block rounded-lg border border-edge-subtle bg-surface-raised/95 p-2 text-xs font-semibold shadow-md backdrop-blur-sm">Buscar poste cadastrado
-            <Search className="pointer-events-none absolute bottom-[1.05rem] left-4 h-3.5 w-3.5 text-content-secondary" />
-            <Input className="mt-1 h-9 bg-surface-raised pl-8 text-xs" value={poleSearch} onChange={(event) => { setPoleSearch(event.target.value); setPoleSearching(Boolean(event.target.value.trim())); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (!poleSearching && searchMatches.length) selectPole(searchMatches[0].id); } else if (event.key === 'Escape') setPoleSearch(''); }} placeholder="Número, plaqueta ou endereço" disabled={!editable || busy} />
+      <div className="municipal-location-map-column flex min-w-0 flex-col gap-3">
+        {isLighting && <div className="municipal-location-search min-w-0">
+          <label className="relative block text-xs font-semibold">Buscar poste cadastrado
+            <Search className="pointer-events-none absolute bottom-4 left-3 h-3.5 w-3.5 text-content-secondary" />
+            <Input aria-label="Buscar poste cadastrado" className="mt-1 min-h-12 bg-surface-raised pl-9 text-sm" value={poleSearch} onChange={(event) => { setPoleSearch(event.target.value); setPoleSearching(Boolean(event.target.value.trim())); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); if (!poleSearching && searchMatches.length) selectPole(searchMatches[0].id); } else if (event.key === 'Escape') setPoleSearch(''); }} placeholder="Número, plaqueta ou endereço" disabled={!editable || busy} />
           </label>
-          {poleSearch.trim() && editable && <div className="mt-1 max-h-24 overflow-y-auto rounded-lg border border-edge-subtle bg-surface-raised shadow-lg sm:max-h-44">
+          {poleSearch.trim() && editable && <div aria-label="Resultados da busca de postes" className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-edge-subtle bg-surface-raised shadow-lg sm:max-h-44">
             {poleSearching ? <p role="status" className="p-2 text-xs text-content-secondary">Buscando postes…</p> : searchMatches.length ? searchMatches.map((pole) => <button key={pole.id} type="button" className="block w-full border-b border-edge-subtle px-3 py-2 text-left last:border-b-0 hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" onClick={() => selectPole(pole.id)}><span className="block text-xs font-semibold">{poleCode(pole.identifier || pole.plate || `Poste #${pole.id}`)}</span>{pole.address && <span className="block truncate text-[11px] text-content-secondary">{pole.address}</span>}</button>) : <p className="p-2 text-xs text-content-secondary">Nenhum poste com localização encontrado.</p>}
           </div>}
           {poleError && <p role="alert" className="mt-1 rounded bg-surface-raised p-2 text-xs text-danger">{poleError}</p>}
         </div>}
+      {isLighting && !(viewport?.zoom >= POLE_AREA_ZOOM) && <p className="text-xs text-content-secondary" role="status">Aproxime o mapa para ver os postes desta área.</p>}
+      <div data-testid="municipal-location-map" className="municipal-location-map relative isolate h-[48dvh] min-h-72 min-w-0 shrink-0 overflow-hidden rounded-lg border border-edge-subtle sm:h-[48dvh] xl:h-full xl:min-h-80" style={busy ? { pointerEvents: 'none' } : undefined}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center bg-surface-subtle"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>
+          <LocationPickerMap key={revision} initialPosition={position || locations.find((location) => location.position)?.position} startAtCity focusPosition={mapFocus} onViewportChange={isLighting ? updateViewport : undefined} onLocationChange={locate} showMarker={Boolean(position)} readOnly={!editable || busy} showLocateButton={editable} showSatelliteToggle cityZoom={15} fallbackCityCenter={city ? { name: city.name, uf: cityStateUf(city) } : null}
+            overlayMarkers={isLighting ? visiblePoles.map((pole) => ({ id: pole.id, title: poleCode(pole.identifier || pole.plate || `Poste ${pole.id}`), isBroken: pole.is_broken || ['apagado', 'manutencao'].includes(pole.lighting_status), location: { lat: Number(pole.latitude), lng: Number(pole.longitude) } })) : []}
+            selectedOverlayMarkerId={form.pole_id} onOverlayMarkerSelect={(marker) => { if (!editable || busy) return false; selectPole(marker.id); }} snapToOverlayOnSelect>
+            {locations.length > 0 && <MunicipalDemandReportMarkers locations={locations} servicePosition={position} selectedLocation={selectedLocation} />}
+          </LocationPickerMap>
+        </Suspense>
+
+      </div>
       </div>
       <div className="min-w-0 space-y-3">
         <div className="grid min-w-0 gap-3 sm:grid-cols-2">

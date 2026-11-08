@@ -168,7 +168,10 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
         });
       } catch {}
 
-      window.dispatchEvent(new CustomEvent('report-submitted', { detail: { id: data.id, published: municipalMode ? data.is_public : !!(user.is_admin || user.is_master) } }));
+      window.dispatchEvent(new CustomEvent('report-submitted', { detail: {
+        id: data.id, title: data.title, protocol: data.protocol, municipal: municipalMode,
+        published: municipalMode ? data.is_public : !!(user.is_admin || user.is_master),
+      } }));
       onCreated?.(data.id, data);
       window.dispatchEvent(new CustomEvent('reports-updated', { detail: { id: data.id } }));
       return { id: data.id, notified: true };

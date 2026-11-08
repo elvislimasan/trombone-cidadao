@@ -180,6 +180,7 @@ const ReportDetails = ({
   report, 
   onClose, 
   onUpdate, 
+  onDelete,
   onUpvote, 
   onLink, 
   onFavoriteToggle, 
@@ -2077,6 +2078,12 @@ const ReportDetails = ({
                           <Edit className="w-4 h-4" />
                           <span className="hidden sm:inline">Editar</span>
                           <span className="sm:hidden">Edit.</span>
+                        </Button>
+                      )}
+                      {onDelete && user && (user.id === report.author_id || user.is_admin || user.is_master) && (
+                        <Button type="button" variant="destructive" onClick={() => onDelete(report)} className="min-h-11 gap-2 text-xs sm:text-sm">
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          Excluir bronca
                         </Button>
                       )}
                       

@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
 import MunicipalTable from '@/components/municipality/MunicipalTable';
-import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
+import { MunicipalMobileDisclosure, MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import { loadMunicipalRows } from '@/lib/municipalTable';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,7 +95,7 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
   };
 
   return (
-    <MunicipalDrawer open={aberto} onClose={onFechar} busy={salvando} title={canal ? canal.nome : 'Nova secretaria'} description="Defina quais solicitações, mapas e serviços pertencem à secretaria. Depois, atribua apenas os cargos aos funcionários."
+    <MunicipalDrawer task open={aberto} onClose={onFechar} busy={salvando} title={canal ? canal.nome : 'Nova secretaria'} description="Defina quais solicitações, mapas e serviços pertencem à secretaria. Depois, atribua apenas os cargos aos funcionários."
       footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={salvando} onClick={onFechar}>Cancelar</Button><Button disabled={erros.length > 0 || semCidade || salvando} onClick={() => onSalvar({ ...form, copias })}>{salvando ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
         <div className="space-y-4 py-2">
           {/* Combobox e não `select`: são 5.570 cidades, e um `select` nativo
@@ -435,16 +435,17 @@ const ManageAgencyChannelsPage = () => {
         <meta name="robots" content="noindex" />
       </Helmet>
 
-      <div className="page-shell-fluid pb-10 pt-6 sm:pt-8">
-        <MunicipalPageHeader eyebrow="Administração municipal" title="Secretarias" description="Defina a responsabilidade por categoria e mantenha os contatos institucionais atualizados." action={<Button className="w-full sm:w-auto" onClick={() => setEditando(null)}><PlusCircle className="mr-2 h-4 w-4" />Nova secretaria</Button>} />
+      <div className="municipal-workspace-page page-shell-fluid pb-10 sm:pt-8">
+        <MunicipalPageHeader eyebrow="Administração municipal" title="Secretarias" description="Organize os serviços e os contatos das secretarias." action={<Button className="w-full sm:w-auto" onClick={() => setEditando(null)}><PlusCircle className="mr-2 h-4 w-4" />Nova secretaria</Button>} />
 
-        <div className="mb-6 mt-6 rounded-xl border border-edge-subtle bg-surface-subtle px-4 py-3">
+        <MunicipalMobileDisclosure title="Como funcionam os encaminhamentos" className="municipal-help-disclosure">
           <p className="text-xs leading-relaxed text-content-secondary">
             O recebimento é confirmado quando o e-mail chega à secretaria. Se a entrega falhar, o canal é desligado automaticamente para evitar novos encaminhamentos sem destino.
           </p>
-        </div>
+        </MunicipalMobileDisclosure>
 
         <MunicipalTable title="Secretarias cadastradas" loading={carregando}
+          filterHint={[statusFilter !== 'all' && (statusFilter === 'active' ? 'Ativas' : 'Desligadas'), categoryFilter !== 'all' && CATEGORIAS_BRONCA.find(category => category.id === categoryFilter)?.name, cityFilter !== 'all' && cidades.find(city => String(city.value) === cityFilter)?.label].filter(Boolean).join(' · ')}
           rows={canais.filter((canal) => (statusFilter === 'all' || canal.ativo === (statusFilter === 'active')) && (categoryFilter === 'all' || canal.categorias.includes(categoryFilter)) && (cityFilter === 'all' || String(canal.city_id) === cityFilter))}
           filterKey={statusFilter + categoryFilter + cityFilter} onOpen={setEditando}
           searchPlaceholder="Nome, e-mail, cidade ou categoria"

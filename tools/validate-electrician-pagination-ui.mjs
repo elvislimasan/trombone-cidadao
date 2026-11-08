@@ -25,7 +25,7 @@ const stubs={
   '@/components/municipality/ElectricianLightingMap':`export default function Map(){return <div>Mapa de iluminação</div>}`,
   '@/lib/customSupabaseClient':`
     const rows=Array.from({length:53},(_,i)=>({tipo:'solicitacao',id:'row-'+(i+1),protocolo:'PAG-'+(i+1),titulo:'Poste '+(i+1),descricao:'Lâmpada apagada',endereco:'Rua A',bairro:'Centro',prioridade:'normal',status:'aberta',pole_id:i+1,report_id:'report-'+(i+1),created_at:new Date(2020,0,i+1).toISOString()}));
-    export const supabase={rpc(name,args){const request={name,args};window.requests.push(request);let signal;return {abortSignal(s){signal=s;return this;},then(ok,fail){return new Promise(resolve=>setTimeout(()=>{
+    export const supabase={rpc(name,args){const request={name,args};if(name==='listar_painel_eletricista')window.requests.push(request);else window.auxRequests.push(request);let signal;return {abortSignal(s){signal=s;return this;},then(ok,fail){return new Promise(resolve=>setTimeout(()=>{
       request.aborted=Boolean(signal?.aborted);
       if(name==='listar_painel_eletricista'){
         if(window.failPage){resolve({data:null,error:{message:'Falha de teste'}});return;}
@@ -42,9 +42,9 @@ const stubs={
 if(!process.argv.includes('--reuse-assets')) {
 await build({jsx:'automatic',loader:{'.png':'dataurl'},stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route} from 'react-router-dom';import ElectricianLayout from '@/components/municipality/ElectricianLayout';import ElectricianPanelPage from '@/pages/ElectricianPanelPage';const context={userId:'11111111-1111-4111-8111-111111111111',municipality:{id:'city',city_id:1,nome:'Prefeitura teste',cidade:{name:'Floresta'}},memberships:[]};createRoot(document.getElementById('root')).render(<BrowserRouter><Routes><Route element={<ElectricianLayout context={context}/>}><Route path='/prefeitura/eletricista' element={<ElectricianPanelPage/>}/></Route></Routes></BrowserRouter>);`,resolveDir:root,loader:'jsx'},bundle:true,outfile:path.join(out,'preview.js'),define:{'process.env.NODE_ENV':'"production"','import.meta.env':'{"DEV":false}'},alias:{'@':path.join(root,'src')},plugins:[{name:'fixtures',setup(b){b.onResolve({filter:/.*/},a=>stubs[a.path]?{path:a.path,namespace:'fixture'}:undefined);b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:stubs[a.path],loader:'jsx',resolveDir:root}));}}]});
 let inputCss=await fs.readFile('src/index.css','utf8');
-for(const token of ['primitives','semantic','typography','motion']) inputCss=inputCss.replace("@import './design-system/tokens/"+token+".css';",await fs.readFile('src/design-system/tokens/'+token+'.css','utf8'));
-const css=await postcss([tailwind({...loadConfig(path.join(root,'tailwind.config.js')),content:[{raw:'h-screen w-full'},...['src/pages/ElectricianPanelPage.jsx','src/components/MapView.jsx','src/components/map/MapDisplayControls.jsx','src/components/municipality/ElectricianPatrolAlert.jsx','src/pages/ElectricianProfilePage.jsx','src/pages/MyPatrolsPage.jsx','src/components/municipality/ElectricianLayout.jsx','src/components/patrol/**/*.jsx','src/components/municipality/ElectricianPoleVisitDrawer.jsx','src/components/municipality/MunicipalLightingMap.jsx','src/components/WebUploadIndicator.jsx','src/components/ui/{drawer,input,button,progress}.jsx'].map(file=>path.join(root,file))]})]).process(inputCss,{from:path.join(root,'src/index.css')});
-await fs.writeFile(path.join(out,'preview.css'),(await fs.readFile(path.join(out,'preview.css'),'utf8'))+'\n'+css.css);
+for(const match of [...inputCss.matchAll(/@import '([^']+)';/g)]) inputCss=inputCss.replace(match[0],await fs.readFile(path.join(root,'src',match[1]),'utf8'));
+const css=await postcss([tailwind({...loadConfig(path.join(root,'tailwind.config.js')),content:[{raw:'h-screen w-full'},...['src/components/municipality/MunicipalPageUi.jsx','src/pages/ElectricianPanelPage.jsx','src/components/MapView.jsx','src/components/map/MapDisplayControls.jsx','src/components/municipality/ElectricianPatrolAlert.jsx','src/pages/ElectricianProfilePage.jsx','src/pages/MyPatrolsPage.jsx','src/components/municipality/ElectricianLayout.jsx','src/components/patrol/**/*.jsx','src/components/municipality/ElectricianPoleVisitDrawer.jsx','src/components/municipality/MunicipalLightingMap.jsx','src/components/WebUploadIndicator.jsx','src/components/ui/{drawer,input,button,progress}.jsx'].map(file=>path.join(root,file))]})]).process(inputCss,{from:path.join(root,'src/index.css')});
+await fs.writeFile(path.join(out,'preview.css'),(await fs.readFile('node_modules/leaflet/dist/leaflet.css','utf8'))+'\n'+css.css);
 await fs.writeFile(path.join(out,'index.html'),'<html><head><meta charset="UTF-8"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>');
 }
 const server=http.createServer(async(req,res)=>{const file=path.join(out,req.url==='/preview.js'?'preview.js':req.url==='/preview.css'?'preview.css':'index.html');res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(file));});
@@ -126,7 +126,7 @@ try{
     assert.equal(await evaluate(cards+'.length'),20);
     assert.ok(await evaluate('requests.at(-1).args.p_aba==="minhas"'));
     await clickText('Próxima');await waitFor('document.body.innerText.includes("Página 2 de 3")');
-    await evaluate('[...document.querySelectorAll(`button[role="tab"]`)].find(b=>b.textContent.includes("Histórico")).click()');
+    await evaluate('(()=>{const s=document.querySelector(`select[aria-label="Etapa das minhas ordens"]`);s.value="historico";s.dispatchEvent(new Event("change",{bubbles:true}));})()');
     await waitFor('document.body.innerText.includes("Nenhuma ordem nesta etapa")');
     assert.equal(await evaluate('requests.at(-1).args.p_pagina'),1);
     const before=await evaluate('requests.length');

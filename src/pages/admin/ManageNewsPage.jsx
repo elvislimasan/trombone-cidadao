@@ -1089,6 +1089,7 @@ const ManageNewsPage = () => {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button asChild variant="outline"><Link to="/admin/editorial">Editorial</Link></Button>
             <Button onClick={handleRunImporter} variant="outline" className="gap-2" disabled={isImporting}>
               {isImporting ? (
                 <>

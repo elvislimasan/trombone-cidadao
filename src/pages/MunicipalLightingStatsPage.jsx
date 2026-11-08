@@ -1,5 +1,6 @@
 import { poleCode } from '@/lib/poleDisplay';
 import React, { useEffect, useMemo, useState } from 'react';
+import { MunicipalMobileDisclosure } from '@/components/municipality/MunicipalPageUi';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
 import { CircleMarker, MapContainer, Tooltip, useMap } from 'react-leaflet';
@@ -182,26 +183,28 @@ export default function MunicipalLightingStatsPage() {
   const selectedNeighborhoodRow = stats?.neighborhoodCounts.find((row) => row.name === selectedNeighborhood);
   const selectedIds = new Set(selectedNeighborhoodRow?.poleIds || []);
   const selectedPoles = data?.poles.filter((pole) => selectedIds.has(pole.id) && Number.isFinite(Number(pole.latitude)) && Number.isFinite(Number(pole.longitude))) || [];
-  return <div className="page-shell-fluid min-w-0 pb-8 pt-5 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2.5rem)' }}>
+  return <div className="municipal-lighting-stats municipal-workspace-page page-shell-fluid min-w-0 pb-8 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2.5rem)' }}>
     <Helmet><title>Estatísticas de iluminação | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-surface-base to-blue-50/30 p-4 shadow-sm dark:border-edge-subtle dark:from-slate-950 dark:via-surface-base dark:to-slate-950 sm:p-5">
-      <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-red-600">Iluminação pública</p><h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">Estatísticas de manutenção</h1><p className="mt-1 text-xs text-content-secondary sm:text-sm">Solicitações de iluminação, atendimentos e inventário dos postes da cidade.</p>{context.isElectrician && <Link to="/prefeitura/eletricista/estatisticas" className="mt-2 inline-block text-xs font-bold text-brand underline">Ver minha produção e ranking</Link>}</div>
+      <header className="municipal-stats-header flex min-w-0 flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0"><p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-red-600">Iluminação pública</p><h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">Estatísticas de iluminação</h1><p className="mt-1 text-xs text-content-secondary sm:text-sm">Consulte o atendimento e o inventário da cidade.</p>{context.isElectrician && <Link to="/prefeitura/eletricista/estatisticas" className="mt-2 inline-block text-xs font-bold text-brand underline">Ver minha produção e ranking</Link>}</div>
         <div className="flex flex-wrap items-center gap-2.5"><label className="relative flex h-10 items-center rounded-lg border border-edge-subtle bg-surface-raised shadow-sm"><CalendarDays className="pointer-events-none ml-3 h-4 w-4 text-content-secondary" /><span className="sr-only">Período das ordens de serviço</span><select aria-label="Período das ordens de serviço" value={period} onChange={(event) => setPeriod(event.target.value)} className="h-full min-w-40 appearance-none bg-transparent pl-2 pr-9 text-xs font-semibold text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">{periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-content-secondary" /></label><Button variant="outline" onClick={() => setRevision((value) => value + 1)} disabled={loading} className="h-10 border-edge-subtle bg-surface-raised px-4 text-xs font-semibold shadow-sm"><RotateCcw className={'mr-2 h-4 w-4 ' + (loading ? 'animate-spin' : '')} />Atualizar</Button></div>
       </header>
       {loading && <p role="status" className="mt-8 flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Carregando estatísticas…</p>}
       {error && <p role="alert" className="mt-8 rounded-xl border border-danger-subtleFg/20 bg-danger-subtleBg p-4 text-sm text-danger-subtleFg">{error}</p>}
       {stats && !loading && <>
-        <section aria-label="Indicadores de manutenção" className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2 min-[1360px]:grid-cols-4">
+        <section aria-label="Indicadores de manutenção" className="municipal-stats-metrics mt-5 grid min-w-0 gap-3 sm:grid-cols-2 min-[1360px]:grid-cols-4">
           <MetricCard label="Postes ativos" value={totalLamps.toLocaleString('pt-BR')} detail={`${stats.problems.toLocaleString('pt-BR')} apagados ou com problema`} tone="green" icon={LampDesk} />
           <MetricCard label="Solicitações recebidas" value={stats.requests.toLocaleString('pt-BR')} detail={`${stats.open.toLocaleString('pt-BR')} ordens em aberto`} tone="orange" icon={ClipboardList} />
           <MetricCard label="Solicitações resolvidas" value={stats.requestsResolved.toLocaleString('pt-BR')} detail={`${stats.completed.toLocaleString('pt-BR')} ordens concluídas`} tone="blue" icon={CheckCircle2} />
           <MetricCard label="Tempo médio geral" value={duration(stats.overall)} detail="Da abertura à execução ou conclusão" tone="purple" icon={Clock3} />
         </section>
+        <MunicipalMobileDisclosure title="Tempos por serviço" className="municipal-service-times">
         <section aria-label="Tempo médio por serviço" className="mt-3 grid min-w-0 gap-3 md:grid-cols-2">
           <ServiceMetric label="Tempo médio para troca de lâmpada" value={duration(stats.lamp)} detail="Ordens concluídas registradas como troca de lâmpada" tone="rose" icon={stats.lamp == null ? XCircle : Lightbulb} info="A média considera apenas ordens com serviço executado informado como troca de lâmpada." />
           <ServiceMetric label="Tempo médio para instalar braço de luz" value={duration(stats.arm)} detail="Ordens concluídas registradas como instalação de braço" tone="blue" icon={Wrench} />
         </section>
+        </MunicipalMobileDisclosure>
         <div className="mt-3 grid min-w-0 gap-3 min-[1360px]:grid-cols-2">
           <section className="min-h-[360px] min-w-0 rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-sm sm:p-5" aria-labelledby="lighting-lamps-title">
             <header className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300"><Lightbulb className="h-5 w-5" /></span><div className="min-w-0"><h2 id="lighting-lamps-title" className="text-base font-extrabold">Tipos de lâmpada</h2><p className="mt-0.5 text-[11px] text-content-secondary">Quantidade de postes ativos por tecnologia cadastrada.</p></div></div><ViewSwitch label="Visualização das lâmpadas" value={lampView} onChange={setLampView} options={[["list", "Lista", List], ["chart", "Gráfico", PieChart]]} /></header>

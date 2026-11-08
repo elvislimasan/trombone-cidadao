@@ -1,8 +1,9 @@
+import { TaskDialogContent, TaskDialogFooter } from '@/components/ui/task-dialog';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronDown, Download, FileText, Loader2, Table2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FormDialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/lib/customSupabaseClient';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES } from '@/lib/municipalDemand';
@@ -138,8 +139,8 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
   };
 
   return <Dialog open onOpenChange={(open) => { if (!open && !exporting) onClose(); }}>
-    <FormDialogContent hideClose={exporting} className="flex max-h-[94dvh] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85dvh] sm:w-[calc(100vw-4rem)] sm:max-w-5xl sm:rounded-xl">
-      <DialogHeader className="shrink-0 border-b border-edge-subtle px-5 py-4 pr-12 text-left sm:px-6"><DialogTitle className="text-xl">Exportar {demands ? 'ordens de serviço' : 'solicitações'}</DialogTitle><DialogDescription className="mt-1 text-xs text-content-secondary">Prepare um relatório com todos os resultados ou com sua seleção.</DialogDescription></DialogHeader>
+    <TaskDialogContent hideClose={exporting} className="flex max-h-[94dvh] flex-col gap-0 overflow-hidden p-0 sm:max-h-[85dvh] sm:w-[calc(100vw-4rem)] sm:max-w-5xl sm:rounded-xl">
+      <DialogHeader className="task-dialog-heading shrink-0 border-b border-edge-subtle px-5 py-4 pr-12 text-left sm:px-6"><DialogTitle className="text-xl">Exportar {demands ? 'ordens de serviço' : 'solicitações'}</DialogTitle><DialogDescription className="mt-1 text-xs text-content-secondary">Prepare um relatório com todos os resultados ou com sua seleção.</DialogDescription></DialogHeader>
       <form onSubmit={download} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* A rolagem fica numa div: fieldset não encolhe de forma consistente
             em contêineres flex e deixava os últimos filtros atrás do rodapé. */}
@@ -198,8 +199,8 @@ export default function MunicipalExportDialog({ kind, context, initialFilters, s
         </div>
         {downloadError && <p role="alert" className="shrink-0 px-6 pb-3 text-xs text-danger">{downloadError}</p>}
         {feedback && <p role="status" className="flex shrink-0 items-center gap-2 px-6 pb-3 text-xs text-success-fg"><CheckCircle2 className="h-4 w-4" />{feedback}</p>}
-        <DialogFooter className="shrink-0 gap-2 border-t border-edge-subtle bg-surface-raised px-5 py-3 sm:px-6"><Button type="button" variant="outline" disabled={exporting} onClick={onClose}>Cancelar</Button><Button type="submit" disabled={busy || exporting || Boolean(dateError || result.error) || !result.records.length}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}{exporting ? 'Gerando arquivo…' : `Baixar ${format === 'pdf' ? 'PDF' : 'planilha'} · ${busy ? '…' : result.records.length.toLocaleString('pt-BR')} ${result.records.length === 1 ? 'registro' : 'registros'}`}</Button></DialogFooter>
+        <TaskDialogFooter><Button type="button" variant="outline" disabled={exporting} onClick={onClose}>Cancelar</Button><Button type="submit" disabled={busy || exporting || Boolean(dateError || result.error) || !result.records.length}>{exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}{exporting ? 'Gerando arquivo…' : `Baixar ${format === 'pdf' ? 'PDF' : 'planilha'} · ${busy ? '…' : result.records.length.toLocaleString('pt-BR')} ${result.records.length === 1 ? 'registro' : 'registros'}`}</Button></TaskDialogFooter>
       </form>
-    </FormDialogContent>
+    </TaskDialogContent>
   </Dialog>;
 }

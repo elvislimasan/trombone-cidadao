@@ -31,6 +31,7 @@ const PlayBadge = () => (
 // ficam fora da midia (ao lado do titulo), entao nao sao renderizados aqui.
 const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = [], square = false, onClick }) => {
   const [imgSrc, setImgSrc] = useState(report.coverImage || null);
+  const [failedThumbnail, setFailedThumbnail] = useState(null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef(null);
 
@@ -100,17 +101,17 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
     if (audioOn) videoRef.current?.play?.().catch(() => {});
   };
 
-  const wantsThumbnail = !report.coverImage && !!report.coverVideo && isInView && index <= 12;
+  const wantsThumbnail = !imgSrc && !!report.coverVideo && isInView;
 
   // Retry com backoff para geracao de thumbnail de video: o hook useVideoThumbnail
   // (Task 12) nao faz retry por si so, e responsabilidade do consumidor.
   // Ate 3 tentativas com espera de 900ms * numero da tentativa antes de desistir
-  // e cair no fallback de <video>. thumbnailRetry entra na chave que reativa o
-  // hook (via videoUrl com sufixo) para forcar uma nova tentativa de enqueue.
+  // A prévia pelo próprio vídeo permanece disponível durante a extração.
   const [thumbnailRetry, setThumbnailRetry] = useState(0);
 
   useEffect(() => {
     setThumbnailRetry(0);
+    setFailedThumbnail(null);
   }, [report.coverVideo]);
 
   const thumbnailRetryTimerRef = useRef(null);
@@ -138,11 +139,18 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [failed, wantsThumbnail, thumbnailRetry]);
 
-  const src = imgSrc || thumbnailUrl;
-  const exhaustedRetries = failed && thumbnailRetry >= MAX_THUMBNAIL_RETRIES;
-  const showVideoElement = !src && exhaustedRetries && !!report.coverVideo;
+  const src = imgSrc || (thumbnailUrl !== failedThumbnail ? thumbnailUrl : null);
 
   const chip = chips[0];
+
+  // Relatos sem anexo priorizam o texto e as ações. Reservar uma capa 4:3
+  // vazia escondia os botões abaixo da primeira tela no celular.
+  // Miniaturas quadradas mantêm a geometria do cartão horizontal.
+  if (!square && !report.coverImage && !report.coverVideo) {
+    return chip ? (
+      <div className="px-4 pb-1"><SignalChip variant={chip.variant} label={chip.label} /></div>
+    ) : null;
+  }
 
   // Video com autoplay: respeita a proporcao real. Nos demais casos o
   // aspect-ratio e fixo, o que evita layout shift.
@@ -212,10 +220,11 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
             loading={index < 3 ? 'eager' : 'lazy'}
             fetchpriority={index === 0 ? 'high' : 'auto'}
             decoding="async"
+            data-video-thumbnail={report.coverVideo && !imgSrc ? '' : undefined}
             onError={() => {
-              if (!imgSrc) return;
+              if (!imgSrc) { setFailedThumbnail(thumbnailUrl); return; }
               if (imgSrc.startsWith('blob:')) return;
-              if (retryRef.current >= 4) return;
+              if (retryRef.current >= 4) { setImgSrc(null); return; }
               retryRef.current += 1;
               const delay = 650 * retryRef.current;
               if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
@@ -224,15 +233,19 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
               }, delay);
             }}
           />
-        ) : showVideoElement ? (
+        ) : report.coverVideo ? (
           <video
             src={report.coverVideo}
+            data-video-preview=""
+            aria-hidden="true"
             muted
             playsInline
-            preload="metadata"
+            preload={isInView ? 'metadata' : 'none'}
             className="w-full h-full object-cover"
             onLoadedMetadata={(e) => {
-              try { e.currentTarget.currentTime = 0.15; } catch {}
+              const video = e.currentTarget;
+              const target = Number.isFinite(video.duration) ? Math.min(.15, Math.max(0, video.duration / 2)) : .15;
+              try { video.currentTime = target; } catch {}
             }}
             onCanPlay={(e) => {
               try { e.currentTarget.pause(); } catch {}
@@ -245,7 +258,7 @@ const FeedCardMedia = ({ report, index = 0, isInView = false, status, chips = []
         )}
 
         {/* Nao no video com autoplay: la o canto tem o controle de som. */}
-        {!wantsAutoplay && !report.coverImage && report.coverVideo && <PlayBadge />}
+        {!wantsAutoplay && report.coverVideo && <PlayBadge />}
 
         {/* No modo quadrado o status e o sinal vivem ao lado do titulo. */}
         {!square && status && (

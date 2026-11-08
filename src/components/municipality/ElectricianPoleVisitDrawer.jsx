@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { poleDisplayLabel, poleReferenceText } from '@/lib/poleDisplay';
-import { LAMP_TYPES } from '@/lib/lightingCatalog';
+import { DEFAULT_MAINTENANCE_LAMP_TYPE, LAMP_TYPES } from '@/lib/lightingCatalog';
 import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
 import { showAppNotice } from '@/lib/appError';
 
@@ -34,7 +34,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
   const [historyLoading, setHistoryLoading] = useState(false);
   const [status, setStatus] = useState('apagado');
   const [description, setDescription] = useState('');
-  const [lampType, setLampType] = useState('');
+  const [lampType, setLampType] = useState(DEFAULT_MAINTENANCE_LAMP_TYPE);
   const [power, setPower] = useState('');
   const [serviceDone, setServiceDone] = useState(false);
   const [services, setServices] = useState([]);
@@ -47,7 +47,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
   const openPole = useCallback(async (pole) => {
     const token = ++selectionId.current;
     setSelected(pole); setStatus(lightingStatus(pole));
-    setDescription(''); setLampType(pole.lamp_type || ''); setPower(pole.lamp_power_w ?? '');
+    setDescription(''); setLampType(DEFAULT_MAINTENANCE_LAMP_TYPE); setPower(pole.lamp_power_w ?? '');
     setServiceDone(false); setServices([]); setVisitId(crypto.randomUUID());
     setOfflineNotice(''); setDetailError(''); setHistory([]); setActiveReports([]); setReportId(null); setHistoryLoading(true);
     const [current, changes, reports] = await electricianCachedRead(user?.id, `pole-detail:${municipality.id}:${pole.id}`, async () => {
@@ -72,7 +72,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
     });
     if (token !== selectionId.current) return;
     if (current.error) setDetailError(current.error.message);
-    else { setSelected((value) => value?.id === pole.id ? current.data : value); setLampType(current.data.lamp_type || ''); setPower(current.data.lamp_power_w ?? ''); }
+    else { setSelected((value) => value?.id === pole.id ? current.data : value); setPower(current.data.lamp_power_w ?? ''); }
     if (changes.error) setDetailError(changes.error.message);
     else setHistory(changes.data || []);
     if (reports.error) setDetailError(reports.error.message);

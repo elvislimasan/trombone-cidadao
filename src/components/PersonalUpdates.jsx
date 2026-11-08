@@ -1,41 +1,48 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, ArrowRight, CheckCircle, FileText, Send } from 'lucide-react';
+import { Bell, ArrowRight, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useNotifications } from '@/contexts/NotificationContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import TimeAgo from '@/components/TimeAgo';
 
 export default function PersonalUpdates({ compact = false }) {
   const { user } = useAuth();
-  const { notificationsEnabled } = useNotifications();
-  const [items, setItems] = useState([]);
+  const generation = useRef(0);
+  const invalidate = useCallback(() => { generation.current++; }, []);
+  const [state, setState] = useState({ owner: null, items: [], loading: true, error: false });
   const load = useCallback(async () => {
-    if (!user?.id || !notificationsEnabled) { setItems([]); return; }
-    const { data, error } = await supabase.from('notifications')
-      .select('id, report_id, message, created_at').eq('user_id', user.id)
-      .eq('is_read', false).not('report_id', 'is', null).neq('type', 'moderation_required')
-      .order('created_at', { ascending: false }).limit(3);
-    if (!error) setItems(data || []);
-  }, [user?.id, notificationsEnabled]);
+    const request = ++generation.current;
+    if (!user?.id) return;
+    setState(previous => ({ owner: user.id, items: previous.owner === user.id ? previous.items : [], loading: true, error: false }));
+    try {
+      // A consulta da central independe da permissão de push e usa somente a conta atual.
+      const { data, error } = await supabase.from('notifications')
+        .select('id, report_id, message, created_at').eq('user_id', user.id)
+        .eq('is_read', false).not('report_id', 'is', null).neq('type', 'moderation_required')
+        .order('created_at', { ascending: false }).limit(20);
+      if (error) throw error;
+      if (generation.current === request) setState({ owner: user.id, items: data || [], loading: false, error: false });
+    } catch {
+      if (generation.current === request) setState(previous => ({ ...previous, loading: false, error: true }));
+    }
+  }, [user?.id]);
   useEffect(() => {
     load();
     window.addEventListener('new-notification', load);
     window.addEventListener('focus', load);
-    return () => { window.removeEventListener('new-notification', load); window.removeEventListener('focus', load); };
-  }, [load]);
-  if (!user || !notificationsEnabled || !items.length) return null;
-  if (compact) return <Link to="/seguindo?aba=broncas" className="mx-4 mb-3 flex min-w-0 items-center gap-3 rounded-xl border border-brand/20 bg-brand-subtleBg px-4 py-3 text-sm font-semibold text-brand-subtleFg"><Bell className="h-5 w-5 shrink-0" /><span className="min-w-0 flex-1 break-words">Há novidades nas suas broncas</span><ArrowRight className="h-4 w-4 shrink-0" /></Link>;
-  return <section className="mb-5 min-w-0 w-full max-w-full overflow-hidden rounded-2xl border border-brand/20 bg-surface-raised" aria-label="Atualizações">
-    <div className="flex items-center gap-3 border-b border-edge-subtle bg-brand-subtleBg px-4 py-3">
-      <h2 className="flex items-center gap-2 text-sm font-extrabold text-content-primary"><Bell className="h-4 w-4 text-brand" />Atualizações</h2>
-    </div>
-    <div className="min-w-0 w-full max-w-full divide-y divide-edge-subtle px-4">{items.map((item, index) => {
-      const UpdateIcon = index === 0 ? CheckCircle : index === 1 ? FileText : Send;
-      return <Link key={item.id} to={`/bronca/${item.report_id}`} onClick={() => { supabase.from('notifications').update({ is_read: true }).eq('id', item.id).eq('user_id', user.id).then(() => {}); }} className="flex min-w-0 w-full max-w-full items-start gap-2.5 py-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-subtleBg text-brand"><UpdateIcon className="h-3.5 w-3.5" /></span>
-        <span className="min-w-0 flex-1"><p className="min-w-0 max-w-full break-words text-xs font-bold leading-snug text-content-primary">{item.message || 'Uma bronca teve atualização. Veja o andamento.'}</p><TimeAgo date={item.created_at} className="mt-0.5 block text-[10px] text-content-secondary" /></span>
-      </Link>;
-    })}</div>
+    return () => { invalidate(); window.removeEventListener('new-notification', load); window.removeEventListener('focus', load); };
+  }, [invalidate, load]);
+  if (!user) return null;
+  const current = state.owner === user.id ? state : { items: [], loading: true, error: false };
+  if (compact) return current.items.length ? <Link to="/seguindo?aba=novidades" className="personal-updates-compact"><Bell size={20} aria-hidden="true" />Há novidades nas suas broncas<ArrowRight size={18} aria-hidden="true" /></Link> : null;
+  return <section className="personal-updates" aria-label="Novidades para você">
+    <div className="personal-updates-heading"><div><h2>Novidades para você</h2><p>Atualizações de broncas recebidas pela sua conta.</p></div><button type="button" onClick={load} disabled={current.loading} aria-label="Atualizar novidades"><RefreshCw size={18} aria-hidden="true" /></button></div>
+    {current.error && <div role="alert" className="personal-list-state"><p>Não foi possível carregar suas novidades.</p><button type="button" onClick={load}>Tentar novamente</button></div>}
+    {current.loading && !current.items.length ? <div role="status" className="personal-list-state"><p>Buscando novidades…</p><div className="personal-update-skeleton" /><div className="personal-update-skeleton" /></div>
+      : !current.error && !current.items.length ? <div className="personal-list-state"><span className="personal-empty-icon"><Bell size={26} aria-hidden="true" /></span><h3>Tudo em dia por aqui</h3><p>Quando uma bronca tiver uma atualização para você, ela aparecerá nesta área.</p><Link to="/seguindo?aba=broncas">Ver broncas salvas<ArrowRight size={16} aria-hidden="true" /></Link></div>
+        : <div className="personal-updates-list">{current.items.map(item => <Link key={item.id} to={`/bronca/${item.report_id}`} onClick={() => {
+          supabase.from('notifications').update({ is_read: true }).eq('id', item.id).eq('user_id', user.id).then(() => {}, () => {});
+        }}><span className="personal-update-icon"><Bell size={18} aria-hidden="true" /></span><span className="personal-update-copy"><strong>{item.message || 'Uma bronca teve atualização. Veja o andamento.'}</strong><TimeAgo date={item.created_at} /></span><ArrowRight size={18} aria-hidden="true" /></Link>)}</div>}
+    {!!current.items.length && <p className="personal-updates-footnote">Até 20 novidades ainda não lidas. Salvar uma bronca e receber notificações são ações distintas.</p>}
   </section>;
 }

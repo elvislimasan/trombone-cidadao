@@ -1,37 +1,30 @@
-import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const MobileHeaderContext = createContext(null);
+const EMPTY_HEADER = { title: null, actions: [], showBack: null, onBack: null };
 
 export function MobileHeaderProvider({ children }) {
   const location = useLocation();
-  const [title, setTitle] = useState(null);
-  const [actions, setActions] = useState([]);
-  const [showBack, setShowBack] = useState(null);
-  const [onBack, setOnBack] = useState(null);
-
-  const reset = useCallback(() => {
-    setTitle(null);
-    setActions([]);
-    setShowBack(null);
-    setOnBack(null);
-  }, []);
-
-  useEffect(() => {
-    reset();
-  }, [location.pathname, reset]);
-
-  const value = useMemo(() => ({
-    title,
-    actions,
-    showBack,
-    onBack,
-    setTitle,
-    setActions,
-    setShowBack,
-    setOnBack,
-    reset,
-  }), [actions, onBack, reset, showBack, title]);
+  const pathname = location.pathname;
+  const [overrides, setOverrides] = useState(() => ({ pathname, ...EMPTY_HEADER }));
+  const controls = useMemo(() => {
+    const setter = field => update => setOverrides(previous => {
+      const current = previous.pathname === pathname ? previous : { pathname, ...EMPTY_HEADER };
+      return { ...current, [field]: typeof update === 'function' ? update(current[field]) : update };
+    });
+    return {
+      setTitle: setter('title'),
+      setActions: setter('actions'),
+      setShowBack: setter('showBack'),
+      setOnBack: setter('onBack'),
+      reset: () => setOverrides(previous => previous.pathname === pathname ? { pathname, ...EMPTY_HEADER } : previous),
+    };
+  }, [pathname]);
+  // Esconde imediatamente as ações da rota anterior. Um reset do provider
+  // depois dos efeitos das páginas apagava o título/ações recém-registrados.
+  const current = overrides.pathname === pathname ? overrides : EMPTY_HEADER;
+  const value = useMemo(() => ({ ...current, ...controls }), [current, controls]);
 
   return (
     <MobileHeaderContext.Provider value={value}>

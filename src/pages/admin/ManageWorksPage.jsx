@@ -1264,6 +1264,7 @@ const ManageWorksPage = () => {
             </div>
           </div>
            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            {(user?.is_admin || user?.is_master) && <Button asChild variant="outline" size="sm"><Link to="/admin/editorial">Editorial</Link></Button>}
             <Link to="/admin/obras/opcoes"><Button variant="outline" size="sm" className="text-xs sm:text-sm">Gerenciar Opções</Button></Link>
             <Button onClick={handleAddNewWork} size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm"><PlusCircle className="w-3 h-3 sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Adicionar Obra</span><span className="sm:hidden">Adicionar</span></Button>
           </div>

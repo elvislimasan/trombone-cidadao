@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowRight, BarChart3, CheckCircle2, ChevronRight, ClipboardList, Clock3, FileText, List, Loader2, Plus, RotateCcw, Users, Zap } from 'lucide-react';
+import { AlertCircle, ArrowRight, BarChart3, CheckCircle2, ChevronRight, ClipboardList, Clock3, FileText, List, Loader2, Plus, RotateCcw, Users } from 'lucide-react';
 import Icon, { categoryIconName } from '@/design-system/icons';
 import { Button } from '@/components/ui/button';
 import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
@@ -12,6 +12,8 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { REPORT_PHASES } from '@/lib/municipalReports';
 import { attendanceOverviewScope, loadAttendanceOverview, overviewReportPath } from '@/lib/municipalOverview';
 import { municipalContextPath } from '@/lib/municipalAccess';
+import ActionCard from '@/components/journeys/ActionCard';
+import DisclosureSection from '@/components/journeys/DisclosureSection';
 
 const number = (value) => Number(value || 0);
 const format = (value) => number(value).toLocaleString('pt-BR');
@@ -34,13 +36,13 @@ function weekDays() {
 }
 
 function Metric({ label, value, caption, icon: Icon, accent }) {
-  return <div className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6">
+  return <div className="min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-3 sm:p-5">
     <div className="flex items-start justify-between gap-3">
       <p className="text-sm font-semibold text-content-secondary">{label}</p>
-      <span className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + accent}><Icon className="h-5 w-5" /></span>
+      <span className={'hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex ' + accent}><Icon className="h-5 w-5" /></span>
     </div>
-    <p className="mt-3 font-display text-3xl font-black tabular-nums tracking-tight sm:text-4xl">{value}</p>
-    <p className="mt-1 text-xs leading-5 text-content-secondary">{caption}</p>
+    <p className="mt-3 font-display text-2xl font-black tabular-nums tracking-tight sm:text-4xl">{value}</p>
+    <p className="mt-1 hidden text-xs leading-5 text-content-secondary sm:block">{caption}</p>
   </div>;
 }
 
@@ -105,9 +107,11 @@ function Attention({ summary }) {
     { label: 'Primeira resposta atrasada', caption: 'Aguardando retorno inicial', value: number(summary.primeira_resposta_atrasada), icon: Clock3, color: 'bg-brand', to: '/prefeitura/demandas?status=all&fila=primeira_resposta' },
   ];
   const max = Math.max(1, ...rows.map((row) => row.value));
+  const priorities = rows.filter(row => row.value > 0);
   return <section className="mt-4 min-w-0 rounded-2xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6" aria-labelledby="attention-title">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Prioridades da equipe</p><h2 id="attention-title" className="mt-1 text-lg font-bold">Pontos de atenção</h2><p className="mt-1 text-xs text-content-secondary">Uma ordem pode aparecer em mais de um grupo</p></div><Link to="/prefeitura/demandas" className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">Abrir ordens <ArrowRight className="h-3.5 w-3.5" /></Link></div>
-    <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-4">{rows.map(({ label, caption, value, icon: Icon, color, to }) => <Link key={label} to={to} className="group min-w-0 rounded-xl border border-edge-subtle bg-surface-subtle p-4 transition-colors hover:border-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+    {!priorities.length && <p className="mt-4 flex items-center gap-2 text-sm leading-6 text-content-secondary"><CheckCircle2 className="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />Nenhum ponto de atenção nestes indicadores.</p>}
+    <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-4">{priorities.map(({ label, caption, value, icon: Icon, color, to }) => <Link key={label} to={to} className="group min-w-0 rounded-xl border border-edge-subtle bg-surface-subtle p-4 transition-colors hover:border-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
       <div className="flex items-start justify-between gap-3"><Icon className="h-5 w-5 shrink-0 text-content-secondary" /><strong className="font-display text-2xl tabular-nums">{format(value)}</strong></div>
       <p className="mt-2 text-sm font-bold">{label}</p><p className="mt-0.5 text-xs text-content-secondary">{caption}</p>
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-sunken"><div className={'h-full rounded-full ' + color} style={{ width: `${value ? Math.max(5, value / max * 100) : 0}%` }} /></div>
@@ -159,18 +163,24 @@ function AdministrativeOverview() {
   const active = number(summary?.abertas) + number(summary?.em_andamento) + number(summary?.aguardando_confirmacao);
   const completion = total ? Math.round(concluded / total * 100) : 0;
 
-  return <div className="page-shell-fluid min-w-0 pb-10 pt-6 text-content-primary sm:pt-8">
+  return <div className="municipal-overview municipal-workspace-page page-shell-fluid min-w-0 pb-10 text-content-primary sm:pt-8">
     <Helmet><title>Visão geral | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <MunicipalPageHeader eyebrow="Gestão municipal" title="Visão geral" description="Acompanhe o ritmo dos serviços e identifique onde a equipe precisa agir." action={context.canEdit && <Button onClick={() => setReportCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Criar solicitação de serviço</Button>} />
+    <MunicipalPageHeader eyebrow="Gestão municipal" title="Painel da prefeitura" description="Priorize os atendimentos e acompanhe o trabalho da equipe." action={context.canEdit && <Button onClick={() => setReportCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Nova solicitação</Button>} />
+    <section className="mt-5 grid min-w-0 gap-3 md:grid-cols-2" aria-label="Comece por aqui">
+      <ActionCard to={municipalContextPath('/prefeitura/broncas', context.municipality.city_id)} icon={List} title="Solicitações da cidade" description="Receba e organize os atendimentos." primary variant="discovery" />
+      <ActionCard to={municipalContextPath('/prefeitura/demandas', context.municipality.city_id)} icon={ClipboardList} title="Ordens de serviço" description="Confira a execução e os responsáveis." variant="discovery" />
+    </section>
     {summaryError && <div role="alert" className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-danger/20 bg-danger-subtleBg p-4 text-sm text-danger"><span>Não foi possível carregar os indicadores. {summaryError}</span><Button variant="outline" size="sm" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</Button></div>}
     {loading ? <div className="flex min-h-72 items-center justify-center" role="status" aria-label="Carregando visão geral"><Loader2 className="h-6 w-6 animate-spin text-content-secondary" /></div> : summary && <>
-      <section className="mt-6 grid gap-3 sm:grid-cols-3" aria-label="Indicadores principais">
+      <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3" aria-label="Indicadores principais">
         <Metric label="Ordens cadastradas" value={format(total)} caption="Volume acumulado de serviços" icon={ClipboardList} accent="bg-brand-subtleBg text-brand" />
         <Metric label="Em aberto" value={format(active)} caption="Da abertura à conferência interna" icon={Clock3} accent="bg-status-progressBg text-status-progressFg" />
-        <Metric label="Concluídas" value={`${completion}%`} caption={`${format(concluded)} ordens finalizadas com execução`} icon={CheckCircle2} accent="bg-success-bg text-success-fg" />
+        <Metric label="Concluídas" value={format(concluded)} caption={`${completion}% das ordens finalizadas com execução`} icon={CheckCircle2} accent="bg-success-bg text-success-fg" />
       </section>
-      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2"><Distribution summary={summary} /><WeeklyChart days={days} error={weekError} loading={weekLoading} onRetry={() => setRevision((value) => value + 1)} /></div>
       <Attention summary={summary} />
+      <DisclosureSection title="Detalhes e estatísticas" description="Distribuição das ordens e movimento dos últimos dias." className="mt-4">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2"><Distribution summary={summary} /><WeeklyChart days={days} error={weekError} loading={weekLoading} onRetry={() => setRevision((value) => value + 1)} /></div>
+      </DisclosureSection>
     </>}
     <MunicipalReportCreateDialog open={reportCreateOpen} municipalityId={context.municipality.id} enabledCategoryIds={context.reportCreationCategoryIds} onClose={() => setReportCreateOpen(false)} onReceiptClose={(report) => { if (report?.id) navigate('/prefeitura/broncas?' + new URLSearchParams({ bronca: report.id, ...(report.is_public === false ? { visibilidade: 'internas' } : {}) })); }} />
   </div>;
@@ -238,19 +248,24 @@ function DepartmentOverview({ context }) {
   const description = [names.join(', '), categoryNames.join(', ')].filter(Boolean).join(' • ') || 'Nenhuma categoria habilitada para atendimento';
   const retry = () => setRevision(value => value + 1);
   const newOrderPath = municipalContextPath('/prefeitura/demandas/nova', context.municipality?.city_id, context.activeChannelId);
-  return <div className="page-shell-fluid min-w-0 space-y-6 pb-10 pt-6 sm:pt-8" data-testid="department-overview">
+  return <div className="municipal-overview municipal-workspace-page page-shell-fluid min-w-0 space-y-5 pb-10 sm:pt-8" data-testid="department-overview">
     <Helmet><title>Visão geral | Secretaria</title><meta name="robots" content="noindex" /></Helmet>
-    <header className="flex min-w-0 flex-wrap items-end justify-between gap-4 pb-1"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Atendimento da secretaria</p><h1 className="mt-1 font-display text-3xl font-black tracking-tight">Visão geral</h1><p className="mt-2 text-sm leading-6 text-content-secondary">{description}</p></div><Button variant="outline" className="shrink-0 bg-surface-raised" onClick={retry} disabled={!current} aria-label="Atualizar visão geral"><RotateCcw className={'mr-2 h-4 w-4 ' + (!current ? 'animate-spin' : '')} />Atualizar</Button></header>
+    <MunicipalPageHeader className="municipal-header-with-refresh" eyebrow="Atendimento da secretaria" title={context.canDispatch ? 'Gestão da secretaria' : context.canReceive ? 'Painel de atendimento' : 'Consulta da secretaria'} description={description} action={<Button variant="outline" size="icon" onClick={retry} disabled={!current} aria-label="Atualizar visão geral"><RotateCcw className={'h-4 w-4 ' + (!current ? 'animate-spin' : '')} /></Button>} />
+    <section aria-labelledby="overview-shortcuts">
+      <h2 id="overview-shortcuts" className="text-base font-bold text-content-primary">Por onde começar?</h2>
+      <div className={'mt-3 grid min-w-0 gap-3 ' + (context.canReceive ? 'md:grid-cols-2' : '')}>
+        <ActionCard to={overviewReportPath(context)} icon={List} title="Ver solicitações" description={context.canReceive ? 'Encontre o próximo atendimento.' : 'Acompanhe os registros da secretaria.'} primary variant="discovery" />
+        {context.canReceive && <ActionCard to={newOrderPath} icon={Plus} title={context.canDispatch ? 'Nova ordem de serviço' : 'Preparar ordem de serviço'} description={context.canDispatch ? 'Organize um serviço para a equipe.' : 'Envie para aprovação do gestor.'} variant="discovery" />}
+      </div>
+    </section>
     {!categoryIds.length ? <p className="rounded-xl border border-edge-subtle bg-surface-raised p-5 text-sm">A secretaria ainda não tem categorias de atendimento habilitadas. O administrador municipal pode conferir essa configuração.</p> : !current ? <div role="status" className="flex min-h-64 items-center justify-center gap-2 text-sm text-content-secondary"><Loader2 className="h-5 w-5 animate-spin" />Carregando solicitações da secretaria…</div> : current.error ? <div role="alert" className="space-y-3 rounded-xl border border-danger/30 bg-danger-subtleBg p-4 text-sm text-danger"><p>Não foi possível carregar os indicadores. {current.error}</p><Button variant="outline" size="sm" onClick={retry}>Tentar novamente</Button></div> : <>
       <section aria-label="Indicadores das solicitações" className="grid min-w-0 gap-3 md:grid-cols-3">{REPORT_PHASES.map(([phase, label], index) => <article key={phase} className={overviewPanel + ' flex items-start gap-4 sm:gap-6'}><PhaseIcon index={index} large /><div className="min-w-0 flex-1"><h2 className="text-sm font-bold">{label}</h2><div className="mt-1 flex items-center justify-between gap-2"><p className="font-display text-4xl font-black tabular-nums">{format(data.phases[phase].total)}</p><ChevronRight className="h-5 w-5 text-content-secondary" aria-hidden="true" /></div><div className="mt-2"><VisibilityLinks context={context} phase={phase} counts={data.phases[phase]} /></div></div></article>)}</section>
+      <DisclosureSection title="Detalhar por categoria e período" description="Consulte a distribuição dos atendimentos e o movimento da semana.">
       <div className="grid min-w-0 items-stretch gap-4 xl:grid-cols-2" data-testid="overview-detail-grid">
         <section aria-label="Solicitações por categoria" className={overviewPanel}><h2 className="flex items-center gap-3 text-lg font-bold"><BarChart3 className="h-5 w-5 shrink-0 text-brand" />Por categoria</h2><p className="ml-8 mt-1 text-xs leading-5 text-content-secondary">{format(data.total)} solicitações no escopo selecionado, incluindo as vinculadas a ordens de serviço.</p><div className="mt-5 space-y-4">{data.categories.map(category => <article key={category.id} className="min-w-0 overflow-hidden rounded-xl border border-edge-subtle"><div className="flex flex-wrap items-center gap-3 bg-surface-subtle px-4 py-3"><Icon name={categoryIconName(category.id)} size={24} className="shrink-0" /><h3 className="min-w-0 flex-1 text-sm font-bold">{context.categories.find(item => item.id === category.id)?.name || category.id}</h3><span className="text-xs text-content-secondary">{format(category.total)} solicitações</span></div><div className="divide-y divide-edge-subtle border-t border-edge-subtle">{REPORT_PHASES.map(([phase, label], index) => <div key={phase} className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto_auto]"><PhaseIcon index={index} /><p className="text-xs text-content-secondary sm:text-sm">{label}</p><strong className="text-sm tabular-nums">{format(category.phases[phase].total)}</strong><div className="col-span-2 col-start-2 sm:col-span-1 sm:col-start-auto sm:ml-4"><VisibilityLinks context={context} phase={phase} counts={category.phases[phase]} category={category.id} /></div></div>)}</div></article>)}</div></section>
         <DepartmentWeeklyChart days={data.days} />
       </div>
-      <section className={overviewPanel} aria-labelledby="overview-shortcuts"><h2 id="overview-shortcuts" className="flex items-center gap-3 text-lg font-bold"><Zap className="h-5 w-5 text-brand" />Acesso rápido</h2><p className="ml-8 mt-1 text-xs text-content-secondary">Ações mais utilizadas no dia a dia.</p><div className={'mt-3 grid gap-3 ' + (context.canReceive ? 'md:grid-cols-2' : '')}>{[
-        { to: overviewReportPath(context), label: 'Ver solicitações', description: 'Acompanhe e filtre as solicitações da secretaria.', icon: List },
-        ...(context.canReceive ? [{ to: newOrderPath, label: 'Nova ordem de serviço', description: context.canDispatch ? 'Crie uma nova ordem de serviço para a secretaria.' : 'Prepare um rascunho de ordem para aprovação do gestor.', icon: Plus }] : []),
-      ].map(({ to, label, description: caption, icon: ShortcutIcon }) => <Link key={label} to={to} className="group flex min-w-0 items-center gap-4 rounded-xl border border-brand/15 bg-brand-subtleBg/40 px-4 py-3 transition-colors hover:bg-brand-subtleBg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"><ShortcutIcon className="h-6 w-6" /></span><div className="min-w-0 flex-1"><h3 className="text-sm font-bold text-brand">{label}</h3><p className="mt-1 text-xs leading-5 text-content-secondary">{caption}</p></div><ChevronRight className="h-4 w-4 shrink-0 text-brand" /></Link>)}</div></section>
+      </DisclosureSection>
     </>}
   </div>;
 }

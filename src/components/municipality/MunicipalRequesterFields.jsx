@@ -5,7 +5,6 @@ export default function MunicipalRequesterFields({ value, onChange, errors = {} 
   const id = useId();
   return <fieldset className="min-w-0 space-y-3 rounded-xl border border-border bg-muted/20 p-4">
     <legend className="px-1 text-sm font-semibold">Cidadão solicitante <span className="font-normal text-muted-foreground">(opcional)</span></legend>
-    <p className="text-xs text-muted-foreground">Informe o contato de quem pediu o serviço, se houver. Esses dados ficam disponíveis somente à equipe municipal responsável pelo atendimento.</p>
     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
       {[['requester_name', 'Nome do cidadão', 'text', 'Nome de quem solicitou', 160], ['requester_phone', 'Telefone do cidadão', 'tel', '(87) 99999-9999', 32]].map(([field, label, type, placeholder, maxLength]) => <div key={field} className="min-w-0">
         <label htmlFor={`${id}-${field}`} className="mb-1.5 block text-sm font-medium">{label} <span className="text-xs font-normal text-muted-foreground">(opcional)</span></label>

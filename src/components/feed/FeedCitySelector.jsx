@@ -222,7 +222,7 @@ const FeedCitySelector = ({ inHeader = false, iconOnly = false }) => {
         <button
           type="button"
           onClick={() => { setCityPickerOpen(true); setCitySearch(''); }}
-          className="flex items-center justify-center h-10 w-10 rounded-full text-current hover:bg-white/10 transition-colors"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-current transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
           aria-label={activeCityName ? `Cidade: ${activeCityName}. Toque para trocar` : 'Escolher cidade'}
           title={activeCityName ?? 'Todas as cidades'}
         >

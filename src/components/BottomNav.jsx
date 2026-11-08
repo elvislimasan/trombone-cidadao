@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Home, Compass, PlusCircle, Map, User } from 'lucide-react';
 import Avatar from 'react-nice-avatar';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -7,6 +7,7 @@ import ReportModal from '@/components/ReportModal';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useCreateReport } from '@/hooks/useCreateReport';
+import { getMobileRoute } from '@/lib/mobileNavigation';
 
 const PUBLIC_NAV_ITEMS = [
   { path: '/', icon: Home, label: 'Início' },
@@ -42,6 +43,7 @@ const getAvatarComponent = (profile) => {
 
 const BottomNav = () => {
   const location = useLocation();
+  const activeTab = getMobileRoute(location.pathname).tab;
   const { user } = useAuth();
   const [showReportModal, setShowReportModal] = useState(false);
   const navRef = useRef(null);
@@ -92,24 +94,22 @@ const BottomNav = () => {
 
   const navLinkClass = useCallback(
     (path) => {
-      const isActive =
-        path === '/'
-          ? location.pathname === '/' || location.pathname === '/feed'
-          : location.pathname.startsWith(path);
+      const isActive = activeTab === path;
       return `flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
         isActive
           ? 'text-brand scale-105 font-bold'
           : 'text-content-tertiary hover:text-content-primary'
       }`;
     },
-    [location.pathname]
+    [activeTab]
   );
 
   return (
     <>
-      <div
+      <nav
         ref={navRef}
         data-bottom-nav
+        aria-label="Navegação principal"
         className="fixed left-0 right-0 bg-surface-raised border-t border-edge-subtle z-[1000] lg:hidden"
         /* Sem minHeight: a altura vem do conteudo (h-16) mais a safe area. O
            4.5rem antigo deixava meia rem de fundo sobrando abaixo dos itens,
@@ -149,17 +149,18 @@ const BottomNav = () => {
               const showAvatar = isProfile && !!user;
 
               return (
-                <NavLink
+                <Link
                   key={item.path}
                   to={item.path}
                   onClick={triggerHaptic}
-                  className={`${navLinkClass(item.path)} justify-self-center min-h-11 w-full`}
+                  className={`${navLinkClass(item.path)} justify-self-center min-h-12 w-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand`}
+                  aria-current={activeTab === item.path ? 'page' : undefined}
                   aria-label={item.label}
                 >
                   {showAvatar ? (
                     <span
                       className={`w-[26px] h-[26px] rounded-full overflow-hidden bg-surface-subtle flex items-center justify-center ${
-                        location.pathname.startsWith('/perfil')
+                        activeTab === '/perfil'
                           ? 'ring-2 ring-brand'
                           : 'ring-1 ring-edge-subtle'
                       }`}
@@ -170,12 +171,12 @@ const BottomNav = () => {
                     <item.icon size={22} />
                   )}
                   <span className="text-[11px] font-medium tracking-tight">{item.label}</span>
-                </NavLink>
+                </Link>
               );
             })}
           </div>
         </div>
-      </div>
+      </nav>
 
       {showReportModal && (
         <ReportModal

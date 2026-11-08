@@ -18,6 +18,13 @@
 .adoption-program-actions { display: flex; align-items: stretch; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .adoption-program-actions > :is(button,a) { min-height: 46px; height: auto; gap: 10px; padding: 12px 22px; border-radius: 8px; font-size: 14px; font-weight: 600; white-space: normal; }
 .adoption-program-actions > button { box-shadow: 0 3px 7px rgb(var(--brand) / .1); }
+.adoption-program-request-actions { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); }
+.adoption-program-request-actions > button { grid-column: 1; }
+.adoption-program-request-actions > a { grid-column: 2; grid-row: 1; align-self: start; }
+@media (max-width: 767px) {
+  .adoption-program-request-actions { grid-template-columns: minmax(0, 1fr); }
+  .adoption-program-request-actions > a { grid-column: 1; grid-row: auto; }
+}
 .adoption-program-actions > a { border-color: rgb(var(--adoption-forest) / .28); color: rgb(var(--adoption-forest)); background: rgb(var(--surface-raised) / .7); }
 .adoption-program-actions > a:hover { background: rgb(var(--surface-raised)); }
 .adoption-program-benefits { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-top: 22px; }

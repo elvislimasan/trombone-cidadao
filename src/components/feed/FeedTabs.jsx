@@ -9,27 +9,33 @@ export const FEED_TABS = [
   { key: 'trending', label: 'Em alta' },
 ];
 
-const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange }) => (
-  <div role="tablist" className="flex gap-1 rounded-xl bg-surface-raised p-1">
+const FeedTabs = ({ tabs = FEED_TABS, activeTab, onChange, idPrefix = 'feed' }) => (
+  <div role="tablist" aria-label="Ordenar broncas" className="flex min-w-0 gap-1 rounded-2xl bg-surface-subtle p-1">
     {tabs.map((tab) => {
       const active = activeTab === tab.key;
       return (
         <button
           key={tab.key}
+          type="button"
           role="tab"
+          id={`${idPrefix}-tab-${tab.key}`}
+          aria-controls={`${idPrefix}-panel`}
           aria-selected={active}
+          tabIndex={active ? 0 : -1}
           onClick={() => onChange(tab.key)}
-          className={`relative flex-1 rounded-lg px-1.5 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors ${
-            active ? 'border border-transparent bg-surface-raised text-brand' : 'border border-transparent text-content-secondary hover:text-content-primary'
+          onKeyDown={event => {
+            const index = tabs.findIndex(item => item.key === tab.key);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : null;
+            if (next === null) return;
+            event.preventDefault();
+            event.currentTarget.parentElement.querySelectorAll('[role="tab"]')[next]?.focus();
+            onChange(tabs[next].key);
+          }}
+          className={`relative min-h-12 min-w-0 flex-1 rounded-xl px-1.5 py-3 text-center text-sm font-semibold leading-5 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+            active ? 'bg-surface-raised text-brand shadow-sm' : 'text-content-secondary hover:text-content-primary'
           }`}
         >
           {tab.label}
-          <span
-            aria-hidden="true"
-            className={`absolute bottom-1 left-3 right-3 h-0.5 rounded-full transition-opacity ${
-              active ? 'bg-brand opacity-100' : 'opacity-0'
-            }`}
-          />
         </button>
       );
     })}

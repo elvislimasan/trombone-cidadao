@@ -1,3 +1,6 @@
+import WizardProgress from '@/components/ui/wizard-progress';
+import { Dialog, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { TaskDialogContent } from '@/components/ui/task-dialog';
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, Clock3, Leaf, Loader2, MapPin, Pencil, Plus, Search, Sprout, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +13,12 @@ import { pickupDetails, pickupInstructions, pickupPayload, validatePickup, PICKU
 import TreePickupFields from './TreePickupFields';
 import TreeSpeciesField from './TreeSpeciesField';
 import TreeAdoptionAvailabilityList from './TreeAdoptionAvailabilityList';
+
+function NurseryTaskDialog({ children, title, onClose }) {
+  const contentRef = useRef(null);
+  const close = () => { if (!contentRef.current?.querySelector('form[aria-busy="true"]')) onClose(); };
+  return <Dialog open onOpenChange={open => { if (!open) close(); }}><TaskDialogContent ref={contentRef} hideClose className="nursery-task-dialog" onPointerDownOutside={event => event.preventDefault()} onEscapeKeyDown={event => { if (contentRef.current?.querySelector('form[aria-busy="true"]')) event.preventDefault(); }}><DialogTitle className="sr-only">{title}</DialogTitle><DialogDescription className="sr-only">Preencha as etapas e confirme para salvar.</DialogDescription>{children}</TaskDialogContent></Dialog>;
+}
 
 export function NurseryPickupSummary({ nursery, compact = false }) {
   const pickup = pickupDetails(nursery);
@@ -31,9 +40,7 @@ function nurserySummary(nursery, offers) {
 }
 
 function NurserySteps({ current }) {
-  return <ol className="nursery-steps" aria-label="Etapas do cadastro">
-    {['Local', 'Atendimento', 'Espécies'].map((label, index) => <li key={label} aria-current={current === index ? 'step' : undefined} className={index < current ? 'is-done' : ''}><span>{index < current ? <CheckCircle2 size={17} /> : index + 1}</span><strong>{label}</strong></li>)}
-  </ol>;
+  return <div className="nursery-wizard"><WizardProgress steps={['Local', 'Atendimento', 'Esp?cies']} current={current} label="Etapas do cadastro do viveiro" /></div>;
 }
 
 export function NurseryEditor({ nursery, cityId, city, onClose, onSaved }) {
@@ -66,10 +73,10 @@ export function NurseryEditor({ nursery, cityId, city, onClose, onSaved }) {
     } catch { setError('Não foi possível salvar o viveiro. Seus dados foram mantidos. Tente novamente.'); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  return <form onSubmit={save} className="tree-availability-editor tree-nursery-editor" aria-label={nursery ? 'Editar viveiro' : 'Cadastrar viveiro'}>
+  return <form aria-busy={busy || locating} onSubmit={save} className="tree-availability-editor tree-nursery-editor" aria-label={nursery ? 'Editar viveiro' : 'Cadastrar viveiro'}>
     <div className="tree-availability-summary"><div><h3>{nursery ? 'Editar viveiro' : 'Novo viveiro'}</h3><p className="mt-1 text-xs text-content-secondary">{nursery ? nursery.name : 'Cadastre o local e depois adicione as espécies.'}</p></div><Button type="button" variant="ghost" size="sm" disabled={busy || locating} onClick={onClose}>Cancelar</Button></div>
     <NurserySteps current={step} />
-    <div className="nursery-form-stage">
+    <div data-task-scroll className="nursery-form-stage">
       <div className="nursery-form-intro"><span className="tree-nursery-icon">{step === 0 ? <MapPin size={24} /> : <Clock3 size={24} />}</span><div><h4 ref={headingRef} tabIndex={-1}>{step === 0 ? 'Onde fica o viveiro?' : 'Quando o cidadão pode retirar?'}</h4><p>{step === 0 ? 'Informe o nome e o endereço do local de retirada.' : 'Defina os dias e horários de atendimento deste viveiro.'}</p></div></div>
       <fieldset disabled={busy} className="tree-availability-body">
         {step === 0 && <label className="nursery-name-field grid gap-2 text-sm font-medium">Nome do viveiro<Input required minLength={3} maxLength={160} value={name} onChange={event => setName(event.target.value)} placeholder="Ex.: Viveiro municipal" /></label>}
@@ -105,10 +112,10 @@ export function NurserySpeciesEditor({ nursery, catalog, cityId, initialRow, onC
     } catch { setError('Não foi possível salvar as espécies do viveiro. Sua seleção foi mantida.'); }
     finally { busyRef.current = false; setBusy(false); }
   };
-  return <form onSubmit={save} className="tree-availability-editor tree-nursery-species-editor" aria-label="Espécies do viveiro">
+  return <form aria-busy={busy || creating} onSubmit={save} className="tree-availability-editor tree-nursery-species-editor" aria-label="Espécies do viveiro">
     <div className="tree-availability-summary"><div><h3>{initialRow ? 'Editar disponibilidade' : 'Adicionar espécies'}</h3><p className="mt-1 text-xs text-content-secondary">{nursery.name}</p></div><Button type="button" variant="ghost" size="sm" disabled={busy || creating} onClick={onClose}>{onboarding ? 'Adicionar depois' : 'Voltar ao viveiro'}</Button></div>
     {onboarding && <NurserySteps current={2} />}
-    <fieldset disabled={busy || catalog.loading || Boolean(catalog.error)} className="tree-nursery-species-body">
+    <fieldset data-task-scroll disabled={busy || catalog.loading || Boolean(catalog.error)} className="tree-nursery-species-body">
       <section className="tree-availability-batch" aria-label="Selecionar espécies">
         <div className="nursery-section-heading"><h4>{initialRow ? 'Espécie' : 'Selecione as espécies'}</h4>{!initialRow && <span>{selected.length} selecionadas</span>}</div>
         {!initialRow && <><label className="tree-nursery-search"><Search size={17} /><Input aria-label="Buscar espécies do viveiro" placeholder="Buscar pelo nome da espécie" value={search} onChange={event => setSearch(event.target.value)} /></label><div className="nursery-selection-actions"><Button type="button" variant="ghost" size="sm" onClick={() => setSelected(current => [...new Set([...current, ...filtered.map(row => row.id)])])}>Selecionar todas da busca</Button>{!!selected.length && <Button type="button" variant="ghost" size="sm" onClick={() => setSelected([])}>Limpar seleção</Button>}</div></>}
@@ -180,8 +187,8 @@ export default function TreeNurseryManager({ catalog, cityId, city }) {
   const workspace = content => <div className={`tree-nursery-workspace is-${view}`} ref={workspaceRef}>
     {content}
   </div>;
-  if (view === 'editor') return workspace(<NurseryEditor nursery={nursery} cityId={cityId} city={city} onClose={() => setView(nursery ? 'nursery' : 'list')} onSaved={row => { setSelected(row); setEditingRow(null); setOnboarding(!nursery); setView(nursery ? 'nursery' : 'species'); refresh('Viveiro salvo.'); }} />);
-  if (view === 'species' && nursery) return workspace(<NurserySpeciesEditor nursery={nursery} catalog={catalog} cityId={cityId} initialRow={editingRow} onboarding={onboarding} onClose={() => setView('nursery')} onSaved={() => { setView('nursery'); refresh('Espécies do viveiro atualizadas.'); }} />);
+  if (view === 'editor') return workspace(<NurseryTaskDialog title={nursery ? 'Editar viveiro' : 'Novo viveiro'} onClose={() => setView(nursery ? 'nursery' : 'list')}><NurseryEditor nursery={nursery} cityId={cityId} city={city} onClose={() => setView(nursery ? 'nursery' : 'list')} onSaved={row => { setSelected(row); setEditingRow(null); setOnboarding(!nursery); setView(nursery ? 'nursery' : 'species'); refresh('Viveiro salvo.'); }} /></NurseryTaskDialog>);
+  if (view === 'species' && nursery) return workspace(<NurseryTaskDialog title="Espécies do viveiro" onClose={() => setView('nursery')}><NurserySpeciesEditor nursery={nursery} catalog={catalog} cityId={cityId} initialRow={editingRow} onboarding={onboarding} onClose={() => setView('nursery')} onSaved={() => { setView('nursery'); refresh('Espécies do viveiro atualizadas.'); }} /></NurseryTaskDialog>);
   if (view === 'nursery' && nursery) {
     const summary = nurserySummary(nursery, offersByNursery.get(nursery.id) || []);
     return workspace(<div className="tree-nursery-detail">

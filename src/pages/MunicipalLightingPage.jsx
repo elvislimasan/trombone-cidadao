@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { ArrowRight, Circle, Download, History, LampDesk, Lightbulb, Loader2, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, Wrench, X } from 'lucide-react';
+import { ArrowRight, Circle, Download, History, LampDesk, Lightbulb, Loader2, MoreHorizontal, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, Wrench, X } from 'lucide-react';
 import FullscreenMapPanel from '@/components/map/FullscreenMapPanel';
 import MunicipalLightingMap, { lightingStatus } from '@/components/municipality/MunicipalLightingMap';
 import MunicipalDrawer from '@/components/municipality/MunicipalDrawer';
@@ -12,6 +12,8 @@ import LightingPendingPanel from '@/components/municipality/LightingPendingPanel
 import LightingCoordinateSearch from '@/components/municipality/LightingCoordinateSearch';
 import BulkLampDialog from '@/components/municipality/BulkLampDialog';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MunicipalMobileDisclosure, MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
 import { showAppError, showAppNotice } from '@/lib/appError';
@@ -475,12 +477,20 @@ export default function MunicipalLightingPage() {
     setFiltersOpen(true);
     window.setTimeout(() => document.getElementById('lighting-search')?.focus({ preventScroll: true }), 0);
   };
-  return <div className="page-shell-fluid min-w-0 pb-8 pt-6 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
+  return <div className="municipal-lighting-page municipal-workspace-page page-shell-fluid min-w-0 pb-8 text-content-primary" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
     <Helmet><title>Mapa de iluminação | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
-    <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">Infraestrutura da cidade</p><h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl">Iluminação pública</h1><p className="mt-2 text-sm text-content-secondary">Localize postes, acompanhe as lâmpadas e organize a manutenção.</p></div><div className="flex flex-wrap items-center gap-2">{context.canReadAttendance && <Button variant="outline" onClick={() => setPendingOpen(true)}><Wrench className="mr-2 h-4 w-4" />Pendências{pendingCount > 0 && <span className="ml-2 rounded-full bg-danger-subtleBg px-2 py-0.5 text-xs font-semibold text-danger-subtleFg">{pendingCount}</span>}</Button>}{context.canEditLighting && <><Button variant="outline" onClick={() => setBulkOpen(true)}>Alterar lâmpadas em massa</Button><Button onClick={() => newPole()}><Plus className="mr-2 h-4 w-4" />Adicionar poste</Button></>}</div></header>
+    <MunicipalPageHeader eyebrow="Infraestrutura da cidade" title="Iluminação pública" description={context.canEditLighting ? 'Encontre um poste no mapa para consultar ou atualizar.' : 'Encontre um poste no mapa para consultar as informações.'} action={<>
+      {context.canEditLighting && <Button onClick={() => newPole()}><Plus className="mr-2 h-4 w-4" />Adicionar poste</Button>}
+      {(context.canReadAttendance || context.canEditLighting) && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Mais ações da iluminação"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+        {context.canReadAttendance && <DropdownMenuItem onSelect={() => setPendingOpen(true)}><Wrench className="mr-2 h-4 w-4" />Pendências{pendingCount != null && <span className="ml-auto pl-3 tabular-nums">{pendingCount.toLocaleString('pt-BR')}</span>}</DropdownMenuItem>}
+        {context.canEditLighting && <DropdownMenuItem onSelect={() => setBulkOpen(true)}>Alterar lâmpadas em massa</DropdownMenuItem>}
+      </DropdownMenuContent></DropdownMenu>}
+    </>} />
+    <MunicipalMobileDisclosure title="Resumo da iluminação" hint={summary ? `${summary.all.toLocaleString('pt-BR')} postes cadastrados` : summaryError ? 'Indicadores indisponíveis' : 'Carregando indicadores…'} className="municipal-lighting-summary">
     <section aria-label="Indicadores de iluminação da cidade" className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-3">{lightingMetrics.map(([status, label, Icon, tone, border]) => <button key={status} type="button" onClick={() => updateFilters({ ...filters, status })} aria-pressed={filters.status === status} className={'flex min-w-0 items-start gap-3 rounded-xl border bg-surface-raised p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ' + (filters.status === status && status !== 'all' ? border + ' ring-1 ring-inset ring-edge-default' : 'border-edge-subtle')}><span className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + tone}><Icon className={'h-5 w-5 ' + (Icon === Circle ? 'fill-current' : '')} /></span><span className="min-w-0"><strong className="block text-2xl font-bold tabular-nums tracking-tight">{summary?.[status]?.toLocaleString('pt-BR') ?? '—'}</strong><span className="mt-0.5 block text-xs font-medium text-content-secondary">{label}</span><span className="mt-1 block text-[11px] tabular-nums text-content-secondary">{status === 'all' ? 'No cadastro ativo da cidade' : summary ? (summary.all ? (summary[status] / summary.all * 100) : 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '% do total' : 'Carregando…'}</span></span></button>)}</section>
     <p className="mt-2 text-xs text-content-secondary">Indicadores de toda a cidade. “Sem problema registrado” não significa funcionamento verificado em campo.</p>
     {summaryError && <p role="status" className="mt-2 text-xs text-danger">Não foi possível carregar os indicadores. <button type="button" onClick={() => setRevision((value) => value + 1)} className="underline">Tentar novamente</button></p>}
+    </MunicipalMobileDisclosure>
     <FullscreenMapPanel title="Mapa de iluminação pública" className="mt-5" open={mapExpanded} onOpenChange={changeMapExpanded} hideExpandButton>
     <section className={'relative min-w-0 ' + (mapExpanded ? 'h-full min-h-0 overflow-hidden' : '')}>
       <div className={'min-w-0 ' + (mapExpanded ? 'relative h-full min-h-0' : '')}><MunicipalLightingMap center={center} focus={focus} coordinateTarget={coordinateTarget} items={mapItems} selected={selected} loading={loading} count={poleCount} onBounds={setBounds} onSelect={editPole} onFilters={openFilters} fullscreen={mapExpanded} onFullscreenChange={changeMapExpanded} />{error && <p role="alert" className={'mt-2 text-sm text-danger ' + (mapExpanded ? 'absolute bottom-24 left-4 right-4 z-[600] rounded-lg bg-surface-raised p-3' : '')}>{error}<button type="button" onClick={loadVisible} className="ml-2 underline">Tentar novamente</button></p>}</div>
@@ -505,7 +515,7 @@ export default function MunicipalLightingPage() {
     </MunicipalDrawer>
     <BulkLampDialog open={bulkOpen} onClose={() => setBulkOpen(false)} cityId={cityId} onSaved={() => setRevision((value) => value + 1)} />
     <PoleDetailsDialog open={detailsOpen && Boolean(selected)} onOpenChange={setDetailsOpen} pole={selected} city={context.municipality.cidade} related={related} canEdit={context.canEdit} canEditLighting={context.canEditLighting} editingLoading={editingLoading} saving={saving} onEdit={beginEditPole} onRemove={removePole} />
-    <MunicipalDrawer open={drawerOpen} onClose={closePoleForm} busy={saving} variant="lighting" placement="center" bodyScroll={formStep !== 1}
+    <MunicipalDrawer task open={drawerOpen} onClose={closePoleForm} busy={saving} variant="lighting" placement="center" bodyScroll={formStep !== 1}
       title={creating ? 'Novo poste' : selected ? poleDisplayLabel(selected) : 'Poste'}
       description={creating ? 'Cadastre a lâmpada e a localização.' : 'Atualize a lâmpada e a localização.'}
       activeSection={formStep}

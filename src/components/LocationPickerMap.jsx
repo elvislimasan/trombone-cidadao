@@ -179,9 +179,9 @@ const MapClickHandler = ({ onMapClick }) => {
 
 const MapViewportReporter = ({ onChange }) => {
   const map = useMapEvents({
-    moveend() { onChange(map.getBounds()); },
+    moveend() { onChange(map.getBounds(), map.getZoom()); },
   });
-  useEffect(() => { onChange(map.getBounds()); }, [map, onChange]);
+  useEffect(() => { onChange(map.getBounds(), map.getZoom()); }, [map, onChange]);
   return null;
 };
 
@@ -202,6 +202,7 @@ const LocationPickerMap = ({
   showMarker = true,
   readOnly = false,
   fallbackCityCenter = null, // { name, uf } — centraliza aqui quando não há initialPosition
+  startAtCity = false, // Vista inicial da cidade, preservando a posição do registro/marcador.
   cityZoom = 13,
   flyToCity = null, // { name, uf, nonce } — força o mapa a voar para a cidade mesmo com view já definida (ex: admin trocando a cidade manualmente)
   /**
@@ -226,6 +227,7 @@ const LocationPickerMap = ({
   // tem prioridade; senão usa a cidade ativa do app (feed/estatísticas/obras).
   const effectiveCityCenter =
     fallbackCityCenter || (activeCity ? { name: activeCity.name, uf: cityStateUf(activeCity) } : null);
+  const cityFirst = startAtCity && Boolean(effectiveCityCenter?.name);
   const isFlorestaPe = effectiveCityCenter?.name?.trim().toLowerCase() === 'floresta' && effectiveCityCenter?.uf?.toUpperCase() === 'PE';
   const [position, setPosition] = useState(initialPosition || (effectiveCityCenter && !isFlorestaPe ? [-14.2, -51.9] : FLORESTA_COORDS));
   const [mapLayer, setMapLayer] = useState("osm");
@@ -245,7 +247,8 @@ const LocationPickerMap = ({
   // Zoom com posição em mãos: o pedido pela prop, ou 19, sempre dentro do
   // limite do layer ativo.
   const zoomComPosicao = Math.min(initialZoom || 19, activeMaxZoom);
-  const zoomDeAbertura = initialPosition ? zoomComPosicao : effectiveCityCenter && !isFlorestaPe ? 4 : INITIAL_ZOOM;
+  const cityOpeningCenter = isFlorestaPe ? FLORESTA_COORDS : [-14.2, -51.9];
+  const zoomDeAbertura = cityFirst ? (isFlorestaPe ? Math.min(cityZoom, activeMaxZoom) : 4) : initialPosition ? zoomComPosicao : effectiveCityCenter && !isFlorestaPe ? 4 : INITIAL_ZOOM;
   const focusLat = focusPosition?.lat;
   const focusLng = focusPosition?.lng;
   const focusNonce = focusPosition?.nonce;
@@ -255,7 +258,7 @@ const LocationPickerMap = ({
       setPosition(initialPosition);
 
       // Centraliza o mapa UMA VEZ (carga inicial)
-      if (mapRef.current && !hasSetInitialView.current) {
+      if (mapRef.current && !hasSetInitialView.current && !cityFirst) {
         hasSetInitialView.current = true;
         mapRef.current.setView(initialPosition, zoomComPosicao, { animate: false });
       }
@@ -275,7 +278,7 @@ const LocationPickerMap = ({
   // Sem posição inicial: centraliza na cidade informada (ex.: cadastro de obra
   // pelo embaixador). Não move o marcador — só reposiciona a vista do mapa.
   useEffect(() => {
-    if (initialPosition || userMovedRef.current || hasSetInitialView.current) return;
+    if ((initialPosition && !cityFirst) || userMovedRef.current || hasSetInitialView.current) return;
     if (!effectiveCityCenter?.name) return;
     let cancelled = false;
     geocodeCity(effectiveCityCenter.name, effectiveCityCenter.uf).then((coord) => {
@@ -286,7 +289,7 @@ const LocationPickerMap = ({
       }
     });
     return () => { cancelled = true; };
-  }, [effectiveCityCenter?.name, effectiveCityCenter?.uf, cityZoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveCityCenter?.name, effectiveCityCenter?.uf, cityZoom, cityFirst]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Voo forçado ao trocar a cidade manualmente (admin) — independe de
   // hasSetInitialView/userMovedRef, que só protegem a centralização automática
@@ -340,7 +343,7 @@ const LocationPickerMap = ({
   return (
     <div className="relative w-full h-full">
       <MapContainer
-        center={position}
+        center={cityFirst ? cityOpeningCenter : position}
         zoom={zoomDeAbertura}
         maxZoom={activeMaxZoom}
         scrollWheelZoom={true}
