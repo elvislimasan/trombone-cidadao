@@ -42,6 +42,7 @@ import TransportDetailsPage from '@/pages/TransportDetailsPage';
 import TouristSpotDetailsPage from '@/pages/TouristSpotDetailsPage';
 import ManageServicesPage from '@/pages/admin/ManageServicesPage';
 import ManageNewsPage from '@/pages/admin/ManageNewsPage';
+import EditorialPage from '@/pages/admin/EditorialPage';
 import ManageWorksPage from '@/pages/admin/ManageWorksPage';
 import ManageRentalPropertiesPage from '@/pages/admin/ManageRentalPropertiesPage';
 import ManagePavementPage from '@/pages/admin/ManagePavementPage';
@@ -998,6 +999,7 @@ function AppShell() {
               <Route path="/admin/servicos" element={<ModuleRoute module="services" adminOnly><ManageServicesPage /></ModuleRoute>} />
               <Route path="/servicos/gerenciar" element={<ModuleRoute module="services"><ManageServicesPage /></ModuleRoute>} />
               <Route path="/admin/noticias" element={<AdminRoute><ManageNewsPage /></AdminRoute>} />
+              <Route path="/admin/editorial" element={<AdminRoute><EditorialPage /></AdminRoute>} />
               <Route path="/admin/obras" element={<ModuleRoute module="works" adminOnly><ManageWorksPage /></ModuleRoute>} />
               <Route path="/obras/gerenciar" element={<ModuleRoute module="works"><ManageWorksPage /></ModuleRoute>} />
               <Route path="/admin/imoveis-alugados" element={<ModuleRoute module="rentals" adminOnly><ManageRentalPropertiesPage /></ModuleRoute>} />

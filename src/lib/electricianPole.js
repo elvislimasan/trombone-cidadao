@@ -1,4 +1,4 @@
-import { normalizeLampType, isStandardLampType } from '@/lib/lightingCatalog';
+import { DEFAULT_MAINTENANCE_LAMP_TYPE, normalizeLampType, isStandardLampType } from '@/lib/lightingCatalog';
 import { poleTechnicalDetailsFromRecord } from '@/lib/poleTechnicalDetails';
 import { poleReferenceText } from '@/lib/poleDisplay';
 
@@ -27,7 +27,7 @@ export function electricianPoleForm(pole, orderTitle = '') {
   const details = poleTechnicalDetailsFromRecord(pole);
   return {
     id: pole.id, identifier: cleanPoleIdentifier(pole.identifier) || poleIdentifierFromTitle(orderTitle),
-    updated_at: pole.updated_at, lamp_type: normalizeLampType(pole.lamp_type) || 'LED',
+    updated_at: pole.updated_at, lamp_type: DEFAULT_MAINTENANCE_LAMP_TYPE,
     lamp_power_w: pole.lamp_power_w ?? '', lamp_count: details.lamp_count,
     source_plate: details.source_plate, point_type: details.point_type,
     network_type: details.network_type, feeder: details.feeder,

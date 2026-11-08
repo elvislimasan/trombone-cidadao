@@ -1,3 +1,5 @@
+export const DEFAULT_MAINTENANCE_LAMP_TYPE = 'LED';
+
 export const LAMP_TYPES = [
   'LED',
   'Vapor de sódio',

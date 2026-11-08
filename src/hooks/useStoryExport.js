@@ -29,6 +29,8 @@ export const STORY_HEIGHT = 1920;
  * @param {'report'|'patrol'} [opcoes.tipoConteudo]  o que está sendo compartilhado
  * @param {string} [opcoes.contentId]  id usado pelo instagramStory para cache
  * @param {boolean} [opcoes.pronto]    false bloqueia a exportação (assets a carregar)
+ * @param {number} [opcoes.pixelRatio] escala do PNG; 1 gera 1080×1920
+ * @param {string} [opcoes.backgroundColor] fundo da imagem exportada
  * @param {Function} [opcoes.aoConcluirShare]
  */
 export function useStoryExport({
@@ -37,6 +39,8 @@ export function useStoryExport({
   contentId,
   tipoConteudo,
   pronto = true,
+  pixelRatio = 2,
+  backgroundColor = '#111111',
   aoConcluirShare,
 } = {}) {
   const exportRef = useRef(null);
@@ -76,15 +80,15 @@ export function useStoryExport({
 
     return toPng(exportRef.current, {
       cacheBust: true,
-      pixelRatio: 2,
+      pixelRatio,
       width: STORY_WIDTH,
       height: STORY_HEIGHT,
       canvasWidth: STORY_WIDTH,
       canvasHeight: STORY_HEIGHT,
-      backgroundColor: '#111111',
+      backgroundColor,
       skipAutoScale: true,
     });
-  }, []);
+  }, [pixelRatio, backgroundColor]);
 
   /**
    * Entrega um PNG já rasterizado ao aparelho.

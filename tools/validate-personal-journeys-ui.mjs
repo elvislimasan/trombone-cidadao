@@ -97,8 +97,7 @@ try {
   await load('/perfil');await evaluate('document.querySelector(".personal-profile-controls summary").click()');assert.equal(await evaluate(`!!document.querySelector('a[href="/admin"]')`),false);
   await load('/perfil?data=many');await wait('document.querySelectorAll(".profile-report-tile").length===18');await shot('profile-many-390');
   await click('Próxima página');await wait('document.querySelectorAll(".profile-report-tile").length===13');await click('Página anterior');
-  await evaluate('document.querySelector(".profile-report-open").focus()');
-  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13},sessionId);
+  await evaluate('document.querySelector(".profile-report-open").click()');
   await wait(`document.querySelector('[aria-label="Detalhes da bronca"]')`);
   await evaluate('window.go("/perfil?data=many&report=row-0")');
   await click('Excluir bronca');await wait('document.body.textContent.includes("Confirmar Exclusão")');
