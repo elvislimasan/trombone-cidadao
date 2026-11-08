@@ -7,8 +7,9 @@ import { useStoryExport } from '@/hooks/useStoryExport';
 import { toDataUri } from '@/lib/storyAssets';
 import { useTheme } from '@/design-system/theme/ThemeProvider';
 import ObraDelayStoryCard, { DELAY_STORY_MODELS, DELAY_STORY_THEMES } from './ObraDelayStoryCard';
+import ObraDelayUnitPicker from './ObraDelayUnitPicker';
 
-export default function ObraDelayStoryModal({ computed, work, phaseName, shareUrl, photoUrl, onClose }) {
+export default function ObraDelayStoryModal({ computed, timeUnit, onTimeUnitChange, work, phaseName, shareUrl, photoUrl, onClose }) {
   const { resolved } = useTheme();
   const [appearance, setAppearance] = useState(() => resolved === 'dark' ? 'dark' : 'light');
   const [model, setModel] = useState('impacto');
@@ -46,13 +47,13 @@ export default function ObraDelayStoryModal({ computed, work, phaseName, shareUr
     return () => { active = false; };
   }, [photoUrl, work.thumbnail_url, assetAttempt]);
   const { exportRef, baixando, compartilhando, ocupado, baixar, compartilhar, podeCompartilhar, viaInstagram } = useStoryExport({
-    nomeArquivo: `atrasometro-${String(work.id).replace(/[^a-z0-9-]/gi, '')}-${model}-${appearance}${useFeaturedImage ? '' : '-sem-foto'}`,
+    nomeArquivo: `atrasometro-${String(work.id).replace(/[^a-z0-9-]/gi, '')}-${model}-${appearance}${timeUnit === 'months' ? '-meses' : timeUnit === 'years' ? '-anos' : ''}${useFeaturedImage ? '' : '-sem-foto'}`,
     shareUrl, pronto: Boolean(qr.url) && assets.ready, pixelRatio: 1,
     backgroundColor: DELAY_STORY_THEMES[appearance].background,
     contentId: work.id,
     aoConcluirShare: onClose,
   });
-  const data = { model, appearance, computed, title: work.title, location: [work.city, work.state].filter(Boolean).join(' · '), phaseName, qrCode: qr.url, logoUrl: assets.logoUrl, photoUrl: useFeaturedImage ? assets.photoUrl : '' };
+  const data = { model, appearance, computed, timeUnit, title: work.title, location: [work.city, work.state].filter(Boolean).join(' · '), phaseName, qrCode: qr.url, logoUrl: assets.logoUrl, photoUrl: useFeaturedImage ? assets.photoUrl : '' };
 
   return <Dialog open onOpenChange={open => { if (!open && !ocupado) onClose(); }}>
     {/* Exceção intencional: seletor de arte em diálogo com largura limitada. */}
@@ -68,6 +69,7 @@ export default function ObraDelayStoryModal({ computed, work, phaseName, shareUr
           </div>
         </div>
         <div className="min-w-0 space-y-4">
+          <ObraDelayUnitPicker computed={computed} value={timeUnit} disabled={ocupado} onChange={unit => { onTimeUnitChange(unit); setDownloaded(false); }} />
           <label className="flex min-h-11 items-center gap-3 rounded-xl border border-edge-default p-3 text-sm font-semibold">
             <input type="checkbox" name="delay-story-featured-image" checked={useFeaturedImage && hasFeaturedImage} disabled={ocupado || !hasFeaturedImage} onChange={event => { setUseFeaturedImage(event.target.checked); setDownloaded(false); }} className="h-4 w-4 accent-brand" />
             Usar imagem de destaque

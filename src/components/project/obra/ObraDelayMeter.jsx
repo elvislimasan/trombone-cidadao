@@ -1,6 +1,8 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getWorkDelayMetric, resolveWorkDelayUnit } from '@/lib/workDelayMetric';
+import ObraDelayUnitPicker from './ObraDelayUnitPicker';
 
 const ObraDelayStoryModal = lazy(() => import('./ObraDelayStoryModal'));
 
@@ -53,6 +55,7 @@ export function ObraDelayMeter({
   photoUrl,
 }) {
   const [storyOpen, setStoryOpen] = useState(false);
+  const [timeUnit, setTimeUnit] = useState('days');
 
   const computed = useMemo(() => {
     const expected = parseDate(expectedEndDate);
@@ -141,6 +144,8 @@ export function ObraDelayMeter({
       isDueToday,
       metricLabel,
       metricNumber,
+      expectedDay,
+      actualDay,
       ringValue,
       expectedDateText: formatDateShortPtBrUtc(expected),
       expectedDateLongText: formatDatePtBrUtc(expected),
@@ -149,7 +154,13 @@ export function ObraDelayMeter({
     };
   }, [endDate, expectedEndDate, executionDays, status]);
 
+  useEffect(() => {
+    if (computed) setTimeUnit(current => resolveWorkDelayUnit(computed, current));
+  }, [computed]);
+
   if (!computed || status === 'completed') return null;
+  const activeTimeUnit = resolveWorkDelayUnit(computed, timeUnit);
+  const metric = getWorkDelayMetric(computed, activeTimeUnit);
 
   const size = 190;
   const strokeWidth = 10;
@@ -170,6 +181,7 @@ export function ObraDelayMeter({
           </span>
         </div>
       </header>
+      <div className="mt-4 px-5"><ObraDelayUnitPicker computed={computed} value={activeTimeUnit} onChange={setTimeUnit} /></div>
 
       <div className="px-5 py-6 flex items-center justify-center">
         <div className="relative" style={{ width: size, height: size }}>
@@ -202,10 +214,10 @@ export function ObraDelayMeter({
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <div className={`text-5xl font-extrabold ${computed.colors.numberClassName}`}>
-              {computed.metricNumber}
+              {metric.number}
             </div>
             <div className="mt-1 text-[11px] font-semibold tracking-wider text-content-tertiary">
-              {computed.metricLabel}
+              {metric.label}
             </div>
           </div>
         </div>
@@ -225,7 +237,7 @@ export function ObraDelayMeter({
         </Button>}
       </div>
       {storyOpen && <Suspense fallback={<p role="status" className="px-5 pb-4 text-sm text-content-secondary">Preparando modelos…</p>}>
-        <ObraDelayStoryModal computed={computed} work={work} phaseName={phaseName} shareUrl={shareUrl} photoUrl={photoUrl} onClose={() => setStoryOpen(false)} />
+        <ObraDelayStoryModal computed={computed} timeUnit={activeTimeUnit} onTimeUnitChange={setTimeUnit} work={work} phaseName={phaseName} shareUrl={shareUrl} photoUrl={photoUrl} onClose={() => setStoryOpen(false)} />
       </Suspense>}
     </section>
   );

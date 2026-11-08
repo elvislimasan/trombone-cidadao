@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { getWorkDelayMetric } from '@/lib/workDelayMetric';
 
 export const DELAY_STORY_MODELS = [
   { id: 'impacto', name: 'Cartaz', accent: '#ffd20c' },
@@ -47,13 +48,12 @@ function WorkBackground({ photoUrl, dark }) {
 }
 
 const ObraDelayStoryCard = forwardRef(function ObraDelayStoryCard({
-  model = 'impacto', appearance = 'dark', computed, title, phaseName, qrCode, logoUrl, photoUrl,
+  model = 'impacto', appearance = 'dark', computed, timeUnit = 'days', title, phaseName, qrCode, logoUrl, photoUrl,
 }, ref) {
   const colors = DELAY_STORY_THEMES[appearance] || DELAY_STORY_THEMES.dark;
   const dark = appearance === 'dark';
-  const overdue = computed.isOverdue, today = computed.isDueToday;
-  const metricLabel = overdue ? (computed.metricNumber === 1 ? 'DIA DE ATRASO' : 'DIAS DE ATRASO') : today ? 'PRAZO VENCE HOJE' : (computed.metricNumber === 1 ? 'DIA PARA O PRAZO' : 'DIAS PARA O PRAZO');
-  const number = new Intl.NumberFormat('pt-BR').format(computed.metricNumber);
+  const { number, label: metricLabel } = getWorkDelayMetric(computed, timeUnit);
+  const singleDigit = /^\d$/.test(number);
   const numberSize = number.length > 6 ? 160 : number.length > 4 ? 250 : 430;
   const clockColor = dark ? YELLOW : '#c21e26';
   const phaseTitle = String(phaseName || '').trim();
@@ -73,10 +73,10 @@ const ObraDelayStoryCard = forwardRef(function ObraDelayStoryCard({
       <div data-story-title style={{ fontSize: title?.length > 110 ? 54 : 64, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1.4, color: colors.ink, ...clamp(3) }}>{title || 'Obra pública'}</div>
     </div>
     <div style={{ position: 'absolute', top: 700, left: 54, right: 54, height: 490, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      {model === 'impacto' ? <div data-story-timer-group style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 415, flexShrink: 0 }}><Stopwatch size={415} color={clockColor} /></div>
-        <div data-story-metric style={{ ...display, position: 'relative', marginLeft: -150, fontSize: numberSize, lineHeight: 1.05, letterSpacing: -12, color: colors.ink, textShadow: dark ? '0 10px 30px #00000088' : '0 6px 20px #ffffff88' }}>{number}</div>
-        <Brush color="#d91f26" style={{ position: 'absolute', top: -18, right: 0, color: '#ffffff', ...display, fontSize: 60, transform: 'rotate(-9deg)', zIndex: 2 }}>ATRASÔMETRO</Brush>
+      {model === 'impacto' ? <div data-story-timer-group style={{ position: 'relative', display: singleDigit ? 'block' : 'flex', width: singleDigit ? 480 : undefined, height: singleDigit ? 480 * 1.12 : undefined, alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: singleDigit ? 480 : 415, flexShrink: 0 }}><Stopwatch size={singleDigit ? 480 : 415} color={clockColor} /></div>
+        <div data-story-metric style={{ ...display, position: singleDigit ? 'absolute' : 'relative', left: singleDigit ? '50%' : undefined, top: singleDigit ? 480 * 276 / 440 : undefined, transform: singleDigit ? 'translate(-50%, -50%)' : undefined, marginLeft: singleDigit ? 0 : -150, fontSize: singleDigit ? 330 : numberSize, lineHeight: 1.05, letterSpacing: singleDigit ? 0 : -12, color: colors.ink, textShadow: dark ? '0 10px 30px #00000088' : '0 6px 20px #ffffff88' }}>{number}</div>
+        <Brush color="#d91f26" style={{ position: 'absolute', top: singleDigit ? -74 : -18, right: singleDigit ? undefined : 0, left: singleDigit ? '50%' : undefined, color: '#ffffff', ...display, fontSize: singleDigit ? 48 : 60, whiteSpace: 'nowrap', transform: singleDigit ? 'translateX(-50%) rotate(-5deg)' : 'rotate(-9deg)', zIndex: 2 }}>ATRASÔMETRO</Brush>
       </div> : <>
       <div data-story-timer-group style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: model === 'editorial' ? -35 : -15, opacity: model === 'alerta' ? 0.24 : 1 }}><Stopwatch size={model === 'editorial' ? 510 : 415} color={clockColor} full={model === 'editorial'} /></div>
       <Brush color="#d91f26" style={{ position: 'absolute', top: -18, right: 70, color: '#ffffff', ...display, fontSize: 60, transform: 'rotate(-9deg)', zIndex: 2 }}>ATRASÔMETRO</Brush>
@@ -96,7 +96,6 @@ const ObraDelayStoryCard = forwardRef(function ObraDelayStoryCard({
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
         <Brush color="#d91f26" style={{ ...display, color: '#ffffff', fontSize: 60, lineHeight: 1.1 }}>ACOMPANHE ESSA OBRA</Brush>
         <div style={{ fontSize: 26, fontWeight: 800, marginTop: 13 }}>trombonecidadao.com.br</div>
-        <div style={{ fontSize: 18, fontWeight: 600, marginTop: 7 }}>Dados do cadastro · {computed.asOfDateText}</div>
       </div>
       {qrCode && <img data-story-qr src={qrCode} alt="QR Code da obra" width="154" height="154" style={{ flexShrink: 0, borderRadius: 10, marginTop: 2 }} />}
     </div>

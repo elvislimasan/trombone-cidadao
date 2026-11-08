@@ -20,8 +20,8 @@ await build({ stdin: { contents: `
   window.downloads=[];window.notices=[];
   HTMLAnchorElement.prototype.click=function(){window.downloads.push({name:this.download,data:this.href})};
   function App(){const [mode,setMode]=useState('overdue');const [form,setForm]=useState(()=>electricianPoleForm({id:1,identifier:'X12345',lamp_type:'Vapor de sódio'}));
-    return <main className="page-shell-fluid p-4 sm:p-8"><div className="flex flex-wrap gap-3">{['overdue','future','today','completed','invalid','long','no-photo','failed-photo'].map(mode=><button key={mode} onClick={()=>setMode(mode)}>{mode}</button>)}</div>
-      <div className="grid gap-5 md:grid-cols-2"><ObraDelayMeter expectedEndDate={mode==='invalid'?'invalid':day(mode==='future'?5:mode==='today'?0:-123)} status={mode==='completed'?'completed':'in-progress'} executionDays={180}
+    return <main className="page-shell-fluid p-4 sm:p-8"><div className="flex flex-wrap gap-3">{['overdue','future','today','completed','invalid','long','no-photo','failed-photo','year'].map(mode=><button key={mode} onClick={()=>setMode(mode)}>{mode}</button>)}</div>
+      <div className="grid gap-5 md:grid-cols-2"><ObraDelayMeter expectedEndDate={mode==='invalid'?'invalid':day(mode==='future'?5:mode==='today'?0:mode==='year'?-800:-123)} status={mode==='completed'?'completed':'in-progress'} executionDays={180}
         phaseName="Construção" work={{id:'exemplo',thumbnail_url:mode==='no-photo'?'':mode==='failed-photo'?'/missing-photo.jpg':'/work-example.svg',title:mode==='long'?'Obra de exemplo com um título extenso para verificar a apresentação dos dados em diferentes modelos sem sobrepor as datas ou ocultar o QR Code no rodapé da arte':'Obra de exemplo · dados ilustrativos',city:'Cidade de exemplo',state:'PE'}} shareUrl="https://trombonecidadao.com.br/obras-publicas/exemplo"/>
       <ElectricianPoleFields value={form} onChange={setForm}/></div></main>}
   createRoot(document.getElementById('root')).render(<App/>);
@@ -90,7 +90,7 @@ try {
     if (width >= 1200) assert.ok(await evaluate(`(()=>{const r=document.querySelector('main').getBoundingClientRect(),s=getComputedStyle(document.querySelector('main'));return r.left+parseFloat(s.paddingLeft)<=64&&innerWidth-r.right+parseFloat(s.paddingRight)<=64})()`));
     const initialTheme = width === 1920 ? 'light' : 'dark';
     await evaluate(`window.fixtureTheme=${JSON.stringify(initialTheme)};document.documentElement.classList.toggle('dark',window.fixtureTheme==='dark')`);
-    await click('overdue'); await click('Baixar story'); await wait('document.querySelector("[data-story-logo]") && [...document.querySelectorAll("button")].some(button=>button.textContent.trim()==="Baixar arte"&&!button.disabled)');
+    await click('overdue'); await click('Compartilhar story'); await wait('document.querySelector("[data-story-logo]") && [...document.querySelectorAll("button")].some(button=>button.textContent.trim()==="Baixar arte"&&!button.disabled)');
     assert.equal(await evaluate('document.querySelector("input[name=delay-story-appearance]:checked").value'), initialTheme, 'A arte deve iniciar no tema da plataforma');
     assert.equal(await evaluate('document.querySelectorAll("input[name=delay-story-model]").length'), 3);
     for (const appearance of ['dark', 'light']) {
@@ -114,6 +114,26 @@ try {
       }
     }
     }
+    await evaluate(`document.querySelector('input[value=impacto]').click()`);
+    for (const [unit, number, label] of [['months', '4', 'MESES DE ATRASO']]) {
+      await evaluate(`document.querySelector('[role=dialog] input[data-delay-unit=${unit}]').click()`);
+      await wait(`document.querySelector('[data-story-model]').textContent.includes(${JSON.stringify(label)})`);
+      assert.equal(await evaluate(`document.querySelector('[data-story-metric]').textContent`), number);
+      assert.ok(await evaluate(`document.querySelector('section input[data-delay-unit=${unit}]').checked`), 'A seleção da arte e do painel deve ser a mesma');
+      if (unit === 'months') {
+        assert.ok(await evaluate(`(()=>{const card=[...document.querySelectorAll('[data-story-model]')].at(-1),ring=card.querySelector('[data-story-timer-group] circle').getBoundingClientRect(),metric=card.querySelector('[data-story-metric]').getBoundingClientRect();return Math.abs((ring.left+ring.right-metric.left-metric.right)/2)<1&&Math.abs((ring.top+ring.bottom-metric.top-metric.bottom)/2)<1&&metric.top>=ring.top&&metric.bottom<=ring.bottom})()`), 'Um dígito deve ficar centralizado dentro do relógio');
+      }
+      if (width === 1440) {
+        await click('Baixar arte'); await wait('document.body.innerText.includes("Arte salva")');
+        const png = await evaluate('window.downloads.at(-1)');
+        assert.ok(png.name.includes(unit === 'months' ? '-meses' : '-anos'));
+        await fs.writeFile(path.join(out, png.name), Buffer.from(png.data.split(',')[1], 'base64'));
+      }
+    }
+    assert.ok(await evaluate('document.querySelector("[role=dialog] input[data-delay-unit=years]").disabled&&document.querySelector("section input[data-delay-unit=years]").disabled'), 'Anos bloqueados antes de completar um ano');
+    await evaluate(`document.querySelector('[role=dialog] input[data-delay-unit=years]').click()`);
+    assert.ok(await evaluate('document.querySelector("[role=dialog] input[data-delay-unit=months]").checked'), 'Uma unidade bloqueada não pode ser selecionada');
+    await evaluate(`document.querySelector('[role=dialog] input[data-delay-unit=days]').click()`);
     await evaluate(`document.querySelector('input[name=delay-story-featured-image]').click()`);
     await wait('!document.querySelector("[data-story-photo]") && document.querySelector("[data-story-fallback]")');
     assert.ok(await evaluate('Boolean(document.querySelector("[data-story-logo]"))'), 'Remover foto deve preservar o logo');
@@ -126,20 +146,28 @@ try {
     await evaluate(`document.querySelector('input[name=delay-story-featured-image]').click()`);
     await wait('document.querySelector("[data-story-photo]")');
     await close();
+    await click('year');
+    await evaluate(`document.querySelector('section input[data-delay-unit=years]').click()`);
+    await click('Compartilhar story');
+    await wait('document.querySelector("[data-story-metric]")?.textContent==="2"');
+    assert.ok(await evaluate('document.querySelector("[role=dialog] input[data-delay-unit=years]").checked&&!document.querySelector("[role=dialog] input[data-delay-unit=years]").disabled'), 'Anos liberados após completar um ano');
+    assert.ok(await evaluate('document.querySelector("[data-story-model]").textContent.includes("ANOS DE ATRASO")'));
+    await close();
     for (const [mode, label] of [['future', 'DIAS PARA O PRAZO'], ['today', 'PRAZO VENCE HOJE']]) {
-      await click(mode); await click('Baixar story'); await wait('document.querySelector("[role=dialog] img")');
+      await click(mode); await click('Compartilhar story'); await wait('document.querySelector("[role=dialog] img")');
+      assert.ok(await evaluate('document.querySelector("[role=dialog] input[data-delay-unit=months]").disabled&&document.querySelector("[role=dialog] input[data-delay-unit=years]").disabled&&document.querySelector("[role=dialog] input[data-delay-unit=days]").checked'), 'Períodos curtos usam somente dias, inclusive após trocar uma seleção anterior em anos');
       assert.ok(await evaluate(`document.querySelector('[data-story-model]').textContent.includes(${JSON.stringify(label)})`));
       assert.ok(!(await evaluate(`document.querySelector('[data-story-model]').textContent`)).includes('DIAS DE ATRASO'));
       await close();
     }
-    await click('long'); await click('Baixar story'); await wait('document.querySelector("[role=dialog] img")');
+    await click('long'); await click('Compartilhar story'); await wait('document.querySelector("[role=dialog] img")');
     await pause(350);
     assert.ok(await evaluate(`(()=>{const card=[...document.querySelectorAll('[data-story-model]')].at(-1),qr=card.querySelector('[data-story-qr]'),r=card.getBoundingClientRect(),q=qr.getBoundingClientRect();return q.bottom<=r.top+1880&&q.top>=r.top+1680})()`), 'QR Code fora da arte com título longo');
     const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId);
     await fs.writeFile(path.join(out, `dialog-${width}.png`), Buffer.from(shot.data, 'base64'));
     await close();
     for (const mode of ['no-photo', 'failed-photo']) {
-      await click(mode); await click('Baixar story'); await wait('document.querySelector("[data-story-logo]")');
+      await click(mode); await click('Compartilhar story'); await wait('document.querySelector("[data-story-logo]")');
       assert.ok(await evaluate('Boolean(document.querySelector("[data-story-fallback]"))'), 'Obras sem foto devem ter composição própria');
       assert.equal(await evaluate('document.querySelectorAll("[data-story-photo]").length'), 0);
       await close();
@@ -151,7 +179,7 @@ try {
   // PNG real; destinos de compartilhamento simulados para não abrir apps ou publicar.
   await click('overdue');
   await evaluate('window.storyShareMode="instagram"');
-  await click('Baixar story');
+  await click('Compartilhar story');
   await wait('[...document.querySelectorAll("button")].some(el=>el.textContent.trim()==="Compartilhar"&&!el.disabled)');
   await click('Compartilhar');
   await wait('document.body.innerText.includes("Enviando…")');
@@ -159,7 +187,7 @@ try {
   await wait('!document.querySelector("[role=dialog]")');
   assert.deepEqual(await evaluate('window.instagramShares.map(({reportId,shareUrl,dataUrl})=>({reportId,shareUrl,png:dataUrl.startsWith("data:image/png;")}))'), [{reportId:'exemplo',shareUrl:'https://trombonecidadao.com.br/obras-publicas/exemplo',png:true}]);
   await evaluate(`window.storyShareMode='web';window.webShares=[];Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>window.webShares.push({name:data.files[0].name,type:data.files[0].type,size:data.files[0].size,text:data.text,url:data.url})})`);
-  await click('Baixar story');
+  await click('Compartilhar story');
   await wait('[...document.querySelectorAll("button")].some(el=>el.textContent.trim()==="Publicar no story"&&!el.disabled)');
   await click('Publicar no story');
   await wait('!document.querySelector("[role=dialog]")');
