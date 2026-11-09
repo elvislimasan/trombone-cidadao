@@ -61,14 +61,22 @@ export function brokenPole(pole) {
     && (pole?.is_broken || ['apagado', 'manutencao'].includes(pole?.lighting_status) || pole?.patrol_issues?.length > 0);
 }
 
-export function closestPatrolPole(position, poles, dismissed = new Set(), order = 'nearest') {
+// O destino não fica limitado ao raio do alerta e permanece escolhido até
+// ser atualizado, pulado ou deixar de atender aos filtros.
+export function nextPatrolPole(position, poles, dismissed = new Set(), order = 'nearest', current = null) {
   if (!patrolPositionIsPrecise(position)) return null;
   const nearby = poles.filter((pole) => brokenPole(pole) && !dismissed.has(String(pole.id))
-    && Number.isFinite(pole.latitude) && Number.isFinite(pole.longitude))
+    && Number.isFinite(pole.latitude) && Math.abs(pole.latitude) <= 90
+    && Number.isFinite(pole.longitude) && Math.abs(pole.longitude) <= 180)
     .map((pole) => ({ pole, distance: haversine(position, { lat: pole.latitude, lng: pole.longitude }) }))
-    .filter((item) => item.distance <= NAV_ALERTA.distanciaAlertaM)
     .sort((a, b) => (order === 'oldest' ? (a.pole.patrol_oldest_at ?? Infinity) - (b.pole.patrol_oldest_at ?? Infinity) : 0) || a.distance - b.distance);
-  return nearby[0] || null;
+  return (current && nearby.find(item => String(item.pole.id) === String(current.id))) || nearby[0] || null;
+}
+
+export function closestPatrolPole(position, poles, dismissed = new Set(), order = 'nearest') {
+  const nearby = poles.filter(pole => Number.isFinite(pole.latitude) && Number.isFinite(pole.longitude)
+    && position && haversine(position, { lat: pole.latitude, lng: pole.longitude }) <= NAV_ALERTA.distanciaAlertaM);
+  return nextPatrolPole(position, nearby, dismissed, order);
 }
 
 export function patrolPoleBounds(position) {

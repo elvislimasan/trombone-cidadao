@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { brokenPole, closestPatrolPole, DEFAULT_PATROL_FILTERS, filterPatrolPoles, patrolFiltersFromSearch, patrolSearch, patrolPoleBounds, patrolPositionIsPrecise } from '@/lib/electricianPatrol';
+import { brokenPole, closestPatrolPole, nextPatrolPole, DEFAULT_PATROL_FILTERS, filterPatrolPoles, patrolFiltersFromSearch, patrolSearch, patrolPoleBounds, patrolPositionIsPrecise } from '@/lib/electricianPatrol';
 
 const position = { lat: -8.6, lng: -38.57, accuracy: 5 };
 const pole = (id, meters, changes = {}) => ({ id, latitude: position.lat + meters / 111195,
@@ -86,4 +86,28 @@ test('mais antigos usa a data da solicitação filtrada e mantém o raio seguro 
   assert.equal(closestPatrolPole(position, filtered).pole.id, 1);
   assert.equal(closestPatrolPole(position, filtered, new Set(), 'oldest').pole.id, 2);
   assert.equal(closestPatrolPole(position, filtered, new Set(['2']), 'oldest').pole.id, 1);
+});
+
+test('destino considera todo o bairro e prioriza a solicitação mais antiga além do raio de alerta', () => {
+  const poles = [pole(1, 5), pole(2, 850), pole(3, 2000)];
+  const services = [
+    { pole_id: 1, issue_type: 'lamp_off', neighborhood: 'Centro', created_at: '2026-10-30' },
+    { pole_id: 2, issue_type: 'lamp_off', neighborhood: 'Centro', created_at: '2026-01-01' },
+    { pole_id: 3, issue_type: 'lamp_off', neighborhood: 'Outro', created_at: '2020-01-01' },
+  ];
+  const filtered = filterPatrolPoles(poles, services, { ...DEFAULT_PATROL_FILTERS, neighborhood: 'Centro' });
+  assert.equal(nextPatrolPole(position, filtered, new Set(), 'oldest').pole.id, 2);
+  assert.equal(nextPatrolPole(position, filtered).pole.id, 1);
+  assert.equal(closestPatrolPole(position, [filtered[1]]), null);
+});
+
+test('mantém um destino por vez mesmo quando outro fica mais próximo e avança ao pular', () => {
+  const poles = [pole(1, 200), pole(2, 500)];
+  const first = nextPatrolPole(position, poles);
+  const moved = { ...position, lat: poles[1].latitude };
+  assert.equal(nextPatrolPole(moved, poles, new Set(), 'nearest', first.pole).pole.id, 1);
+  assert.equal(nextPatrolPole(moved, poles, new Set(['1']), 'nearest', first.pole).pole.id, 2);
+  assert.equal(nextPatrolPole(position, [], new Set(), 'nearest', first.pole), null);
+  assert.equal(nextPatrolPole({ ...position, accuracy: 40 }, poles), null);
+  assert.equal(nextPatrolPole(position, [pole(3, 0, { latitude: 91 })]), null);
 });

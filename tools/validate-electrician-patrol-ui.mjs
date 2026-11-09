@@ -27,16 +27,17 @@ const stubs={
   '@/hooks/useNavVoice':`export const useNavVoice=()=>({preparar:prepare,anunciar:announce,mudo:false,alternarMudo:()=>{},suportada:true});const prepare=()=>{};const announce=text=>window.voiceAlerts.push(text);`,
   '@/lib/customSupabaseClient':`
     const pole={id:1,identifier:'X159189',address:'Rua A',latitude:-8.6,longitude:-38.57,lighting_status:'apagado',updated_at:'2026-10-06T12:00:00Z'};
-    window.patrolFixtures={poles:[pole],reports:[],demands:[]};
-    export const supabase={from(table){let single=false,op='select',value;const q=new Proxy({}, {get(_,key){if(key==='then')return r=>{let data=[];let error=null;
-      if(table==='poles')data=single?{...pole}:window.patrolFixtures.poles.map(p=>({...p}));
+    window.patrolFixtures={poles:[pole],reports:[],demands:[],streets:[]};
+    export const supabase={from(table){let single=false,op='select',value,selectedId;const q=new Proxy({}, {get(_,key){if(key==='then')return r=>{let data=[];let error=null;
+      if(table==='poles')data=single?{...(window.patrolFixtures.poles.find(p=>p.id===selectedId)||pole)}:window.patrolFixtures.poles.map(p=>({...p}));
       if(table==='reports')data=window.patrolFixtures.reports;
       if(table==='demandas_municipais')data=window.patrolFixtures.demands;
       if(table==='bairros')data=[{id:'centro',name:'Centro'},{id:'bela-vista',name:'Bela Vista'}];
+      if(table==='pavement_streets')data=window.patrolFixtures.streets;
       if(table==='patrols'&&op==='insert'){if(window.saveMode==='reject')error={message:'validation error',code:'23514'};else if(window.saveMode==='offline')error={message:'Failed to fetch'};else {data={...value,id:crypto.randomUUID()};window.savedPatrols.push(data);}}
       if(table==='patrol_paths'&&op==='upsert'){window.savedPaths.push(value);data=value;}
       if(table==='patrols'&&op==='select')data=window.savedPatrols;
-      return Promise.resolve({data,error}).then(r);};return (...args)=>{if(key==='single'||key==='maybeSingle')single=true;if(key==='insert'||key==='upsert'){op=key;value=args[0];}return q;};}});return q;},async rpc(name,args){
+      return Promise.resolve({data,error}).then(r);};return (...args)=>{if(key==='eq'&&args[0]==='id')selectedId=args[1];if(key==='single'||key==='maybeSingle')single=true;if(key==='insert'||key==='upsert'){op=key;value=args[0];}return q;};}});return q;},async rpc(name,args){
       if(name==='registrar_visita_poste_eletricista_v2'){window.savedVisits++;pole.lighting_status=args.p_status;return {data:{},error:null};}
       return {data:[],error:null};}};
     const rpc=supabase.rpc;supabase.rpc=(...args)=>({then:(ok,fail)=>rpc(...args).then(ok,fail)});`,
@@ -45,8 +46,8 @@ if(!process.argv.includes('--reuse-assets')) {
 await build({jsx:'automatic',loader:{'.png':'dataurl'},stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter,Routes,Route,Outlet} from 'react-router-dom';import {Helmet} from 'react-helmet';import L from 'leaflet';import ElectricianLayout from '@/components/municipality/ElectricianLayout';import ElectricianProfilePage from '@/pages/ElectricianProfilePage';import ElectricianPatrolPage from '@/pages/ElectricianPatrolPage';import MyPatrolsPage from '@/pages/MyPatrolsPage';const context={municipality:{id:'city',city_id:1,nome:'Prefeitura teste',cidade:{name:'Floresta'}},memberships:[]};L.Map.addInitHook(function(){window.testMap=this;});const app=createRoot(document.getElementById('root'));window.unmount=()=>app.unmount();app.render(<BrowserRouter><Routes><Route element={<ElectricianLayout context={context}/>}><Route path='/prefeitura/eletricista/perfil' element={<ElectricianProfilePage/>}/><Route path='/prefeitura/eletricista/patrulha' element={<ElectricianPatrolPage/>}/><Route path='/prefeitura/eletricista/patrulha/ativa' element={<ElectricianPatrolPage running/>}/><Route path='/prefeitura/eletricista/patrulhas' element={<MyPatrolsPage electrician/>}/></Route></Routes></BrowserRouter>);`,resolveDir:root,loader:'jsx'},bundle:true,outfile:path.join(out,'preview.js'),define:{'process.env.NODE_ENV':'"production"','import.meta.env':'{"DEV":false}'},alias:{'@':path.join(root,'src')},plugins:[{name:'fixtures',setup(b){b.onLoad({filter:/carregarRenders\.js$/},()=>({contents:`import {registrarRenders} from './renderizacoes';export const RENDERS_CARREGADOS=registrarRenders(new Map(${JSON.stringify(renderRegistry)}));`,loader:'js',resolveDir:path.join(root,'src/components/patrol/avatar')}));b.onResolve({filter:/.*/},a=>stubs[a.path]?{path:a.path,namespace:'fixture'}:undefined);b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:stubs[a.path],loader:'jsx',resolveDir:root}));}}]});
 let inputCss=await fs.readFile('src/index.css','utf8');
 for(const token of ['primitives','semantic','typography','motion']) inputCss=inputCss.replace("@import './design-system/tokens/"+token+".css';",await fs.readFile('src/design-system/tokens/'+token+'.css','utf8'));
-const css=await postcss([tailwind({...loadConfig(path.join(root,'tailwind.config.js')),content:[{raw:'h-screen w-full'},...['src/pages/ElectricianPatrolPage.jsx','src/components/MapView.jsx','src/components/map/MapDisplayControls.jsx','src/components/municipality/ElectricianPatrolAlert.jsx','src/pages/ElectricianProfilePage.jsx','src/pages/MyPatrolsPage.jsx','src/components/municipality/ElectricianLayout.jsx','src/components/patrol/**/*.jsx','src/components/municipality/ElectricianPoleVisitDrawer.jsx','src/components/municipality/MunicipalLightingMap.jsx','src/components/WebUploadIndicator.jsx','src/components/ui/{drawer,input,button,progress}.jsx'].map(file=>path.join(root,file))]})]).process(inputCss,{from:path.join(root,'src/index.css')});
-await fs.writeFile(path.join(out,'preview.css'),(await fs.readFile(path.join(out,'preview.css'),'utf8').catch(()=>''))+'\n'+css.css);
+const css=await postcss([tailwind({...loadConfig(path.join(root,'tailwind.config.js')),content:[{raw:'h-screen w-full'},...['src/pages/ElectricianPatrolPage.jsx','src/components/MapView.jsx','src/components/map/MapDisplayControls.jsx','src/components/municipality/ElectricianPatrolAlert.jsx','src/components/municipality/ElectricianPatrolDestination.jsx','src/pages/ElectricianProfilePage.jsx','src/pages/MyPatrolsPage.jsx','src/components/municipality/ElectricianLayout.jsx','src/components/patrol/**/*.jsx','src/components/municipality/ElectricianPoleVisitDrawer.jsx','src/components/municipality/MunicipalLightingMap.jsx','src/components/WebUploadIndicator.jsx','src/components/ui/{drawer,input,button,progress}.jsx'].map(file=>path.join(root,file))]})]).process(inputCss,{from:path.join(root,'src/index.css')});
+await fs.writeFile(path.join(out,'preview.css'),css.css+'\n'+await fs.readFile('node_modules/leaflet/dist/leaflet.css','utf8'));
 await fs.writeFile(path.join(out,'index.html'),'<html><head><meta charset="UTF-8"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>');
 }
 const server=http.createServer(async(req,res)=>{const avatarFile=req.url?.startsWith('/avatar/')?req.url.slice(8):null;const file=avatarFile&&publishedFigures.includes(avatarFile)?path.join(figures,avatarFile):path.join(out,req.url==='/preview.js'?'preview.js':req.url==='/preview.css'?'preview.css':'index.html');res.setHeader('Content-Type',file.endsWith('.webp')?'image/webp':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(file));});
@@ -84,7 +85,7 @@ try{
   const touchable=async(text)=>evaluate(`(()=>{const b=[...document.querySelectorAll('button,a')].find(x=>x.textContent.trim()===${JSON.stringify(text)});const r=b.getBoundingClientRect();return b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()`);
   const alert='document.querySelector(`section[aria-label="Poste com problema próximo"]`)';
   const screenshot=async(name)=>{const capture=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,name+'.png'),Buffer.from(capture.data,'base64'));};
-  for(const [width,height] of (process.argv.includes('--filters-only') ? [] : [[390,844],[1440,900],[1920,1080]])){
+  for(const [width,height] of ((process.argv.includes('--filters-only') || process.argv.includes('--routes-only')) ? [] : [[390,844],[1440,900],[1920,1080]])){
     await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
     const load=async(route='/perfil')=>{await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/prefeitura/eletricista'+route},sessionId);};
     await load();await waitFor('document.body.innerText.includes("Sair em patrulha")');
@@ -202,6 +203,68 @@ try{
     await waitFor('document.querySelector(`section[aria-label="Poste com problema próximo"]`)?.innerText.includes("NOVO")');
     await clickText('Depois');await waitFor('!'+alert);
     results.push({width,filtersPreserved:true,filteredMap:true,oldestAlert:true,onlySelectedServicesAlert:true,overflow:false});
+  }
+  if(process.argv.includes('--routes-only')) for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+    await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+    await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/prefeitura/eletricista/patrulha?modo='+(width===390?'driving':'walking')+'&bairro=Centro&ordem=oldest'},sessionId);
+    await waitFor('document.querySelector(`select[aria-label="Prioridade da patrulha"]`)');
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    if(width>=1200)assert.ok(await evaluate('(()=>{const r=document.querySelector("h1").getBoundingClientRect();return r.left<=64&&innerWidth-r.right<=64})()'));
+    await evaluate(`(()=>{const base={lighting_status:'aceso',longitude:-38.57,updated_at:'2026-10-01T12:00:00Z'};patrolFixtures.poles=[{...base,id:2,identifier:'PERTO',latitude:-8.60006},{...base,id:3,identifier:'ANTIGO',latitude:-8.5924},{...base,id:4,identifier:'OUTRO-BAIRRO',latitude:-8.60007}];patrolFixtures.reports=[{pole_id:2,issue_type:'no_lighting',neighborhood:'Centro',created_at:'2026-10-30'},{pole_id:3,issue_type:'no_lighting',neighborhood:'Centro',created_at:'2026-09-01'},{pole_id:4,issue_type:'no_lighting',neighborhood:'Bela Vista',created_at:'2020-01-01'}];patrolFixtures.streets=[{id:1,path:{coordinates:[[[-38.57,-8.601],[-38.57,-8.59]]]}}]})()`);
+    await clickText('Iniciar patrulha');await waitFor('document.body.innerText.includes("Antes de começar")');
+    assert.ok(await evaluate('!document.body.innerText.includes("Ele não calcula rotas")'));
+    await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent.includes("Entendi")).click()');
+    await waitFor('Object.keys(gps.watchers).length===1');
+    await evaluate('gps.emit(-8.60008,-38.57,300)');
+    await waitFor('document.querySelectorAll(".custom-leaflet-icon").length===2');
+    await waitFor('document.body.innerText.includes("Aguardando GPS preciso")');
+    assert.ok(await evaluate('!document.body.innerText.includes("Nenhum poste pendente")'));
+    assert.ok(await evaluate('!document.querySelector(`section[aria-label="Caminho até o próximo poste"]`) && !'+alert));
+    await waitFor('(()=>{const r=document.querySelector(".custom-leaflet-icon").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;})()');
+    await screenshot('weak-gps-poles-'+width);
+    await evaluate('gps.emit(-8.60008,-38.57,5)');
+    const destination='document.querySelector(`section[aria-label="Caminho até o próximo poste"]`)';
+    await waitFor(destination+'?.innerText.includes("ANTIGO") && window.testMap');
+    await waitFor('document.querySelectorAll(".custom-leaflet-icon").length===2');
+    assert.ok(await evaluate('!'+alert));
+    assert.ok(await evaluate(destination+'.innerText.includes("ruas mapeadas")'));
+    assert.ok(await evaluate('Object.values(testMap._layers).some(l=>l._latlngs?.length>2)'));
+    assert.ok(await evaluate('!document.querySelector(`a[href*="google.com/maps"]`)'));
+    assert.ok(await touchable('Navegar'));assert.ok(await touchable('Pular poste'));
+    await waitFor('(()=>{const r=document.querySelectorAll(".custom-leaflet-icon")[1].getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=230&&r.bottom<=innerHeight-90;})()');
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    await screenshot('route-oldest-'+width);
+    const overviewZoom=await evaluate('testMap.getZoom()');
+    await evaluate('window.navigationMap=testMap;window.navigationUrl=location.href');
+    await clickText('Navegar');
+    await waitFor('document.body.innerText.includes("Ver rota") && testMap.getZoom()===18');
+    assert.ok(await evaluate('navigationMap===testMap && navigationUrl===location.href'));
+    await screenshot('route-follow-'+width);
+    await clickText('Ver rota');
+    await waitFor('testMap.getZoom()==='+overviewZoom);
+    await evaluate('document.querySelectorAll(".custom-leaflet-icon")[1].click()');
+    await waitFor('document.querySelector(`button[aria-label="Fechar poste"]`)');
+    await evaluate('document.querySelector(`button[aria-label="Fechar poste"]`).click()');
+    await waitFor(destination+'?.innerText.includes("ANTIGO")');
+    await clickText('Pular poste');
+    await waitFor(destination+'?.innerText.includes("PERTO")');
+    await waitFor(alert+'?.innerText.includes("PERTO")');
+    await screenshot('route-next-'+width);
+    await clickText('Depois');await waitFor('!'+destination);
+    await waitFor('document.body.innerText.includes("Nenhum poste pendente com estes filtros")');
+    assert.equal(await evaluate('document.querySelectorAll(".custom-leaflet-icon").length'),0);
+    await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/prefeitura/eletricista/patrulha/ativa?modo=driving'},sessionId);
+    await waitFor('document.body.innerText.includes("Antes de começar")');
+    await evaluate(`(()=>{const base={lighting_status:'apagado',longitude:-38.57};patrolFixtures.poles=[{...base,id:6,identifier:'PROXIMO',latitude:-8.595},{...base,id:7,identifier:'DISTANTE',latitude:-8.59}]})()`);
+    await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent.includes("Entendi")).click()');
+    await waitFor('Object.keys(gps.watchers).length===1');await evaluate('gps.emit(-8.6,-38.57,5)');
+    await waitFor(destination+'?.innerText.includes("PROXIMO")');
+    assert.ok(await evaluate(destination+'.innerText.includes("linha reta")'));
+    assert.ok(await evaluate('!document.querySelector(`a[href*="google.com/maps"]`)'));
+    assert.ok(await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent.trim()==="Navegar").disabled'));
+    await clickText('Pular poste');await waitFor(destination+'?.innerText.includes("DISTANTE")');
+    await screenshot('route-nearest-'+width);
+    results.push({width,weakGpsShowsPoles:true,weakGpsWaitsForDestination:true,oneDestinationAtATime:true,oldestOutsideAlertRadius:true,nearestSequence:true,mappedPath:true,unmappedPathLabel:true,internalNavigation:true,routeOverview:true,cancelRetainsTarget:true,skipAdvances:true,emptyState:true,overflow:false});
   }
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify(results,null,2));

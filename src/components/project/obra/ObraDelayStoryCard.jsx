@@ -88,14 +88,18 @@ const ObraDelayStoryCard = forwardRef(function ObraDelayStoryCard({
     <div style={{ position: 'absolute', top: 1220, left: 80, right: 80, display: 'flex', justifyContent: 'center' }}>
       <Brush color={YELLOW} style={{ ...display, color: '#111111', textAlign: 'center', fontSize: 77, lineHeight: 1.05, width: '100%' }}>{metricLabel}</Brush>
     </div>
-    <div style={{ position: 'absolute', top: 1500, left: 80, right: 80, minHeight: 94, padding: '25px 30px', boxSizing: 'border-box', borderRadius: 24, background: colors.panel, border: `1px solid ${dark ? '#ffffff33' : '#18181b22'}`, boxShadow: '0 12px 30px #00000022', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, fontSize: 29, color: colors.muted }}>
+    <div data-story-link-heading style={{ position: 'absolute', top: 1348, left: 190, right: 190, textAlign: 'center' }}>
+      <Brush color="#d91f26" style={{ ...display, color: '#ffffff', fontSize: 52, lineHeight: 1.1 }}>ACOMPANHE ESSA OBRA</Brush>
+    </div>
+    {/* Área livre para posicionar o sticker de link no editor de stories. */}
+    <div data-story-link-space aria-hidden="true" style={{ position: 'absolute', top: 1448, left: 170, right: 170, height: 112, pointerEvents: 'none' }} />
+    <div data-story-deadline style={{ position: 'absolute', top: 1580, left: 80, right: 80, minHeight: 74, padding: '18px 30px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, fontSize: 26, color: colors.muted }}>
       <span style={{ flexShrink: 0 }}>Previsão: <strong style={{ color: colors.ink }}>{computed.expectedDateText}</strong></span>
       {displayPhaseName && <><span style={{ color: dark ? YELLOW : '#c21e26' }}>•</span><span style={{ minWidth: 0, ...clamp(1) }}>Etapa: <strong style={{ color: colors.ink }}>{displayPhaseName}</strong></span></>}
     </div>
-    <div style={{ position: 'absolute', top: 1680, left: 0, right: 0, height: 240, background: YELLOW, color: '#111111', padding: '26px 64px', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
+    <div style={{ position: 'absolute', top: 1680, left: 0, right: 0, height: 240, background: YELLOW, color: '#111111', padding: '26px 64px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-        <Brush color="#d91f26" style={{ ...display, color: '#ffffff', fontSize: 60, lineHeight: 1.1 }}>ACOMPANHE ESSA OBRA</Brush>
-        <div style={{ fontSize: 26, fontWeight: 800, marginTop: 13 }}>trombonecidadao.com.br</div>
+        <div style={{ fontSize: 30, fontWeight: 800 }}>trombonecidadao.com.br</div>
       </div>
       {qrCode && <img data-story-qr src={qrCode} alt="QR Code da obra" width="154" height="154" style={{ flexShrink: 0, borderRadius: 10, marginTop: 2 }} />}
     </div>

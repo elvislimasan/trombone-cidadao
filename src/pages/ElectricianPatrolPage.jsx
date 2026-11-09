@@ -11,6 +11,7 @@ import PatrolDisclaimer from '@/components/patrol/PatrolDisclaimer';
 import PatrolHud from '@/components/patrol/PatrolHud';
 import PatrolExitSheet from '@/components/patrol/PatrolExitSheet';
 import ElectricianPatrolAlert from '@/components/municipality/ElectricianPatrolAlert';
+import ElectricianPatrolDestination from '@/components/municipality/ElectricianPatrolDestination';
 import ElectricianPoleVisitDrawer from '@/components/municipality/ElectricianPoleVisitDrawer';
 import { useNavigationGps } from '@/hooks/useNavigationGps';
 import { useElectricianPatrol } from '@/hooks/useElectricianPatrol';
@@ -18,10 +19,14 @@ import { usePatrolRecorder } from '@/hooks/usePatrolRecorder';
 import { usePatrolAvatar } from '@/hooks/usePatrolAvatar';
 import { usePatrolExitGuard } from '@/hooks/usePatrolExitGuard';
 import { useNavVoice } from '@/hooks/useNavVoice';
+import { useRuasDaCidade } from '@/hooks/useRuasDaCidade';
+import { tracarRota } from '@/lib/rotaTracada';
+import { haversine } from '@/lib/navGeo';
+import { rumoRelativo } from '@/lib/patrolAlvo';
 import { poleDisplayLabel } from '@/lib/poleDisplay';
 import { patrolTravelModeFromSearch, readStoredPatrolTravelMode, storePatrolTravelMode } from '@/lib/patrolTravelMode';
 import { storePatrolAvatar, toElectricianPatrolAvatar } from '@/lib/patrolAvatarConfig';
-import { DEFAULT_PATROL_FILTERS, PATROL_SERVICE_TYPES, patrolFiltersFromSearch, patrolSearch } from '@/lib/electricianPatrol';
+import { DEFAULT_PATROL_FILTERS, PATROL_SERVICE_TYPES, patrolFiltersFromSearch, patrolSearch, patrolPositionIsPrecise } from '@/lib/electricianPatrol';
 import { supabase } from '@/lib/customSupabaseClient';
 
 const MapView = lazy(() => import('@/components/MapView'));
@@ -64,7 +69,7 @@ function Preparation({ municipality }) {
   const [avatar, setAvatar] = useState(null);
   const professionalAvatar = toElectricianPatrolAvatar(avatar || avatarProfile);
   const [studio, setStudio] = useState(false);
-  const [mode, setMode] = useState(() => { try { return readStoredPatrolTravelMode(localStorage); } catch { return 'driving'; } });
+  const [mode, setMode] = useState(() => { const fromSearch = patrolTravelModeFromSearch(search); if (fromSearch) return fromSearch; try { return readStoredPatrolTravelMode(localStorage); } catch { return 'driving'; } });
   return <div className="h-[100dvh] overflow-y-auto bg-surface-base text-content-primary">
     <Helmet><title>Preparar patrulha | Eletricista</title><meta name="robots" content="noindex" /></Helmet>
     <div className="page-shell-fluid pt-[max(1.5rem,env(safe-area-inset-top))] pb-28">
@@ -79,7 +84,6 @@ function Preparation({ municipality }) {
         </div>
         {loadingNeighborhoods && <p role="status" className="mt-2 text-sm text-content-secondary">Carregando bairros…</p>}
         {neighborhoodError && <p role="alert" className="mt-2 text-sm text-danger">Não foi possível carregar os bairros. <button type="button" className="min-h-11 underline" onClick={() => setRetry(value => value + 1)}>Tentar novamente</button></p>}
-        <p className="mt-3 text-sm text-content-secondary">O mapa e os alertas seguem os filtros escolhidos. “Mais antigos” prioriza a solicitação aberta há mais tempo entre os postes próximos, dentro do raio de alerta.</p>
       </section>
       <div className="mt-6 min-w-0">
         <PatrolTravelModePicker value={mode} onChange={(next) => { setMode(next); try { storePatrolTravelMode(localStorage, next); } catch {} }} avatar={professionalAvatar} onEscolherBoneco={() => setStudio(true)} />
@@ -105,13 +109,27 @@ function PatrolSession({ municipality, mode, filters }) {
   const [saveError, setSaveError] = useState('');
   const [result, setResult] = useState(null);
   const [mapPosition, setMapPosition] = useState(null);
+  const [followingTarget, setFollowingTarget] = useState(null);
   const ending = useRef(false);
   const { posicao, erro, sinalFraco, velocidadeKmh } = useNavigationGps({ ativo: accepted && phase === 'running' && !selected, restart });
   const recorder = usePatrolRecorder(phase === 'running' && !erro && !sinalFraco ? posicao : null, { cityId: municipality.city_id, travelMode: mode, lighting: true });
   const { registrarPostePassado, registrarPosteAtualizado } = recorder;
-  const { alert, dismiss, poles, error: patrolError } = useElectricianPatrol({ enabled: accepted && phase !== 'summary', cityId: municipality.city_id, municipalityId: municipality.id, filters, position: posicao, paused: phase !== 'running' || Boolean(selected) || Boolean(erro), revision });
+  const { alert, dismiss, hideAlert, complete, target, poles, loading: loadingPoles, error: patrolError } = useElectricianPatrol({ enabled: accepted && phase !== 'summary', cityId: municipality.city_id, municipalityId: municipality.id, filters, position: posicao, paused: phase !== 'running' || Boolean(selected) || Boolean(erro), revision });
+  const { linhas, carregando: loadingStreets } = useRuasDaCidade(accepted ? municipality.city_id : null);
+  const route = useMemo(() => target && mapPosition ? tracarRota({ posicao: mapPosition, paradas: [{ lat: target.pole.latitude, lng: target.pole.longitude }], linhas, detalharAcessos: true }) : { trechos: [], metros: 0, tracado: 'reta' }, [target, mapPosition, linhas]);
+  const waypoint = route.trechos.flatMap(trecho => trecho.pontos).find(point => mapPosition && haversine(mapPosition, point) >= 12);
+  const direction = rumoRelativo(mapPosition, waypoint);
+  const following = target != null && followingTarget === String(target.pole.id);
   const { anunciar, preparar, mudo, alternarMudo, suportada } = useNavVoice();
   const announced = useRef(null);
+  const announcedTarget = useRef(null);
+  useEffect(() => {
+    if (!target || phase !== 'running' || selected || sinalFraco || erro) return;
+    const key = String(target.pole.id);
+    if (announcedTarget.current === key) return;
+    announcedTarget.current = key;
+    anunciar(`Próximo destino: ${poleDisplayLabel(target.pole)}. ${filters.order === 'oldest' ? 'Solicitação mais antiga' : 'Poste mais próximo'}.`);
+  }, [target, phase, selected, sinalFraco, erro, filters.order, anunciar]);
   useEffect(() => { if (posicao && !selected && phase === 'running') setMapPosition(posicao); }, [posicao, selected, phase]);
   useEffect(() => {
     if (!alert) return;
@@ -124,6 +142,10 @@ function PatrolSession({ municipality, mode, filters }) {
     else navigator.vibrate?.([100, 60, 100]);
   }, [alert, anunciar, registrarPostePassado]);
   const clusters = useMemo(() => poles.map((pole) => ({ isCluster: false, lat: pole.latitude, lng: pole.longitude, count: 1, ids: [`pole:${pole.id}`], report: { id: `pole:${pole.id}`, pole, title: poleDisplayLabel(pole), category: 'iluminacao', status: 'pending', location: { lat: pole.latitude, lng: pole.longitude } } })), [poles]);
+  const destinationStatus = loadingPoles ? 'Buscando próximo poste…'
+    : poles.length > 0 ? patrolPositionIsPrecise(posicao) ? 'Preparando próximo poste…' : 'Aguardando GPS preciso para definir o próximo poste.'
+    : patrolError ? 'Nenhum destino disponível.' : 'Nenhum poste pendente com estes filtros.';
+  const openPole = (pole) => { hideAlert(); setSelected(pole); };
   const returnToProfile = useCallback(() => navigate(`${ROOT}/perfil`, { replace: true }), [navigate]);
   const back = () => {
     if (ending.current) return;
@@ -145,16 +167,19 @@ function PatrolSession({ municipality, mode, filters }) {
   };
   return <div className="fixed inset-0 isolate overflow-hidden bg-surface-base text-content-primary">
     <Helmet><title>Patrulha de iluminação | Eletricista</title><meta name="robots" content="noindex" /></Helmet>
-    {mapPosition && <Suspense fallback={null}><MapView clusters={clusters} initialCenter={mapPosition} navMode navPosition={mapPosition} navTravelMode={mode} navAvatar={avatar} navGpsAtivo={!sinalFraco && !erro} navTrail={recorder.rastro} showLegend={false} showModeToggle={false} interactive={false} onReportClick={(item) => { if (phase === 'running' && item.pole) { dismiss(); setSelected(item.pole); } }} onUpvote={noop} onUpdateClick={noop} onBoundsChange={noop} onRecenter={noop} /></Suspense>}
+    {mapPosition && <Suspense fallback={null}><MapView clusters={clusters} initialCenter={mapPosition} navMode navPosition={mapPosition} navTravelMode={mode} navAvatar={avatar} navGpsAtivo={!sinalFraco && !erro} navTrail={recorder.rastro} navRouteTrechos={route.trechos} navRouteOverview={Boolean(target) && !following} showLegend={false} showModeToggle={false} interactive={false} onReportClick={(item) => { if (phase === 'running' && item.pole) openPole(item.pole); }} onUpvote={noop} onUpdateClick={noop} onBoundsChange={noop} onRecenter={noop} /></Suspense>}
     {accepted && phase === 'running' && !selected && <>
-      <PatrolHud categoriaNome="Iluminação · Eletricista" modoDeslocamento={mode} velocidadeKmh={velocidadeKmh} rua={[filters.neighborhood || municipality.cidade?.name, PATROL_SERVICE_TYPES.find(([id]) => id === filters.serviceType)?.[1], filters.order === 'oldest' ? 'Mais antigos' : 'Mais próximos'].filter(Boolean).join(' · ')} sinalFraco={sinalFraco || Boolean(erro)} totalNaFila={0} cardVisivel={Boolean(alert)} mudo={mudo} onAlternarSom={alternarMudo} somSuportado={suportada} emMovimento={posicao?.emMovimento} onSair={() => setPhase('exit')} />
-      {patrolError && !erro && posicao && <p role="alert" className="absolute inset-x-4 top-32 z-[1100] rounded-2xl bg-surface-raised p-4 text-center text-sm">{patrolError}</p>}
+      <PatrolHud categoriaNome="Iluminação · Eletricista" modoDeslocamento={mode} velocidadeKmh={velocidadeKmh} rua={[filters.neighborhood || municipality.cidade?.name, PATROL_SERVICE_TYPES.find(([id]) => id === filters.serviceType)?.[1], filters.order === 'oldest' ? 'Mais antigos' : 'Mais próximos'].filter(Boolean).join(' · ')} sinalFraco={sinalFraco || Boolean(erro)} totalNaFila={0} cardVisivel={Boolean(alert)} mudo={mudo} onAlternarSom={alternarMudo} somSuportado={suportada} emMovimento={posicao?.emMovimento} onSair={() => setPhase('exit')} alvo={<>
+        {target && <ElectricianPatrolDestination target={target} route={route} loading={loadingStreets} order={filters.order} direction={direction} paused={sinalFraco || Boolean(erro)} alertVisible={Boolean(alert)} following={following} onNavigate={() => setFollowingTarget(following ? null : String(target.pole.id))} onSkip={dismiss} onUpdate={openPole} />}
+        {patrolError && !erro && posicao && <p role="alert" className="rounded-2xl bg-surface-raised p-3 text-sm">{patrolError}</p>}
+        {posicao && !erro && !target && <p role="status" className="rounded-2xl bg-surface-raised p-3 text-sm">{destinationStatus}</p>}
+        {erro && <div role="alert" className="pointer-events-auto rounded-2xl bg-surface-raised p-3 text-sm"><p>{erro === 'negado' ? 'Permita o acesso à localização para patrulhar.' : 'Não foi possível obter sua localização.'}</p><Button className="mt-3" onClick={() => setRestart((value) => value + 1)}>Tentar GPS novamente</Button></div>}
+      </>} />
       {!posicao && !erro && <p role="status" className="absolute inset-x-4 top-32 z-[1100] rounded-2xl bg-surface-raised p-4 text-center"><Loader2 className="mx-auto mb-2 animate-spin" />Obtendo sua localização…</p>}
-      {erro && <div role="alert" className="absolute inset-x-4 top-32 z-[1100] rounded-2xl bg-surface-raised p-4 text-center"><p>{erro === 'negado' ? 'Permita o acesso à localização para patrulhar.' : 'Não foi possível obter sua localização.'}</p><Button className="mt-3" onClick={() => setRestart((value) => value + 1)}>Tentar GPS novamente</Button></div>}
-      {alert && <ElectricianPatrolAlert alert={alert} onDismiss={dismiss} onUpdate={(pole) => { dismiss(); setSelected(pole); }} />}
+      {alert && <ElectricianPatrolAlert alert={alert} onDismiss={dismiss} onUpdate={openPole} />}
     </>}
-    {!accepted && <PatrolDisclaimer modoDeslocamento={mode} onCancelar={leave} onAceitar={() => { preparar(); anunciar('Patrulha de iluminação iniciada'); setAccepted(true); }} />}
-    <ElectricianPoleVisitDrawer pole={selected} municipality={municipality} onBusyChange={setVisitSaving} onClose={() => setSelected(null)} onSaved={({ pole }) => { registrarPosteAtualizado(pole.id); setRevision((value) => value + 1); }} />
+    {!accepted && <PatrolDisclaimer guidedPoles modoDeslocamento={mode} onCancelar={leave} onAceitar={() => { preparar(); anunciar('Patrulha de iluminação iniciada'); setAccepted(true); }} />}
+    <ElectricianPoleVisitDrawer pole={selected} municipality={municipality} onBusyChange={setVisitSaving} onClose={() => setSelected(null)} onSaved={({ pole }) => { complete(pole.id); registrarPosteAtualizado(pole.id); setRevision((value) => value + 1); }} />
     {(phase === 'exit' || phase === 'saving') && <>
       <PatrolExitSheet contagens={{ confirmadas: recorder.poleCounts.updated }} duracaoS={recorder.duracaoAgora()} distanciaM={recorder.distanciaM} professional salvando={phase === 'saving'} onContinuar={() => { setSaveError(''); setPhase('running'); }} onEncerrar={finish} onDescartar={leave} />
       {saveError && <p role="alert" className="fixed inset-x-4 top-[max(1rem,env(safe-area-inset-top))] z-[1300] rounded-xl bg-surface-raised p-4 text-danger shadow-lg">{saveError}</p>}

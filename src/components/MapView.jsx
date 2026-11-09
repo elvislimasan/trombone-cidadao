@@ -196,12 +196,32 @@ const missionMarkerIcon = L.divIcon({
 });
 
 // Mantém o mapa colado no usuário. Fora do MapView porque precisa do useMap.
-const NavFollow = ({ posicao, offsetPx, lado }) => {
+const NavFollow = ({ posicao, offsetPx, lado, routeOverview = false, routeTrechos = null }) => {
   const map = useMap();
 
   useEffect(() => {
     if (!posicao) return;
     try {
+      if (routeOverview && routeTrechos?.length) {
+        const points = routeTrechos.flatMap(trecho => (trecho.pontos || []).map(point => [point.lat, point.lng]));
+        if (points.length > 1) {
+          // O plano do mapa é maior que a tela para permitir a rotação. A
+          // margem inclui a parte fora da tela e reserva espaço para o painel.
+          const visible = map.getContainer().closest('.nav-rotating')?.getBoundingClientRect();
+          const size = map.getSize();
+          const width = visible?.width || size.x;
+          const height = visible?.height || size.y;
+          const horizontal = Math.max(0, (size.x - width) / 2) + Math.min(24, width * 0.06);
+          const vertical = Math.max(0, (size.y - height) / 2);
+          map.fitBounds(points, {
+            paddingTopLeft: [horizontal, vertical + Math.min(280, height * 0.45)],
+            paddingBottomRight: [horizontal, vertical + Math.min(120, height * 0.2)],
+            maxZoom: NAV_ZOOM,
+            animate: false,
+          });
+          return;
+        }
+      }
       map.setView([posicao.lat, posicao.lng], NAV_ZOOM, { animate: false });
       // O deslocamento precisa ser contra-rotacionado: o Leaflet trabalha no
       // espaço não girado, e um "para baixo" cru vira "para a lateral" assim
@@ -213,13 +233,13 @@ const NavFollow = ({ posicao, offsetPx, lado }) => {
   // inteira não, senão precisão e timestamp reposicionariam o mapa sem que o
   // usuário tivesse saído do lugar.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, posicao?.lat, posicao?.lng, posicao?.heading, offsetPx]);
+  }, [map, posicao?.lat, posicao?.lng, posicao?.heading, offsetPx, lado, routeOverview, routeTrechos]);
 
   // O container muda de tamanho ao entrar no modo e quando a tela é medida;
   // sem isto o Leaflet segue usando as dimensões antigas e o centro sai do
   // lugar.
   useEffect(() => {
-    const t = setTimeout(() => { try { map.invalidateSize(); } catch {} }, 60);
+    const t = setTimeout(() => { try { map.invalidateSize({ pan: false }); } catch {} }, 60);
     return () => clearTimeout(t);
   }, [map, lado]);
 
@@ -417,6 +437,8 @@ const MapView = ({
   // Caminho até um alvo escolhido. Trechos de rua são contínuos; acessos entre
   // o ponto real e o eixo cadastrado ficam tracejados.
   navRouteTrechos = null,
+  // Visão do caminho completo no próprio mapa; falso acompanha o usuário.
+  navRouteOverview = false,
   // Missoes abertas no corredor. Chegam prontas do PatrolOverlay - o mapa nao
   // busca nada, so desenha.
   navMissoes = null,
@@ -572,7 +594,7 @@ const MapView = ({
   };
 
 
-  const anguloContinuo = useAnguloContinuo(navPosition?.heading);
+  const anguloContinuo = useAnguloContinuo(navRouteOverview ? 0 : navPosition?.heading);
 
   // Tamanho do container girado, medido da área visível.
   //
@@ -713,6 +735,8 @@ const MapView = ({
                 posicao={navPosition}
                 offsetPx={medidas?.offsetPx ?? 0}
                 lado={medidas?.lado ?? 0}
+                routeOverview={navRouteOverview}
+                routeTrechos={navRouteTrechos}
               />
               <Marker
                 position={[navPosition.lat, navPosition.lng]}

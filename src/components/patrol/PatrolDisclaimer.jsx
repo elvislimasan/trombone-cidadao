@@ -11,6 +11,7 @@ import { getPatrolTravelMode } from '@/lib/patrolTravelMode';
 
 export default function PatrolDisclaimer({
   modoDeslocamento = 'driving',
+  guidedPoles = false,
   onAceitar,
   onCancelar,
 }) {
@@ -34,8 +35,9 @@ export default function PatrolDisclaimer({
           Antes de começar
         </h2>
         <p className="text-sm text-content-secondary leading-relaxed mb-5">
-          O modo patrulha acompanha seu deslocamento e avisa quando você se
-          aproxima de uma bronca. Ele não calcula rotas.
+          {guidedPoles
+            ? 'A ronda traça o caminho até um poste por vez neste mapa. Use Navegar para acompanhar seu deslocamento. O traçado segue as ruas cadastradas e serve como referência.'
+            : 'O modo patrulha acompanha seu deslocamento e avisa quando você se aproxima de uma bronca. Ele não calcula rotas.'}
         </p>
 
         <ul className="space-y-3 mb-6">
