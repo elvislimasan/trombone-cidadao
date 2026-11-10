@@ -218,7 +218,37 @@ try {
     console.log(JSON.stringify({scenarios,touchAndWheelScroll:true,lastSection:true,focusReturn:true,retry:true}));
   } else
 
-  if (process.argv.includes('--consistent-forms')) {
+  if (process.argv.includes('--species-layout')) {
+    const draft = { requestId: '95000000-0000-0000-0000-000000000001', step: 2, form: { request_type: 'muda', purpose: 'sombra', zone: 'urbana', planting_place: 'quintal', overhead_wiring: 'nao', address: 'Rua do Plantio, 20', neighborhood: 'Centro', latitude: -8.6, longitude: -38.57, requester_name: 'Maria da Silva', requester_phone: '87999999999', items: [], commitment: false } };
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1440, 900], [1920, 1080]]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 768 }, sessionId);
+      await navigate(); await waitFor('document.querySelector(".adoption-form")');
+      await evaluate(`sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',${JSON.stringify(JSON.stringify(draft))})`);
+      await navigate('?resume'); await waitFor('document.querySelector(".tree-seedling-card")'); await pause(250);
+      const check = async stage => {
+        const geometry = await evaluate(`(()=>{const dialog=document.querySelector('.adoption-create-dialog'),body=dialog.querySelector('.adoption-form-body'),footer=dialog.querySelector('.adoption-form-footer'),layout=dialog.querySelector('.adoption-form-layout'),form=dialog.querySelector('form'),d=dialog.getBoundingClientRect(),b=body.getBoundingClientRect(),f=footer.getBoundingClientRect();return {dialogTop:d.top,dialogBottom:d.bottom,bodyTop:b.top,bodyHeight:b.height,footerTop:f.top,footerBottom:f.bottom,dialogScroll:dialog.scrollTop,layoutScroll:layout.scrollTop,formScroll:form.scrollTop,overflow:document.documentElement.scrollWidth>innerWidth}})()`);
+        assert.ok(!geometry.overflow && geometry.dialogTop >= -1 && geometry.dialogBottom <= height + 1, 'Diálogo dentro da tela');
+        assert.ok(geometry.bodyHeight >= (height >= 600 ? height * .35 : 60), `Catálogo deve aproveitar a altura disponível: ${width}x${height}/${stage}`);
+        assert.ok(Math.abs(geometry.footerBottom - geometry.dialogBottom) <= 2, `Sem espaço em branco abaixo das ações: ${JSON.stringify(geometry)}`);
+        assert.equal(geometry.dialogScroll + geometry.layoutScroll + geometry.formScroll, 0, `Somente o corpo do formulário deve rolar: ${width}x${height}/${stage}`);
+      };
+      await check('abertura');
+      for (const id of ['species1', 'extra0', 'extra3']) {
+        await evaluate(`document.querySelector('[data-species-id="${id}"] .tree-seedling-select').scrollIntoView({block:'center'})`);
+        const point = await evaluate(`(()=>{const r=document.querySelector('[data-species-id="${id}"] .tree-seedling-select').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 }, sessionId);
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 }, sessionId);
+        await waitFor(`document.querySelector('[data-species-id="${id}"] input').checked`);
+        await check(`seleção-${id}`);
+        await evaluate(`document.querySelector('[data-species-id="${id}"] input[type=number]').focus()`);
+        await check(`quantidade-${id}`);
+      }
+      await capture(`species-layout-${width}`);
+      await click('Revisar pedido'); await waitFor('document.querySelector(".tree-review-summary")');
+      await click('Voltar'); await waitFor('document.querySelector(".tree-seedling-card")'); await check('retorno');
+      console.log(`${width}x${height}: seleção de três espécies, foco na quantidade e retorno sem deslocar o diálogo ou deixar espaço abaixo das ações OK.`);
+    }
+  } else if (process.argv.includes('--consistent-forms')) {
     const draft = { requestId: '95000000-0000-0000-0000-000000000001', step: 0, form: { request_type: 'muda', purpose: 'sombra', zone: 'urbana', planting_place: 'quintal', overhead_wiring: 'nao', address: 'Rua do Plantio, 20', neighborhood: 'Centro', latitude: -8.6, longitude: -38.57, requester_name: 'Maria da Silva', requester_phone: '87999999999', requester_email: 'maria@example.test', items: [{ species_id: 'species1', quantity: 2, provider: 'viveiro_municipal' }], commitment: false } };
     for (const width of [360, 390, 430, 1440, 1920]) for (const theme of ['light', 'dark']) {
       await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
@@ -660,5 +690,5 @@ try {
   }
   }
   assert.deepEqual(errors, []);
-  if(!process.argv.includes('--details-audit')&&!process.argv.includes('--nursery-audit')) console.log(process.argv.includes('--consistent-forms') ? 'Padronização: 10 combinações de largura/tema, quatro etapas e erros de execução: 0.' : 'Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
+  if(!process.argv.includes('--details-audit')&&!process.argv.includes('--nursery-audit')&&!process.argv.includes('--species-layout')) console.log(process.argv.includes('--consistent-forms') ? 'Padronização: 10 combinações de largura/tema, quatro etapas e erros de execução: 0.' : 'Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
 } finally { ws?.close(); chrome.kill(); server.close(); }

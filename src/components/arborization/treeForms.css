@@ -146,7 +146,8 @@
 .tree-seedling-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; min-width: 0; align-items: start; }
 .tree-seedling-card { min-width: 0; overflow: hidden; border: 1px solid rgb(var(--border-default)); border-radius: 12px; background: rgb(var(--surface-raised)); }
 .tree-seedling-card.is-selected { border-color: rgb(var(--tree-forest) / .7); box-shadow: 0 0 0 1px rgb(var(--tree-leaf) / .08); }
-.tree-seedling-select { display: grid; grid-template-columns: 60px minmax(0,1fr) 22px; align-items: center; gap: 12px; min-width: 0; min-height: 96px; padding: 16px; cursor: pointer; }
+/* Keep the visually hidden checkbox inside its card when the browser focuses it. */
+.tree-seedling-select { position: relative; display: grid; grid-template-columns: 60px minmax(0,1fr) 22px; align-items: center; gap: 12px; min-width: 0; min-height: 96px; padding: 16px; cursor: pointer; }
 .tree-seedling-select:has(input:focus-visible) { outline: 2px solid rgb(var(--tree-forest)); outline-offset: -4px; border-radius: 12px; }
 .tree-seedling-photo { width: 60px; height: 64px; overflow: hidden; border-radius: 8px; background: rgb(var(--tree-paper)); }
 .tree-seedling-photo .adoption-species-photo { height: 100%; padding: 4px; }
