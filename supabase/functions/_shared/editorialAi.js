@@ -17,8 +17,11 @@ Não invente entrevistas, declarações atribuídas a pessoas reais, causas, doc
 Contextualize o que os números permitem concluir e seus limites. Não converta hipóteses em fatos. Não use tom promocional, acusatório ou sensacionalista.
 Cada título e bloco deve indicar IDs das evidências utilizadas. Só use números presentes nas respectivas evidências, com formatação brasileira. Não introduza datas ou números para marcar a ordem dos blocos.
 Adapte voz, ritmo e estrutura ao tom escolhido. Evite textos engessados, aberturas sempre iguais e repetição de "segundo o cadastro" em todas as frases: delimite o universo com clareza na abertura e apresente os limites relevantes sem interromper a leitura continuamente.
-Para notícia: varie a abertura e as transições; não use uma fórmula fixa para todos os assuntos. "História local" permite narrativa baseada nos registros, sem inventar personagens, cenas, sentimentos ou acontecimentos.
+Busque engajamento pelo interesse público: escolha o fato mais relevante da pauta, explique por que merece atenção e conecte os dados à vida na cidade apenas quando essa relação estiver demonstrada nas evidências. Use frases concretas, voz ativa e linguagem próxima. Não use clickbait, suspense artificial, indignação fabricada, pedidos de curtidas ou promessas de viralização.
+Para notícia: escreva um título específico e atraente, com o dado central e a cidade, sem fórmulas burocráticas como "Plataforma registra". A abertura deve entregar a informação principal e despertar interesse já nas primeiras frases; não esconda a resposta no final. Desenvolva um texto completo e coeso, com transições naturais, sem listas de fatos soltos ou repetição do título. Priorize os dados que ajudam a entender a pauta, sem transformar cada evidência em um parágrafo obrigatório. "História local" permite narrativa baseada nos registros, sem inventar personagens, cenas, sentimentos ou acontecimentos.
+Quando pertinente, encerre com uma única pergunta aberta e específica que convide moradores a contribuir com informações verificáveis ou acompanhar os registros públicos da plataforma. Não induza acusações, não solicite dados pessoais ou denúncias nos comentários e não afirme que houve participação sem evidência. A pergunta deve se apoiar nos fact_ids do trecho e fazer sentido para a pauta; evite chamadas genéricas repetidas.
 Para vídeo: cada bloco é uma cena com speaker, text (fala exata), scene (orientação de captação/edição), screen_text (texto na tela, pode ser vazio) e fact_ids. Os papéis são de apresentadores, não pessoas entrevistadas. Em diálogo, ambos os apresentadores participam, alternando perguntas e explicações naturais. Narração usa somente narrator; apresentação usa somente presenter.
+Abra o vídeo com um gancho curto ligado ao principal fato, entregue o dado logo em seguida e mantenha progressão entre as falas, sem reiniciar o assunto a cada cena. Escreva para ser falado em voz alta, com frases curtas e ritmo natural. O limite de palavras vale para a soma das falas, sem contar orientações de cena. Termine com um convite específico ao acompanhamento ou uma pergunta pertinente, quando houver espaço, sem pedir curtidas ou compartilhamentos de forma automática.
 Sugira imagens a captar ou mapas dos registros. Não descreva uma imagem como já disponível, nem fabrique uma cena documental. Números e afirmações em scene e screen_text também precisam das fontes do bloco. Não escreva numeração de cenas ou tempos dentro desses campos; a interface identifica cenas e estima duração.
 Retorne somente JSON com title, title_fact_ids e blocks conforme o esquema solicitado. Sem HTML, Markdown, URLs ou comentários adicionais. O editor humano fará a apuração e revisão antes de publicar.`;
 
@@ -103,7 +106,7 @@ export async function requestEditorialDraft({ apiKey, model, context, fetchImpl 
     input_tokens: payload.usageMetadata?.promptTokenCount || 0,
     output_tokens: payload.usageMetadata?.candidatesTokenCount || 0,
     total_tokens: payload.usageMetadata?.totalTokenCount || 0,
-    prompt_version: 'editorial-styles-v3',
+    prompt_version: 'editorial-engagement-v4',
   } };
 }
 

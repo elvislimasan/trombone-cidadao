@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Check, Copy, Loader2, RefreshCw, Save, Send, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Copy, FileText, Film, Loader2, Pencil, RefreshCw, Save, Send, Sparkles, X } from 'lucide-react';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   DEFAULT_EDITORIAL_BRIEF, normalizeEditorialBrief, editorialBriefKey, editorialSpeakerOptions, estimatedSpeechSeconds,
 } from '@/lib/editorial';
 import './editorial.css';
+import { editorialBlocksFromText, editorialTextError } from '@/lib/editorialContent';
 
 const dateTime = value => value ? new Date(value).toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' }) : 'Ainda não realizada';
 
@@ -56,6 +57,8 @@ export default function EditorialPage() {
   const [versions, setVersions] = useState([]);
   const [format, setFormat] = useState('news');
   const [draft, setDraft] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [newsText, setNewsText] = useState('');
   const [instruction, setInstruction] = useState('');
   const [brief, setBrief] = useState({ ...DEFAULT_EDITORIAL_BRIEF });
   const [verified, setVerified] = useState(false);
@@ -109,10 +112,13 @@ export default function EditorialPage() {
   const version = useMemo(() => versions.filter(item => item.format === format).sort((a, b) => b.revision - a.revision)[0], [versions, format]);
   useEffect(() => {
     setDraft(version ? structuredClone(version.content) : null);
+    setNewsText(version?.content.blocks.map(block => block.text).join('\n\n') || '');
+    setEditing(false);
     if (version) setBrief(normalizeEditorialBrief(version.brief || {}));
     setVerified(false); setPublishConfirm(false);
   }, [version]);
   const dirty = Boolean(version && JSON.stringify(draft) !== JSON.stringify(version.content));
+  const textError = draft && format === 'news' ? editorialTextError(draft.blocks) : '';
   const styleChanged = Boolean(version && editorialBriefKey(brief, format) !== editorialBriefKey(normalizeEditorialBrief(version.brief || {}), format));
   const needsScriptUpgrade = Boolean(version && format !== 'news' && version.brief?.schema_version !== 1);
   const structuredScript = Boolean(version && format !== 'news' && version.brief?.schema_version === 1);
@@ -131,8 +137,8 @@ export default function EditorialPage() {
     finally { setBusy(''); }
   }
   function editContent(patch) { setDraft(previous => ({ ...previous, ...patch })); setVerified(false); setPublishConfirm(false); }
-  async function generate() {
-    await generateEditorial({ candidateId: candidate.id, format, revision: version?.revision || 0, instruction, brief });
+  async function generate(adjustment = instruction) {
+    await generateEditorial({ candidateId: candidate.id, format, revision: version?.revision || 0, instruction: adjustment, brief });
     await refreshContents(); await refresh(); setInstruction(''); setNotice('Conteúdo gerado. Confira os fatos e as fontes.');
   }
 
@@ -189,16 +195,20 @@ export default function EditorialPage() {
           <section className="editorial-panel editorial-editor" aria-label="Produção de conteúdo">
             {!candidate ? <div className="editorial-empty"><BookOpen size={28} />Escolha uma pauta.</div> : <>
               <div className="editorial-section-heading"><h2>{candidate.title}</h2><span className="editorial-chip">{EDITORIAL_STATES[candidate.status]}</span></div>
+              <div className="editorial-candidate-tools">
               <details className="editorial-analysis"><summary>Ver análise</summary><p>{candidate.reason}</p><p>{candidate.decision_reason}</p><small>Prioridade definida por regras do piloto. O número ordena pautas e não comprova veracidade.</small></details>
+              <details className="editorial-management"><summary>Gerenciar pauta</summary><div className="editorial-actions">
+              {candidate.assigned_to && ['writing', 'approved'].includes(candidate.status) && (!assignedElsewhere || permissions.configure) && <>
+                <Button variant="outline" disabled={Boolean(busy) || dirty} onClick={() => run('release', async () => { await editorialAction(candidate.id, 'release'); await refresh(); setNotice('Pauta liberada para outro editor. As versões foram preservadas.'); })}>Liberar responsável</Button>
+              </>}
+              {active && !assignedElsewhere && candidate.status !== 'published' && <>
+                {!candidate.assigned_to && <Button variant="outline" disabled={Boolean(busy)} onClick={() => run('claim', async () => { await editorialAction(candidate.id, 'claim'); await refresh(); })}>Assumir pauta</Button>}
+                {['proposed', 'writing'].includes(candidate.status) && <Button variant="ghost" disabled={Boolean(busy) || dirty} onClick={() => setDiscardOpen(value => !value)}><X size={15} />Descartar</Button>}
+              </>}
+              </div></details>
+              </div>
               {candidate.news_id && <Link className="editorial-public-link" to={`/noticias/${candidate.news_id}`}>Ver notícia publicada</Link>}
               {assignedElsewhere && <p className="editorial-note">Esta pauta está com outro editor. Você pode consultar as versões e fontes.</p>}
-              {candidate.assigned_to && ['writing', 'approved'].includes(candidate.status) && (!assignedElsewhere || permissions.configure) && <div className="editorial-actions">
-                <Button variant="outline" disabled={Boolean(busy) || dirty} onClick={() => run('release', async () => { await editorialAction(candidate.id, 'release'); await refresh(); setNotice('Pauta liberada para outro editor. As versões foram preservadas.'); })}>Liberar responsável</Button>
-              </div>}
-              {active && !assignedElsewhere && candidate.status !== 'published' && <div className="editorial-actions">
-                {!candidate.assigned_to && <Button variant="outline" disabled={Boolean(busy)} onClick={() => run('claim', async () => { await editorialAction(candidate.id, 'claim'); await refresh(); })}>Assumir pauta</Button>}
-                {['proposed', 'writing'].includes(candidate.status) && <Button variant="ghost" disabled={Boolean(busy)} onClick={() => setDiscardOpen(value => !value)}><X size={15} />Descartar</Button>}
-              </div>}
               {discardOpen && <div className="editorial-discard"><label>Motivo do descarte<textarea value={discardReason} maxLength={1000} onChange={event => setDiscardReason(event.target.value)} /></label>
                 <Button variant="outline" disabled={Boolean(busy) || discardReason.trim().length < 3} onClick={() => run('dismiss', async () => {
                   await editorialAction(candidate.id, 'dismiss', discardReason); setDiscardOpen(false); await refresh(); setNotice('Pauta descartada. Os mesmos fatos não gerarão outra proposta.');
@@ -207,11 +217,14 @@ export default function EditorialPage() {
                 <label>Formato<select aria-label="Formato do conteúdo" value={format} disabled={Boolean(busy) || dirty} onChange={event => { setFormat(event.target.value); setInstruction(''); }}>
                   {Object.entries(EDITORIAL_FORMATS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                 </select></label>
-                <Button disabled={!canEdit || Boolean(busy) || contentsLoading || dirty || (Boolean(version) && !styleChanged && !needsScriptUpgrade && !outdated) || (candidate.status === 'published' && format === 'news')} onClick={() => run('generate', generate)}>
+                {(!version || styleChanged || needsScriptUpgrade || outdated) && <Button disabled={!canEdit || Boolean(busy) || contentsLoading || dirty || (candidate.status === 'published' && format === 'news')} onClick={() => run('generate', generate)}>
                   {busy === 'generate' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{version ? 'Aplicar estilo em nova versão' : 'Gerar conteúdo'}
-                </Button>
+                </Button>}
               </div>
-              <BriefControls format={format} value={brief} disabled={!canEdit || Boolean(busy) || dirty} onChange={value => { setBrief(value); setVerified(false); setPublishConfirm(false); }} />
+              <details className="editorial-generation-settings" key={`${selectedId}-${format}-${Boolean(version)}`} open={version ? undefined : true}>
+                <summary>Estilo e geração <span>{EDITORIAL_TONES[brief.tone]} · {format === 'news' ? EDITORIAL_NEWS_STYLES[brief.news_style] : EDITORIAL_VIDEO_STYLES[brief.video_style]}</span></summary>
+                <BriefControls format={format} value={brief} disabled={!canEdit || Boolean(busy) || dirty} onChange={value => { setBrief(value); setVerified(false); setPublishConfirm(false); }} />
+              </details>
               {styleChanged && <div className="editorial-style-pending" role="status"><p>O texto abaixo ainda usa o estilo anterior. Gere uma nova versão para aplicar a escolha.</p>
                 <Button variant="ghost" size="sm" disabled={Boolean(busy)} onClick={() => setBrief(normalizeEditorialBrief(version.brief || {}))}>Restaurar estilo</Button></div>}
               {contentsLoading && <p role="status">Carregando versões…</p>}
@@ -220,24 +233,52 @@ export default function EditorialPage() {
                 <div className="editorial-version">Versão {version.revision} · {version.origin === 'ai' ? 'IA' : 'Edição humana'} · {version.approved_at && !outdated ? 'Aprovada' : 'Rascunho privado'}
                   {version.brief?.schema_version === 1 && <> · {EDITORIAL_TONES[version.brief.tone]}</>}</div>
                 {outdated && <div role="alert" className="editorial-message editorial-error">A base da pauta mudou. Atualize o texto e confira as novas fontes antes de aprovar.</div>}
+                <div className="editorial-content-toolbar">
+                  <div className="editorial-tabs" role="group" aria-label="Visualização do conteúdo">
+                    <button type="button" aria-controls="editorial-content" aria-pressed={!editing} onClick={() => setEditing(false)}><FileText size={15} />Texto completo</button>
+                    <button type="button" aria-controls="editorial-content" aria-pressed={editing} onClick={() => setEditing(true)}><Pencil size={15} />Editar</button>
+                  </div>
+                  <span className="editorial-note">{format === 'news' ? `${draft.blocks.map(block => block.text).join(' ').trim().split(/\s+/u).filter(Boolean).length} palavras` : <><Film size={14} />{estimatedSpeechSeconds(draft.blocks)} s de locução</>}</span>
+                  {canEdit && <Button variant="ghost" size="sm" disabled={Boolean(busy) || dirty || styleChanged} onClick={() => run('generate', () => generate('Reescreva o conteúdo completo para aumentar o interesse e a participação do público: título específico, gancho com o fato principal, linguagem próxima, progressão natural e uma pergunta pertinente ao final, se couber. Preserve os fatos, as referências e os limites do levantamento, sem sensacionalismo ou pedidos de curtidas.'))}><Sparkles size={15} />Mais envolvente</Button>}
+                </div>
+                <div id="editorial-content">
+                {!editing ? <article className={`editorial-reading ${format !== 'news' ? 'editorial-reading-script' : ''}`} aria-label={format === 'news' ? 'Notícia completa' : 'Roteiro completo'}>
+                  <h3>{draft.title}</h3>
+                  {draft.blocks.map((block, index) => <div key={index}>
+                    {format !== 'news' && block.speaker && (index === 0 || draft.blocks[index - 1].speaker !== block.speaker) && <span className="editorial-speaker">{EDITORIAL_SPEAKERS[block.speaker]}</span>}
+                    <p>{block.text}</p>
+                  </div>)}
+                </article> : <div className="editorial-content-edit">
                 <label>Título<input aria-label="Título do conteúdo" value={draft.title} maxLength={200} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={event => editContent({ title: event.target.value })} /></label>
-                <FactPicker label="Fontes do título" value={draft.title_fact_ids} facts={facts} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={value => editContent({ title_fact_ids: value })} />
-                <div className="editorial-blocks">{draft.blocks.map((block, index) => <div key={index} className="editorial-block">
+                {format === 'news' ? <label>Texto completo<textarea className="editorial-full-text" aria-label="Texto completo da notícia" rows={16} value={newsText} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={event => {
+                  setNewsText(event.target.value); editContent({ blocks: editorialBlocksFromText(event.target.value, draft.blocks) });
+                }} /></label> : <div className="editorial-blocks">{draft.blocks.map((block, index) => <div key={index} className="editorial-block">
                   {structuredScript && <div className="editorial-scene-heading"><strong>Cena {index + 1}</strong><label>Quem fala<select aria-label={`Quem fala na cena ${index + 1}`} value={block.speaker}
                     disabled={!canEdit || Boolean(busy) || styleChanged} onChange={event => editContent({ blocks: draft.blocks.map((entry, offset) => offset === index ? { ...entry, speaker: event.target.value } : entry) })}>
                     {editorialSpeakerOptions(version.brief).map(key => <option key={key} value={key}>{EDITORIAL_SPEAKERS[key]}</option>)}
                   </select></label></div>}
-                  <label>{format === 'news' ? 'Parágrafo' : structuredScript ? 'Fala' : 'Locução'} {index + 1}<textarea aria-label={`${format === 'news' ? 'Parágrafo' : structuredScript ? 'Fala' : 'Locução'} ${index + 1}`} rows={4} maxLength={3000} value={block.text} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={event => editContent({
+                  <label>{structuredScript ? 'Fala' : 'Locução'} {index + 1}<textarea aria-label={`${structuredScript ? 'Fala' : 'Locução'} ${index + 1}`} rows={4} maxLength={3000} value={block.text} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={event => editContent({
                     blocks: draft.blocks.map((value, offset) => offset === index ? { ...value, text: event.target.value } : value),
                   })} /></label>
                   {structuredScript && <div className="editorial-scene-fields">{[['scene', 'Cena sugerida', 600], ['screen_text', 'Texto na tela', 240]].map(([field, label, limit]) =>
                     <label key={field}>{label}<textarea aria-label={`${label} ${index + 1}`} rows={2} maxLength={limit} value={block[field] || ''} disabled={!canEdit || Boolean(busy) || styleChanged}
                       onChange={event => editContent({ blocks: draft.blocks.map((entry, offset) => offset === index ? { ...entry, [field]: event.target.value } : entry) })} /></label>)}</div>}
-                  <FactPicker label={`Fontes do trecho ${index + 1}`} value={block.fact_ids} facts={facts} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={value => editContent({ blocks: draft.blocks.map((entry, offset) => offset === index ? { ...entry, fact_ids: value } : entry) })} />
-                </div>)}</div>
+                </div>)}</div>}
+                </div>}
+                </div>
+                <details className="editorial-content-sources">
+                  <summary>{format === 'news' ? 'Fontes do texto' : 'Cenas e fontes'}</summary>
+                  <FactPicker label="Fontes do título" value={draft.title_fact_ids} facts={facts} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={value => editContent({ title_fact_ids: value })} />
+                  {draft.blocks.map((block, index) => <div key={index} className="editorial-source-excerpt">
+                    <p><strong>{format === 'news' ? 'Trecho' : 'Cena'} {index + 1}</strong> · {block.text}</p>
+                    {format !== 'news' && <>{block.scene && <p>Cena sugerida: {block.scene}</p>}{block.screen_text && <p>Na tela: {block.screen_text}</p>}</>}
+                    <FactPicker label={`Fontes do trecho ${index + 1}`} value={block.fact_ids} facts={facts} disabled={!canEdit || Boolean(busy) || styleChanged} onChange={value => editContent({ blocks: draft.blocks.map((entry, offset) => offset === index ? { ...entry, fact_ids: value } : entry) })} />
+                  </div>)}
+                </details>
+                {textError && <p role="alert" className="editorial-note editorial-error">{textError}</p>}
                 {format !== 'news' && <p className="editorial-note">Locução estimada: {estimatedSpeechSeconds(draft.blocks)} s. Confira em leitura e confirme as imagens antes de gravar.</p>}
-                <div className="editorial-actions"><Button variant="outline" disabled={!canEdit || (!dirty && !outdated) || Boolean(busy) || styleChanged} onClick={() => run('save', async () => { await saveEditorial(version.id, draft); await refreshContents(); await refresh(); setNotice('Nova versão salva. A aprovação anterior não se aplica às alterações.'); })}><Save size={16} />Salvar versão</Button>
-                  {dirty && <Button variant="ghost" disabled={Boolean(busy)} onClick={() => { setDraft(structuredClone(version.content)); setVerified(false); setPublishConfirm(false); }}>Desfazer edição</Button>}
+                <div className="editorial-actions"><Button variant="outline" disabled={!canEdit || (!dirty && !outdated) || Boolean(busy) || styleChanged || Boolean(textError)} onClick={() => run('save', async () => { await saveEditorial(version.id, draft); await refreshContents(); await refresh(); setNotice('Nova versão salva. A aprovação anterior não se aplica às alterações.'); })}><Save size={16} />Salvar versão</Button>
+                  {dirty && <Button variant="ghost" disabled={Boolean(busy)} onClick={() => { setDraft(structuredClone(version.content)); setNewsText(version.content.blocks.map(block => block.text).join('\n\n')); setVerified(false); setPublishConfirm(false); }}>Desfazer edição</Button>}
                 </div>
                 {dirty && <p className="editorial-note">Salve ou desfaça a edição antes de trocar de pauta, cidade ou formato.</p>}
                 {canEdit && <details className="editorial-adjustment"><summary>Ajustar com IA</summary>

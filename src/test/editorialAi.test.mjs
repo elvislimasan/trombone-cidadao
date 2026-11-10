@@ -20,6 +20,12 @@ test('resposta do provedor preserva somente campos editoriais e não expõe raci
   assert.ok(!JSON.stringify(sent).includes('NEVER_SEND'));
   assert.ok(!JSON.stringify(result).includes('RACIOCÍNIO_INTERNO'));
   assert.equal(sent.generationConfig.responseMimeType, 'application/json');
+  assert.equal(result.usage.prompt_version, 'editorial-engagement-v4');
+  const direction = sent.systemInstruction.parts[0].text;
+  assert.match(direction, /título específico e atraente/);
+  assert.match(direction, /texto completo e coeso/);
+  assert.match(direction, /pergunta aberta e específica/);
+  assert.match(direction, /Não use clickbait/);
 });
 
 test('redação recebe o assunto e as regras próprias, sem enviar fontes brutas ao provedor', async () => {

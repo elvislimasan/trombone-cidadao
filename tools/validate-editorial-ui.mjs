@@ -101,7 +101,7 @@ try {
   const wait = async expression => { for (let attempt = 0; attempt < 100; attempt++) { if (await evaluate(`Boolean(${expression})`)) return; await pause(75); } throw Error(`Timeout: ${expression}\n${await evaluate('document.body.innerText')}`); };
   const click = text => evaluate(`(()=>{const el=[...document.querySelectorAll('button')].find(el=>el.textContent.trim()===${JSON.stringify(text)});if(!el||el.disabled)throw Error('Botão indisponível: '+${JSON.stringify(text)});el.click()})()`);
   const check = text => evaluate(`(()=>{const label=[...document.querySelectorAll('label')].find(el=>el.textContent.trim()===${JSON.stringify(text)});if(!label)throw Error('Campo ausente');label.querySelector('input').click()})()`);
-  const select = (label, value) => evaluate(`(()=>{const el=document.querySelector('select[aria-label='+${JSON.stringify(JSON.stringify(label))}+']');el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+  const select = (label, value) => evaluate(`(()=>{const el=document.querySelector('select[aria-label='+${JSON.stringify(JSON.stringify(label))}+']');if(el.disabled)throw Error('Campo indisponível: '+${JSON.stringify(label)});let parent=el.parentElement;while(parent){if(parent.tagName==='DETAILS')parent.open=true;parent=parent.parentElement}el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}))})()`);
   const navigate = () => send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/admin/editorial` }, sessionId);
   const layout = async width => {
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), `Overflow em ${width}`);
@@ -120,14 +120,26 @@ try {
     await evaluate(`document.querySelector('.editorial-brief details summary').click()`);
     await evaluate(`(()=>{const el=document.querySelector('textarea[aria-label="Orientação de estilo"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Gancho curto, linguagem próxima e humor leve.');el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     await evaluate(`document.querySelector('.editorial-brief details summary').click()`);
-    await click('Gerar conteúdo'); await wait(`document.querySelector('input[aria-label="Título do conteúdo"]')`);
+    await click('Gerar conteúdo'); await wait(`document.querySelector('article[aria-label="Notícia completa"]')`);
+    assert.equal(await evaluate('document.querySelectorAll(".editorial-reading p").length'), 2);
+    assert.equal(await evaluate('document.querySelectorAll(".editorial-block textarea").length'), 0);
+    assert.equal(await evaluate('document.querySelector(".editorial-generation-settings").open'), false);
+    await layout(width);
+    const newsShot = await send('Page.captureScreenshot', { format: 'png' }, sessionId);
+    await fs.writeFile(path.join(out, `editorial-news-${width}.png`), Buffer.from(newsShot.data, 'base64'));
+    await click('Editar');
     assert.equal(await evaluate('window.fixture.versions[0].brief.tone'), 'humorous');
     assert.equal(await evaluate('window.fixture.versions[0].brief.news_style'), 'story');
     assert.equal(await evaluate('window.fixture.versions[0].brief.guidance'), 'Gancho curto, linguagem próxima e humor leve.');
+    assert.equal(await evaluate(`document.querySelectorAll('textarea[aria-label="Texto completo da notícia"]').length`), 1);
+    await evaluate(`(()=>{const el=document.querySelector('textarea[aria-label="Texto completo da notícia"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,el.value.replace('23 obras','23 obras públicas'));el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     await evaluate(`(()=>{const el=document.querySelector('input[aria-label="Título do conteúdo"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'Floresta: 23 obras constam como paralisadas');el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     await wait(`document.querySelector('select[aria-label="Cidade editorial"]').disabled`);
     assert.ok(await evaluate(`document.querySelector('select[aria-label="Assunto editorial"]').disabled`), 'Edição não pode ser perdida ao trocar assunto');
     await click('Salvar versão'); await wait('document.body.innerText.includes("Versão 2")');
+    assert.ok(await evaluate('window.fixture.versions[0].content.blocks[0].text.includes("23 obras públicas")'));
+    assert.deepEqual(await evaluate('window.fixture.versions[0].content.blocks.map(block=>block.fact_ids)'), [['F2'], ['F1']]);
+    assert.ok(await evaluate('Boolean(document.querySelector(".editorial-reading"))'), 'Salvar volta ao texto completo');
     await check('Conferi os fatos, as fontes e o contexto desta versão.');
     await click('Aprovar versão'); await wait('document.body.innerText.includes("Versão aprovada.")');
     await select('Tom editorial', 'informative');
@@ -145,7 +157,9 @@ try {
     await select('Formato do conteúdo', 'video_60'); await wait(`!document.querySelector('input[aria-label="Título do conteúdo"]')`);
     await select('Tom editorial', 'humorous');
     await select('Condução do vídeo', 'dialogue');
-    await click('Gerar conteúdo'); await wait('document.body.innerText.includes("Fala 1")');
+    await click('Gerar conteúdo'); await wait(`document.querySelector('article[aria-label="Roteiro completo"]')`);
+    assert.equal(await evaluate('document.querySelectorAll(".editorial-reading p").length'), 2);
+    await click('Editar');
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('select[aria-label^="Quem fala"]')].map(el=>el.value)`), ['presenter_a','presenter_b']);
     await evaluate(`(()=>{const el=document.querySelector('textarea[aria-label="Cena sugerida 1"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Captar apresentação e mapa dos registros.');el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
     await click('Salvar versão'); await wait('document.body.innerText.includes("Versão 2")');
@@ -156,7 +170,7 @@ try {
     assert.ok(await evaluate('window.copied.includes("Apresentador A")&&window.copied.includes("Apresentador B")&&window.copied.includes("Cena sugerida:")'));
     await select('Condução do vídeo', 'voiceover');
     await click('Aplicar estilo em nova versão'); await wait('document.body.innerText.includes("Versão 3")');
-    assert.deepEqual(await evaluate(`[...document.querySelectorAll('select[aria-label^="Quem fala"]')].map(el=>el.value)`), ['narrator','narrator']);
+    assert.deepEqual(await evaluate('window.fixture.versions[0].content.blocks.map(block=>block.speaker)'), ['narrator','narrator']);
     await layout(width);
     const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId);
     await fs.writeFile(path.join(out, `editorial-${width}.png`), Buffer.from(shot.data, 'base64'));
@@ -167,8 +181,8 @@ try {
       await click('Analisar dados'); await wait('document.body.innerText.includes("Sem novas pautas")');
       assert.equal(await evaluate('window.fixture.calls.filter(c=>c.name==="editorial_analyze_module").at(-1).args.p_module'), subject);
       await select('Formato do conteúdo', 'news');
-      await click('Gerar conteúdo'); await wait(`document.querySelector('input[aria-label="Título do conteúdo"]')`);
-      assert.ok(!(await evaluate(`document.querySelector('input[aria-label="Título do conteúdo"]').value`)).includes('obras'), 'Texto utiliza o assunto selecionado');
+      await click('Gerar conteúdo'); await wait(`document.querySelector('article[aria-label="Notícia completa"]')`);
+      assert.ok(!(await evaluate(`document.querySelector('.editorial-reading h3').textContent`)).includes('obras'), 'Texto utiliza o assunto selecionado');
       await check('Conferi os fatos, as fontes e o contexto desta versão.');
       await click('Aprovar versão'); await wait('document.body.innerText.includes("Versão aprovada.")');
       await check('Publicar esta versão na área pública de notícias.');
@@ -180,9 +194,15 @@ try {
     await select('Cidade editorial', '65'); await wait('document.body.innerText.includes("Você não possui acesso editorial")');
     assert.equal(await evaluate('document.querySelectorAll(".editorial-candidate").length'), 0);
     results.push({ width, noOverflow: true, editApprovePublish: true, scriptAfterPublication: true, cityIsolation: true, subjectFilters: true, publicationPerSubject: true,
-      selectableTone: true, newsApproach: true, structuredDialogue: true, sceneEditing: true, narration: true });
+      selectableTone: true, newsApproach: true, structuredDialogue: true, sceneEditing: true, narration: true, fullTextByDefault: true, fullArticleEditing: true });
   }
   await navigate(); await wait('document.querySelector(".editorial-candidate")');
+  await click('Gerar conteúdo'); await wait('document.querySelector(".editorial-reading")');
+  await click('Mais envolvente'); await wait('document.body.innerText.includes("Versão 2")');
+  assert.match(await evaluate('window.fixture.calls.filter(call=>call.name==="editorial-generate").at(-1).body.instruction'), /aumentar o interesse/);
+  assert.ok(await evaluate('Boolean(document.querySelector(".editorial-reading"))'));
+  assert.equal(await evaluate('window.fixture.versions[0].approved_at'), null);
+  await evaluate(`document.querySelector('.editorial-management').open=true`);
   await click('Descartar');
   await evaluate(`(()=>{const el=document.querySelector('.editorial-discard textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Falta apuração suficiente');el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
   await click('Confirmar descarte'); await wait('document.body.innerText.includes("Pauta descartada.")');
