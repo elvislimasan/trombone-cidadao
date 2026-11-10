@@ -4,7 +4,7 @@ Módulo privado por secretaria, integrado ao login existente e ao painel municip
 
 ## Instalação
 
-1. Aplicar `supabase/migrations/414_operacao_pipa.sql` e `supabase/migrations/415_pipa_routes.sql` e `supabase/migrations/416_pipa_emptying_average.sql` depois das migrações anteriores no projeto Supabase escolhido. As migrações são transacionais.
+1. Aplicar `supabase/migrations/414_tree_adoption_new_request_notifications.sql` e, em seguida, `415_operacao_pipa.sql`, `416_pipa_routes.sql`, `417_pipa_emptying_average.sql` e `418_pipa_driver_login_details.sql` no projeto Supabase escolhido. As migrações são transacionais. No banco de dev, as versões antigas 414–416 da Pipa foram remapeadas no histórico para 415–417, preservando os dados; não reaplicar esses três arquivos.
 2. Publicar a Edge Function `create-pipa-account` nesse mesmo projeto: `supabase functions deploy create-pipa-account --project-ref <referencia-do-projeto>`. A função usa os segredos padrão do Supabase no servidor; nenhuma chave administrativa é enviada ao navegador.
 3. Publicar o frontend pelo fluxo habitual do projeto.
 4. Em **Prefeitura → Secretarias**, habilitar **Operação-pipa** nos inventários da secretaria. A área pode funcionar sem categorias de broncas.
@@ -61,7 +61,7 @@ As ligações pontilhadas mostram a ordem em linha reta. **Navegar** abre a nave
 
 ## Nível estimado e prioridades
 
-A migração `416_pipa_emptying_average.sql` adiciona a média de esvaziamento da caixa (opcional, de 1 a 365 dias) e o nível observado após cada entrega (opcional, de 0 a 100%). No registro pelo pipeiro ou no lançamento manual, **Ficou cheia (100%)** informa que o pipa completou a caixa, mesmo que já houvesse água. Também é possível informar outro percentual.
+A migração `417_pipa_emptying_average.sql` adiciona a média de esvaziamento da caixa (opcional, de 1 a 365 dias) e o nível observado após cada entrega (opcional, de 0 a 100%). No registro pelo pipeiro ou no lançamento manual, **Ficou cheia (100%)** informa que o pipa completou a caixa, mesmo que já houvesse água. Também é possível informar outro percentual.
 
 Um nível observado substitui o saldo estimado naquela data. Depois, o consumo é linear: capacidade da caixa dividida pela média em dias. Sem observação, o saldo inicial desconhecido é zero e os volumes registrados são somados, limitados à capacidade. Solicitações de caixa seca zeram o saldo na data do relato; uma nova entrega passa a compor a estimativa novamente. Registros futuros e entregas avulsas sem caixa são ignorados no cálculo.
 
@@ -103,7 +103,7 @@ A interface revalida a permissão e o vínculo antes de solicitar o envio, mostr
 erros de rede ou limite de envio e evita cliques duplicados. Contas sem e-mail
 não oferecem o envio. Nenhuma senha existente é consultada ou exibida.
 
-Publicação: aplicar `417_pipa_driver_login_details.sql` e publicar o frontend
+Publicação: aplicar `418_pipa_driver_login_details.sql` e publicar o frontend
 desta branch. O e-mail usa o SMTP e o redirecionamento `/alterar-senha` já
 configurados no projeto; não há nova Edge Function.
 

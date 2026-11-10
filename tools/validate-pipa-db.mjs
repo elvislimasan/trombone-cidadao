@@ -57,10 +57,10 @@ try {
     const definition = contents.match(new RegExp(`create (?:or replace )?function public\\.${name}\\([\\s\\S]*?end \\$\\$;`, 'i'))?.[0];
     assert.ok(definition, `Definição ausente: ${name}`); await q(definition);
   }
-  await q(await fs.readFile('supabase/migrations/414_operacao_pipa.sql', 'utf8'));
-  await q(await fs.readFile('supabase/migrations/415_pipa_routes.sql', 'utf8'));
-  await q(await fs.readFile('supabase/migrations/416_pipa_emptying_average.sql', 'utf8'));
-  await q(await fs.readFile('supabase/migrations/417_pipa_driver_login_details.sql', 'utf8'));
+  await q(await fs.readFile('supabase/migrations/415_operacao_pipa.sql', 'utf8'));
+  await q(await fs.readFile('supabase/migrations/416_pipa_routes.sql', 'utf8'));
+  await q(await fs.readFile('supabase/migrations/417_pipa_emptying_average.sql', 'utf8'));
+  await q(await fs.readFile('supabase/migrations/418_pipa_driver_login_details.sql', 'utf8'));
   await q(`insert into auth.users(id) select unnest($1::uuid[])`, [uid]);
   await q(`insert into prefeituras values($1,64,'ativa'),($2,65,'ativa')`, [cityHall, otherCityHall]);
   await q(`insert into orgao_canais(id,city_id,nome,municipal_modules) values($1,64,'Água',array['water_supply']),($2,65,'Outra cidade',array['water_supply']),($3,64,'Outra secretaria',array['water_supply'])`, [channel, otherChannel, sibling]);
@@ -225,5 +225,5 @@ try {
   await insertSeed();
   for (let index = 0; index < PIPA_TEST_TABLES.length; index++) assert.equal(await scalar(`select count(*)::int as value from public.${PIPA_TEST_TABLES[index]}`), counts[index], 'Reexecutar o seed não duplica registros');
   assert.deepEqual((await q('select * from pipa_tanks where id=$1', [tank])).rows[0], originalTank, 'Seed preserva cadastros existentes');
-  console.log(JSON.stringify({ migrations: [414,415,416,417], driverLoginPrivacy: true, emptyingAverage: true, observedLevel: true, routes: true, ownRoutes: true, outsideRouteDelivery: true, routeIsolation: true, privateTables: true, roles: true, isolation: true, driverAccount: true, gps: true, idempotency: true, oneOff: true, manual: true, immutableHistory: true, disabledDriver: true, testSeed: true, seedRerun: true }));
+  console.log(JSON.stringify({ migrations: [415,416,417,418], driverLoginPrivacy: true, emptyingAverage: true, observedLevel: true, routes: true, ownRoutes: true, outsideRouteDelivery: true, routeIsolation: true, privateTables: true, roles: true, isolation: true, driverAccount: true, gps: true, idempotency: true, oneOff: true, manual: true, immutableHistory: true, disabledDriver: true, testSeed: true, seedRerun: true }));
 } finally { await client?.end(); server.kill(); }
