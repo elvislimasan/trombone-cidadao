@@ -8,6 +8,7 @@ import PipaManagementMap from '@/components/municipality/PipaManagementMap';
 import PipaManagementSummary from '@/components/municipality/PipaManagementSummary';
 import PipaManagementStats from '@/components/municipality/PipaManagementStats';
 import PipaManagementRecords from '@/components/municipality/PipaManagementRecords';
+import PipaLoginDetails from '@/components/municipality/PipaLoginDetails';
 import PipaRequests from '@/components/municipality/PipaRequests';
 import PipaTankList from '@/components/municipality/PipaTankList';
 import PipaFilterBar from '@/components/municipality/PipaFilterBar';
@@ -98,7 +99,8 @@ export default function OperationPipaPage() {
       {section === 'caixas' && <PipaTankList tanks={tanks} levels={levels} canEdit={editAllowed} canRequest={canRequest} onOpen={open} />}
       {section === 'estatisticas' && <PipaManagementStats stats={stats} />}
     </>}
+    {form?.mode === 'login-details' && <PipaLoginDetails key={form.value.id} driver={form.value} onClose={() => setForm(null)} />}
     {form?.mode === 'route' && <PipaRoutePlanner data={data} levels={levels} channels={channels} city={workspace.municipality?.cidade} onClose={() => setForm(null)} onSaved={async () => { setForm(null); await refresh(); setNotice('Rota planejada.'); }} />}
-    {form?.mode === 'cancel' ? <div className="pipa-panel p-5" role="alertdialog" aria-labelledby="pipa-cancel-title"><h2 id="pipa-cancel-title" className="font-bold">Cancelar a solicitação de {form.value.locality}?</h2><p className="pipa-note my-3">O pipeiro não poderá registrar uma entrega para esta solicitação.</p><div className="pipa-actions"><Button variant="outline" onClick={() => setForm(null)}>Voltar</Button><Button onClick={() => act(async () => { await pipaRpc('pipa_dispatch', { p_request: form.value.id, p_cancel: true }); setForm(null); })}>Confirmar cancelamento</Button></div></div> : form && form.mode !== 'route' && <PipaForm key={`${form.mode}:${form.value.id || ''}`} {...form} data={data} channels={channels} city={workspace.municipality?.cidade} onClose={() => setForm(null)} onSaved={async (close = true) => { if (close) { setForm(null); setNotice('Registro salvo.'); } await refresh(); }} />}
+    {form?.mode === 'cancel' ? <div className="pipa-panel p-5" role="alertdialog" aria-labelledby="pipa-cancel-title"><h2 id="pipa-cancel-title" className="font-bold">Cancelar a solicitação de {form.value.locality}?</h2><p className="pipa-note my-3">O pipeiro não poderá registrar uma entrega para esta solicitação.</p><div className="pipa-actions"><Button variant="outline" onClick={() => setForm(null)}>Voltar</Button><Button onClick={() => act(async () => { await pipaRpc('pipa_dispatch', { p_request: form.value.id, p_cancel: true }); setForm(null); })}>Confirmar cancelamento</Button></div></div> : form && form.mode !== 'route' && form.mode !== 'login-details' && <PipaForm key={`${form.mode}:${form.value.id || ''}`} {...form} data={data} channels={channels} city={workspace.municipality?.cidade} onClose={() => setForm(null)} onSaved={async (close = true) => { if (close) { setForm(null); setNotice('Registro salvo.'); } await refresh(); }} />}
   </div>;
 }

@@ -13,7 +13,7 @@ const root = process.cwd(), out = path.join(root, '.tmp/pipa-ui');
 await fs.mkdir(out, { recursive: true });
 const stubs = {
   '@/hooks/useMunicipalityWorkspace': `const c={id:'channel',name:'Secretaria de Agricultura',manage:!location.search.includes('reader'),request:!location.search.includes('reader')};export default ()=>({userId:'manager',municipality:{id:'hall',city_id:64,nome:'Prefeitura de Floresta',cidade:location.search.includes('raw-city')?{id:location.search.includes('other-city')?65:64,name:'Floresta',state_id:17}:{id:64,name:'Floresta',states:{uf:'PE'}}},waterChannels:[c],isAdministrator:true});`,
-  '@/contexts/SupabaseAuthContext': `export const useAuth=()=>({user:{id:'driver-user',app_metadata:{pipa_driver:true}},signOut:async()=>{}});`,
+  '@/contexts/SupabaseAuthContext': `export const useAuth=()=>({user:{id:'driver-user',app_metadata:{pipa_driver:true}},signOut:async()=>{},resetPassword:async email=>{window.fixture.resetCalls||=[];window.fixture.resetCalls.push(email);return {error:window.fixture.resetFail?{message:'Falha ao enviar recuperação'}:null}}});`,
   '@/design-system/theme/ThemeProvider': `import {useEffect,useState} from 'react';export function useTheme(){const [resolved,setPreference]=useState(location.search.includes('dark')?'dark':'light');useEffect(()=>{document.documentElement.classList.toggle('dark',resolved==='dark')},[resolved]);return {resolved,setPreference}}`,
   '@/components/map/ThemedTileLayer': `import React,{useEffect} from 'react';import {TileLayer,useMap} from 'react-leaflet';export default function Tiles(){const map=useMap();useEffect(()=>{window.pipaMaps ||= [];window.pipaMaps.push(map);return()=>{window.pipaMaps=window.pipaMaps.filter(m=>m!==map)}},[map]);return <TileLayer url={location.origin+'/tile.svg?x={x}&y={y}&z={z}'} attribution="Mapa de teste local"/>;}`,
   '@/lib/geocodeCity': `export const geocodeCity=async(name,uf)=>{(window.cityGeocodes ||= []).push({name,uf});return uf==='PR'?{lat:-23.6,lng:-52.08}:uf==='PE'?{lat:-8.597,lng:-38.574}:null};`,
@@ -33,6 +33,7 @@ const stubs = {
     export async function loadPipaData(){if(window.fixture.fail)throw Error('Falha de conexão de teste');return structuredClone(window.fixture)};
     export async function createPipaLogin(id,email){window.fixture.calls.push({name:'login',id,email});drivers.find(d=>d.id===id).user_id='created';return {email,temporary_password:'senha-de-teste',password_expires_at:now.toISOString()}};
     export async function pipaRpc(name,args){const f=window.fixture;f.calls.push({name,args});if(f.fail)throw Error('Falha de conexão de teste');
+      if(name==='pipa_driver_login_details'){const d=drivers.find(d=>d.id===args.p_driver);if(f.loginFail)throw Error('Falha ao consultar login');return {user_id:d.user_id,name:'Nome da conta do pipeiro',email:'pipeiro-conta@example.test',phone:'87999998888'}}
       if(name==='pipa_save_tank'){const t={...args.p_data,id:args.p_data.id||'tank-new'};const i=tanks.findIndex(x=>x.id===t.id);if(i<0)tanks.push(t);else tanks[i]=t;return t.id}
       if(name==='pipa_save_driver'){const d={...args.p_data,id:args.p_data.id||'driver-new'};const i=drivers.findIndex(x=>x.id===d.id);if(i<0)drivers.push(d);else drivers[i]=d;return d.id}
       if(name==='pipa_set_quota'){const i=f.quotas.findIndex(q=>q.driver_id===args.p_driver&&q.month===args.p_month);const q={driver_id:args.p_driver,month:args.p_month,loads:args.p_loads};if(i<0)f.quotas.push(q);else f.quotas[i]=q;return}
@@ -175,6 +176,13 @@ try {
       assert.equal(await evaluate('window.fixture.tanks.filter(t=>t.id==="tank-new"&&t.name==="Caixa de teste editada").length'),1, 'Edição segue as mesmas etapas e atualiza a caixa existente');
     }
     await click('Pipeiros'); await wait('document.body.innerText.includes("Cota não definida")'); await click('Criar login'); await wait('document.querySelector("[name=email]")'); await input('email', 'pipeiro-teste@example.org'); await click('Criar acesso'); await wait('document.body.innerText.includes("Login criado")'); await layout(width); await click('Concluir');
+    await click('Dados do login'); await wait('document.querySelector("[role=dialog]")?.textContent.includes("pipeiro-conta@example.test")');
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").textContent.includes("Nome da conta do pipeiro")&&document.querySelector("[role=dialog]").textContent.includes("87999998888")'));
+    await layout(width); await capture(`dados-login-${width}`);
+    await evaluate('window.fixture.resetFail=true'); await click('Redefinir senha'); await wait('document.querySelector("[role=alert]")?.textContent.includes("Falha ao enviar")');
+    await evaluate('window.fixture.resetFail=false'); await click('Redefinir senha'); await wait('document.querySelector("[role=dialog]").textContent.includes("Redefinição solicitada")');
+    assert.equal(await evaluate('window.fixture.resetCalls.filter(email=>email==="pipeiro-conta@example.test").length'),2);
+    await click('Fechar'); await wait('!document.querySelector("[role=dialog]")');
     await click('Solicitações'); await wait('document.body.innerText.includes("Direcionada")'); await layout(width); await capture(`solicitacoes-${width}`);
     await evaluate(`['pending','assigned','in_transit','completed','cancelled'].forEach(status=>window.fixture.requests.push({...window.fixture.requests[0],id:'tab-'+status,status,requester_name:'Solicitante da aba '+status}))`);
     await click('Atualizar');await wait('document.querySelector(".pipa-request-content").textContent.includes("Solicitante da aba pending")');

@@ -34,7 +34,8 @@ try {
   await q(`create role anon; create role authenticated; create schema auth;
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user_id',true),'')::uuid$$;
     grant usage on schema public,auth to anon,authenticated;
-    create table auth.users(id uuid primary key,raw_app_meta_data jsonb default '{}');
+    create table auth.users(id uuid primary key,raw_app_meta_data jsonb default '{}',raw_user_meta_data jsonb default '{}',email text,phone text,encrypted_password text);
+    create table public.profiles(id uuid primary key,name text,phone text);
     create table orgao_canais(id uuid primary key,city_id bigint,nome text,ativo boolean default true,canal_triagem boolean default false,
       municipal_modules text[],constraint department_modules_valid check(municipal_modules <@ array['urban_planning','arborization','lighting']::text[]));
     create table prefeituras(id uuid primary key,city_id bigint,status text);
@@ -59,6 +60,7 @@ try {
   await q(await fs.readFile('supabase/migrations/414_operacao_pipa.sql', 'utf8'));
   await q(await fs.readFile('supabase/migrations/415_pipa_routes.sql', 'utf8'));
   await q(await fs.readFile('supabase/migrations/416_pipa_emptying_average.sql', 'utf8'));
+  await q(await fs.readFile('supabase/migrations/417_pipa_driver_login_details.sql', 'utf8'));
   await q(`insert into auth.users(id) select unnest($1::uuid[])`, [uid]);
   await q(`insert into prefeituras values($1,64,'ativa'),($2,65,'ativa')`, [cityHall, otherCityHall]);
   await q(`insert into orgao_canais(id,city_id,nome,municipal_modules) values($1,64,'Água',array['water_supply']),($2,65,'Outra cidade',array['water_supply']),($3,64,'Outra secretaria',array['water_supply'])`, [channel, otherChannel, sibling]);
@@ -96,6 +98,34 @@ try {
   await as(outsider); await denied('select pipa_link_driver_account($1,$2)', [driver3, account]);
   await as(manager); await q('select pipa_link_driver_account($1,$2)', [driver3, account]);
   await denied('select pipa_link_driver_account($1,$2)', [driver3, account], /já possui login/);
+  await q('reset role');
+  await q(`update auth.users set email='pipeiro@example.test',phone='87900000000',encrypted_password='hash-secreto',raw_user_meta_data='{"name":"Nome antigo"}' where id=$1`, [account]);
+  await q(`insert into profiles values($1,'Nome da conta','87999998888')`, [account]);
+  for (const actor of [attendant, reader, outsider, otherManager, driverUser]) {
+    await as(actor); await denied('select pipa_driver_login_details($1)', [driver3]);
+  }
+  await as('', 'anon'); await denied('select pipa_driver_login_details($1)', [driver3]);
+  for (const actor of [admin, manager]) {
+    await as(actor);
+    assert.deepEqual(await scalar('select pipa_driver_login_details($1) as value', [driver3]), {
+      user_id: account, email: 'pipeiro@example.test', name: 'Nome da conta', phone: '87999998888',
+    }, 'Somente os dados da conta vinculada, sem senha ou metadados');
+  }
+  await denied('select pipa_driver_login_details($1)', [driver2], /ainda não possui login/);
+  await denied('select pipa_driver_login_details($1)', [randomUUID()]);
+  await q('reset role');
+  await q('begin');
+  await q(`update profiles set name='',phone='' where id=$1`, [account]);
+  await q(`update auth.users set email=null where id=$1`, [account]);
+  await q(`update pipa_drivers set active=false where id=$1`, [driver3]);
+  await as(manager);
+  assert.deepEqual(await scalar('select pipa_driver_login_details($1) as value', [driver3]), {
+    user_id: account, email: null, name: 'Nome antigo', phone: '87900000000',
+  }, 'Conta antiga sem e-mail e pipeiro inativo continuam consultáveis pela gestão');
+  await q('reset role');
+  await q(`update orgao_membros set ativo=false where user_id=$1`, [manager]);
+  await as(manager); await denied('select pipa_driver_login_details($1)', [driver3]);
+  await q('rollback'); await as(manager);
   await q(`select pipa_set_quota($1,date_trunc('month',now() at time zone 'America/Fortaleza')::date,3)`, [driver]);
   await as(admin);
   const siblingTank = await rpc('pipa_save_tank', { ...tankData, channel_id: sibling, name: 'Caixa isolada' });
@@ -195,5 +225,5 @@ try {
   await insertSeed();
   for (let index = 0; index < PIPA_TEST_TABLES.length; index++) assert.equal(await scalar(`select count(*)::int as value from public.${PIPA_TEST_TABLES[index]}`), counts[index], 'Reexecutar o seed não duplica registros');
   assert.deepEqual((await q('select * from pipa_tanks where id=$1', [tank])).rows[0], originalTank, 'Seed preserva cadastros existentes');
-  console.log(JSON.stringify({ migrations: [414,415,416], emptyingAverage: true, observedLevel: true, routes: true, ownRoutes: true, outsideRouteDelivery: true, routeIsolation: true, privateTables: true, roles: true, isolation: true, driverAccount: true, gps: true, idempotency: true, oneOff: true, manual: true, immutableHistory: true, disabledDriver: true, testSeed: true, seedRerun: true }));
+  console.log(JSON.stringify({ migrations: [414,415,416,417], driverLoginPrivacy: true, emptyingAverage: true, observedLevel: true, routes: true, ownRoutes: true, outsideRouteDelivery: true, routeIsolation: true, privateTables: true, roles: true, isolation: true, driverAccount: true, gps: true, idempotency: true, oneOff: true, manual: true, immutableHistory: true, disabledDriver: true, testSeed: true, seedRerun: true }));
 } finally { await client?.end(); server.kill(); }

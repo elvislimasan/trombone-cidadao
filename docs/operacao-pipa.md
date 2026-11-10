@@ -90,6 +90,23 @@ npm run pipa:seed -- --city-id 64 --apply
 
 O primeiro comando mostra o que falta inserir. Quando houver mais de uma secretaria habilitada, informe `--channel-id UUID` para escolher o destino. Os pipeiros de demonstração podem receber login posteriormente pela tela de gestão.
 
+## Dados de login e recuperação de senha
+
+Na lista de pipeiros, **Dados do login** mostra nome, e-mail e telefone da conta
+vinculada, quando houver. A consulta exige gestão da secretaria do pipeiro e
+usa o e-mail de autenticação, não um contato digitado no cadastro operacional.
+Campos ainda não preenchidos aparecem como **Não informado**.
+
+**Redefinir senha** envia a recuperação para esse e-mail pelo fluxo existente
+do Supabase Auth. A senha atual só muda quando o pipeiro confirma a nova senha.
+A interface revalida a permissão e o vínculo antes de solicitar o envio, mostra
+erros de rede ou limite de envio e evita cliques duplicados. Contas sem e-mail
+não oferecem o envio. Nenhuma senha existente é consultada ou exibida.
+
+Publicação: aplicar `417_pipa_driver_login_details.sql` e publicar o frontend
+desta branch. O e-mail usa o SMTP e o redirecionamento `/alterar-senha` já
+configurados no projeto; não há nova Edge Function.
+
 ## Validação local
 
 Não utiliza credenciais nem dados do Supabase remoto:
