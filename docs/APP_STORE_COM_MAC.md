@@ -161,3 +161,25 @@ No App Store Connect → App Store:
 - Segredos ficam apenas no `.env` local e nunca no código (o bundle web só deve receber variáveis públicas).
 - Se você for automatizar depois (CI/TestFlight), use App Store Connect API Key e GitHub Secrets.
 
+## 13) Aviso de atualização no iPhone
+
+O app nativo consulta a versão publicada na App Store brasileira ao abrir e,
+ao voltar ao primeiro plano, no máximo a cada seis horas. Compara a versão
+instalada (`App.getInfo().version`, o `MARKETING_VERSION` do Xcode) com a versão
+da loja para o Apple ID configurado em `src/config/storeLinks.js`, conferindo
+também o Bundle ID. Builds iguais ou mais novos, incluindo TestFlight, não
+recebem pedido de atualização.
+
+Quando há uma versão mais nova, o aviso oferece **Atualizar**, que abre a App
+Store, e **Agora não**, que adia o aviso daquela versão por 24 horas. Falhas de
+conexão não bloqueiam o aplicativo; a consulta pode ser repetida no retorno ao
+app após cinco minutos. A comparação usa a versão pública, não o número do build.
+
+O recurso precisa estar incluído em uma nova versão iOS publicada. Versões
+anteriores sem esse código não passam a exibir o aviso apenas com deploy web.
+Não exige migração SQL nem alteração manual de versão no painel administrativo.
+
+Referências: [App do Capacitor](https://capacitorjs.com/docs/v7/apis/app),
+[HTTP nativo do Capacitor](https://capacitorjs.com/docs/v7/apis/http) e
+[consulta por ID da Apple](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/LookupExamples.html).
+

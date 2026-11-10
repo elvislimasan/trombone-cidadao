@@ -18,6 +18,7 @@ import BottomNav from '@/components/BottomNav';
 import ExplorePage from '@/pages/ExplorePage';
 import ReportSubmissionNotice from '@/components/ReportSubmissionNotice';
 import AppDownloadBanner from '@/components/AppDownloadBanner';
+import IosAppUpdateNotice from '@/components/IosAppUpdateNotice';
 import HomePage from '@/pages/HomePage';
 import AboutPage from '@/pages/AboutPage';
 import StatsPage from '@/pages/StatsPage';
@@ -1047,6 +1048,7 @@ function AppShell() {
 export default function App() {
   return (
     <NativeUIModeProvider>
+      <IosAppUpdateNotice />
       <MunicipalAccountGate><PermissionsProvider><AppShell /></PermissionsProvider></MunicipalAccountGate>
     </NativeUIModeProvider>
   );
