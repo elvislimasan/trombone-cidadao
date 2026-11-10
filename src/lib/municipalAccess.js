@@ -50,6 +50,7 @@ export function municipalHome(workspace, inventoryPath) {
   if (workspace.isAdministrator) return '/prefeitura/visao-geral';
   if (workspace.canDispatch) return '/prefeitura/demandas';
   if (workspace.canReceive) return '/prefeitura/broncas';
+  if (workspace.waterChannels?.length) return '/prefeitura/operacao-pipa/mapa';
   if (workspace.canExecute) return executorHome(workspace);
   if (inventoryPath) return inventoryPath;
   if (workspace.canEditLighting) return '/prefeitura/iluminacao';
@@ -76,6 +77,7 @@ export function municipalTreeAdoptionAccess({ isAdministrator = false, cityId, a
 
 export function municipalRouteAllowed(path, workspace) {
   const pathname = path.split('?')[0];
+  if (pathname.startsWith('/prefeitura/operacao-pipa')) return Boolean(workspace.isAdministrator || workspace.waterChannels?.length);
   if (pathname === TREE_ADOPTION_MANAGEMENT_PATH || pathname.startsWith(`${TREE_ADOPTION_MANAGEMENT_PATH}/`)) return Boolean(workspace.canAttendTreeAdoption);
   if (path.startsWith('/prefeitura/gestao-territorial')) return true; // City/module guard in the inventory.
   if (path === '/prefeitura/executor') return workspace.canExecute;
@@ -90,7 +92,7 @@ export function municipalRouteAllowed(path, workspace) {
 // Nas páginas gerais, a secretaria é um filtro da tela, não uma restrição
 // implícita do administrador. As áreas técnicas mantêm seu contexto próprio.
 export function municipalWorkspaceChannel(path, isAdministrator, channelId = '') {
-  const departmentArea = /^\/prefeitura\/(executor|eletricista|gestao-territorial|iluminacao)(\/|$)/.test(path.split('?')[0]);
+  const departmentArea = /^\/prefeitura\/(executor|eletricista|gestao-territorial|iluminacao|operacao-pipa)(\/|$)/.test(path.split('?')[0]);
   return isAdministrator && !departmentArea ? '' : channelId;
 }
 

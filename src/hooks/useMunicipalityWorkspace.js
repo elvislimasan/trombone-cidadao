@@ -80,11 +80,12 @@ export function MunicipalityWorkspaceProvider({ children }) {
         try { window.localStorage.setItem(channelKey, selectedChannel); window.localStorage.setItem(workspaceKey(user.id), municipality.id); } catch { /* Optional preferences. */ }
         if (selectedChannel && !channels.some(row => String(row.id) === selectedChannel)) throw new Error('Secretaria indisponível para esta conta.');
         const caps = municipalCapabilities(accesses, isAdministrator, selectedChannel);
-        const [categories, members, mappings, rules] = await Promise.all([
+        const [categories, members, mappings, rules, water] = await Promise.all([
           supabase.from('categories').select('id,name').order('name'),
           channels.length ? supabase.from('orgao_membros').select('canal_id,user_id,papel,ativo,perfil:profiles!orgao_membros_user_id_fkey(name)').eq('ativo', true).in('canal_id', channels.map(row => row.id)) : Promise.resolve({ data: [] }),
           Promise.resolve({ data: (data.category_channels || []).filter(row => String(row.city_id) === String(municipality.city_id)) }),
           caps.canReadAttendance ? supabase.from('prefeitura_servico_regras').select('*').eq('prefeitura_id', municipality.id) : Promise.resolve({ data: [] }),
+          supabase.rpc('pipa_access', { p_city: municipality.city_id }),
         ]);
         const failure = [categories, members, mappings, rules].find(result => result.error)?.error;
         if (failure) throw failure;
@@ -102,6 +103,8 @@ export function MunicipalityWorkspaceProvider({ children }) {
           inventoryModules: [...(data.inventories || []), ...(data.inventory_views || [])].filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)).map(row => row.module),
           canAttendTreeAdoption: municipalTreeAdoptionAccess({ isAdministrator, cityId: municipality.city_id, activeChannelId: selectedChannel, accesses, inventories: data.inventories || [], categoryChannels: mappings.data || [] }),
           executionActivities: (data.execution_activities || []).filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)),
+          waterChannels: (water.data || []).filter(row => !selectedChannel || row.id === selectedChannel),
+          waterError: water.error ? (['PGRST202', '42883'].includes(water.error.code) ? 'Aplique a migração 414 para habilitar a Operação-pipa.' : water.error.message) : '',
           ...caps, isAdministrator, isElectrician: caps.canExecuteLighting, canEdit: caps.canReceive,
           canViewLighting: categoryIds.includes('iluminacao') && (caps.canReadAttendance || caps.canEditLighting || caps.canExecuteLighting),
           canEditLighting: categoryIds.includes('iluminacao') && caps.canEditLighting, error: '',

@@ -47,7 +47,7 @@ export function ExecutorLayout({ context, branding, activity = EXECUTION_ACTIVIT
 
   const logout = async () => {
     await signOut();
-    navigate('/login', { replace: true });
+    navigate('/prefeitura/login', { replace: true });
   };
 
   const patrolActive = location.pathname === panelPath + '/patrulha' || location.pathname.startsWith(panelPath + '/patrulha/');
