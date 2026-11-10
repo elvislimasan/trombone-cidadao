@@ -20,8 +20,8 @@ export default function MunicipalTable({ rows, columns, searchText, onOpen, titl
   const changeSort = (key) => { setSort(key); setDirection(sort === key && direction === 'asc' ? 'desc' : 'asc'); };
 
   return <section className="min-w-0 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised shadow-sm" aria-label={title}>
-    <div className="flex flex-wrap items-end gap-3 border-b border-edge-subtle p-4 sm:p-5">
-      <label className="min-w-0 flex-[1_1_18rem] text-xs font-semibold text-content-secondary">Pesquisar
+    <div className="municipal-table-toolbar border-b border-edge-subtle p-4 sm:p-5">
+      <label className="min-w-0 text-xs font-semibold text-content-secondary">Pesquisar
         <div className="relative mt-1"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-content-tertiary" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder} className="pl-9" /></div>
       </label>
       {filters && <MunicipalMobileDisclosure title="Filtros" hint={filterHint} className="municipal-table-filters">{filters}</MunicipalMobileDisclosure>}

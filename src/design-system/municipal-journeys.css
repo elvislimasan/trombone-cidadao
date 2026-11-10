@@ -47,8 +47,20 @@
 .municipal-mobile-disclosure > summary small { display: block; margin-top: 2px; font-size: .75rem; font-weight: 400; color: rgb(var(--text-secondary)); }
 .municipal-mobile-disclosure > summary:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
 .municipal-help-disclosure { margin-block: 16px; padding: 12px 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 12px; background: rgb(var(--surface-base)); }
-.municipal-table-filters, .municipal-table-filters > .municipal-disclosure-content { display: contents; }
-.municipal-table-filters input, .municipal-table-filters select { min-height: 48px; }
+.municipal-table-toolbar { display: grid; min-width: 0; align-items: end; gap: 12px; }
+.municipal-table-toolbar input { min-height: 48px; }
+/* Keep the details element as a grid item: display: contents on details
+   does not reliably expose its controls to the toolbar's layout. */
+.municipal-table-filters { display: block; min-width: 0; }
+.municipal-table-filters > .municipal-disclosure-content { display: grid; min-width: 0; align-items: end; gap: 12px; }
+.municipal-table-filters label { display: block; min-width: 0; }
+.municipal-table-filters input, .municipal-table-filters select { width: 100%; min-width: 0; max-width: none; min-height: 48px; }
+@media (min-width: 640px) {
+  .municipal-table-filters > .municipal-disclosure-content { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+}
+@media (min-width: 1200px) {
+  .municipal-table-toolbar:has(> .municipal-table-filters) { grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.6fr); }
+}
 .municipal-lighting-page .municipal-lighting-map button { min-height: 48px; }
 /* The zoom belongs to this map, so the global bottom-navigation offset cannot move it over search. */
 .municipal-lighting-page .leaflet-control-zoom { top: 0 !important; bottom: auto !important; }
