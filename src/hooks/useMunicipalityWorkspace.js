@@ -9,7 +9,7 @@ import { municipalCapabilities, assertMunicipalWorkspaceIdentity, municipalWorks
 import { readElectricianCache, writeElectricianCache } from '@/lib/electricianOffline';
 import { ehErroDeRede } from '@/lib/offlineErros';
 
-const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', ...municipalCapabilities([]), canAttendTreeAdoption: false, isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
+const empty = { loading: true, refreshing: false, municipality: null, memberships: [], channels: [], categories: [], enabledCategoryIds: [], reportCreationCategoryIds: [], categoryChannels: [], members: [], serviceRules: [], accesses: [], activeChannelId: '', waterChannels: [], availableWaterChannels: [], waterError: '', ...municipalCapabilities([]), canAttendTreeAdoption: false, isElectrician: false, isAdministrator: false, canEdit: false, error: '' };
 const WorkspaceContext = createContext(empty);
 export const WORKSPACE_EVENT = 'municipality-workspace-changed';
 const workspaceKey = userId => 'municipality-workspace:' + userId;
@@ -79,7 +79,7 @@ export function MunicipalityWorkspaceProvider({ children }) {
         }
         try { window.localStorage.setItem(channelKey, selectedChannel); window.localStorage.setItem(workspaceKey(user.id), municipality.id); } catch { /* Optional preferences. */ }
         if (selectedChannel && !channels.some(row => String(row.id) === selectedChannel)) throw new Error('Secretaria indisponível para esta conta.');
-        const caps = municipalCapabilities(accesses, isAdministrator, selectedChannel);
+        let caps = municipalCapabilities(accesses, isAdministrator, selectedChannel);
         const [categories, members, mappings, rules, water] = await Promise.all([
           supabase.from('categories').select('id,name').order('name'),
           channels.length ? supabase.from('orgao_membros').select('canal_id,user_id,papel,ativo,perfil:profiles!orgao_membros_user_id_fkey(name)').eq('ativo', true).in('canal_id', channels.map(row => row.id)) : Promise.resolve({ data: [] }),
@@ -89,6 +89,18 @@ export function MunicipalityWorkspaceProvider({ children }) {
         ]);
         const failure = [categories, members, mappings, rules].find(result => result.error)?.error;
         if (failure) throw failure;
+        const availableWaterChannels = Array.isArray(water.data) ? water.data : [];
+        const selectedInventory = [...(data.inventories || []), ...(data.inventory_views || [])]
+          .some(row => String(row.city_id) === String(municipality.city_id) && row.canal_id === selectedChannel);
+        // Uma preferência antiga pode apontar para uma secretaria sem atividade.
+        // Sem escolha explícita na URL, abrir a secretaria da água à qual a conta já tem acesso.
+        if (!isAdministrator && requestedChannel === null && selectedChannel && availableWaterChannels.length
+          && !availableWaterChannels.some(row => row.id === selectedChannel)
+          && !caps.canReadAttendance && !caps.canExecute && !caps.canEditLighting && !selectedInventory) {
+          selectedChannel = availableWaterChannels[0].id;
+          caps = municipalCapabilities(accesses, isAdministrator, selectedChannel);
+          try { window.localStorage.setItem(channelKey, selectedChannel); } catch { /* Optional preference. */ }
+        }
         const scopeChannels = selectedChannel ? channels.filter(row => String(row.id) === selectedChannel) : channels;
         const categoryIds = enabledMunicipalCategories(municipality).filter(id => (isAdministrator && !selectedChannel) || (mappings.data || []).some(mapping => mapping.category_id === id && scopeChannels.some(channel => channel.id === mapping.canal_id)));
         // O filtro da listagem não limita o cadastro do administrador geral.
@@ -103,7 +115,8 @@ export function MunicipalityWorkspaceProvider({ children }) {
           inventoryModules: [...(data.inventories || []), ...(data.inventory_views || [])].filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)).map(row => row.module),
           canAttendTreeAdoption: municipalTreeAdoptionAccess({ isAdministrator, cityId: municipality.city_id, activeChannelId: selectedChannel, accesses, inventories: data.inventories || [], categoryChannels: mappings.data || [] }),
           executionActivities: (data.execution_activities || []).filter(row => String(row.city_id) === String(municipality.city_id) && (!selectedChannel || row.canal_id === selectedChannel)),
-          waterChannels: (Array.isArray(water.data) ? water.data : []).filter(row => !selectedChannel || row.id === selectedChannel),
+          waterChannels: availableWaterChannels.filter(row => !selectedChannel || row.id === selectedChannel),
+          availableWaterChannels,
           waterError: water.error ? (['PGRST202', '42883'].includes(water.error.code) ? 'Aplique a migração 415 para habilitar a Operação-pipa.' : water.error.message) : '',
           ...caps, isAdministrator, isElectrician: caps.canExecuteLighting, canEdit: caps.canReceive,
           canViewLighting: categoryIds.includes('iluminacao') && (caps.canReadAttendance || caps.canEditLighting || caps.canExecuteLighting),

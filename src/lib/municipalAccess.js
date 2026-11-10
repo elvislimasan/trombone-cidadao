@@ -60,6 +60,7 @@ export function municipalHome(workspace, inventoryPath) {
 
 export function municipalAccessUnavailableReason(workspace) {
   if (!workspace.municipality) return 'Nenhum vínculo municipal ativo foi encontrado para esta conta. O administrador deve conferir seu vínculo com a prefeitura.';
+  if (workspace.waterError) return workspace.waterError;
   const accesses = (workspace.accesses || []).filter(row => !workspace.activeChannelId || String(row.canal_id) === String(workspace.activeChannelId));
   if (accesses.some(row => row.cargos?.includes('executor'))) return 'Seu cargo de executor foi encontrado, mas não há atividade de execução habilitada neste contexto. O administrador deve conferir os serviços de campo e suas categorias na secretaria.';
   if (!accesses.length) return 'Nenhum cargo configurado em uma secretaria ativa foi encontrado neste município. O administrador deve conferir seu vínculo com a secretaria e os cargos concedidos.';

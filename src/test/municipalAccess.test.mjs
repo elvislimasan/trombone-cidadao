@@ -33,6 +33,7 @@ test('indisponibilidade distingue vínculo municipal ausente de execução não 
   const workspace = { municipality: { id: 'p' }, accesses: [row('nenhum', 'a', { cargos: ['executor'] })] };
   assert.match(municipalAccessUnavailableReason(workspace), /não há atividade de execução habilitada/);
   assert.match(municipalAccessUnavailableReason({ ...workspace, activeChannelId: 'b' }), /Nenhum cargo configurado/);
+  assert.equal(municipalAccessUnavailableReason({ ...workspace, waterError: 'Aplique a migração 415 para habilitar a Operação-pipa.' }), 'Aplique a migração 415 para habilitar a Operação-pipa.');
 });
 test('inventário exclusivo não concede atendimento nem execução', () => {
   const access = municipalCapabilities([row('nenhum', 'a', { inventario_iluminacao: true })]);

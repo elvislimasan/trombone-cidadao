@@ -197,7 +197,19 @@ function MunicipalityLayoutContent() {
   if (workspace.loading) return <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base text-sm text-content-secondary">Abrindo painel…</div>;
   if (!municipality && !territorialAccess.loading && !territorialAccess.error && territorialAccess.municipalities.length === 0 && (pathname.startsWith(TERRITORIAL_BASE) || (pathname.startsWith(TREE_ADOPTION_MANAGEMENT_PATH) && territorialAccess.canWrite('arborization')))) return <Outlet />;
   if (workspace.error) return <div className="page-shell-fluid space-y-4 py-12"><p className="text-sm">Conta: {user?.email}</p><p role="alert">{workspace.error}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Tentar novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
-  if (!municipality || !home) return <div className="page-shell-fluid space-y-4 py-12"><h1 className="text-xl font-bold">Acesso municipal indisponível</h1><p className="text-sm">Conta: {user?.email}</p><p role="alert">{municipalAccessUnavailableReason(workspace)}</p><div className="flex gap-3"><Button onClick={workspace.refresh}>Verificar acesso novamente</Button><Button variant="outline" onClick={handleSignOut}>Sair</Button></div></div>;
+  if (!municipality || !home) {
+    const waterChannel = workspace.availableWaterChannels?.[0];
+    return <div className="page-shell-fluid space-y-4 py-12">
+      <h1 className="text-xl font-bold">Acesso municipal indisponível</h1>
+      <p className="text-sm">Conta: {user?.email}</p>
+      <p role="alert">{municipalAccessUnavailableReason(workspace)}</p>
+      <div className="flex flex-wrap gap-3">
+        {municipality && waterChannel && <Button asChild><Link to={municipalContextPath('/prefeitura/operacao-pipa/mapa', municipality.city_id, waterChannel.id)}>Abrir Operação-pipa</Link></Button>}
+        <Button onClick={workspace.refresh}>Verificar acesso novamente</Button>
+        <Button variant="outline" onClick={handleSignOut}>Sair</Button>
+      </div>
+    </div>;
+  }
   if (pathname === '/prefeitura/visao-geral' && !workspace.canReadAttendance && homePath !== pathname) return <Navigate to={home} replace />;
   if (!municipalRouteAllowed(pathname, workspace)) return <Navigate to={home} replace />;
 

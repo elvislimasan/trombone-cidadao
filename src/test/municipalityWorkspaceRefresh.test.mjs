@@ -17,18 +17,18 @@ const require = createRequire(import.meta.url);
 const React = require('react');
 const { createRoot } = require('react-dom/client');
 const { flushSync } = require('react-dom');
-let user, pathname, search, delayed, queue, revoked, failure, membershipRole, enabledCategoryIds, navigations;
+let user, pathname, search, delayed, queue, revoked, failure, membershipRole, enabledCategoryIds, navigations, waterAccess;
 const navigate = (to, options) => navigations.push({ to, options });
 const municipality = city => ({ id: 'pref-' + city, city_id: city, status: 'ativa', categorias_habilitadas: enabledCategoryIds });
 const supabase = {
   rpc(name) {
-    if (name === 'pipa_access') return Promise.resolve({ data: [], error: null });
+    if (name === 'pipa_access') return Promise.resolve({ data: waterAccess ? [{ id: 'water', name: 'Água', manage: true, request: true }] : [], error: null });
     const response = { data: {
       actor_user_id: user.id, access_contract: 2, execution_contract: 1,
       memberships: revoked ? [] : [64, 65].map(city => ({ papel: membershipRole, prefeitura: municipality(city) })),
-      channels: [{ id: 'lighting', city_id: 64 }, { id: 'agriculture', city_id: 64 }],
+      channels: [{ id: 'lighting', city_id: 64 }, { id: 'agriculture', city_id: 64 }, ...(waterAccess ? [{ id: 'water', city_id: 64, municipal_modules: ['water_supply'] }] : [])],
       category_channels: [{ city_id: 64, canal_id: 'lighting', category_id: 'iluminacao' }, { city_id: 64, canal_id: 'agriculture', category_id: 'poda' }],
-      accesses: [{ city_id: 64, canal_id: 'lighting', atendimento: 'gestor', especialidades_execucao: [] }],
+      accesses: [{ city_id: 64, canal_id: 'lighting', atendimento: 'gestor', especialidades_execucao: [] }, ...(waterAccess ? [{ city_id: 64, canal_id: 'water', cargos: ['inventario'], atendimento: 'nenhum', especialidades_execucao: [] }] : [])],
     }, error: failure ? { message: 'Conexão indisponível' } : null };
     return delayed ? new Promise(resolve => queue.push(() => resolve(response))) : Promise.resolve(response);
   },
@@ -63,9 +63,9 @@ async function waitFor(predicate) {
   assert.ok(predicate(), 'O contexto municipal não atualizou');
 }
 const pendingResponse = () => queue.length === 1;
-function fixture({ role = 'administrador', path = '/prefeitura/broncas', query = '?cidade=64', savedChannel = '', categories = ['iluminacao', 'poda'] } = {}) {
+function fixture({ role = 'administrador', path = '/prefeitura/broncas', query = '?cidade=64', savedChannel = '', categories = ['iluminacao', 'poda'], pipaEnabled = false } = {}) {
   user = { id: 'municipal-admin' }; search = query; delayed = false; queue = []; revoked = false; failure = false;
-  pathname = path; membershipRole = role; enabledCategoryIds = categories; navigations = [];
+  pathname = path; membershipRole = role; enabledCategoryIds = categories; navigations = []; waterAccess = pipaEnabled;
   window.localStorage.clear();
   if (savedChannel) window.localStorage.setItem('municipality-channel:' + user.id + ':pref-64', savedChannel);
   const node = document.createElement('div'); document.body.appendChild(node);
@@ -263,4 +263,25 @@ test('edição de postes respeita categoria habilitada, secretaria e cargo munic
       assert.equal(view.workspace.canEditLighting, false);
     } finally { view.close(); }
   }
+});
+
+test('conta da água sai de preferência antiga sem atividade e abre a Operação-pipa', async () => {
+  const view = fixture({ role: 'colaborador', path: '/prefeitura/visao-geral', savedChannel: 'agriculture', pipaEnabled: true });
+  try {
+    await waitFor(() => !view.workspace.loading);
+    assert.equal(view.workspace.activeChannelId, 'water');
+    assert.equal(view.workspace.waterChannels.length, 1);
+    assert.equal(municipalAccess.municipalHome(view.workspace), '/prefeitura/operacao-pipa/mapa');
+    assert.equal(municipalAccess.municipalRouteAllowed('/prefeitura/operacao-pipa', view.workspace), true);
+  } finally { view.close(); }
+});
+
+test('secretaria escolhida na URL não é substituída automaticamente pela água', async () => {
+  const view = fixture({ role: 'colaborador', path: '/prefeitura/visao-geral', query: '?cidade=64&secretaria=agriculture', pipaEnabled: true });
+  try {
+    await waitFor(() => !view.workspace.loading);
+    assert.equal(view.workspace.activeChannelId, 'agriculture');
+    assert.equal(view.workspace.waterChannels.length, 0);
+    assert.equal(view.workspace.availableWaterChannels.length, 1);
+  } finally { view.close(); }
 });
