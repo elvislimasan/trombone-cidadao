@@ -21,7 +21,8 @@ let user, pathname, search, delayed, queue, revoked, failure, membershipRole, en
 const navigate = (to, options) => navigations.push({ to, options });
 const municipality = city => ({ id: 'pref-' + city, city_id: city, status: 'ativa', categorias_habilitadas: enabledCategoryIds });
 const supabase = {
-  rpc() {
+  rpc(name) {
+    if (name === 'pipa_access') return Promise.resolve({ data: [], error: null });
     const response = { data: {
       actor_user_id: user.id, access_contract: 2, execution_contract: 1,
       memberships: revoked ? [] : [64, 65].map(city => ({ papel: membershipRole, prefeitura: municipality(city) })),
