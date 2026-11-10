@@ -74,7 +74,7 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
 
   const copias = listaDeEmails(form.copias);
   const canalTemCategorias = (canal?.categorias || []).length > 0;
-  const canalTemInventario = form.municipal_modules.some(module => ['urban_planning', 'arborization'].includes(module));
+  const canalTemInventario = form.municipal_modules.some(module => ['urban_planning', 'arborization', 'water_supply'].includes(module));
   const erros = problemasDoCanal({
     nome: form.nome,
     email: form.email,
@@ -179,7 +179,7 @@ const CanalForm = ({ aberto, canal, cidades, canaisDaCidade, salvando, onSalvar,
           </div>
 
           <fieldset className="space-y-3 rounded-xl border border-edge-subtle p-4"><legend className="text-sm font-semibold">Mapas e cadastros da secretaria</legend><p className="text-xs text-content-secondary">O responsável pelo inventário trabalha nas áreas selecionadas aqui. Gestores também recebem acesso a essas áreas quando a secretaria tem categorias de atendimento.</p>
-            {[["urban_planning","Ruas e pavimentações"],["arborization","Arborização"],["lighting","Postes e iluminação"]].map(([id,label]) => <label key={id} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={form.municipal_modules.includes(id)} disabled={salvando || (id === 'lighting' && !form.categorias.includes('iluminacao'))} onChange={event => setForm(current => ({ ...current, municipal_modules: event.target.checked ? [...current.municipal_modules,id] : current.municipal_modules.filter(value => value !== id) }))} />{label}</label>)}
+            {[["urban_planning","Ruas e pavimentações"],["arborization","Arborização"],["lighting","Postes e iluminação"],["water_supply","Operação-pipa"]].map(([id,label]) => <label key={id} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={form.municipal_modules.includes(id)} disabled={salvando || (id === 'lighting' && !form.categorias.includes('iluminacao'))} onChange={event => setForm(current => ({ ...current, municipal_modules: event.target.checked ? [...current.municipal_modules,id] : current.municipal_modules.filter(value => value !== id) }))} />{label}</label>)}
           </fieldset>
           <section className="rounded-xl border border-edge-subtle p-4"><h3 className="text-sm font-semibold">Execução de campo</h3><p className="mt-2 text-xs text-content-secondary">Funcionários com o cargo de executor atendem as categorias desta secretaria. O painel e o mapa acompanham as áreas configuradas.</p><ul className="mt-3 space-y-1 text-sm">{Object.entries(departmentExecutionScope(form.categorias, form.municipal_modules)).map(([id, categories]) => <li key={id}><strong>{executionActivity(id).label}:</strong> {categories.map(category => CATEGORIAS_BRONCA.find(item => item.id === category)?.name || category).join(', ')}</li>)}</ul>{!form.categorias.length && <p className="mt-2 text-xs text-content-secondary">Sem categorias, esta secretaria não recebe solicitações nem cargos de atendimento ou execução. O responsável pelo inventário poderá cuidar dos mapas selecionados acima.</p>}</section>
           <div>
@@ -389,7 +389,7 @@ const ManageAgencyChannelsPage = () => {
         title: form.id ? 'Secretaria atualizada' : 'Secretaria cadastrada',
         description: form.id ? undefined : form.categorias.length
           ? 'Ela começa desligada para você conferir o endereço antes de ativar.'
-          : form.municipal_modules.some(module => ['urban_planning', 'arborization'].includes(module))
+          : form.municipal_modules.some(module => ['urban_planning', 'arborization', 'water_supply'].includes(module))
             ? 'Ela já está disponível para atribuir o responsável pelo inventário.'
             : 'Selecione um mapa para liberar o inventário aos funcionários.',
       });

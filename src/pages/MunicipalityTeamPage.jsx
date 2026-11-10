@@ -147,11 +147,11 @@ export default function MunicipalityTeamPage() {
     [invites, inviteChannelId]
   );
   const selectedInviteChannel = channels.find(channel => String(channel.id) === String(inviteChannelId));
-  const inviteRoles = selectedInviteChannel && !(selectedInviteChannel.categorias || []).length
+  const inviteRoles = selectedInviteChannel && !(selectedInviteChannel.categorias || []).length && !selectedInviteChannel.municipal_modules?.includes('water_supply')
     ? MUNICIPAL_STAFF_ROLES.filter(role => role.id === 'inventario')
     : MUNICIPAL_STAFF_ROLES;
   const selectedAssignChannel = channels.find(channel => String(channel.id) === String(assignChannelId));
-  const assignRoles = selectedAssignChannel && !(selectedAssignChannel.categorias || []).length
+  const assignRoles = selectedAssignChannel && !(selectedAssignChannel.categorias || []).length && !selectedAssignChannel.municipal_modules?.includes('water_supply')
     ? MUNICIPAL_STAFF_ROLES.filter(role => role.id === 'inventario')
     : MUNICIPAL_STAFF_ROLES;
   const assignedToSelectedChannel = new Set(members.filter(member => String(member.canal_id) === String(assignChannelId)).map(member => String(member.user_id)));
