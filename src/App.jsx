@@ -1,6 +1,4 @@
 import ExecutorPanelPage from '@/pages/ExecutorPanelPage';
-import OperationPipaPage from '@/pages/OperationPipaPage';
-import PipaDriverPage from '@/pages/PipaDriverPage';
 import ExecutorOrderPage from '@/pages/ExecutorOrderPage';
 import ExecutorStatsPage from '@/pages/ExecutorStatsPage';
 import React, { useEffect } from 'react';
@@ -152,7 +150,6 @@ import AudienceTracker from '@/components/AudienceTracker';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 import FollowingActivityPage from '@/pages/FollowingActivityPage';
 import { shouldRedirectMunicipalityUser } from '@/lib/municipalityAccess';
-import { isolatedOperationalShell, isPipaDriverPath, operationalLoginPath, operationalRedirect } from '@/lib/operationalAccess';
 
 const SEO = () => {
   const location = useLocation();
@@ -296,7 +293,7 @@ const PrivateRoute = ({ children }) => {
   const location = useLocation();
   if (loading) return <div className="flex justify-center items-center h-screen">Carregando...</div>;
   if (!user) {
-    return <Navigate to={operationalLoginPath(location.pathname)} replace state={{ from: location }} />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
   if (shouldCompleteProfile({ user, loading, pathname: location.pathname })) {
     return <Navigate to="/completar-cadastro" replace state={{ from: location }} />;
@@ -408,11 +405,11 @@ function AppShell() {
     (location.pathname === '/rota-do-dia' &&
       new URLSearchParams(location.search).get('vista') === 'mapa');
   const areaPrefeituraAtiva = location.pathname.startsWith('/prefeitura/');
-  const interfaceIsolada = patrulhaAtiva || isolatedOperationalShell(user, location.pathname);
+  const interfaceIsolada = patrulhaAtiva || areaPrefeituraAtiva;
 
   // O painel municipal mantém seu layout e as permissões durante a navegação.
   // Seu boundary interno reinicia apenas o conteúdo da página que mudou.
-  const boundaryKey = areaPrefeituraAtiva ? '/prefeitura' : isPipaDriverPath(location.pathname) ? '/operacao-pipa/pipeiro' : location.pathname;
+  const boundaryKey = areaPrefeituraAtiva ? '/prefeitura' : location.pathname;
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -508,7 +505,7 @@ function AppShell() {
 
   // ✅ Handler para Restauração de Estado (Android Activity Killed)
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() || interfaceIsolada || authLoading) return;
+    if (!Capacitor.isNativePlatform()) return;
 
     const setupListener = async () => {
       // 0. Tentar recuperar manualmente via SharedPreferences (caso appRestoredResult falhe)
@@ -604,7 +601,7 @@ function AppShell() {
     };
     
     setupListener();
-  }, [navigate, interfaceIsolada, authLoading]);
+  }, [navigate]);
 
   // ✅ Handler para navegação via eventos customizados (sem recarregar)
   useEffect(() => {
@@ -745,11 +742,9 @@ function AppShell() {
     };
   }, [navigate]); // Remover location.pathname para evitar loops
 
-  const workRedirect = !authLoading && operationalRedirect(user, location.pathname);
-  if (workRedirect) return <Navigate to={workRedirect} replace />;
-  if (!authLoading && user && !user.is_admin && !user.is_master && !user.app_metadata?.pipa_driver && access.loading
+  if (!authLoading && user && !user.is_admin && !user.is_master && access.loading
     && ['/', '/feed', '/prefeitura/visao-geral'].includes(location.pathname)) return <div role="status" className="page-shell-fluid py-12">Abrindo painel…</div>;
-  const territorialRedirect = !authLoading && !user?.app_metadata?.pipa_driver && !access.loading && !access.error && territorialEntryRedirect(user, access, location.pathname);
+  const territorialRedirect = !authLoading && !access.loading && !access.error && territorialEntryRedirect(user, access, location.pathname);
   if (territorialRedirect) return <Navigate to={territorialRedirect + location.search} replace />;
   if (!authLoading && shouldRedirectMunicipalityUser(user, location.pathname)) {
     return <Navigate to="/prefeitura/visao-geral" replace />;
@@ -796,10 +791,6 @@ function AppShell() {
               <ErrorBoundary key={boundaryKey} resetKey={location.pathname}>
               <Routes>
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/operacao-pipa/login" element={<LoginPage accessContext="pipa" />} />
-              <Route path="/prefeitura/login" element={<LoginPage accessContext="municipality" />} />
-              <Route path="/operacao-pipa/recuperar-senha" element={<ForgotPasswordPage returnTo="/operacao-pipa/login" />} />
-              <Route path="/prefeitura/recuperar-senha" element={<ForgotPasswordPage returnTo="/prefeitura/login" />} />
               <Route path="/cadastro" element={<RegisterPage />} />
               <Route path="/completar-cadastro" element={<CompleteProfilePage />} />
               <Route path="/seja-embaixador" element={<BecomeAmbassadorPage />} />
@@ -811,10 +802,7 @@ function AppShell() {
               <Route path="/orgao/relatorio/:token" element={<OrgaoRelatorioPage />} />
               <Route path="/prefeitura/convite/:token" element={<MunicipalityInvitePage />} />
               <Route path="/prefeitura/convite/:token/cadastro" element={<MunicipalityRegisterPage />} />
-              <Route path="/operacao-pipa/pipeiro/:view?" element={<PrivateRoute><PipaDriverPage /></PrivateRoute>} />
-              <Route path="/operacao-pipa/pipeiro/senha" element={<PrivateRoute><ChangePasswordPage returnTo="/operacao-pipa/pipeiro" /></PrivateRoute>} />
               <Route element={<PrivateRoute><MunicipalityLayout /></PrivateRoute>}>
-                <Route path="/prefeitura/operacao-pipa/:section?" element={<OperationPipaPage />} />
                 <Route path="/prefeitura/gestao-territorial/:module?/:section?" element={<TerritorialPanelPage />} />
                 <Route path="/prefeitura/adote-uma-arvore" element={<TreeAdoptionManagementPage />} />
                 <Route path="/prefeitura/adote-uma-arvore/solicitacoes" element={<TreeAdoptionManagementPage />} />

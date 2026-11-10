@@ -10,7 +10,7 @@ export const isProfileIncomplete = (user) => Boolean(user && (
 ));
 
 export const shouldCompleteProfile = ({ user, loading, pathname }) => {
-  if (loading || !isProfileIncomplete(user) || hasMunicipalityPanelAccess(user) || user?.app_metadata?.pipa_driver) return false;
+  if (loading || !isProfileIncomplete(user) || hasMunicipalityPanelAccess(user)) return false;
 
   // Cadastro e convites precisam terminar seu próprio fluxo de gravação.
   // Termos e recuperação/exclusão da conta continuam acessíveis.

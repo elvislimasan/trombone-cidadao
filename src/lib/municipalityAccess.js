@@ -4,7 +4,6 @@ export const hasMunicipalityPanelAccess = (user) => Boolean(
   user
   && !user.is_admin
   && !user.is_master
-  && !user.app_metadata?.pipa_driver
   && (
     user.tipo_conta === 'prefeitura'
     || user.has_municipality_access === true
@@ -12,8 +11,6 @@ export const hasMunicipalityPanelAccess = (user) => Boolean(
 );
 
 export const resolveLoginDestination = (user, target, fallback = '/feed') => {
-  if (user?.app_metadata?.pipa_driver) return target?.split('?')[0].match(/^\/operacao-pipa\/pipeiro(?:\/|$)/) ? target : '/operacao-pipa/pipeiro';
-  if (target?.split('?')[0].match(/^\/operacao-pipa\/pipeiro(?:\/|$)/)) return hasMunicipalityPanelAccess(user) ? '/prefeitura/visao-geral' : fallback;
   if (target?.startsWith('/prefeitura/convite/') || target?.startsWith('/prefeitura/eletricista')) return target;
   // O layout resolve a área pelo workspace: inventário não passa pelo atendimento.
   return hasMunicipalityPanelAccess(user) ? '/prefeitura/visao-geral' : (target || fallback);

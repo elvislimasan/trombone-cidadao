@@ -16,8 +16,7 @@ const isIOS = Capacitor.getPlatform() === 'ios' || !Capacitor.isNativePlatform()
 const postAuthFallback = resolvePostAuthFallback({ isNative: Capacitor.isNativePlatform() });
 const loginDestination = (user, target) => resolveLoginDestination(user, target, postAuthFallback);
 
-const LoginPage = ({ accessContext }) => {
-  const operational = accessContext === 'pipa' || accessContext === 'municipality';
+const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -236,7 +235,7 @@ const LoginPage = ({ accessContext }) => {
           entregar textura que quase nao se via, e nada disso sobrevive ao tema
           escuro sem virar sujeira sobre o fundo. */}
       <div className="relative h-full overflow-hidden bg-surface-base">
-        <div className={`page-shell-fluid ${operational ? 'min-h-[100dvh]' : 'h-full'} py-6 sm:py-10 flex items-center`}>
+        <div className="relative mx-auto max-w-[1200px] h-full px-3 sm:px-6 lg:px-8 py-6 sm:py-10 flex items-center">
           <div className="grid grid-cols-1 w-full place-items-center">
             <div className="w-full max-w-[36rem] lg:max-w-[40rem] mx-auto">
               <motion.div
@@ -248,14 +247,14 @@ const LoginPage = ({ accessContext }) => {
                 <div className="space-y-1 sm:space-y-2">
                   <p className="text-[11px] font-semibold tracking-[0.18em] text-content-tertiary uppercase flex items-center gap-2">
                     <span className="inline-block w-1 h-3 rounded-full bg-brand" />
-                    {accessContext === 'pipa' ? 'Operação-pipa' : accessContext === 'municipality' ? 'Prefeitura' : 'Acesso'}
+                    Acesso
                   </p>
                   <h2 className="text-2xl sm:text-3xl lg:text-2xl font-bold tracking-tight text-content-primary font-display">
-                    {accessContext === 'pipa' ? 'Acesso do pipeiro' : accessContext === 'municipality' ? 'Acesso da prefeitura' : 'Bem-vindo(a) de volta'}
+                    Bem-vindo(a) de volta
                   </h2>
-                  {!operational && <p className="text-sm sm:text-base lg:text-sm xl:text-base text-content-secondary">
+                  <p className="text-sm sm:text-base lg:text-sm xl:text-base text-content-secondary">
                     Entre para continuar acompanhando sua cidade em tempo real.
-                  </p>}
+                  </p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                   {errors.general && (
@@ -286,7 +285,7 @@ const LoginPage = ({ accessContext }) => {
                   <div className="space-y-1.5 sm:space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Senha</Label>
-                      <Link to={accessContext === 'pipa' ? '/operacao-pipa/recuperar-senha' : accessContext === 'municipality' ? '/prefeitura/recuperar-senha' : '/recuperar-senha'} className="text-sm text-brand hover:underline">
+                      <Link to="/recuperar-senha" className="text-sm text-brand hover:underline">
                         Esqueceu a senha?
                       </Link>
                     </div>
@@ -342,7 +341,6 @@ const LoginPage = ({ accessContext }) => {
                       {isLoading ? 'Entrando...' : 'Entrar'}
                     </Button>
 
-                    {!operational && <>
                     <div className="relative flex items-center gap-2 my-2">
                       <div className="h-px bg-edge-subtle flex-1" />
                       <span className="text-[10px] uppercase text-content-tertiary font-medium tracking-wider">ou</span>
@@ -385,7 +383,6 @@ const LoginPage = ({ accessContext }) => {
                         Cadastre-se
                       </Link>
                     </p>
-                    </>}
                     <div className="flex items-start gap-2 rounded-xl border border-edge-subtle bg-surface-subtle px-2.5 py-2 sm:px-3 sm:py-2.5">
                       <div className="mt-0.5 rounded-full bg-success-bg p-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-success-fg" />

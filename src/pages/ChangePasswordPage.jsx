@@ -9,12 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { KeyRound } from 'lucide-react';
 import { showAppError } from '@/lib/appError';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { hasMunicipalityPanelAccess } from '@/lib/municipalityAccess';
 
-const ChangePasswordPage = ({ returnTo }) => {
-  const { user } = useAuth();
-  const destination = returnTo || (user?.app_metadata?.pipa_driver ? '/operacao-pipa/pipeiro' : hasMunicipalityPanelAccess(user) ? '/prefeitura/visao-geral' : '/perfil');
+const ChangePasswordPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -50,7 +46,7 @@ const ChangePasswordPage = ({ returnTo }) => {
         variant: 'destructive',
       });
     } else {
-      navigate(destination, { replace: true });
+      navigate('/perfil');
     }
   };
 
@@ -63,7 +59,7 @@ const ChangePasswordPage = ({ returnTo }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="page-shell-fluid flex min-h-[calc(100dvh-4rem)] items-center justify-center py-8"
+        className="container mx-auto flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12"
       >
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
@@ -108,7 +104,7 @@ const ChangePasswordPage = ({ returnTo }) => {
                 type="button"
                 variant="ghost"
                 className="w-full"
-                onClick={() => navigate(destination, { replace: true })}
+                onClick={() => navigate('/perfil')}
               >
                 Cancelar
               </Button>

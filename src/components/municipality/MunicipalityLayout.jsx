@@ -26,7 +26,6 @@ import {
   Plus,
   Sprout,
   Leaf,
-  Droplets,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -43,7 +42,6 @@ const navigation = [
   { to: '/prefeitura/broncas', label: 'Solicitações da cidade', icon: MessageSquare, adminOnly: false },
   { to: '/prefeitura/demandas', label: 'Ordens de serviço', icon: ClipboardList, adminOnly: false },
   { to: '/prefeitura/iluminacao', label: 'Iluminação pública', icon: LampDesk, adminOnly: false },
-  { to: '/prefeitura/operacao-pipa', label: 'Operação-pipa', icon: Droplets, adminOnly: false },
   { to: TREE_ADOPTION_MANAGEMENT_PATH, label: 'Adote uma árvore', icon: Sprout, adminOnly: false },
   { to: '/prefeitura/secretarias', label: 'Secretarias', icon: Settings2, adminOnly: true },
   { to: '/prefeitura/equipe', label: 'Equipe', icon: Users, adminOnly: true },
@@ -191,7 +189,7 @@ function MunicipalityLayoutContent() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/prefeitura/login', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   if (workspace.loading) return <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base text-sm text-content-secondary">Abrindo painel…</div>;

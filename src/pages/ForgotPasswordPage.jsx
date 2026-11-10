@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
-const ForgotPasswordPage = ({ returnTo = '/login' }) => {
+const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ const ForgotPasswordPage = ({ returnTo = '/login' }) => {
     
     setLoading(false);
 
-    navigate(returnTo, { replace: true });
+    navigate('/login');
   };
 
   return (
@@ -32,7 +32,7 @@ const ForgotPasswordPage = ({ returnTo = '/login' }) => {
         <title>Recuperar Senha - Trombone Cidadão</title>
         <meta name="description" content="Recupere o acesso à sua conta na plataforma Trombone Cidadão." />
       </Helmet>
-      <div className="page-shell-fluid flex items-center justify-center min-h-[calc(100dvh-4rem)] py-12">
+      <div className="container mx-auto flex items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -63,7 +63,7 @@ const ForgotPasswordPage = ({ returnTo = '/login' }) => {
                 </Button>
                 <p className="text-sm text-muted-foreground">
                   Lembrou a senha?{' '}
-                  <Link to={returnTo} className="font-semibold text-tc-red hover:underline">
+                  <Link to="/login" className="font-semibold text-tc-red hover:underline">
                     Faça login
                   </Link>
                 </p>

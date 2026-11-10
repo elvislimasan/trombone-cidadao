@@ -7,7 +7,6 @@ const priorities = [
   ['/prefeitura/gestao-territorial', null],
   ['/prefeitura/adote-uma-arvore', 'Árvores'],
   ['/prefeitura/iluminacao', 'Iluminação'],
-  ['/prefeitura/operacao-pipa', 'Operação-pipa'],
 ];
 
 export function municipalMobileNavigation(visibleNavigation) {
