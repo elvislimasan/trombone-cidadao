@@ -57,6 +57,7 @@ const DEFAULT_PREFERENCES = {
   moderation_update: true,
   status_update: true,
   tree_adoption_update: true,
+  tree_adoption_new_request: true,
   community_tree_update: true,
   moderation_required: true,
   resolution_submission: true,
@@ -170,6 +171,13 @@ const NotificationPreferences = () => {
       name: 'Atualização de Status',
       description: 'Mudanças no status das suas broncas (pendente, em análise, resolvida)',
       icon: RefreshCcw,
+      adminOnly: false
+    },
+    {
+      id: 'tree_adoption_new_request',
+      name: 'Novos pedidos de arborização',
+      description: 'Novas solicitações de mudas e plantio nas cidades sob sua responsabilidade',
+      icon: Sprout,
       adminOnly: false
     },
     {

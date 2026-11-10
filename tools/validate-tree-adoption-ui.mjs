@@ -181,6 +181,13 @@ try {
       await evaluate('window.auditTrigger=document.querySelector(".adoption-request-card button[aria-label]")||document.querySelector(".adoption-request-open");window.auditTrigger.focus();window.auditTrigger.click()');
       await waitFor('document.querySelector(".adoption-detail-scroll")&&document.querySelector(".adoption-timeline li")');
       await pause(250);
+      await waitFor('document.querySelector(".adoption-request-dialog").getAnimations().every(animation=>animation.playState==="finished")');
+      const contact = await evaluate(`(()=>{const link=document.querySelector('a[href^="https://wa.me/"]');return link?{href:link.href,label:link.getAttribute('aria-label'),nearPhone:link.closest('dd')?.previousElementSibling?.textContent}:null})()`);
+      if(actor==='manager'||actor==='attendant') {
+        assert.equal(contact?.href,'https://wa.me/5587999999999');
+        assert.equal(contact?.nearPhone,'Telefone / WhatsApp');
+        assert.equal(contact?.label,'Abrir WhatsApp de Pessoa de teste');
+      } else assert.equal(contact,null);
       if(actor==='manager'||actor==='attendant')assert.ok(await evaluate('document.querySelector(".adoption-detail-layout").firstElementChild.matches("form.adoption-detail-action")'),'Atendimento deve vir primeiro');
       const bounds=await evaluate(`(()=>{const dialog=document.querySelector('.adoption-request-dialog'),body=dialog.querySelector('[data-task-scroll]'),r=dialog.getBoundingClientRect(),s=body.getBoundingClientRect(),footer=dialog.querySelector('footer').getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width,scrollWidth:dialog.scrollWidth,height:r.height,bodyHeight:s.height,scrollHeight:body.scrollHeight,footerTop:footer.top,footerBottom:footer.bottom,x:s.x+s.width/2,y:s.y+s.height/2};})()`);
       assert.ok(bounds.top>=-1&&bounds.bottom<=height+1&&bounds.width<=width&&bounds.scrollWidth<=bounds.width+1,JSON.stringify(bounds));

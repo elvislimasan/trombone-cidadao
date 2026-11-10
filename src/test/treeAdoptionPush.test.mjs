@@ -9,6 +9,12 @@ test('push de mudas respeita preferência explícita e permanece ativo para cont
   for (const value of [false, 'false']) assert.equal(isTypePreferenceDisabled({ tree_adoption_update: value }, 'tree_adoption_update'), true);
 });
 
+test('push de novo pedido fica ativo por padrão e permite desativação explícita', () => {
+  const type = 'tree_adoption_new_request';
+  for (const prefs of [null, {}, { [type]: true }, { tree_adoption_update: false }]) assert.equal(isTypePreferenceDisabled(prefs, type), false);
+  for (const value of [false, 'false']) assert.equal(isTypePreferenceDisabled({ [type]: value }, type), true);
+});
+
 async function clickNotification(clientOptions, action = '') {
   const listeners = {}, navigations = [], opened = [], messages = []; let focused = 0, closed = 0;
   const client = { id: 'window-1', url: 'https://app.test/adoteumaarvore', async focus() { focused++; return client; }, postMessage(message) { messages.push(message); },

@@ -3,6 +3,7 @@
 \i supabase/tests/tree_adoption_direct_statuses.sql
 \i supabase/migrations/398_tree_nurseries.sql
 \i supabase/migrations/400_tree_adoption_notifications.sql
+\i supabase/migrations/404_tree_adoption_public_url.sql
 
 reset role;
 update public.tree_species_availability set status='disponivel';

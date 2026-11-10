@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { Window } from 'happy-dom';
 import * as adoption from '../lib/treeAdoption.js';
 import * as adoptionClient from '../lib/treeAdoptionClient.js';
+import * as utils from '../lib/utils.js';
 
 const require = createRequire(import.meta.url), win = new Window();
 for (const name of ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'Event']) Object.defineProperty(globalThis, name, { configurable: true, value: win[name] });
@@ -25,12 +26,14 @@ const mocks = {
   'react-router-dom': { Link: ({ to, state, children, ...props }) => React.createElement('a', { href: to, 'data-return': JSON.stringify(state?.from), ...props }, children) },
   '@/components/ui/button': { Button: ({ variant, size, asChild, children, ...props }) => asChild ? React.cloneElement(children, props) : React.createElement('button', props, children) },
   '@/components/ui/input': { Input: props => React.createElement('input', props) },
+  '@/components/ui/task-dialog': { TaskDialogContent: panel, TaskDialogBody: panel, TaskDialogFooter: panel },
   '@/components/ui/dialog': { Dialog: ({ children, onOpenChange }) => React.createElement('section', {}, React.createElement('button', { onClick: () => onOpenChange(false) }, 'Fechar pedido'), children), DialogContent: panel, DialogHeader: panel, DialogDescription: panel, DialogTitle: panel },
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user }) },
   '@/lib/customSupabaseClient': { supabase: api },
   '@/hooks/useTreeAdoptionCatalog': { __esModule: true, default: () => ({ loading: false, error: '', species: [{ id: 'ipe', common_name: 'Ipê' }], availability: [], nurseries: [], refresh() {} }) },
   '@/lib/treeAdoption': adoption,
   '@/lib/treeAdoptionClient': adoptionClient,
+  '@/lib/utils': utils,
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: () => null },
   './TreeAdoptionReceiptButton': { __esModule: true, default: () => null },
   './TreeAdoptionPickup': { __esModule: true, default: () => null },

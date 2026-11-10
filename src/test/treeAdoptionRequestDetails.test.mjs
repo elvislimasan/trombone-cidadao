@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import ts from 'typescript';
 import * as adoption from '../lib/treeAdoption.js';
 import * as adoptionClient from '../lib/treeAdoptionClient.js';
+import * as utils from '../lib/utils.js';
 
 const require = createRequire(import.meta.url);
 const React = require('react');
@@ -26,6 +27,7 @@ const mocks = {
   './TreeProgramPhoto': { __esModule: true, default: () => null },
   '@/lib/treeAdoption': adoption,
   '@/lib/treeAdoptionClient': adoptionClient,
+  '@/lib/utils': utils,
 };
 const journeyCode = ts.transpileModule(readFileSync(new URL('../components/arborization/TreeJourney.jsx', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
 const journey = { exports: {} };
@@ -51,9 +53,20 @@ for (const scenario of [
     assert.match(html, /Resumo do pedido/);
     assert.match(html, /lucide-leaf/);
     assert.match(html, /Maria da Silva/);
+    if (scenario.manager) {
+      assert.match(html, /href="https:\/\/wa\.me\/5587999999999"/);
+      assert.match(html, /Abrir WhatsApp de Maria da Silva/);
+    } else assert.doesNotMatch(html, /wa\.me/);
     assert.match(html, /Ipê/);
     assert.ok(html.toLocaleLowerCase('pt-BR').includes(scenario.action.toLocaleLowerCase('pt-BR')));
     if (!scenario.manager && scenario.status === 'concluida') assert.match(html, /arvores-da-comunidade\/nova/);
     if (scenario.status === 'concluida') assert.match(html, /lucide-clipboard-list/);
   });
 }
+
+test('contato antigo sem telefone válido não oferece link de WhatsApp', () => {
+  for (const phone of ['', null, '1234']) {
+    const html = renderToStaticMarkup(React.createElement(RequestDetails, { request: { ...request, requester_phone: phone }, catalog, manager: true, dispatcher: true, onClose() {}, onUpdated() {} }));
+    assert.doesNotMatch(html, /wa\.me/);
+  }
+});

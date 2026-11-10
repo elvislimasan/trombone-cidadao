@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, Clock3, Leaf, Loader2, Sprout } from 'lucide-react';
+import { ClipboardList, Clock3, Leaf, Loader2, MessageCircle, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import useTreeAdoptionCatalog from '@/hooks/useTreeAdoptionCatalog';
 import { loadAdoptionRequest } from '@/lib/treeAdoptionClient';
+import { whatsappNumber } from '@/lib/utils';
 import TreeAdoptionRequestCard, { AdoptionStatus } from './TreeAdoptionRequestCard';
 import { TreePlantingNextStep } from './TreeJourney';
 import TreeAdoptionPickup from './TreeAdoptionPickup';
@@ -43,6 +44,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const terminal = ADOPTION_TERMINAL.includes(request.status);
+  const whatsapp = manager && whatsappNumber(request.requester_phone);
   const items = adoptionItems(request);
   const requestedSpecies = request.species?.common_name || catalog.species.find(item => item.id === request.species_id)?.common_name || 'Espécie cadastrada';
   const confirmedSpecies = catalog.species.find(item => item.id === request.approved_species_id)?.common_name;
@@ -78,7 +80,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   const options = manager ? [request.status, ...adoptionNextStatuses(request).filter(key => dispatcher || ['solicitada', 'em_analise', 'aguardando_informacao', 'aguardando_disponibilidade'].includes(key) || (key === 'cancelada' && request.author_id === user?.id))]
     : [...(request.status === 'aguardando_informacao' ? [request.status] : []), 'cancelada'];
   const context = <div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
-        {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', adoptionProviderLabel(request.provider, catalog)], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
+        {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', adoptionProviderLabel(request.provider, catalog)], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}{label === 'Telefone / WhatsApp' && whatsapp && <span className="mt-2 block">{whatsapp && <Button asChild variant="outline" size="sm" className="w-fit max-w-full whitespace-normal"><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label={`Abrir WhatsApp de ${request.requester_name || 'quem fez a solicitação'}`}><MessageCircle className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />Conversar no WhatsApp</a></Button>}</span>}</dd></div>)}
       </dl>
       <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {adoptionProviderLabel(item.provider, catalog)}</li>)}</ul>
       {request.notes && <div className="adoption-detail-notes"><p>Observações do solicitante</p><p>{request.notes}</p></div>}
