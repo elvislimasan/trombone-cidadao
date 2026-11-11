@@ -25,7 +25,7 @@ export default function PipaRequests({ data, canEdit, onOpen }) {
   const drivers = useMemo(() => new Map(data.drivers.map(driver => [driver.id, driver])), [data.drivers]);
   const matching = useMemo(() => {
     const needle = normalize(query).trim();
-    return data.requests.filter(request => !needle || normalize([request.locality, request.requester_name, tanks.get(request.tank_id)?.name].join(' ')).includes(needle));
+    return data.requests.filter(request => !needle || normalize([request.locality, request.requester_name, tanks.get(request.tank_id)?.name, tanks.get(request.tank_id)?.system_code, tanks.get(request.tank_id)?.official_code].join(' ')).includes(needle));
   }, [data.requests, query, tanks]);
   const group = GROUPS.find(item => item.id === tab);
   const rows = matching.filter(request => group.statuses.includes(request.status) && (!status || request.status === status)).sort((a, b) => Number(b.kind === 'urgent') - Number(a.kind === 'urgent') || String(b.created_at).localeCompare(String(a.created_at)));

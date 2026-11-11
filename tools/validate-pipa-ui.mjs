@@ -22,7 +22,7 @@ const stubs = {
   '@/lib/pipaReport': `export async function exportPipaReport(data){window.fixture.exported=data;}`,
   '@/lib/pipaApi': `
     const now=new Date(),day=now.toISOString().slice(0,10),month=day.slice(0,7)+'-01';
-    const tanks=[{id:'tank-1',channel_id:'channel',name:'Caixa do Sítio Serra Negra',locality:'Serra Negra',address:'Estrada da comunidade, próximo à escola',latitude:-8.58,longitude:-38.55,capacity_liters:20000,provider:'prefeitura',responsible_name:'Responsável de teste',responsible_document:'52998224725',responsible_phone:'87999990000',responsible_address:'Sítio Serra Negra',active:true},{id:'tank-2',channel_id:'channel',name:'Caixa da Lagoa Comprida',locality:'Lagoa Comprida',address:'Associação da comunidade',latitude:-8.64,longitude:-38.62,capacity_liters:16000,provider:'exercito',responsible_name:'Responsável de teste 2',responsible_document:'52998224725',responsible_phone:'87999990001',responsible_address:'Lagoa Comprida',active:true}];
+    const tanks=[{id:'tank-1',channel_id:'channel',system_code:'CX1',official_code:'GOV-001',name:'Caixa do Sítio Serra Negra',locality:'Serra Negra',address:'Estrada da comunidade, próximo à escola',latitude:-8.58,longitude:-38.55,capacity_liters:20000,provider:'prefeitura',responsible_name:'Responsável de teste',responsible_document:'52998224725',responsible_phone:'87999990000',responsible_address:'Sítio Serra Negra',active:true},{id:'tank-2',channel_id:'channel',system_code:'CX2',official_code:null,name:'Caixa da Lagoa Comprida',locality:'Lagoa Comprida',address:'Associação da comunidade',latitude:-8.64,longitude:-38.62,capacity_liters:16000,provider:'exercito',responsible_name:'Responsável de teste 2',responsible_document:'52998224725',responsible_phone:'87999990001',responsible_address:'Lagoa Comprida',active:true}];
     tanks[0].emptying_days=10;tanks[1].emptying_days=10;
     const drivers=[{id:'driver-1',channel_id:'channel',name:'José de teste',plate:'ABC1D23',capacity_liters:10000,provider:'prefeitura',active:true,user_id:'driver-user'},{id:'driver-2',channel_id:'channel',name:'Maria de teste',plate:'DEF5678',capacity_liters:8000,provider:'prefeitura',active:true}];
     const requests=[{id:'request-1',channel_id:'channel',tank_id:'tank-1',kind:'urgent',status:'assigned',driver_id:'driver-1',requester_name:'Morador de teste',requester_phone:'87999990002',locality:'Serra Negra',address:tanks[0].address,latitude:tanks[0].latitude,longitude:tanks[0].longitude,notes:'Caixa seca desde ontem',created_at:now.toISOString()}];
@@ -34,7 +34,7 @@ const stubs = {
     export async function createPipaLogin(id,email){window.fixture.calls.push({name:'login',id,email});drivers.find(d=>d.id===id).user_id='created';return {email,temporary_password:'senha-de-teste',password_expires_at:now.toISOString()}};
     export async function pipaRpc(name,args){const f=window.fixture;f.calls.push({name,args});if(f.fail)throw Error('Falha de conexão de teste');
       if(name==='pipa_driver_login_details'){const d=drivers.find(d=>d.id===args.p_driver);if(f.loginFail)throw Error('Falha ao consultar login');return {user_id:d.user_id,name:'Nome da conta do pipeiro',email:'pipeiro-conta@example.test',phone:'87999998888'}}
-      if(name==='pipa_save_tank'){const t={...args.p_data,id:args.p_data.id||'tank-new'};const i=tanks.findIndex(x=>x.id===t.id);if(i<0)tanks.push(t);else tanks[i]=t;return t.id}
+      if(name==='pipa_save_tank'){const t={...args.p_data,id:args.p_data.id||'tank-new'};const i=tanks.findIndex(x=>x.id===t.id);t.system_code=i<0?'CX'+(Math.max(0,...tanks.map(x=>Number(x.system_code?.slice(2))||0))+1):tanks[i].system_code;t.official_code=t.official_code?.trim()||null;if(i<0)tanks.push(t);else tanks[i]=t;return t.id}
       if(name==='pipa_save_driver'){const d={...args.p_data,id:args.p_data.id||'driver-new'};const i=drivers.findIndex(x=>x.id===d.id);if(i<0)drivers.push(d);else drivers[i]=d;return d.id}
       if(name==='pipa_set_quota'){const i=f.quotas.findIndex(q=>q.driver_id===args.p_driver&&q.month===args.p_month);const q={driver_id:args.p_driver,month:args.p_month,loads:args.p_loads};if(i<0)f.quotas.push(q);else f.quotas[i]=q;return}
       if(name==='pipa_create_request'){requests.push({...args.p_data,id:'request-new',status:'pending',created_at:now.toISOString()});return 'request-new'}
@@ -122,11 +122,25 @@ try {
     await click('Caixas d’água'); await wait('document.querySelector("table")'); await layout(width);
     await click('Cadastrar caixa'); await wait('document.querySelector("[role=dialog]")'); await layout(width); await capture(`cadastro-caixa-${width}`);
     assert.equal(await evaluate('Boolean(document.querySelector("[name=latitude], [name=responsible_name]"))'), false, 'Primeira etapa mostra somente os dados da caixa');
+    assert.ok(await evaluate('document.querySelector(".pipa-code-output")?.textContent.includes("Gerado ao salvar")'), 'Código do sistema é gerado ao salvar');
     await click('Continuar'); assert.equal(await evaluate('document.querySelector("#pipa-form").getAttribute("aria-labelledby")'), 'pipa-tank-step-0', 'Não avança sem os campos obrigatórios');
     for(const [name,value] of Object.entries({name:'Caixa de teste cadastrada',locality:'Comunidade de teste',capacity_liters:'16000',emptying_days:'10'})) await input(name,value);
+    await input('official_code','GOV-TESTE-3');
     await click('Continuar'); await wait('document.querySelector("[name=latitude]")'); await layout(width); await capture(`cadastro-localizacao-${width}`);
-    assert.ok(await evaluate('document.querySelector("[role=dialog] .pipa-map").getBoundingClientRect().bottom<document.querySelector("[name=address]").getBoundingClientRect().top'), 'Mapa aparece acima do endereço');
     await click('Continuar'); assert.equal(await evaluate('document.querySelector("#pipa-form").getAttribute("aria-labelledby")'), 'pipa-tank-step-1', 'Não avança sem a localização');
+    assert.ok(await evaluate('Boolean(document.querySelector(`.pipa-location-controls [aria-label="Usar mapa de satélite"]`) && document.querySelector(`.pipa-location-controls [aria-label="Ir para minha localização"]`))'), 'Mapa de cadastro oferece satélite e GPS');
+    if(width===1440){
+      await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Usar mapa de satélite"]`).click()');
+      await wait('document.querySelector(".leaflet-tile-pane img[src*=arcgisonline]")');
+      await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Usar mapa padrão"]`).click()');
+      await wait('window.pipaMaps.length>0');
+      await send('Emulation.setGeolocationOverride',{latitude:-8.59,longitude:-38.56,accuracy:10},sessionId);
+      await send('Browser.grantPermissions',{origin:`http://127.0.0.1:${server.address().port}`,permissions:['geolocation']});
+      await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Ir para minha localização"]`).click()');
+      await wait('Number(document.querySelector("[name=latitude]").value)===-8.59');
+      assert.equal(await evaluate('Number(document.querySelector("[name=longitude]").value)'),-38.56,'GPS marca a caixa no mapa');
+    }
+    assert.ok(await evaluate('document.querySelector("[role=dialog] .pipa-map").getBoundingClientRect().bottom<document.querySelector("[name=address]").getBoundingClientRect().top'), 'Mapa aparece acima do endereço');
     await evaluate('void window.pipaMaps[0].fire("click",{latlng:{lat:-8.601,lng:-38.571}})');
     await wait('document.querySelector("[name=address]").value==="Endereço do ponto -8.6010, -38.5710"');
     assert.equal(await evaluate('Number(document.querySelector("[name=latitude]").value)'), -8.601);
@@ -168,7 +182,7 @@ try {
     await input('responsible_phone','+55 (87) 99999-0003');assert.equal(await evaluate('document.querySelector("[name=responsible_phone]").value'),'(87) 99999-0003','Colagem com prefixo +55 mantém o número correto');
     await wait('!document.querySelector("[name=responsible_phone][aria-invalid=true]")');
     await click('Salvar');await wait('!document.querySelector("[role=dialog]")');
-    assert.ok(await evaluate('window.fixture.tanks.some(t=>t.id==="tank-new"&&t.name==="Caixa de teste cadastrada"&&t.latitude==="-8.6"&&t.responsible_document==="52998224725"&&t.emptying_days===10)'));
+    assert.ok(await evaluate('window.fixture.tanks.some(t=>t.id==="tank-new"&&t.name==="Caixa de teste cadastrada"&&t.latitude==="-8.6"&&t.responsible_document==="52998224725"&&t.emptying_days===10&&t.system_code==="CX3"&&t.official_code==="GOV-TESTE-3")'));
     if(width===1440){
       await evaluate(`(()=>{const row=[...document.querySelectorAll('tbody tr')].find(r=>r.textContent.includes('Caixa de teste cadastrada'));row.querySelector('button').click()})()`);
       await wait('document.querySelector("[name=name]")'); await input('name', 'Caixa de teste editada');

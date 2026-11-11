@@ -9,6 +9,8 @@ import PipaProviderBadge from './PipaProviderBadge';
 export default function PipaTankDetails({ tank, level, onClose, onOpen, canRequest, canEdit }) {
   if (!tank) return null;
   const facts = [
+    ['Código do sistema', tank.system_code],
+    ...(tank.official_code ? [['Código do órgão', tank.official_code]] : []),
     ['Localidade', tank.locality],
     ['Abastecimento habitual', <PipaProviderBadge provider={tank.provider} />],
     ['Capacidade', `${pipaNumber(tank.capacity_liters)} L`],

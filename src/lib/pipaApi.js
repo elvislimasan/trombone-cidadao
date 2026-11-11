@@ -4,7 +4,7 @@ export async function pipaRpc(name, args) {
   const { data, error } = await supabase.rpc(name, args);
   if (error) throw new Error(['PGRST202', '42P01', '42883'].includes(error.code) ? name === 'pipa_driver_login_details'
     ? 'A consulta de login está indisponível. Entre em contato com a administração da plataforma.'
-    : 'Atualize o banco da Operação-pipa com as migrações 414, 415 e 416.' : error.message);
+    : 'Atualize o banco da Operação-pipa com as migrações 415 a 419.' : error.message);
   return data;
 }
 // Consulta todas as páginas; o limite padrão do PostgREST não pode truncar relatórios.

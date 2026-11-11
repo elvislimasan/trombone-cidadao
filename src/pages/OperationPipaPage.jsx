@@ -58,7 +58,7 @@ export default function OperationPipaPage() {
   const stats = useMemo(() => pipaStatistics(data, { ...period, provider, driver, locality }), [data, period, provider, driver, locality]);
   const levels = useMemo(() => pipaWaterLevels(data.tanks, data.deliveries, data.requests), [data.tanks, data.deliveries, data.requests]);
   const selected = data.tanks.find(t => t.id === selectedId);
-  const match = row => (!provider || row.provider === provider) && (!text || [row.name, row.locality, row.plate, row.requester_name, row.destination_name, row.driver_name].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(text.toLocaleLowerCase('pt-BR')));
+  const match = row => (!provider || row.provider === provider) && (!text || [row.name, row.system_code, row.official_code, row.locality, row.plate, row.requester_name, row.destination_name, row.driver_name].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(text.toLocaleLowerCase('pt-BR')));
   const tanks = useMemo(() => data.tanks.filter(match).filter(t => !levelFilter || (levelFilter === 'attention' ? levels.get(t.id)?.needsAttention : levels.get(t.id)?.state === levelFilter)).sort((a, b) => pipaWaterPriority(a, b, levels)), [data.tanks, provider, text, levelFilter, levels]);
   const editAllowed = channelId => channels.find(c => c.id === channelId)?.manage;
   const open = (mode, value = {}) => { setNotice(''); setForm({ mode, value }); };

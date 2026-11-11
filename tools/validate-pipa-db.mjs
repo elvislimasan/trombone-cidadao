@@ -81,6 +81,23 @@ try {
   assert.equal(await scalar('select pipa_can($1,$2) as value', [channel, 'manage']), true);
   await as(manager);
   const tank = await rpc('pipa_save_tank', tankData);
+  await q('reset role');
+  await q(await fs.readFile('supabase/migrations/419_pipa_tank_codes.sql', 'utf8'));
+  await as(manager);
+  assert.equal(await scalar('select system_code as value from pipa_tanks where id=$1', [tank]), 'CX1', 'Migração identifica caixas já cadastradas');
+  const nextTank = await rpc('pipa_save_tank', { ...tankData, name: 'Caixa seguinte', official_code: ' GOVERNO-02 ' });
+  assert.deepEqual((await q('select system_code,official_code from pipa_tanks where id=$1', [nextTank])).rows[0], { system_code: 'CX2', official_code: 'GOVERNO-02' });
+  await q('reset role'); await q('delete from pipa_tanks where id=$1', [nextTank]); await as(manager);
+  await rpc('pipa_save_tank', { ...tankData, id: tank, official_code: ' GOVERNO-01 ' });
+  assert.equal(await scalar('select official_code as value from pipa_tanks where id=$1', [tank]), 'GOVERNO-01');
+  await rpc('pipa_save_tank', { ...tankData, id: tank });
+  assert.equal(await scalar('select official_code as value from pipa_tanks where id=$1', [tank]), 'GOVERNO-01', 'Cliente antigo preserva o código oficial');
+  await rpc('pipa_save_tank', { ...tankData, id: tank, official_code: '' });
+  assert.equal(await scalar('select official_code as value from pipa_tanks where id=$1', [tank]), null, 'Código do órgão pode ser removido');
+  assert.equal(await scalar('select system_code as value from pipa_tanks where id=$1', [tank]), 'CX1', 'Código do sistema não muda na edição');
+  const afterEdit = await rpc('pipa_save_tank', { ...tankData, name: 'Caixa após edição' });
+  assert.equal(await scalar('select system_code as value from pipa_tanks where id=$1', [afterEdit]), 'CX3', 'Editar uma caixa não consome o próximo código');
+  await q('reset role'); await q('delete from pipa_tanks where id=$1', [afterEdit]); await as(manager);
   await rpc('pipa_save_tank', { ...tankData, id: tank, emptying_days: 10 });
   assert.equal(await scalar('select emptying_days as value from pipa_tanks where id=$1', [tank]), 10);
   await rpc('pipa_save_tank', { ...tankData, id: tank });
@@ -220,7 +237,8 @@ try {
   const insertSeed = async () => {
     for (const table of PIPA_TEST_TABLES) {
       const key = table === 'pipa_quotas' ? 'driver_id,month' : 'id';
-      await q(`insert into public.${table} select * from jsonb_populate_recordset(null::public.${table},$1::jsonb) on conflict(${key}) do nothing`, [JSON.stringify(seed[table])]);
+      const columns = table === 'pipa_tanks' ? (await q("select column_name from information_schema.columns where table_schema='public' and table_name='pipa_tanks' and column_name<>'system_code' order by ordinal_position")).rows.map(row => row.column_name) : null;
+      await q(`insert into public.${table}${columns ? `(${columns.join(',')})` : ''} select ${columns ? columns.join(',') : '*'} from jsonb_populate_recordset(null::public.${table},$1::jsonb) on conflict(${key}) do nothing`, [JSON.stringify(seed[table])]);
     }
   };
   await insertSeed();
@@ -229,5 +247,5 @@ try {
   await insertSeed();
   for (let index = 0; index < PIPA_TEST_TABLES.length; index++) assert.equal(await scalar(`select count(*)::int as value from public.${PIPA_TEST_TABLES[index]}`), counts[index], 'Reexecutar o seed não duplica registros');
   assert.deepEqual((await q('select * from pipa_tanks where id=$1', [tank])).rows[0], originalTank, 'Seed preserva cadastros existentes');
-  console.log(JSON.stringify({ migrations: [415,416,417,418], driverLoginPrivacy: true, emptyingAverage: true, observedLevel: true, routes: true, ownRoutes: true, outsideRouteDelivery: true, routeIsolation: true, privateTables: true, roles: true, isolation: true, driverAccount: true, gps: true, idempotency: true, oneOff: true, manual: true, immutableHistory: true, disabledDriver: true, testSeed: true, seedRerun: true }));
+  console.log(JSON.stringify({ migrations: [415,416,417,418,419], tankCodes: true, driverLoginPrivacy: true, emptyingAverage: true, observedLevel: true, routes: true, ownRoutes: true, outsideRouteDelivery: true, routeIsolation: true, privateTables: true, roles: true, isolation: true, driverAccount: true, gps: true, idempotency: true, oneOff: true, manual: true, immutableHistory: true, disabledDriver: true, testSeed: true, seedRerun: true }));
 } finally { await client?.end(); server.kill(); }

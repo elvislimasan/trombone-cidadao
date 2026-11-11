@@ -11,3 +11,8 @@
 - Apresentar explicações adicionais em ajuda opcional ou no momento em que forem necessárias, sem ocupar permanentemente o layout.
 - Preservar mensagens de erro, validação e estado, além de informações essenciais sobre a visibilidade dos dados e o efeito de uma ação, junto ao controle correspondente.
 - Aplicar essa preferência nas próximas evoluções e revisões de telas do projeto.
+
+## Mapas interativos
+
+- Ao criar um mapa interativo, incluir controles de localização atual e alternância entre mapa padrão e satélite. Reutilizar `MapDisplayControls` e `MapBaseLayer` quando o mapa usar Leaflet.
+- A localização atual deve depender da permissão do dispositivo e mostrar uma mensagem clara quando indisponível. Em formulários, usar a posição obtida para preencher o ponto selecionado somente após a ação explícita do usuário.
