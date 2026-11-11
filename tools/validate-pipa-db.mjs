@@ -28,8 +28,8 @@ try {
   assert.ok(client, 'PostgreSQL não iniciou');
   const q = (sql, values) => client.query(sql, values);
   const scalar = async (sql, values) => (await q(sql, values)).rows[0]?.value;
-  const uid = Array.from({ length: 8 }, () => randomUUID());
-  const [admin, manager, attendant, reader, driverUser, otherDriverUser, outsider, otherManager] = uid;
+  const uid = Array.from({ length: 9 }, () => randomUUID());
+  const [admin, manager, attendant, reader, driverUser, otherDriverUser, outsider, otherManager, inventoryUser] = uid;
   const [cityHall, otherCityHall, channel, otherChannel, sibling] = Array.from({ length: 5 }, () => randomUUID());
   await q(`create role anon; create role authenticated; create schema auth;
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user_id',true),'')::uuid$$;
@@ -64,8 +64,8 @@ try {
   await q(`insert into auth.users(id) select unnest($1::uuid[])`, [uid]);
   await q(`insert into prefeituras values($1,64,'ativa'),($2,65,'ativa')`, [cityHall, otherCityHall]);
   await q(`insert into orgao_canais(id,city_id,nome,municipal_modules) values($1,64,'Água',array['water_supply']),($2,65,'Outra cidade',array['water_supply']),($3,64,'Outra secretaria',array['water_supply'])`, [channel, otherChannel, sibling]);
-  await q(`insert into prefeitura_membros(prefeitura_id,user_id,papel) values($1,$2,'administrador'),($1,$3,'colaborador'),($1,$4,'colaborador'),($1,$5,'colaborador'),($6,$7,'colaborador')`, [cityHall, admin, manager, attendant, reader, otherCityHall, otherManager]);
-  for (const [user, role, scope] of [[manager, 'gestor', channel], [attendant, 'atendente', channel], [reader, 'leitura', channel], [otherManager, 'gestor', otherChannel]]) {
+  await q(`insert into prefeitura_membros(prefeitura_id,user_id,papel) values($1,$2,'administrador'),($1,$3,'colaborador'),($1,$4,'colaborador'),($1,$5,'colaborador'),($1,$6,'colaborador'),($7,$8,'colaborador')`, [cityHall, admin, manager, attendant, reader, inventoryUser, otherCityHall, otherManager]);
+  for (const [user, role, scope] of [[manager, 'gestor', channel], [attendant, 'atendente', channel], [reader, 'leitura', channel], [inventoryUser, 'inventario', channel], [otherManager, 'gestor', otherChannel]]) {
     await q(`with m as(insert into orgao_membros(canal_id,user_id) values($1,$2) returning id) insert into orgao_membro_acessos select id,array[$3] from m`, [scope, user, role]);
   }
   const as = async (user = '', role = 'authenticated') => { await q('reset role'); await q(`select set_config('test.user_id',$1,false)`, [user]); await q(`set role ${role}`); };
@@ -76,6 +76,10 @@ try {
   await as(outsider); assert.equal(await scalar('select count(*)::int as value from pipa_tanks'), 0); await denied('select pipa_driver_workspace()'); await denied('select pipa_save_tank($1)', [tankData]);
   await as(manager);
   assert.equal((await scalar('select pipa_access(64) as value')).length, 1);
+  await as(inventoryUser);
+  assert.equal((await scalar('select pipa_access(64) as value'))[0].manage, true, 'Responsável pelo inventário pode gerir a Operação-pipa sem categoria de atendimento');
+  assert.equal(await scalar('select pipa_can($1,$2) as value', [channel, 'manage']), true);
+  await as(manager);
   const tank = await rpc('pipa_save_tank', tankData);
   await rpc('pipa_save_tank', { ...tankData, id: tank, emptying_days: 10 });
   assert.equal(await scalar('select emptying_days as value from pipa_tanks where id=$1', [tank]), 10);
