@@ -86,7 +86,7 @@ export function CommunityTreeRegistrationForm({ cities, initialCityId, initial, 
       </fieldset>
       {action.error && <p ref={action.errorRef} tabIndex={-1} role="alert" className="community-error">{action.error}</p>}
     </div>
-    <footer className="community-form-footer"><Button type="button" variant="ghost" disabled={action.busy || photoBusy} onClick={() => { if (step) { setStep(current => current - 1); action.setError(''); } else onCancel(); }}><ArrowLeft size={17} />{step ? 'Voltar' : 'Cancelar'}</Button><Button disabled={action.busy || photoBusy} type="submit">{action.busy ? <Loader2 size={17} className="animate-spin" /> : step === 2 ? <Sprout size={17} /> : null}{action.busy ? 'Enviando…' : step === 2 ? 'Enviar para aprovação' : 'Continuar'}{step < 2 && <ArrowRight size={17} />}</Button></footer>
+    <footer className="community-form-footer"><Button type="button" variant="outline" disabled={action.busy || photoBusy} onClick={() => { if (step) { setStep(current => current - 1); action.setError(''); } else onCancel(); }}><ArrowLeft size={17} />{step ? 'Voltar' : 'Cancelar'}</Button><Button disabled={action.busy || photoBusy} type="submit">{action.busy ? <Loader2 size={17} className="animate-spin" /> : step === 2 ? <Sprout size={17} /> : null}{action.busy ? 'Enviando…' : step === 2 ? 'Enviar para aprovação' : 'Continuar'}{step < 2 && <ArrowRight size={17} />}</Button></footer>
   </form>;
 }
 

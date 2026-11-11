@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_ADOPTION, adoptionPayload, adoptionNextStatuses, validateAdoption, availableAdoptionSpecies, availableAdoptionProviders, adoptionProviderLabel } from '../lib/treeAdoption.js';
+import { formatCpf, isValidCpf } from '../lib/cpf.js';
 
 const species = [{ id: 'ipe', city_id: 64 }, { id: 'oiti', city_id: 65 }];
 const availability = [{ species_id: 'ipe', provider: 'viveiro_municipal', status: 'disponivel' }];
-const validate = (form, cityId, catalog, step = null) => validateAdoption(form, cityId, catalog, step, availability);
+const validate = (form, cityId, catalog, step = null, cpf = '529.982.247-25') => validateAdoption(form, cityId, catalog, step, availability, cpf);
 const valid = { ...EMPTY_ADOPTION, requester_name: 'Maria da Silva', requester_phone: '(87) 99999-9999', requester_email: 'maria@example.test', request_type: 'plantio', zone: 'urbana', planting_place: 'calcada', purpose: 'sombra', overhead_wiring: 'sim', species_id: 'ipe', provider: 'viveiro_municipal', latitude: -8.6, longitude: -38.57, address: 'Rua da Praça, 10', commitment: true };
 
 test('viveiro cadastrado oferece espécies e mantém o nome no pedido sem depender de fornecedores fixos', () => {
@@ -33,6 +34,17 @@ test('quatro etapas validam pedido, local, espécie e revisão separadamente', (
   assert.ok(validate({ ...valid, latitude: '' }, 64, species, 1));
   assert.ok(validate({ ...valid, species_id: 'oiti' }, 64, species, 2));
   assert.ok(validate({ ...valid, commitment: false }, 64, species));
+});
+
+test('CPF é exigido apenas para retirar mudas e não entra no cadastro global', () => {
+  const pickup = { ...valid, request_type: 'muda' };
+  assert.equal(formatCpf('52998224725'), '529.982.247-25');
+  assert.equal(isValidCpf('529.982.247-25'), true);
+  for (const cpf of ['', '111.111.111-11', '529.982.247-26', '529.982.247-251']) {
+    assert.equal(validate(pickup, 64, species, 0, cpf), 'Informe um CPF válido para solicitar mudas.');
+  }
+  assert.equal(validate(pickup, 64, species, 0), '');
+  assert.equal(validate(valid, 64, species, 0, ''), '');
 });
 test('sugestões exigem disponibilidade explícita por espécie e fornecedor', () => {
   const rows = [...availability, { species_id: 'ipe', provider: 'instituto_florestar', status: 'indisponivel' }, { species_id: 'oiti', provider: 'viveiro_municipal', status: 'sob_consulta' }];
@@ -77,6 +89,16 @@ test('múltiplas espécies preservam quantidades e fornecedores e validam cada l
   assert.ok(validateAdoption({ ...form, items: [items[0], items[0]] }, 64, catalog, 2, stock));
   assert.ok(validateAdoption(form, 64, catalog, 2, availability));
   assert.ok(validateAdoption({ ...form, items: items.map(item => ({ ...item, quantity: 600 })) }, 64, catalog, 2, stock));
+});
+
+test('retirada limita a soma das espécies a 6 mudas por pedido', () => {
+  const catalog = [...species, { id: 'aroeira', city_id: 64 }];
+  const stock = [...availability, { species_id: 'aroeira', provider: 'viveiro_municipal', status: 'disponivel' }];
+  const items = [{ species_id: 'ipe', provider: 'viveiro_municipal', quantity: 4 }, { species_id: 'aroeira', provider: 'viveiro_municipal', quantity: 2 }];
+  const pickup = { ...valid, request_type: 'muda', items };
+  assert.equal(validateAdoption(pickup, 64, catalog, 2, stock), '');
+  assert.equal(validateAdoption({ ...pickup, items: [{ ...items[0], quantity: 5 }, items[1]] }, 64, catalog, 2, stock), 'Você pode solicitar até 6 mudas por pedido.');
+  assert.equal(validateAdoption({ ...pickup, items: [{ ...items[0], quantity: 7 }] }, 64, catalog, 2, stock), 'Informe de 1 a 6 mudas por espécie.');
 });
 test('contato obrigatório e e-mail opcional são validados antes do envio', () => {
   for (const patch of [{ requester_name: '' }, { requester_phone: '' }, { requester_phone: '123' }, { requester_email: 'invalido' }]) assert.ok(validate({ ...valid, ...patch }, 64, species));

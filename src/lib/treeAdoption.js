@@ -1,3 +1,5 @@
+import { isValidCpf } from './cpf.js';
+
 export const TREE_ADOPTION_MANAGEMENT_PATH = '/prefeitura/adote-uma-arvore';
 export const TREE_ADOPTION_REQUESTS_PATH = `${TREE_ADOPTION_MANAGEMENT_PATH}/solicitacoes`;
 export const TREE_NURSERIES_MANAGEMENT_PATH = `${TREE_ADOPTION_MANAGEMENT_PATH}/viveiros`;
@@ -12,6 +14,7 @@ export const ADOPTION_STATUSES = { solicitada: 'Solicitação enviada', em_anali
 export const ADOPTION_TERMINAL = ['concluida', 'recusada', 'cancelada'];
 export const EMPTY_ADOPTION = { request_type: '', zone: '', planting_place: '', purpose: '', overhead_wiring: '', species_id: '', provider: '', items: [], requester_name: '', requester_phone: '', requester_email: '', address: '', neighborhood: '', latitude: '', longitude: '', notes: '', commitment: false };
 export const ADOPTION_CITY_ID = 64; // Primeira etapa do convênio: Floresta · PE.
+export const MONTHLY_SEEDLING_LIMIT = 6;
 export const ADOPTION_CITY_NOTICE = 'A prefeitura desta cidade ainda não tem convênio com a plataforma Trombone Cidadão para oferta de mudas ou plantio de árvores. Procure a prefeitura municipal da sua cidade e sugira essa ideia!';
 export const adoptionItems = form => Array.isArray(form.items) && form.items.length ? form.items : form.species_id ? [{ species_id: form.species_id, provider: form.provider, quantity: 1 }] : [];
 export const adoptionQuantity = form => adoptionItems(form).reduce((total, item) => total + Number(item.quantity || 0), 0);
@@ -41,7 +44,7 @@ export function availableAdoptionSpecies(species, availability) {
   return species.filter(item => availableIds.has(item.id));
 }
 
-export function validateAdoption(form, cityId, species, step = null, availability = []) {
+export function validateAdoption(form, cityId, species, step = null, availability = [], requesterCpf = '') {
   if (!cityId) return 'Selecione a cidade onde pretende plantar.';
   if (step === null || step === 0) {
     if (!Object.hasOwn(ADOPTION_TYPES, form.request_type)) return 'Escolha entre muda e plantio.';
@@ -49,6 +52,7 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
     if (String(form.requester_name || '').trim().length < 3 || form.requester_name.trim().length > 160) return 'Informe seu nome completo (3 a 160 caracteres).';
     if (!/^[+\d\s().-]+$/.test(form.requester_phone || '') || !/^\d{10,15}$/.test(String(form.requester_phone || '').replace(/\D/g, ''))) return 'Informe um telefone de contato com DDD.';
     if (form.requester_email && (form.requester_email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.requester_email.trim()))) return 'Informe um e-mail válido ou deixe o campo vazio.';
+    if (form.request_type === 'muda' && !isValidCpf(requesterCpf)) return 'Informe um CPF válido para solicitar mudas.';
   }
   if (step === null || step === 1) {
     for (const [field, options, message] of [
@@ -65,12 +69,13 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
     if (!items.length || items.length > 50) return 'Escolha entre 1 e 50 espécies para o pedido.';
     if (new Set(items.map(item => item.species_id)).size !== items.length) return 'Cada espécie deve aparecer apenas uma vez. Ajuste a quantidade desejada.';
     for (const item of items) {
-      if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > 1000) return 'Informe uma quantidade inteira de 1 a 1.000 para cada espécie.';
+      if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > (form.request_type === 'muda' ? MONTHLY_SEEDLING_LIMIT : 1000)) return form.request_type === 'muda' ? 'Informe de 1 a 6 mudas por espécie.' : 'Informe uma quantidade inteira de 1 a 1.000 para cada espécie.';
       if (!species.some(species => species.id === item.species_id && String(species.city_id) === String(cityId))) return 'Escolha uma espécie cadastrada nesta cidade.';
       if (!item.provider) return 'Escolha o local de fornecimento de cada espécie.';
       if (!availableAdoptionProviders(availability, item.species_id).some(row => row.provider === item.provider)) return 'A espécie não tem disponibilidade confirmada neste fornecedor. Atualize o catálogo e escolha uma opção disponível.';
     }
-    if (adoptionQuantity(form) > 1000) return 'O pedido pode ter até 1.000 mudas ou árvores no total.';
+    if (form.request_type === 'muda' && adoptionQuantity(form) > MONTHLY_SEEDLING_LIMIT) return 'Você pode solicitar até 6 mudas por pedido.';
+    if (adoptionQuantity(form) > 1000) return 'O pedido pode ter até 1.000 árvores no total.';
   }
   if (step === null && !form.commitment) return 'Confirme o compromisso de cuidado e a avaliação técnica.';
   return '';

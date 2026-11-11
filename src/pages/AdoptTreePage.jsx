@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { cityStateUf } from '@/lib/cityLocation';
 import { readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '@/lib/treeAdoptionClient';
+import { cpfDigits, formatCpf } from '@/lib/cpf';
 import useTreeAdoptionCatalog from '@/hooks/useTreeAdoptionCatalog';
 import { ADOPTION_CITY_ID, ADOPTION_CITY_NOTICE, adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, EMPTY_ADOPTION, adoptionProtocol, validateAdoption, adoptionPayload } from '@/lib/treeAdoption';
 import '@/components/arborization/treeAdoption.css';
@@ -57,6 +58,7 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
   const [draft] = useState(() => readAdoptionDraft(draftStorage(), cityId, user?.id));
   const initialForm = () => ({ ...EMPTY_ADOPTION, requester_name: user?.name || user?.user_metadata?.full_name || '', requester_phone: user?.phone || '', requester_email: user?.email || '' });
   const [form, setForm] = useState(() => ({ ...initialForm(), ...draft?.form }));
+  const [requesterCpf, setRequesterCpf] = useState('');
   const [step, setStep] = useState(draft?.step || 0);
   const [error, setError] = useState('');
   const [needsLogin, setNeedsLogin] = useState(false);
@@ -98,18 +100,20 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
       });
       return;
     }
-    const message = validateAdoption(form, cityId, catalog.species, step < 3 ? step : null, catalog.availability);
+    const message = validateAdoption(form, cityId, catalog.species, step < 3 ? step : null, catalog.availability, requesterCpf);
     if (message) { setError(message); return; }
     if (step < 3) { move(step + 1); return; }
     busyRef.current = true; setBusy(true); setError(''); setNeedsLogin(false);
     try {
-      const data = await submitAdoptionRequest(supabase, adoptionPayload(form, cityId, requestId.current), user.id);
-      setSuccess(data); onSubmitted(); window.dispatchEvent(new Event('tree-adoption-updated'));
+      const payload = adoptionPayload(form, cityId, requestId.current);
+      if (form.request_type === 'muda') payload.requester_cpf = cpfDigits(requesterCpf);
+      const data = await submitAdoptionRequest(supabase, payload, user.id);
+      setRequesterCpf(''); setSuccess(data); onSubmitted(); window.dispatchEvent(new Event('tree-adoption-updated'));
     } catch (err) { setError(err.message || 'Não foi possível enviar. Seus dados foram mantidos para tentar novamente.'); setNeedsLogin(Boolean(err.needsLogin)); if (err.code === '23514') catalog.refresh(); }
     finally { busyRef.current = false; setBusy(false); }
   };
   const loginState = { from: { pathname: '/adoteumaarvore', search: `?cidade=${cityId}&aba=solicitar` } };
-  const resetRequest = () => { setSuccess(null); setForm(initialForm()); requestId.current = crypto.randomUUID(); move(0); };
+  const resetRequest = () => { setSuccess(null); setForm(initialForm()); setRequesterCpf(''); requestId.current = crypto.randomUUID(); move(0); };
   const closeDialog = () => { if (busyRef.current) return; onClose(); if (success) resetRequest(); };
   const showRequests = () => { onShowRequests(); if (success) resetRequest(); };
   const renderDialog = content => <Dialog open={open} onOpenChange={value => { if (!value) closeDialog(); }}>
@@ -124,7 +128,7 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
     </TaskDialogContent>
   </Dialog>;
   if (!user) return renderDialog(<section className="adoption-auth-panel"><span className="adoption-auth-icon"><Sprout className="h-8 w-8" /></span><h2 className="text-2xl font-bold">O primeiro passo para uma cidade mais verde</h2><p className="max-w-xl text-sm leading-relaxed text-content-secondary">Entre na sua conta para solicitar uma muda ou plantio, escolher uma espécie e acompanhar as orientações da equipe.</p><Button asChild><Link to="/login" state={loginState}>Entrar para solicitar</Link></Button></section>);
-  if (success) return renderDialog(<section className="adoption-auth-panel adoption-success-panel" role="status"><CheckCircle2 className="h-10 w-10 text-primary" /><h2 className="text-2xl font-bold">Sua solicitação foi enviada</h2><div className="adoption-receipt"><span>Protocolo do pedido</span><strong>{adoptionProtocol(success)}</strong></div><p className="max-w-xl text-sm leading-relaxed text-content-secondary">A equipe de arborização de {cityLabel} avaliará o local e a espécie. Aguarde a confirmação antes de ir ao fornecedor.</p><ol className="adoption-success-steps" aria-label="Próximos passos"><li><span>1</span>Veja o andamento e responda às orientações em Meus pedidos.</li><li><span>2</span>Aguarde a confirmação para retirar as mudas ou acompanhar o plantio.</li><li><span>3</span>Depois de plantar, cadastre sua árvore e comece o diário de cuidados.</li></ol><div className="flex flex-wrap justify-center gap-3"><Button onClick={showRequests}>Acompanhar solicitação</Button><Button variant="outline" onClick={() => { setSuccess(null); setForm(initialForm()); requestId.current = crypto.randomUUID(); move(0); }}>Fazer outra solicitação</Button></div></section>);
+  if (success) return renderDialog(<section className="adoption-auth-panel adoption-success-panel" role="status"><CheckCircle2 className="h-10 w-10 text-primary" /><h2 className="text-2xl font-bold">Sua solicitação foi enviada</h2><div className="adoption-receipt"><span>Protocolo do pedido</span><strong>{adoptionProtocol(success)}</strong></div><p className="max-w-xl text-sm leading-relaxed text-content-secondary">A equipe de arborização de {cityLabel} avaliará o local e a espécie. Aguarde a confirmação antes de ir ao fornecedor.</p><ol className="adoption-success-steps" aria-label="Próximos passos"><li><span>1</span>Veja o andamento e responda às orientações em Meus pedidos.</li><li><span>2</span>Aguarde a confirmação para retirar as mudas ou acompanhar o plantio.</li><li><span>3</span>Depois de plantar, cadastre sua árvore e comece o diário de cuidados.</li></ol><div className="flex flex-wrap justify-center gap-3"><Button onClick={showRequests}>Acompanhar solicitação</Button><Button variant="outline" onClick={resetRequest}>Fazer outra solicitação</Button></div></section>);
   const intro = <TreeFormHeading className="adoption-form-intro" headingRef={headingRef} step={step} total={STEPS.length} title={STEPS[step].title} description={STEPS[step].description} />;
   return renderDialog(<div className="adoption-form-layout tree-form-theme">
     <form onSubmit={submit} noValidate className="adoption-form" data-step={step} aria-label="Solicitar muda ou plantio" aria-busy={busy}>
@@ -149,6 +153,7 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
             <label className="adoption-field">Nome completo<input autoComplete="name" required maxLength={160} value={form.requester_name} onChange={event => change({ requester_name: event.target.value })} /></label>
             <label className="adoption-field">Telefone / WhatsApp com DDD<input type="tel" autoComplete="tel" required maxLength={30} placeholder="(87) 99999-9999" value={form.requester_phone} onChange={event => change({ requester_phone: event.target.value })} /></label>
             <label className="adoption-field">E-mail (opcional)<input type="email" autoComplete="email" maxLength={254} value={form.requester_email} onChange={event => change({ requester_email: event.target.value })} /></label>
+            {form.request_type === 'muda' && <label className="adoption-field">CPF<input type="text" inputMode="numeric" autoComplete="off" required maxLength={14} placeholder="000.000.000-00" value={requesterCpf} onChange={event => { setError(''); setRequesterCpf(formatCpf(event.target.value)); }} /><small>Usado para conferir a cota de 6 mudas na retirada. Pedidos em andamento não reservam cota. O CPF não aparece no pedido.</small></label>}
           </section>
           </div>
         </div>}

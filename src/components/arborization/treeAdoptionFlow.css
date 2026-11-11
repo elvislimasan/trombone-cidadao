@@ -49,6 +49,7 @@
 .adoption-request-layout, .adoption-location-layout { height: auto; }
 .adoption-request-form { max-width: 100%; margin: 0; padding: 0; gap: 24px; }
 .adoption-contact-fields { gap: 14px; padding-top: 20px; }
+.adoption-contact-fields .adoption-field > small { color: rgb(var(--text-secondary)); font-size: 12px; font-weight: 400; line-height: 1.4; }
 .adoption-form .adoption-field { font-size: 13px; }
 .adoption-form .adoption-field input, .adoption-form .adoption-field select, .adoption-form .adoption-catalog input { min-height: 44px; height: 44px; font-size: 14px; border-radius: 6px; }
 .adoption-form .adoption-field input:focus-visible, .adoption-form .adoption-field select:focus-visible, .adoption-form .adoption-field textarea:focus-visible, .adoption-form .adoption-catalog input:focus-visible { border-color: rgb(var(--brand)); box-shadow: 0 0 0 2px rgb(var(--brand) / .12); }

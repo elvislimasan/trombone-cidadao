@@ -54,6 +54,8 @@ for (const token of ['primitives', 'semantic', 'typography', 'motion']) sourceCs
 sourceCss += '\n' + await fs.readFile('src/components/arborization/communityTrees.css', 'utf8');
 sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoption.css', 'utf8');
 sourceCss += '\n' + await fs.readFile('src/components/arborization/treeAdoptionIntroduction.css', 'utf8');
+sourceCss += '\n' + await fs.readFile('src/components/arborization/treeForms.css', 'utf8');
+sourceCss += '\n' + await fs.readFile('src/components/arborization/treeExperience.css', 'utf8');
 sourceCss += '\n.qa-header{height:64px;display:flex;align-items:center;padding-inline:32px;background:#571614;color:white;font-weight:700}.qa-map{height:100%;display:grid;place-content:center;gap:25px;text-align:center;border-radius:12px;background:repeating-linear-gradient(30deg,#e0eee5,#e0eee5 35px,#eaf4ed 35px,#eaf4ed 70px);color:#15583e}.qa-map button{background:white;padding:15px;border:1px solid #a0bfae;border-radius:10px}';
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
 const css = await postcss([tailwind({ ...config, content: ['src/pages/Community*.jsx', 'src/components/arborization/Community*.jsx', 'src/components/arborization/TreeSpeciesField.jsx', 'src/components/WebCameraCapture.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
@@ -89,8 +91,19 @@ try {
     assert.ok(await evaluate('[...document.querySelectorAll(".community-dialog")].every(el=>el.scrollWidth<=el.clientWidth+1)'), `Overflow dentro do formulário em ${width}px`);
     if (width >= 1200) assert.ok(await evaluate(`(()=>{const el=document.querySelector('.community-page'),r=el.getBoundingClientRect(),p=getComputedStyle(el);return r.left+parseFloat(p.paddingLeft)<=64&&innerWidth-r.right+parseFloat(p.paddingRight)<=64&&r.width>=innerWidth-64})()`), 'Página deve ocupar largura disponível');
   };
-  for (const [width, height] of [[1440,900],[1920,1080],[390,844]]) {
+  const registrationLayoutOnly = process.argv.includes('--registration-layout-only');
+  for (const [width, height] of registrationLayoutOnly ? [[1440,900],[1920,1080],[390,844],[320,700]] : [[1440,900],[1920,1080],[390,844]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+    if (registrationLayoutOnly) {
+      await navigate('/arvores-da-comunidade/nova'); await waitFor('document.querySelector(".community-form-footer")'); await layout(width);
+      const footerLayout = await evaluate('(()=>{const form=document.querySelector(".tree-registration-page .community-form"),body=form.querySelector(".community-form-body"),footer=form.querySelector(".community-form-footer");return {position:getComputedStyle(footer).position,top:footer.getBoundingClientRect().top,bodyBottom:body.getBoundingClientRect().bottom,footerWidth:footer.getBoundingClientRect().width,formWidth:form.getBoundingClientRect().width}})()');
+      assert.ok(footerLayout.position === 'static' && footerLayout.top >= footerLayout.bodyBottom - 1 && Math.abs(footerLayout.footerWidth - footerLayout.formWidth) <= 2.5, `Ações do cadastro ficam dentro do formulário: ${JSON.stringify(footerLayout)}`);
+      await capture(`cadastro-layout-${width}`);
+      await evaluate('document.querySelector(".community-form-footer").scrollIntoView({block:"end",behavior:"instant"})');
+      await capture(`cadastro-rodape-${width}`);
+      console.log(`${width}px: ações no fluxo do formulário, sem barra flutuante ou overflow.`);
+      continue;
+    }
     if(process.argv.includes('--review-only')) {
       await navigate('/revisao?manager&pending');await waitFor('document.querySelector(".community-tree-card")');
       await click('Revisar cadastro');await waitFor('document.querySelector(".community-review-summary")');
