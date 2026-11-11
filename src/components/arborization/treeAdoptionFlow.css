@@ -149,8 +149,8 @@
 
 .adoption-request-overlay { background: rgb(0 0 0 / .7); backdrop-filter: blur(3px); }
 html.adoption-request-is-open { overflow: hidden; }
-/* A constrained dialog is intentional: the surrounding program page remains fluid. */
-.adoption-create-dialog[role=dialog] { display: flex; flex-direction: column; gap: 0; width: calc(100vw - 64px); max-width: 760px; height: 90dvh; max-height: 960px; padding: 0; overflow: hidden; border-radius: 24px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); }
+/* The wizard uses the available desktop width so the map and form can sit side by side. */
+.adoption-create-dialog[role=dialog] { display: flex; flex-direction: column; gap: 0; width: calc(100vw - 64px); max-width: none; height: 90dvh; max-height: 960px; padding: 0; overflow: hidden; border-radius: 24px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); }
 .adoption-dialog-heading { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; }
 .adoption-dialog-heading > div { min-width: 0; }
 .adoption-dialog-heading h2 { font-size: 1.125rem; line-height: 1.4; font-weight: 700; outline: none; }
@@ -162,10 +162,19 @@ html.adoption-request-is-open { overflow: hidden; }
 .adoption-create-dialog .adoption-form { display: flex; flex-direction: column; flex: 1; height: auto; min-height: 0; max-height: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .adoption-create-dialog .adoption-wizard-header { flex-shrink: 0; padding-top: 0; }
 .adoption-create-dialog .adoption-form-body { display: block; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 24px; }
+.adoption-create-dialog .adoption-location-layout { grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); }
+.adoption-create-dialog .adoption-map-canvas { flex: none; height: clamp(360px, 50dvh, 560px); min-height: 0; }
 .adoption-create-dialog .adoption-form-footer { flex-shrink: 0; border-radius: 0; }
 .adoption-create-dialog .adoption-auth-panel { flex: 1; min-height: 0; overflow-y: auto; border: 0; border-radius: 0; box-shadow: none; }
 .adoption-create-dialog .tree-seedling-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .adoption-create-dialog .tree-seedling-controls { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 979px) {
+  .adoption-create-dialog .adoption-location-layout { grid-template-columns: minmax(0, 1fr); }
+  .adoption-create-dialog .adoption-location-layout > .adoption-form-intro { grid-column: 1; grid-row: 1; }
+  .adoption-create-dialog .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
+  .adoption-create-dialog .adoption-location-layout > .adoption-location-fields { grid-column: 1; grid-row: 3; }
+  .adoption-create-dialog .adoption-map-canvas { flex: none; height: clamp(300px, 42dvh, 420px); min-height: 0; }
+}
 @media (max-width: 767px) {
   .adoption-create-dialog[role=dialog] { inset: 0 !important; width: 100%; max-width: none; height: 100dvh; max-height: none; transform: none !important; border: 0; border-radius: 0; }
   .adoption-dialog-heading { padding: max(12px, var(--header-safe-top, env(safe-area-inset-top, 0px))) 16px 12px; }

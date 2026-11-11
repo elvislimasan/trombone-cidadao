@@ -113,7 +113,7 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
   const closeDialog = () => { if (busyRef.current) return; onClose(); if (success) resetRequest(); };
   const showRequests = () => { onShowRequests(); if (success) resetRequest(); };
   const renderDialog = content => <Dialog open={open} onOpenChange={value => { if (!value) closeDialog(); }}>
-    {/* Only the focused task has a comfortable maximum width; the page stays fluid. */}
+    {/* Keep the wizard wide enough for its map and form while the page stays fluid. */}
     <TaskDialogContent className="adoption-create-dialog" overlayClassName="adoption-request-overlay" hideClose aria-modal="true"
       onEscapeKeyDown={event => { if (busyRef.current) event.preventDefault(); }}
       onPointerDownOutside={event => event.preventDefault()}
