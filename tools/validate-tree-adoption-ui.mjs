@@ -275,13 +275,15 @@ try {
         await evaluate('window.scrollTo(0,0)'); await pause(50);
         const footer = await evaluate(`(()=>{const el=document.querySelector('.adoption-form-footer'),r=el.getBoundingClientRect(),parents=[];let p=el.parentElement;while(p){parents.push({tag:p.className||p.tagName,overflow:getComputedStyle(p).overflow,height:p.getBoundingClientRect().height});p=p.parentElement}return {top:r.top,bottom:r.bottom,position:getComputedStyle(el).position,offset:getComputedStyle(el).bottom,parents}})()`);
         assert.ok(footer.top>=0&&footer.bottom<=900, `Rodapé dentro do diálogo: ${width}/${step}: ${JSON.stringify(footer)}`);
-        assert.ok(await evaluate(`(()=>{const dialog=document.querySelector('.adoption-create-dialog'),r=dialog.getBoundingClientRect();return dialog.getAttribute('aria-modal')==='true'&&r.top>=-1&&r.bottom<=901&&r.left>=-1&&r.right<=innerWidth+1&&${width < 768 ? 'r.height>=899&&r.width>=innerWidth-1' : 'r.width<=760&&Math.abs(r.left-(innerWidth-r.width)/2)<=1'}})()`), 'Tela cheia no celular; diálogo central no desktop');
+        assert.ok(await evaluate(`(()=>{const dialog=document.querySelector('.adoption-create-dialog'),r=dialog.getBoundingClientRect();return dialog.getAttribute('aria-modal')==='true'&&r.top>=-1&&r.bottom<=901&&r.left>=-1&&r.right<=innerWidth+1&&${width < 768 ? 'r.height>=899&&r.width>=innerWidth-1' : 'r.width>=innerWidth-50&&Math.abs(r.left-(innerWidth-r.width)/2)<=1'}})()`), 'Tela cheia no celular; diálogo amplo e central no desktop');
+        if (width >= 1200 && step === 1) assert.ok(await evaluate(`(()=>{const map=document.querySelector('.adoption-location-map')?.getBoundingClientRect(),fields=document.querySelector('.adoption-location-fields')?.getBoundingClientRect();return map&&fields&&map.width>fields.width&&map.width>=500})()`), 'Mapa deve ter mais espaço que o formulário no desktop');
         assert.equal(await evaluate('document.querySelectorAll(".tree-journey-nav,.adoption-page-tabs").length'), 0, 'Sem abas entre programa, pedidos e árvores');
         assert.ok(await evaluate('document.querySelector("#root").getAttribute("aria-hidden")==="true"'), 'Página ao fundo fica fora do foco');
         if (width >= 1200) assert.ok(await evaluate(`(()=>{const el=document.querySelector('.tree-adoption-page'),r=el.getBoundingClientRect(),p=getComputedStyle(el);return r.left+parseFloat(p.paddingLeft)<=64&&innerWidth-r.right+parseFloat(p.paddingRight)<=64})()`), 'Margens fluidas');
         await capture(`padrao-${step}-${width}-${theme}`);
       };
       await check(0);
+      await input('000.000.000-00', '529.982.247-25');
       await click('Continuar'); await check(1);
       assert.ok(await evaluate('document.activeElement===document.querySelector(".adoption-form-intro h2")'), 'Foco no título da etapa');
       await waitFor('document.querySelector("select[name=neighborhood] option[value=Centro]")');
@@ -327,6 +329,7 @@ try {
       await click('Sobre o programa'); await waitFor('document.querySelector(".adoption-program-request-actions")');
       await click('Solicitar uma muda'); await waitFor('document.querySelector(".adoption-create-dialog")');
       assert.ok(await evaluate('document.querySelector("input[autocomplete=name]").value==="Maria da Silva"'), 'Sair mantém preenchimento');
+      await input('000.000.000-00', '529.982.247-25');
       await click('Continuar'); await click('Continuar'); await click('Revisar pedido'); await check(3);
       if (width === 390) {
         await evaluate('document.documentElement.style.fontSize="200%"');
