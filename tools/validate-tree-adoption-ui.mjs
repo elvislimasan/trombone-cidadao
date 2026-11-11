@@ -231,7 +231,24 @@ try {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 768 }, sessionId);
       await navigate(); await waitFor('document.querySelector(".adoption-form")');
       await evaluate(`sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',${JSON.stringify(JSON.stringify(draft))})`);
-      await navigate('?resume'); await waitFor('document.querySelector(".tree-seedling-card")'); await pause(250);
+      await navigate('?resume'); await waitFor('document.querySelector(".adoption-form")?.dataset.step==="0"');
+      assert.ok(await evaluate('[...document.querySelectorAll("input")].some(el=>el.placeholder==="000.000.000-00")'), 'Retomar mudas revela o CPF');
+      assert.equal(await evaluate('document.querySelector("input[autocomplete=name]").value'), 'Maria da Silva', 'Retomar preserva os demais dados');
+      const fullCpfVisibility = '&&field.top>=body.top&&field.bottom<=body.bottom';
+      await waitFor(`(()=>{const field=[...document.querySelectorAll("input")].find(el=>el.placeholder==="000.000.000-00")?.getBoundingClientRect(),body=document.querySelector(".adoption-form-body").getBoundingClientRect();return field&&field.top<body.bottom&&field.bottom>body.top${fullCpfVisibility}})()`);
+      if (width <= 390 || width === 844) await capture(`cpf-retomado-${width}`);
+      for (let index = 0; index < 4; index++) {
+        await evaluate(`document.querySelectorAll('.adoption-contact-fields input')[${index}].scrollIntoView({block:'nearest'})`);
+        await pause(50);
+        const geometry = await evaluate(`(()=>{const r=document.querySelectorAll('.adoption-contact-fields input')[${index}].getBoundingClientRect(),body=document.querySelector('.adoption-form-body').getBoundingClientRect();return {top:r.top,bottom:r.bottom,bodyTop:body.top,bodyBottom:body.bottom,visible:r.top<body.bottom&&r.bottom>body.top${fullCpfVisibility.replaceAll('field.', 'r.')}}})()`);
+        assert.ok(geometry.visible, `Campo de contato ${index + 1} acessível sem cobertura: ${width}x${height} ${JSON.stringify(geometry)}`);
+      }
+      await click('Continuar');
+      await waitFor('document.querySelector(".adoption-form-error")?.textContent.includes("CPF")');
+      await input('000.000.000-00', '529.982.247-25');
+      assert.ok(await evaluate('!JSON.parse(sessionStorage.getItem("tc_tree_adoption_draft:64:citizen")).form.requester_cpf'), 'CPF não fica no rascunho');
+      await click('Continuar'); await waitFor('document.querySelector(".adoption-form")?.dataset.step==="1"');
+      await click('Continuar'); await waitFor('document.querySelector(".tree-seedling-card")'); await pause(250);
       const check = async stage => {
         const geometry = await evaluate(`(()=>{const dialog=document.querySelector('.adoption-create-dialog'),body=dialog.querySelector('.adoption-form-body'),footer=dialog.querySelector('.adoption-form-footer'),layout=dialog.querySelector('.adoption-form-layout'),form=dialog.querySelector('form'),d=dialog.getBoundingClientRect(),b=body.getBoundingClientRect(),f=footer.getBoundingClientRect();return {dialogTop:d.top,dialogBottom:d.bottom,bodyTop:b.top,bodyHeight:b.height,footerTop:f.top,footerBottom:f.bottom,dialogScroll:dialog.scrollTop,layoutScroll:layout.scrollTop,formScroll:form.scrollTop,overflow:document.documentElement.scrollWidth>innerWidth}})()`);
         assert.ok(!geometry.overflow && geometry.dialogTop >= -1 && geometry.dialogBottom <= height + 1, 'Diálogo dentro da tela');

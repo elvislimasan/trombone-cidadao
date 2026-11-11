@@ -59,7 +59,9 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
   const initialForm = () => ({ ...EMPTY_ADOPTION, requester_name: user?.name || user?.user_metadata?.full_name || '', requester_phone: user?.phone || '', requester_email: user?.email || '' });
   const [form, setForm] = useState(() => ({ ...initialForm(), ...draft?.form }));
   const [requesterCpf, setRequesterCpf] = useState('');
-  const [step, setStep] = useState(draft?.step || 0);
+  // CPF não entra no rascunho. Ao retomar um pedido de mudas, recolha-o antes
+  // de permitir o envio; os demais campos e escolhas continuam preenchidos.
+  const [step, setStep] = useState(() => draft?.form?.request_type === 'muda' ? 0 : (draft?.step || 0));
   const [error, setError] = useState('');
   const [needsLogin, setNeedsLogin] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -74,8 +76,24 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
   const errorRef = useRef(null);
   const commitmentRef = useRef(null);
   const bodyRef = useRef(null);
+  const cpfFieldRef = useRef(null);
   const dialogTitleRef = useRef(null);
   const returnFocusRef = useRef(null);
+  useEffect(() => {
+    if (!open || step !== 0 || form.request_type !== 'muda') return;
+    const frame = requestAnimationFrame(() => {
+      const field = cpfFieldRef.current?.querySelector('input');
+      const body = bodyRef.current;
+      if (field && body) {
+        const fieldRect = field.getBoundingClientRect();
+        const bodyRect = body.getBoundingClientRect();
+        if (fieldRect.top < bodyRect.top || fieldRect.bottom > bodyRect.bottom) {
+          field.scrollIntoView({ block: 'center' });
+        }
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, step, form.request_type]);
   const commitmentInvalid = step === 3 && !form.commitment && error === COMMITMENT_ERROR;
   useEffect(() => { if (error && !commitmentInvalid) errorRef.current?.focus(); }, [error, commitmentInvalid]);
   const items = adoptionItems(form);
@@ -150,10 +168,10 @@ function AdoptionForm({ open, cityId, city, cityLabel, onSubmitted, onShowReques
           ]} />
           <section className="adoption-contact-fields" aria-label="Dados do solicitante">
             <div className="tree-form-section-label"><h3>Contato</h3></div>
+            {form.request_type === 'muda' && <label ref={cpfFieldRef} className="adoption-field adoption-request-cpf">CPF<input type="text" inputMode="numeric" autoComplete="off" required maxLength={14} placeholder="000.000.000-00" value={requesterCpf} onChange={event => { setError(''); setRequesterCpf(formatCpf(event.target.value)); }} /><small>Usado para conferir a cota de 6 mudas na retirada. Pedidos em andamento não reservam cota. O CPF não aparece no pedido.</small></label>}
             <label className="adoption-field">Nome completo<input autoComplete="name" required maxLength={160} value={form.requester_name} onChange={event => change({ requester_name: event.target.value })} /></label>
             <label className="adoption-field">Telefone / WhatsApp com DDD<input type="tel" autoComplete="tel" required maxLength={30} placeholder="(87) 99999-9999" value={form.requester_phone} onChange={event => change({ requester_phone: event.target.value })} /></label>
             <label className="adoption-field">E-mail (opcional)<input type="email" autoComplete="email" maxLength={254} value={form.requester_email} onChange={event => change({ requester_email: event.target.value })} /></label>
-            {form.request_type === 'muda' && <label className="adoption-field">CPF<input type="text" inputMode="numeric" autoComplete="off" required maxLength={14} placeholder="000.000.000-00" value={requesterCpf} onChange={event => { setError(''); setRequesterCpf(formatCpf(event.target.value)); }} /><small>Usado para conferir a cota de 6 mudas na retirada. Pedidos em andamento não reservam cota. O CPF não aparece no pedido.</small></label>}
           </section>
           </div>
         </div>}

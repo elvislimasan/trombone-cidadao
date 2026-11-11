@@ -48,6 +48,8 @@
 .adoption-form-intro > p { max-width: 68ch; margin-top: 6px; font-size: 13px; line-height: 1.7; }
 .adoption-request-layout, .adoption-location-layout { height: auto; }
 .adoption-request-form { max-width: 100%; margin: 0; padding: 0; gap: 24px; }
+.adoption-contact-fields .adoption-request-cpf { grid-column: 1 / -1; width: 100%; max-width: 28rem; }
+.adoption-request-cpf > small { color: rgb(var(--text-secondary)); font-size: 12px; font-weight: 400; line-height: 1.4; }
 .adoption-contact-fields { gap: 14px; padding-top: 20px; }
 .adoption-contact-fields .adoption-field > small { color: rgb(var(--text-secondary)); font-size: 12px; font-weight: 400; line-height: 1.4; }
 .adoption-form .adoption-field { font-size: 13px; }
@@ -163,6 +165,7 @@ html.adoption-request-is-open { overflow: hidden; }
 .adoption-create-dialog .adoption-form { display: flex; flex-direction: column; flex: 1; height: auto; min-height: 0; max-height: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .adoption-create-dialog .adoption-wizard-header { flex-shrink: 0; padding-top: 0; }
 .adoption-create-dialog .adoption-form-body { display: block; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 24px; }
+.adoption-create-dialog .adoption-form-layout .adoption-form .adoption-field :is(input, select, textarea) { scroll-margin-block: 8px; }
 .adoption-create-dialog .adoption-location-layout { grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); }
 .adoption-create-dialog .adoption-map-canvas { flex: none; height: clamp(360px, 50dvh, 560px); min-height: 0; }
 .adoption-create-dialog .adoption-form-footer { flex-shrink: 0; border-radius: 0; }
