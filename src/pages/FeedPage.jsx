@@ -79,6 +79,16 @@ export default function FeedPage() {
     refresh({ preserve: true });
   }, [refresh, resetNewCount]);
 
+  const handleToggleUpvote = useCallback((reportId) => {
+    if (!user) {
+      navigate('/login', {
+        state: { from: { pathname: location.pathname, search: location.search } },
+      });
+      return;
+    }
+    toggleUpvote(reportId);
+  }, [user, navigate, location.pathname, location.search, toggleUpvote]);
+
   useEffect(() => {
     const onReportsUpdated = (e) => {
       const createdId = e?.detail?.id || null;
@@ -250,7 +260,7 @@ export default function FeedPage() {
               <React.Fragment key={report.id}>
                 <FeedCard
                   report={report}
-                  onToggleUpvote={toggleUpvote}
+                  onToggleUpvote={handleToggleUpvote}
                   onRequestUpdate={setUpdateTarget}
                   onRequestStory={setStoryTarget}
                   isNew={report.id === recentCreatedId}
