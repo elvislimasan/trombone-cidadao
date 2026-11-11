@@ -128,12 +128,14 @@ try {
     await input('official_code','GOV-TESTE-3');
     await click('Continuar'); await wait('document.querySelector("[name=latitude]")'); await layout(width); await capture(`cadastro-localizacao-${width}`);
     await click('Continuar'); assert.equal(await evaluate('document.querySelector("#pipa-form").getAttribute("aria-labelledby")'), 'pipa-tank-step-1', 'Não avança sem a localização');
-    assert.ok(await evaluate('Boolean(document.querySelector(`.pipa-location-controls [aria-label="Usar mapa de satélite"]`) && document.querySelector(`.pipa-location-controls [aria-label="Ir para minha localização"]`))'), 'Mapa de cadastro oferece satélite e GPS');
+    assert.ok(await evaluate('Boolean(document.querySelector(`.pipa-location-controls [aria-label="Usar mapa padrão"]`) && document.querySelector(`.pipa-location-controls [aria-label="Ir para minha localização"]`) && document.querySelector(".leaflet-tile-pane img[src*=arcgisonline]"))'), 'Mapa de cadastro abre em satélite e oferece GPS');
+    await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Usar mapa padrão"]`).click()');
+    await wait('window.pipaMaps?.length>0');
     if(width===1440){
       await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Usar mapa de satélite"]`).click()');
       await wait('document.querySelector(".leaflet-tile-pane img[src*=arcgisonline]")');
       await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Usar mapa padrão"]`).click()');
-      await wait('window.pipaMaps.length>0');
+      await wait('window.pipaMaps?.length>0');
       await send('Emulation.setGeolocationOverride',{latitude:-8.59,longitude:-38.56,accuracy:10},sessionId);
       await send('Browser.grantPermissions',{origin:`http://127.0.0.1:${server.address().port}`,permissions:['geolocation']});
       await evaluate('document.querySelector(`.pipa-location-controls [aria-label="Ir para minha localização"]`).click()');

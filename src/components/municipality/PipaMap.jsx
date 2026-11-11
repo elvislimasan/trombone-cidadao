@@ -47,8 +47,8 @@ function MapController({ tanks, selected, position, onPick, city, followPosition
   }, [map, followPosition, position?.lat, position?.lng]);
   return null;
 }
-export default function PipaMap({ tanks = [], selected, onSelect, requests = [], position, onPick, city, pointRadius = 11, showLegend = true, routeStops = [], selectedIds = [], followPosition = false, showPopups = true, levels, locationControls = false }) {
-  const mapRef = useRef(null), [layer, setLayer] = useState(MAP_LAYER.STANDARD);
+export default function PipaMap({ tanks = [], selected, onSelect, requests = [], position, onPick, city, pointRadius = 11, showLegend = true, routeStops = [], selectedIds = [], followPosition = false, showPopups = true, levels, locationControls = false, initialLayer = MAP_LAYER.STANDARD }) {
+  const mapRef = useRef(null), [layer, setLayer] = useState(initialLayer);
   const urgent = new Set(requests.filter(r => r.kind === 'urgent' && !['completed', 'cancelled'].includes(r.status)).map(r => r.tank_id));
   return <div className="pipa-map" data-testid="pipa-map">
     <MapContainer ref={mapRef} center={[-14.2, -51.9]} zoom={4} scrollWheelZoom className="h-full w-full" attributionControl>
