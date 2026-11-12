@@ -22,8 +22,12 @@ function state(overrides={}) {
     locatingAddress:false,coordinatesPending:false,polePosition,isStandardLampType:()=>true,normalizeLampType:(value)=>value,poleCode:(value)=>value,
     poleTechnicalDetailsPayload:()=>({}),validatePoleTechnicalDetails:()=>null,
     setFormStep:setter,setSaving:setter,setSelected:setter,setCreating:setter,setDrawerOpen:setter,setRevision:setter,setLocatingAddress:setter,setAddressLookupFailed:setter,
-    showAppError:(error)=>calls.push({error}),showAppNotice:setter,
-    supabase:{rpc:async(name,params)=>{calls.push({name,params}); return {data:2236,error:null};}},
+    setFocus:(value)=>calls.push({focus:value}),
+    showAppError:(error)=>calls.push({error}),showAppNotice:(notice)=>calls.push({notice}),
+    supabase:{
+      rpc:async(name,params)=>{calls.push({name,params}); return {data:2236,error:null};},
+      from:()=>({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{latitude:scope.form.latitude,longitude:scope.form.longitude},error:null})})})})}),
+    },
     ...overrides,
   };
   scope.setForm=(updater)=>{scope.form=updater(scope.form);};
@@ -35,6 +39,17 @@ test('salvar poste existente envia coordenadas corrigidas ao servidor',async()=>
   assert.equal(calls[0].params.p_action,'updated');
   assert.equal(calls[0].params.p_lat,-8.59744); assert.equal(calls[0].params.p_lng,-38.59073);
   assert.equal(scope.addressLookupGeneration.current,1);
+  assert.deepEqual(calls.find(call=>call.focus)?.focus,[-8.59744,-38.59073]);
+  assert.ok(calls.some(call=>call.notice?.title==='Poste atualizado'));
+});
+test('não confirma localização quando função antiga ignora as coordenadas',async()=>{
+  const {scope,calls}=state();
+  scope.supabase.from=()=>({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{latitude:-8.5,longitude:-38.5},error:null})})})})});
+  await action('save',scope)();
+  assert.ok(calls.some(call=>call.error?.description?.includes('localização não foi gravada')));
+  assert.equal(calls.some(call=>call.notice),false);
+  assert.equal(calls.some(call=>call.focus),false);
+  assert.equal(scope.saveLock.current,false);
 });
 test('coordenadas incompletas ou busca pendente impedem salvar endereço e posição desatualizados',async()=>{
   for (const override of [{coordinatesPending:true},{locatingAddress:true},{form:{identifier:'X1',latitude:'',longitude:-38,lamp_type:'LED'}}]) {

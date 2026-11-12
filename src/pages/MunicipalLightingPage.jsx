@@ -373,7 +373,19 @@ export default function MunicipalLightingPage() {
       });
       if (generation !== saveGeneration.current) return;
       if (saveError) throw saveError;
+      if (action === 'updated') {
+        const { data: savedPole, error: readError } = await supabase.from('poles')
+          .select('latitude,longitude').eq('id', data).eq('city_id', cityId).single();
+        if (generation !== saveGeneration.current) return;
+        if (readError) throw readError;
+        const location = polePosition(savedPole);
+        const requested = polePosition(form);
+        if (!location || !requested || Math.abs(location.lat - requested.lat) > 0.0000001 || Math.abs(location.lng - requested.lng) > 0.0000001) {
+          throw new Error('A localização não foi gravada no banco. Avise o administrador para atualizar a função de iluminação e tente novamente.');
+        }
+      }
       showAppNotice({ title: action === 'created' ? 'Poste cadastrado' : action === 'removed' ? 'Poste removido do mapa ativo' : 'Poste atualizado', description: `Registro ${data} salvo no histórico de iluminação.` });
+      if (action !== 'removed') setFocus([Number(form.latitude), Number(form.longitude)]);
       setSelected(null);
       setCreating(false);
       setDrawerOpen(false);
