@@ -4,6 +4,10 @@ Página pública: `/adoteumaarvore`, também acessível no menu, no rodapé e no
 
 ## Ativação
 
+O editor de pedidos separa **Espécies**, **Local de plantio** e **Contato** em abas, preservando o preenchimento ao alternar. O catálogo inicia em **Todos os viveiros** da cidade e permite filtrar por viveiro, selecionar espécies de fornecedores diferentes e trocar o fornecedor de uma espécie. Na edição, são elegíveis ofertas **Disponíveis** e **Sob consulta**, com a pendência de confirmação indicada junto ao fornecedor; ofertas indisponíveis e espécies sem oferta continuam excluídas. O viveiro original do pedido não limita as opções. Os cartões expandem descrição, plantio e retirada em blocos separados. Por preferência do cliente, este modal de tarefa tem largura máxima de 1120 px e altura natural, limitada à viewport; as páginas continuam fluidas. Cabeçalho, abas e ações permanecem visíveis, com rolagem apenas no conteúdo.
+
+Para salvar a preferência **Sob consulta** em pedidos existentes, aplicar `supabase/migrations/424_tree_adoption_edit_consultation.sql` após a 421 e publicar o frontend atualizado. A 424 atualiza somente a RPC de edição; a aprovação e os novos pedidos continuam exigindo disponibilidade confirmada. A preferência editada volta para análise, sem confirmar estoque, espécie ou agendamento. Migração validada em PostgreSQL local descartável; não aplicada ao Supabase remoto.
+
 Para o ponto de referência e a edição de pedidos, aplicar `supabase/migrations/421_tree_adoption_request_edit.sql` após a migração 420 e publicar o frontend atualizado. A 421 adiciona `reference_point` e a RPC `edit_tree_adoption`; não exige Edge Function. O cidadão e o gestor podem alterar pedidos ativos em **Minhas solicitações** ou no atendimento municipal. A edição volta para análise e limpa espécie/fornecedor confirmados e agendamento anterior; pedidos encerrados não são editáveis. A migração foi validada em banco local descartável, sem alteração no Supabase remoto.
 
 Aplicar `supabase/migrations/392_tree_adoption.sql`, `393_tree_adoption_explicit_availability.sql` e `394_tree_adoption_pickup_and_alerts.sql`, nessa ordem, publicando o frontend atualizado. Nenhuma Edge Function adicional é necessária. A 393 exige disponibilidade explícita em novos pedidos e aprovações; preserva pedidos existentes e reenvios idempotentes. A 394 acrescenta os campos de retirada e os avisos de disponibilidade. Este trabalho não aplica alterações no banco remoto.
@@ -41,7 +45,7 @@ As quatro etapas compartilham títulos, superfícies, controles de seleção e d
 
 O atendimento e **Minhas solicitações** usam registros que ocupam a largura da lista, inclusive quando há um único pedido. Protocolo e espécie, endereço e fornecedor, situação e data e ação de consulta têm posições definidas. Bairro já presente no endereço não é repetido. O total apresentado vem da consulta do filtro, sem métricas municipais presumidas. A situação usa os tokens semânticos do sistema, com texto e cor.
 
-O detalhe separa resumo e histórico em linha do tempo da ação permitida para a equipe ou o cidadão. No celular, essas colunas seguem uma sequência vertical. Disponibilidades, editor e filas compartilham a mesma moldura; listas curtas mantêm altura natural, e listas longas usam paginação e rolagem interna. Os controles permanecem visíveis em desktop, com adaptação própria para 768 px de altura. As regras de autorização, transições e gravação permanecem nos contratos existentes.
+O detalhe usa um modal de tarefa com largura máxima de 1120 px e altura natural limitada à viewport. A área de leitura tem abas **Resumo do pedido** e **Histórico**; o formulário de atendimento ocupa a coluna direita e preserva status e mensagem ao alternar as abas. O resumo separa espécies e quantidades, local, solicitante e confirmações do atendimento, sem repetir espécies ou bairros presentes no endereço. Observações longas e ajuda de atendimento ficam em expansões opcionais. O histórico mostra primeiro as atualizações mais recentes. No celular, os dados precedem o formulário; o rodapé mantém fechar, alterar e registrar acessíveis. Disponibilidades, editor e filas compartilham a moldura de tarefas. As regras de autorização, transições e gravação permanecem nos contratos existentes.
 
 ### Centralização do mapa
 
@@ -91,6 +95,8 @@ powershell -File tools/validate-arborization-db.ps1 -TestFile supabase/tests/tre
 powershell -File tools/validate-arborization-db.ps1 -TestFile supabase/tests/tree_adoption_pickup_alerts.sql
 node --import ./tools/test-alias.mjs --test src/test/treePickup.test.mjs
 node tools/validate-tree-adoption-ui.mjs
+node tools/validate-tree-adoption-ui.mjs --edit-catalog-audit
+powershell -File tools/validate-arborization-db.ps1 -TestFile supabase/tests/tree_adoption_edit_consultation.sql
 npx vite build
 ```
 

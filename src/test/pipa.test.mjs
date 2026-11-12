@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pipaStatistics, pipaPeriod, pipaCalendarMonth, pipaCoordinates, pipaFreshPosition, pipaMaskCpf, pipaPhoneDigits, pipaValidCpf, pipaValidPhone, pipaCapabilities } from '../lib/pipa.js';
+import { pipaStatistics, pipaPeriod, pipaCalendarMonth, pipaCoordinates, pipaFreshPosition, pipaMaskCpf, pipaPhoneDigits, pipaValidCpf, pipaValidPhone, pipaCapabilities, pipaTankCapacity, pipaTankRequester } from '../lib/pipa.js';
 import { municipalHome, municipalRouteAllowed, municipalWorkspaceChannel } from '../lib/municipalAccess.js';
 import { resolveLoginDestination } from '../lib/municipalityAccess.js';
 
 const now = new Date('2026-11-10T14:00:00Z');
+test('caixa sem capacidade ou responsável não inventa valores', () => {
+  assert.equal(pipaTankCapacity(null), 'Não informada');
+  assert.equal(pipaTankCapacity(16000), '16.000 L');
+  assert.deepEqual(pipaTankRequester({ responsible_name: 'Não informado', responsible_phone: null }), { requester_name: '', requester_phone: '' });
+});
 test('períodos respeitam o calendário de Fortaleza nas viradas de mês e ano', () => {
   assert.deepEqual(pipaPeriod('previous', now), { from: '2026-10-01', to: '2026-10-31' });
   assert.deepEqual(pipaPeriod('previous', new Date('2026-01-10T12:00:00Z')), { from: '2025-12-01', to: '2025-12-31' });

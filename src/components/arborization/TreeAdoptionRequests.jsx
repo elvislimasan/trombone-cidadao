@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ClipboardList, Clock3, Leaf, Loader2, MessageCircle, Sprout } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ClipboardList, Clock3, Leaf, Loader2, MapPin, MessageCircle, Sprout, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TaskDialogBody, TaskDialogContent, TaskDialogFooter } from '@/components/ui/task-dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -17,6 +18,7 @@ import TreeAdoptionReceiptButton from './TreeAdoptionReceiptButton';
 import TreeAdoptionEditDialog from './TreeAdoptionEditDialog';
 import './treeAdoptionManagement.css';
 import './treeCitizenRequests.css';
+import './treeAdoptionDetails.css';
 import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
 
 const selectClass = 'min-h-[44px] w-full min-w-0 rounded-md border bg-background px-3 text-sm';
@@ -45,12 +47,14 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [detailTab, setDetailTab] = useState('summary');
   const terminal = ADOPTION_TERMINAL.includes(request.status);
   const canEdit = !terminal && (dispatcher || request.author_id === user?.id);
   const whatsapp = manager && whatsappNumber(request.requester_phone);
   const items = adoptionItems(request);
   const requestedSpecies = request.species?.common_name || catalog.species.find(item => item.id === request.species_id)?.common_name || 'Espécie cadastrada';
   const confirmedSpecies = catalog.species.find(item => item.id === request.approved_species_id)?.common_name;
+  const address = [request.address, request.neighborhood && !String(request.address || '').toLocaleLowerCase('pt-BR').includes(request.neighborhood.toLocaleLowerCase('pt-BR')) && request.neighborhood].filter(Boolean).join(' · ');
   const approvalSpecies = availableAdoptionSpecies(catalog.species, catalog.availability);
   const approvalProviders = availableAdoptionProviders(catalog.availability, speciesId);
   const needsConfirmation = status !== request.status && (status === 'aprovada'
@@ -58,7 +62,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   useEffect(() => {
     let active = true;
     setEventsLoading(true);
-    supabase.from('tree_adoption_events').select('*').eq('request_id', request.id).order('created_at').then(({ data, error: failure }) => {
+    supabase.from('tree_adoption_events').select('*').eq('request_id', request.id).order('created_at', { ascending: false }).then(({ data, error: failure }) => {
       if (active) { setEvents(data || []); setEventsError(failure ? 'Não foi possível carregar o histórico.' : ''); setEventsLoading(false); }
     });
     return () => { active = false; };
@@ -82,28 +86,49 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   };
   const options = manager ? [request.status, ...adoptionNextStatuses(request).filter(key => dispatcher || ['solicitada', 'em_analise', 'aguardando_informacao', 'aguardando_disponibilidade'].includes(key) || (key === 'cancelada' && request.author_id === user?.id))]
     : [...(request.status === 'aguardando_informacao' ? [request.status] : []), 'cancelada'];
-  const context = <div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
-        {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', adoptionProviderLabel(request.provider, catalog)], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}{label === 'Telefone / WhatsApp' && whatsapp && <span className="mt-2 block">{whatsapp && <Button asChild variant="outline" size="sm" className="w-fit max-w-full whitespace-normal"><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label={`Abrir WhatsApp de ${request.requester_name || 'quem fez a solicitação'}`}><MessageCircle className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />Conversar no WhatsApp</a></Button>}</span>}</dd></div>)}
-      </dl>
-      {request.reference_point && <p className="text-sm"><span className="text-content-secondary">Ponto de referência: </span><strong className="break-words">{request.reference_point}</strong></p>}
-      <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {adoptionProviderLabel(item.provider, catalog)}</li>)}</ul>
-      {request.notes && <div className="adoption-detail-notes"><p>Observações do solicitante</p><p>{request.notes}</p></div>}
-      <a className="text-sm font-semibold text-primary underline" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver local do plantio no mapa</a>
-      {request.tree_id && <Link className="text-sm font-semibold text-primary underline" to={`/arborizacao/arvore/${request.tree_id}`}>Ver árvore plantada no inventário</Link>}
-      </section>{request.status === 'pronta_retirada' && request.request_type === 'muda' && <section className="adoption-detail-pickup" aria-label="Retirada da muda"><h3>Retirada da muda</h3><TreeAdoptionPickup request={request} catalog={catalog} city={city} />{!manager && <TreeAdoptionReceiptButton request={request} onReceived={onClose} />}</section>}<section className="adoption-detail-history"><h3><Clock3 size={16} />Histórico e orientações da equipe</h3>
+  const facts = entries => <dl className="adoption-detail-facts">{entries.filter(([, value]) => value).map(([label, value, wide]) => <div key={label} className={wide ? 'is-wide' : undefined}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+  const context = <Tabs value={detailTab} onValueChange={setDetailTab} className="adoption-detail-context" data-events-loaded={!eventsLoading}>
+    <TabsList className="adoption-detail-tabs" aria-label="Informações do pedido">
+      <TabsTrigger value="summary"><Leaf size={16} aria-hidden="true" />Resumo do pedido</TabsTrigger>
+      <TabsTrigger value="history"><Clock3 size={16} aria-hidden="true" />Histórico</TabsTrigger>
+    </TabsList>
+    <TabsContent value="summary" className="adoption-detail-summary">
+      <section className="adoption-detail-section" aria-label="Espécies solicitadas">
+        <header><h3><Sprout size={17} aria-hidden="true" />Espécies solicitadas</h3><span className="adoption-detail-quantity">{adoptionQuantity(request)} {request.request_type === 'muda' ? (adoptionQuantity(request) === 1 ? 'muda' : 'mudas') : (adoptionQuantity(request) === 1 ? 'árvore' : 'árvores')}</span></header>
+        <ul className="adoption-detail-items" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}><span className="adoption-detail-item-quantity" aria-label={`${item.quantity} unidades`}>{item.quantity}×</span><div><strong>{catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')}</strong><span>{adoptionProviderLabel(item.provider, catalog)}</span></div></li>)}</ul>
+      </section>
+      <section className="adoption-detail-section adoption-detail-location" aria-label="Local de plantio">
+        <header><h3><MapPin size={17} aria-hidden="true" />Local de plantio</h3><a className="adoption-detail-map-link" aria-label="Ver local do plantio no mapa" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver mapa<ArrowUpRight size={15} aria-hidden="true" /></a></header>
+        {facts([['Endereço', address, true], ['Ponto de referência', request.reference_point, true], ['Espaço', [ADOPTION_ZONES[request.zone], ADOPTION_PLACES[request.planting_place]].filter(Boolean).join(' · ')], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação aérea', ADOPTION_WIRING[request.overhead_wiring]]])}
+      </section>
+      <section className="adoption-detail-section adoption-detail-contact" aria-label="Dados do solicitante">
+        <header><h3><User size={17} aria-hidden="true" />Solicitante</h3></header>
+        <dl className="adoption-detail-facts">
+          <div><dt>Nome</dt><dd>{request.requester_name || 'Não informado no pedido antigo'}</dd></div>
+          {request.requester_phone && <div><dt>Telefone / WhatsApp</dt><dd className="adoption-detail-phone"><span>{request.requester_phone}</span>{whatsapp && <Button asChild variant="outline" size="sm" className="adoption-detail-whatsapp"><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label={`Abrir WhatsApp de ${request.requester_name || 'quem fez a solicitação'}`}><MessageCircle size={15} aria-hidden="true" />WhatsApp</a></Button>}</dd></div>}
+          {request.requester_email && <div className="is-wide"><dt>E-mail</dt><dd>{request.requester_email}</dd></div>}
+        </dl>
+      </section>
+      {(confirmedSpecies || request.confirmed_provider || request.scheduled_at || request.fulfilled_on) && <section className="adoption-detail-section" aria-label="Atendimento confirmado"><header><h3><ClipboardList size={17} aria-hidden="true" />Atendimento confirmado</h3></header>{facts([['Espécie confirmada', confirmedSpecies], ['Viveiro confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]])}</section>}
+      {request.status === 'pronta_retirada' && request.request_type === 'muda' && <section className="adoption-detail-section adoption-detail-pickup" aria-label="Retirada da muda"><header><h3>Retirada da muda</h3></header><TreeAdoptionPickup request={request} catalog={catalog} city={city} />{!manager && <TreeAdoptionReceiptButton request={request} onReceived={onClose} />}</section>}
+      {request.notes && <details className="adoption-detail-notes"><summary>Observações do solicitante<ChevronDown size={16} aria-hidden="true" /></summary><p>{request.notes}</p></details>}
+      {request.tree_id && <Link className="adoption-detail-map-link" to={`/arborizacao/arvore/${request.tree_id}`}>Ver árvore plantada no inventário<ArrowUpRight size={15} aria-hidden="true" /></Link>}
+    </TabsContent>
+    <TabsContent value="history" className="adoption-detail-history"><h3>Histórico e orientações da equipe</h3>
         {eventsError ? <div role="alert"><p>{eventsError}</p><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Tentar novamente</Button></div> : eventsLoading ? <p role="status" className="flex items-center gap-2 text-xs text-content-secondary"><Loader2 className="h-4 w-4 animate-spin" />Carregando histórico…</p> : !events.length ? <p className="text-xs text-content-secondary">Nenhuma atualização registrada.</p> : <ol className="adoption-timeline">{events.map(item => <li key={item.id}><span className="adoption-timeline-dot" aria-hidden="true" /><AdoptionStatus status={item.status} /><p>{item.message}</p><time dateTime={item.created_at}>{formatDate(item.created_at)}</time></li>)}</ol>}
-      </section></div>;
+    </TabsContent>
+  </Tabs>;
   const action = !terminal ? <form id={formId} onSubmit={submit} className="adoption-detail-action">
         <h3 className="font-semibold">{manager ? 'Atender solicitação' : 'Falar com a equipe'}</h3>
         <fieldset disabled={busy} className="min-w-0">
-          {!dispatcher && manager && <p className="text-sm text-content-secondary">Você pode receber, orientar e registrar pendências. O gestor aprova, agenda e confirma a conclusão.</p>}
           <AdoptionSelect required label={manager ? 'Status da solicitação' : 'Próxima ação'} value={status} onChange={setStatus} options={Object.fromEntries(options.map(key => [key, key === request.status ? (manager ? `${ADOPTION_STATUSES[key]} (atual)` : 'Responder à informação solicitada') : ADOPTION_STATUSES[key]]))} />
-          {manager && <p className="text-xs text-content-secondary">Escolha o status desejado diretamente. Para enviar apenas uma orientação, mantenha o status atual.</p>}
+          {manager && <details className="adoption-action-help"><summary>Orientações do atendimento<ChevronDown size={14} aria-hidden="true" /></summary><p>Para enviar apenas uma orientação, mantenha o status atual.</p>{!dispatcher && <p>Você pode receber, orientar e registrar pendências. O gestor aprova, agenda e confirma a conclusão.</p>}</details>}
+          {manager && status !== request.status && <p className="adoption-action-status" role="status">O pedido passará para <strong>{ADOPTION_STATUSES[status]}</strong>.</p>}
           {needsConfirmation && <><p className="text-sm text-content-secondary">Confirme a disponibilidade e a adequação de todas as espécies e quantidades do pedido ao espaço e à fiação. O atendimento confirma o pedido completo.</p>{items.length === 1 ? <><AdoptionSelect required label="Espécie aprovada" value={speciesId} onChange={value => { setSpeciesId(value); setProvider(''); }} options={Object.fromEntries(approvalSpecies.map(item => [item.id, item.common_name]))} /><AdoptionSelect required label="Fornecedor confirmado" value={provider} onChange={setProvider} options={Object.fromEntries(approvalProviders.map(item => [item.provider, adoptionProviderLabel(item.provider, catalog)]))} /></> : <p className="text-sm text-content-secondary">As espécies, os viveiros e as quantidades listados no resumo serão confirmados em conjunto.</p>}</>}
           {status === 'agendada' && status !== request.status && <label className="grid gap-1.5 text-sm font-medium">Data e hora do plantio<Input required type="datetime-local" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)} /></label>}
           {status === 'pronta_retirada' && status !== request.status && <p className="text-sm text-content-secondary">Informe abaixo o endereço, os horários e as orientações para retirar a muda no fornecedor confirmado.</p>}
           {status === 'concluida' && <><label className="grid gap-1.5 text-sm font-medium">{request.request_type === 'muda' ? 'Data da entrega da muda' : 'Data do plantio realizado'}<Input required type="date" min={localDate(request.created_at)} max={localDate()} value={fulfilledOn} onChange={event => setFulfilledOn(event.target.value)} /></label><p className="text-sm text-content-secondary">{request.request_type === 'plantio' ? 'Confirme somente após a execução no ponto solicitado. A árvore será cadastrada no inventário com a espécie aprovada.' : 'Confirme somente após a entrega. A retirada de uma muda não comprova que ela foi plantada.'}</p></>}
-          <label className="grid gap-1.5 text-sm font-medium">{manager ? 'Mensagem e orientações para o cidadão' : 'Mensagem para a equipe'}<textarea required minLength={5} maxLength={3000} rows={4} className="w-full rounded-md border bg-background p-3 font-normal" value={message} onChange={event => setMessage(event.target.value)} /></label>
+          <label className="grid gap-1.5 text-sm font-medium">{manager ? 'Mensagem ao solicitante' : 'Mensagem para a equipe'}<textarea required minLength={5} maxLength={3000} rows={5} placeholder="Escreva sua mensagem…" className="w-full rounded-md border bg-background p-3 font-normal" value={message} onChange={event => setMessage(event.target.value)} /><span className="adoption-action-message-note">{manager ? 'Enviada ao solicitante e registrada no histórico.' : 'Visível para você e a equipe responsável.'}</span></label>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </fieldset>
       </form> : <aside className="adoption-detail-action"><span className="adoption-request-icon"><ClipboardList size={24} /></span><h3>Atendimento encerrado</h3><p className="text-sm text-content-secondary">O resultado e as orientações ficam registrados no histórico deste pedido.</p>{!manager && request.status === 'concluida' && <TreePlantingNextStep cityId={request.city_id} />}</aside>;
@@ -112,9 +137,9 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
     <TaskDialogContent className={`adoption-request-dialog${manager ? ' adoption-manager-detail' : ''}${!manager ? ' adoption-citizen-detail' : ''}`} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true }); }} onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
       <DialogHeader className="adoption-detail-header task-dialog-heading"><div className="adoption-detail-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Adote uma árvore</p><DialogTitle>{adoptionProtocol(request)}</DialogTitle><DialogDescription>{ADOPTION_TYPES[request.request_type]}</DialogDescription></div></div><AdoptionStatus status={request.status} /></DialogHeader>
       <TaskDialogBody className="adoption-detail-scroll">
-      <div className="adoption-detail-layout">{manager && !terminal && action}{context}{(!manager || terminal) && action}</div>
+      <div className="adoption-detail-layout">{context}{action}</div>
       </TaskDialogBody>
-      <TaskDialogFooter><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Fechar</Button>{canEdit && <Button type="button" variant="outline" disabled={busy} onClick={() => { catalog.refresh(); setEditing(true); }}>Alterar pedido</Button>}{!terminal && <Button type="submit" form={formId} disabled={busy || !status || message.trim().length < 5}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar atualização</Button>}</TaskDialogFooter>
+      <TaskDialogFooter className="adoption-detail-footer"><Button type="button" variant="ghost" className="adoption-detail-close" onClick={onClose} disabled={busy}>Fechar</Button>{canEdit && <Button type="button" variant="outline" disabled={busy} onClick={() => { catalog.refresh(); setEditing(true); }}>Alterar pedido</Button>}{!terminal && <Button type="submit" form={formId} disabled={busy || !status || message.trim().length < 5}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar atualização</Button>}</TaskDialogFooter>
     </TaskDialogContent>
   </Dialog>;
 }

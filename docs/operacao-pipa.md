@@ -75,6 +75,12 @@ O histórico de abastecimentos utiliza busca por destino, pipeiro ou placa, filt
 
 O abastecimento habitual da caixa e o prestador efetivo da entrega são campos separados. Uma entrega municipal em uma caixa do Exército conta como entrega da prefeitura e preserva o cadastro habitual. Placa, nome do pipeiro, capacidade, localidade e prestador são copiados para a entrega, preservando o histórico após mudanças no cadastro.
 
+### Inventário do Exército em Floresta (desenvolvimento)
+
+O anexo `Anexo_Resposta_3511 (1).xls` foi convertido em `data/pipa/floresta-army-tanks.json`: 241 localidades, coordenadas e 7.056 pessoas atendidas. As migrações 422 e 423 adicionam `people_served`, aceitam capacidade e contato ausentes e carregam as caixas com prestador habitual `exercito`. A capacidade permanece sem valor e o responsável aparece como “Não informado”; CPF, telefone e endereço não são inventados. A importação é restrita à secretaria de abastecimento de Floresta no projeto de desenvolvimento por UUID e contagens esperadas.
+
+As dez caixas anteriores foram arquivadas e desativadas. Permanecem no banco para preservar 17 solicitações, 74 entregas e três rotas históricas; solicitações em aberto dessas caixas foram canceladas. A lista e o mapa exibem apenas as 241 caixas atuais. Uma cópia local dos registros anteriores fica em `.tmp/pipa-dev-before-army-import.json` no ambiente onde a importação foi feita.
+
 Os indicadores fixos mostram caixas ativas por prestador habitual, caixas distintas atendidas pela prefeitura no mês anterior e carradas nos últimos 12 meses. As estatísticas e o histórico permitem filtrar período, prestador efetivo, pipeiro e localidade. Apresentam carradas, litros, caixas distintas e agrupamentos por mês, pipeiro e localidade, com relatório em PDF. Datas e limites dos dias usam `America/Fortaleza`. Consultas paginam o banco para evitar o truncamento padrão de 1.000 linhas.
 
 ## Dados de demonstração

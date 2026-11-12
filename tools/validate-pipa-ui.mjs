@@ -318,6 +318,20 @@ try {
   await navigate('/operacao-pipa/pipeiro');await wait('document.querySelector(".pipa-vehicle-image")');await evaluate('window.fixture.fail=true;document.querySelector(".pipa-vehicle-heading button").click()');await wait('document.querySelector("[role=alert]")');
   assert.ok(await evaluate('[...document.querySelectorAll("button")].some(b=>b.textContent==="Tentar novamente")'),'Falha ao carregar entregas oferece nova tentativa');
   await evaluate('window.fixture.fail=false');await click('Tentar novamente');await wait('document.querySelector(".pipa-vehicle-image")');
+  await navigate('/prefeitura/operacao-pipa/caixas');await wait('document.querySelector(".pipa-mobile-card")');
+  await evaluate(`window.fixture.tanks[0].archived_at='2026-11-12T00:00:00Z';window.fixture.tanks[0].active=false;Object.assign(window.fixture.tanks[1],{capacity_liters:null,people_served:38,responsible_name:'Não informado',responsible_document:null,responsible_phone:null,responsible_address:null})`);
+  await click('Atualizar');await wait('document.querySelectorAll(".pipa-mobile-card").length===1');
+  assert.ok(await evaluate('document.querySelector(".pipa-mobile-card").textContent.includes("38")&&document.querySelector(".pipa-mobile-card").textContent.includes("Não informada")'), 'Caixa importada mostra pessoas e capacidade desconhecida');
+  assert.ok(await evaluate('!document.body.textContent.includes("Caixa do Sítio Serra Negra")'), 'Caixa arquivada não aparece no inventário');
+  await evaluate('document.querySelector(".pipa-mobile-card-details summary").click()');await click('Editar');
+  await wait('document.querySelector("[name=people_served]")');
+  assert.equal(await evaluate('document.querySelector("[name=people_served]").value'),'38');
+  assert.equal(await evaluate('document.querySelector("[name=capacity_liters]").value'),'');
+  await click('Continuar');await wait('document.querySelector("[name=latitude]")');await click('Continuar');
+  await wait('document.querySelector("[name=responsible_document]")');
+  assert.ok(await evaluate('["responsible_document","responsible_phone","responsible_address"].every(name=>!document.querySelector(`[name=${name}]`).required)'), 'Dados ausentes do responsável são opcionais');
+  await click('Salvar');await wait('!document.querySelector("[role=dialog]")');
+  assert.ok(await evaluate('window.fixture.calls.some(call=>call.name==="pipa_save_tank"&&call.args.p_data.people_served===38&&call.args.p_data.capacity_liters===null&&call.args.p_data.responsible_document===null)'), 'Edição preserva o número de pessoas sem inventar capacidade ou CPF');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ results, municipalityCity: true, municipalityCityWithoutTanks: true, homonymousCityChange: true, readOnly: true, networkFailure: true, runtimeErrors: errors.length, screenshots: out }, null, 2));
 } finally { ws?.close(); chrome.kill(); server.close(); }

@@ -1,12 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_ADOPTION, adoptionPayload, adoptionNextStatuses, validateAdoption, availableAdoptionSpecies, availableAdoptionProviders, adoptionProviderLabel } from '../lib/treeAdoption.js';
+import { EMPTY_ADOPTION, adoptionPayload, adoptionNextStatuses, validateAdoption, availableAdoptionSpecies, availableAdoptionProviders, editableAdoptionSpecies, editableAdoptionProviders, adoptionProviderLabel } from '../lib/treeAdoption.js';
 import { formatCpf, isValidCpf } from '../lib/cpf.js';
 
 const species = [{ id: 'ipe', city_id: 64 }, { id: 'oiti', city_id: 65 }];
 const availability = [{ species_id: 'ipe', provider: 'viveiro_municipal', status: 'disponivel' }];
 const validate = (form, cityId, catalog, step = null, cpf = '529.982.247-25') => validateAdoption(form, cityId, catalog, step, availability, cpf);
 const valid = { ...EMPTY_ADOPTION, requester_name: 'Maria da Silva', requester_phone: '(87) 99999-9999', requester_email: 'maria@example.test', request_type: 'plantio', zone: 'urbana', planting_place: 'calcada', purpose: 'sombra', overhead_wiring: 'sim', species_id: 'ipe', provider: 'viveiro_municipal', latitude: -8.6, longitude: -38.57, address: 'Rua da Praça, 10', commitment: true };
+
+test('edição permite preferência sob consulta em outro viveiro sem liberar aprovação ou novo pedido', () => {
+  const nursery = { id: 'consulta', provider: 'viveiro_consulta', name: 'Viveiro sob consulta' };
+  const stock = [{ species_id: 'ipe', provider: nursery.provider, nursery, status: 'sob_consulta' }];
+  const form = { ...valid, provider: nursery.provider };
+  assert.deepEqual(editableAdoptionSpecies(species, stock), [species[0]]);
+  assert.deepEqual(editableAdoptionProviders(stock, 'ipe'), stock);
+  assert.equal(validateAdoption(form, 64, species, 2, stock, '', { requireCpf: false, allowConsultation: true }), '');
+  assert.ok(validateAdoption(form, 64, species, 2, stock));
+  assert.deepEqual(availableAdoptionSpecies(species, stock), []);
+  assert.deepEqual(availableAdoptionProviders(stock, 'ipe'), []);
+  for (const rejected of [[], [{ ...stock[0], status: 'indisponivel' }], [{ ...stock[0], nursery: undefined }]]) {
+    assert.deepEqual(editableAdoptionSpecies(species, rejected), []);
+    assert.ok(validateAdoption(form, 64, species, 2, rejected, '', { requireCpf: false, allowConsultation: true }));
+  }
+});
 
 test('viveiro cadastrado oferece espécies e mantém o nome no pedido sem depender de fornecedores fixos', () => {
   const nursery = { id: 'n1', provider: 'novo-viveiro', name: 'Viveiro da comunidade' };

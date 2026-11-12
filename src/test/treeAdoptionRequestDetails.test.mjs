@@ -15,6 +15,7 @@ const mocks = {
   'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
   '@/components/ui/button': { Button: ({ variant, size, asChild, children, ...props }) => asChild ? React.cloneElement(children, props) : React.createElement('button', props, children) },
   '@/components/ui/input': { Input: props => React.createElement('input', props) },
+  '@/components/ui/tabs': { Tabs: panel, TabsList: panel, TabsContent: panel, TabsTrigger: ({ children }) => React.createElement('button', {}, children) },
   '@/components/ui/dialog': Object.fromEntries(['Dialog', 'DialogContent', 'DialogDescription', 'DialogHeader', 'DialogTitle'].map(name => [name, panel])),
   '@/components/ui/task-dialog': { TaskDialogContent: panel, TaskDialogBody: panel, TaskDialogFooter: panel },
   '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user: { id: 'citizen' } }) },

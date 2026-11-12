@@ -1,26 +1,57 @@
-.task-dialog.adoption-edit-dialog[role=dialog] { --task-dialog-width: 1040px; }
-.adoption-edit-body { padding: 20px; }
-.adoption-edit-section { min-width: 0; scroll-margin-top: 16px; }
-.adoption-edit-section + .adoption-edit-section { margin-top: 24px; padding-top: 22px; border-top: 1px solid rgb(var(--border-subtle)); }
-.adoption-edit-section-title { margin-bottom: 14px; font-size: 16px; font-weight: 700; }
-.adoption-edit-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+/* Intentionally bounded task modal, per client preference. Page shells remain fluid.
+   Short catalogs use their natural height; expanded content scrolls inside. */
+.task-dialog.adoption-edit-dialog[role=dialog] { width: calc(100% - 48px); max-width: 1120px; height: auto; max-height: min(86dvh,860px); }
+.adoption-edit-tabs { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; min-width: 0; }
+.adoption-edit-dialog .adoption-edit-navigation { flex-shrink: 0; justify-content: start; height: auto; gap: 8px; padding: 12px 28px; border: 0; border-bottom: 1px solid rgb(var(--border-subtle)); border-radius: 0; background: rgb(var(--surface-raised)); box-shadow: none; }
+.adoption-edit-navigation > button { min-height: 48px; gap: 8px; border: 1px solid transparent; color: rgb(var(--text-secondary)); }
+.adoption-edit-navigation > button[data-state=active] { border-color: rgb(var(--tree-leaf) / .4); color: rgb(var(--tree-forest)); background: rgb(var(--tree-wash)); box-shadow: none; }
+.adoption-edit-body { flex: 1 1 auto; padding: 20px 24px; }
+.adoption-edit-section { min-width: 0; margin: 0; }
+.adoption-edit-dialog .adoption-edit-section:focus-visible { outline: none; box-shadow: none; }
+.adoption-edit-section-title { margin-bottom: 20px; font-size: 18px; font-weight: 700; }
+.adoption-edit-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; max-width: 1000px; }
 .adoption-edit-notes { grid-column: 1 / -1; }
-.adoption-edit-error, .adoption-edit-status { flex-basis: 100%; font-size: 13px; }
-.adoption-edit-error { color: rgb(var(--danger)); }
-.adoption-edit-status { color: rgb(var(--text-secondary)); }
-.adoption-edit-dialog .adoption-location-layout { grid-template-rows: auto auto; }
-.adoption-edit-dialog .adoption-location-layout > .adoption-form-intro { grid-column: 1 / -1; grid-row: 1; }
-.adoption-edit-dialog .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
-.adoption-edit-dialog .adoption-location-layout > .adoption-location-fields { grid-column: 2; grid-row: 2; }
-.adoption-edit-dialog .adoption-address-fields { grid-template-columns: minmax(0,1fr); }
-.adoption-edit-dialog .adoption-map-canvas { flex: none; height: 360px; min-height: 360px; }
+.adoption-edit-notes textarea { min-height: 160px; resize: vertical; }
+.adoption-edit-purpose { max-width: 400px; margin-bottom: 24px; }
+.adoption-edit-dialog .adoption-field { gap: 9px; font-size: 13px; }
+.adoption-edit-error { flex-basis: 100%; color: rgb(var(--danger)); font-size: 13px; }
+.adoption-edit-dialog .task-dialog-footer { align-items: center; padding-inline: 28px; }
+.adoption-edit-status { flex: 1 1 300px; color: rgb(var(--text-secondary)); font-size: 13px; line-height: 1.6; }
+.adoption-edit-dialog .task-dialog-footer > button { flex: 0 1 190px; }
+.adoption-edit-dialog .adoption-edit-body .adoption-location-layout { grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); grid-template-rows: auto; align-items: start; gap: 28px; }
+.adoption-edit-dialog .adoption-edit-body .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 1; }
+.adoption-edit-dialog .adoption-edit-body .adoption-location-layout > .adoption-location-fields { grid-column: 2; grid-row: 1; gap: 20px; padding: 24px; }
+.adoption-edit-dialog .tree-form-location-heading { display: none; }
+.adoption-edit-dialog .adoption-address-fields { grid-template-columns: minmax(0,1fr); gap: 20px; border: 0; padding: 0; }
+.adoption-edit-dialog .adoption-location-layout .adoption-map-canvas { flex: none; height: clamp(300px,38dvh,400px); min-height: 300px; }
+.adoption-edit-dialog .tree-seedling-grid { grid-template-columns: minmax(0,1fr); gap: 16px; }
+.adoption-edit-dialog .tree-seedling-card { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); }
+.adoption-edit-dialog .tree-seedling-select { grid-column: 1 / -1; padding: 20px; }
+.adoption-edit-dialog .is-selected .tree-seedling-select { grid-column: 1; }
+.adoption-edit-dialog .tree-seedling-controls { margin: 20px; padding: 0 0 0 24px; border-top: 0; border-left: 1px solid rgb(var(--border-subtle)); grid-template-columns: 160px minmax(0,1fr); }
+.adoption-edit-dialog .tree-seedling-details { grid-column: 1 / -1; padding-inline: 20px; }
+.adoption-edit-dialog .tree-seedling-details summary { min-height: 48px; }
+.adoption-edit-dialog .tree-seedling-detail-content { grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 28px; padding-block: 8px 24px; }
+@media(max-width:979px) {
+  .adoption-edit-dialog .adoption-edit-body .adoption-location-layout { grid-template-columns: minmax(0,1fr); }
+  .adoption-edit-dialog .adoption-edit-body .adoption-location-layout > .adoption-location-fields { grid-column: 1; grid-row: 2; }
+  .adoption-edit-dialog .tree-seedling-card { grid-template-columns: minmax(0,1fr); }
+  .adoption-edit-dialog .tree-seedling-controls { margin-top: 0; padding: 20px 0 0; border-left: 0; border-top: 1px solid rgb(var(--border-subtle)); }
+}
 @media(max-width:767px) {
-  .adoption-edit-body { padding: 16px; }
-  .adoption-edit-section + .adoption-edit-section { margin-top: 20px; padding-top: 18px; }
-  .adoption-edit-fields { grid-template-columns: minmax(0,1fr); }
-  .adoption-edit-dialog .adoption-location-layout { grid-template-columns: minmax(0,1fr); }
-  .adoption-edit-dialog .adoption-location-layout > .adoption-form-intro { grid-column: 1; grid-row: 1; }
-  .adoption-edit-dialog .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
-  .adoption-edit-dialog .adoption-location-layout > .adoption-location-fields { grid-column: 1; grid-row: 3; }
-  .adoption-edit-dialog .adoption-map-canvas { height: 300px; min-height: 300px; }
+  .task-dialog.adoption-edit-dialog[role=dialog] { inset: 0 !important; width: 100%; height: 100dvh; max-height: none; transform: none !important; border: 0; border-radius: 0; }
+  .adoption-edit-dialog .adoption-edit-navigation { gap: 4px; padding: 10px 12px; }
+  .adoption-edit-navigation > button { flex: 1; gap: 6px; padding-inline: 8px; font-size: 12px; }
+  .adoption-edit-navigation > button > svg { width: 16px; flex-shrink: 0; }
+  .adoption-edit-body { padding: 20px 16px; }
+  .adoption-edit-fields { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .adoption-edit-dialog .adoption-edit-body .adoption-location-layout > .adoption-location-fields { padding: 16px; }
+  .adoption-edit-dialog .adoption-location-layout .adoption-map-canvas { height: 300px; min-height: 300px; }
+  .adoption-edit-dialog .tree-seedling-select { padding: 16px; }
+  .adoption-edit-dialog .tree-seedling-controls { margin-inline: 16px; grid-template-columns: minmax(0,1fr); }
+  .adoption-edit-dialog .tree-seedling-details { padding-inline: 16px; }
+  .adoption-edit-dialog .tree-seedling-detail-content { gap: 20px; }
+  .adoption-edit-dialog .task-dialog-footer { gap: 10px; padding-inline: 16px; }
+  .adoption-edit-status { flex-basis: 100%; font-size: 12px; }
+  .adoption-edit-dialog .task-dialog-footer > button { flex: 1; }
 }

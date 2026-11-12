@@ -27,7 +27,17 @@ const stubs = {
     let nurseries=location.search.includes('nursery-audit')?[{id:'nursery1',city_id:64,name:'Viveiro municipal',provider:'viveiro_municipal',pickup_details:{address:'Rua do Viveiro, 20',latitude:-8.6,longitude:-38.57,schedule:[{days:[1],from:'08:00',to:'12:00'}],notes:''}}]:[];
     let availability=[...species.filter(s=>!['unregistered','consultation','unavailable'].includes(s.id)).map(s=>({species_id:s.id,provider:'viveiro_municipal',status:'disponivel'})),{species_id:'species1',provider:'instituto_florestar',status:'indisponivel'},{species_id:'consultation',provider:'viveiro_municipal',status:'sob_consulta'},{species_id:'unavailable',provider:'viveiro_municipal',status:'indisponivel'}];
     availability[0].instructions='Orientação anterior: confirme a retirada com a equipe.';
-    if(location.search.includes('nursery-audit'))availability.forEach(row=>row.nursery_id='nursery1');const initialAvailability=structuredClone(availability);
+    if(location.search.includes('nursery-audit'))availability.forEach(row=>row.nursery_id='nursery1');
+    if(location.search.includes('edit-catalog-audit')){
+      nurseries=[{id:'nursery1',city_id:64,name:'Viveiro municipal',provider:'viveiro_municipal'},{id:'nursery2',city_id:64,name:'Viveiro da comunidade',provider:'viveiro_comunitario',pickup_details:{address:'Rua da Comunidade, 40'},instructions:'Retirar pela manhã.'},{id:'nursery3',city_id:64,name:'Viveiro sob consulta',provider:'viveiro_consulta'}];
+      availability.forEach(row=>{row.nursery_id=row.species_id==='extra0'?'nursery2':'nursery1';if(row.species_id==='extra0')row.provider='viveiro_comunitario'});
+      availability.push({species_id:'species1',nursery_id:'nursery2',provider:'viveiro_comunitario',status:'disponivel',pickup_details:nurseries[1].pickup_details,instructions:nurseries[1].instructions});
+      Object.assign(availability.find(row=>row.species_id==='consultation'),{nursery_id:'nursery3',provider:'viveiro_consulta'});
+      species[0].summary='Descrição detalhada da espécie e de suas características. '.repeat(18);
+      species[0].planting_guidance='Orientação de plantio e cuidados com a muda. '.repeat(15);
+      if(location.search.includes('edit-sparse'))availability.forEach(row=>{if(row.species_id!=='species1'||row.provider!=='viveiro_municipal')row.status='indisponivel'});
+    }
+    const initialAvailability=structuredClone(availability);
     window.clearAvailability=()=>{availability=[]};window.restoreAvailability=()=>{availability=structuredClone(initialAvailability)};
     window.requests=/(manager|attendant|details-audit)/.test(location.search)?[{id:'12345678-0000-0000-0000-000000000001',city_id:64,author_id:'citizen',species_id:'species1',request_type:'plantio',zone:'urbana',planting_place:'calcada',purpose:'sombra',overhead_wiring:'sim',provider:'viveiro_municipal',address:'Rua do Plantio, 20',neighborhood:'Centro',latitude:-8.6,longitude:-38.57,status:'solicitada',created_at:new Date().toISOString(),species:species[0]}]:[];
     if(location.search.includes('many-manager')){const base=window.requests[0];window.requests=Array.from({length:18},(_,i)=>({...base,id:'12345678-0000-0000-0000-'+String(i+1).padStart(12,'0'),status:['solicitada','em_analise','aguardando_informacao','aprovada'][i%4],address:'Rua de teste '+(i+1)+', Centro',request_type:i%2?'muda':'plantio'}));}
@@ -109,7 +119,7 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `localStorage.setItem('tc_citygeo_floresta|',JSON.stringify({lat:-23.6,lng:-52.08}));localStorage.setItem('tc_citygeo_floresta|pe',JSON.stringify({lat:-23.6,lng:-52.08}));` }, sessionId);
   const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId); if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
   const waitFor = async expression => { for (let i = 0; i < 100; i++) { if (await evaluate(`Boolean(${expression})`)) return; await pause(100); } throw Error(`Timeout: ${expression}\n${await evaluate('document.body.innerText')}\n${JSON.stringify(errors)}`); };
-  const click = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!el)throw Error('Botão ausente: '+${JSON.stringify(label)});el.click()})()`);
+  const click = label => evaluate(`(()=>{const scope=[...document.querySelectorAll('[role=dialog]')].at(-1)||document;const el=[...scope.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!el)throw Error('Botão ausente: '+${JSON.stringify(label)});if(el.getAttribute('role')==='tab')el.focus();else el.click()})()`);
   const select = async (label, value) => {
     if(label==='Espécie'){
       await evaluate('document.querySelector(".tree-availability-editor [role=combobox]").click()');await waitFor(`document.querySelector('[data-species-id="${value}"]')`);await evaluate(`document.querySelector('[data-species-id="${value}"]').click()`);await waitFor('!document.querySelector("[cmdk-root]")');return;
@@ -180,7 +190,7 @@ try {
       await waitFor('document.querySelector(".adoption-request-card")');
       await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'});window.events=Array.from({length:12},(_,i)=>({id:'audit-'+i,request_id:window.requests[0].id,status:'em_analise',message:'Orientação detalhada da equipe. '.repeat(8),created_at:new Date().toISOString()}));`);
       await evaluate('window.auditTrigger=document.querySelector(".adoption-request-card button[aria-label]")||document.querySelector(".adoption-request-open");window.auditTrigger.focus();window.auditTrigger.click()');
-      await waitFor('document.querySelector(".adoption-detail-scroll")&&document.querySelector(".adoption-timeline li")');
+      await waitFor('document.querySelector(".adoption-detail-scroll")&&document.querySelector(".adoption-detail-context[data-events-loaded=true]")');
       await pause(250);
       await waitFor('document.querySelector(".adoption-request-dialog").getAnimations().every(animation=>animation.playState==="finished")');
       const contact = await evaluate(`(()=>{const link=document.querySelector('a[href^="https://wa.me/"]');return link?{href:link.href,label:link.getAttribute('aria-label'),nearPhone:link.closest('dd')?.previousElementSibling?.textContent}:null})()`);
@@ -189,7 +199,14 @@ try {
         assert.equal(contact?.nearPhone,'Telefone / WhatsApp');
         assert.equal(contact?.label,'Abrir WhatsApp de Pessoa de teste');
       } else assert.equal(contact,null);
-      if(actor==='manager'||actor==='attendant')assert.ok(await evaluate('document.querySelector(".adoption-detail-layout").firstElementChild.matches("form.adoption-detail-action")'),'Atendimento deve vir primeiro');
+      assert.ok(await evaluate('document.querySelector(".adoption-detail-layout").firstElementChild.matches(".adoption-detail-context")'),'Resumo deve preceder o atendimento na leitura');
+      assert.equal(await evaluate('document.querySelectorAll(".adoption-detail-items > li").length'),1,'Espécie e quantidade devem aparecer uma única vez');
+      assert.ok(await evaluate('!document.querySelector(".adoption-detail-notes").open'),'Observações longas devem iniciar recolhidas');
+      if(width>=1200)assert.ok(await evaluate('document.querySelector(".adoption-request-dialog").getBoundingClientRect().width<=1121'),'Modal de tarefa deve preservar largura confortável');
+      if(actor==='manager'||actor==='citizen')await capture(`detail-summary-${actor}-${width}-${theme}`);
+      await evaluate('void(window.auditAction=document.querySelector(".adoption-detail-action"))');
+      await click('Histórico');await waitFor('document.querySelector(".adoption-timeline li")');
+      assert.ok(await evaluate('window.auditAction===document.querySelector(".adoption-detail-action")'),'Atendimento deve persistir ao consultar o histórico');
       const bounds=await evaluate(`(()=>{const dialog=document.querySelector('.adoption-request-dialog'),body=dialog.querySelector('[data-task-scroll]'),r=dialog.getBoundingClientRect(),s=body.getBoundingClientRect(),footer=dialog.querySelector('footer').getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width,scrollWidth:dialog.scrollWidth,height:r.height,bodyHeight:s.height,scrollHeight:body.scrollHeight,footerTop:footer.top,footerBottom:footer.bottom,x:s.x+s.width/2,y:s.y+s.height/2};})()`);
       assert.ok(bounds.top>=-1&&bounds.bottom<=height+1&&bounds.width<=width&&bounds.scrollWidth<=bounds.width+1,JSON.stringify(bounds));
       assert.ok(bounds.bodyHeight>35&&bounds.scrollHeight>bounds.bodyHeight&&bounds.footerBottom<=height+1,JSON.stringify(bounds));
@@ -219,6 +236,8 @@ try {
     }
     await navigate('?manager&details-audit');await waitFor('document.querySelector(".adoption-request-card")');await evaluate('window.auditTrigger=document.querySelector(".adoption-request-card button[aria-label]")||document.querySelector(".adoption-request-open");window.auditTrigger.focus();window.auditTrigger.click()');
     await select('Status da solicitação','em_analise');await textArea('Orientação preservada após falha no atendimento.');
+    await click('Histórico');await click('Resumo do pedido');
+    assert.ok(await evaluate('document.querySelector(".adoption-detail-action textarea").value.includes("preservada")'),'Trocar de aba deve preservar a mensagem');
     await evaluate('window.failSave=true');await click('Registrar atualização');await waitFor('document.querySelector(".adoption-detail-action [role=alert]")');
     assert.ok(await evaluate('document.querySelector(".adoption-detail-action textarea").value.includes("preservada")'));
     await evaluate('window.failSave=false');await click('Registrar atualização');await waitFor('!document.querySelector("[role=dialog]")');
@@ -372,6 +391,72 @@ try {
       assert.ok(await evaluate('document.querySelector(".tree-requests-page")!==null'), 'Fechar retorna a Meus pedidos quando o pedido partiu dali');
       console.log(`${width}px/${theme}: quatro etapas, foco, ações, rascunho, erro e reenvio OK.`);
     }
+  } else if (process.argv.includes('--edit-catalog-audit')) {
+    let scenarios = 0;
+    for (const [width,height] of [[390,844],[1440,900],[1920,1080]]) for (const theme of ['light','dark']) for (const actor of ['manager','overview']) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+      await navigate(`?${actor}&details-audit&edit-catalog-audit&aba=minhas`);
+      await waitFor('document.querySelector(".adoption-request-card")');
+      await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'});window.requests[0].request_type='muda'`);
+      await evaluate('(document.querySelector(".adoption-request-card button[aria-label]")||document.querySelector(".adoption-request-open")).click()');
+      await click('Alterar pedido');
+      await waitFor('document.querySelector(".adoption-edit-dialog [data-species-id=species1]")');
+      await waitFor('document.querySelector(".adoption-edit-dialog").getAnimations().every(animation=>animation.playState==="finished")');
+      const geometry = await evaluate(`(()=>{const d=document.querySelector('.adoption-edit-dialog'),r=d.getBoundingClientRect(),f=d.querySelector('footer').getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,footer:f.bottom,overflow:d.scrollWidth>d.clientWidth+1}})()`);
+      assert.ok(geometry.left>=0&&geometry.right<=width+1&&geometry.bottom<=height+1&&geometry.footer<=height+1&&!geometry.overflow,JSON.stringify(geometry));
+      if(width>=1200)assert.ok(geometry.right-geometry.left<=1121,'Modal deve ter largura confortável: '+JSON.stringify(geometry));
+      assert.ok(await evaluate('!document.querySelector(".adoption-edit-dialog .adoption-location-layout")&&!document.querySelector(".adoption-edit-fields")'),'Somente a seção ativa deve aparecer');
+      assert.deepEqual(await evaluate('[...document.querySelector(".tree-seedling-nursery-filter select").options].map(o=>o.textContent)'),['Todos os viveiros','Viveiro da comunidade','Viveiro municipal','Viveiro sob consulta']);
+      assert.ok(await evaluate('document.querySelector("[data-species-id=extra0] .tree-seedling-nurseries").textContent.includes("Viveiro da comunidade")'),'Espécie exclusiva de outro viveiro deve aparecer');
+      assert.ok(await evaluate('!document.querySelector("[data-species-id=unavailable],[data-species-id=unregistered]")'));
+      assert.ok(await evaluate('document.querySelector("[data-species-id=consultation]").textContent.includes("Sob consulta")'));
+      await select('Filtrar por viveiro','viveiro_comunitario');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-seedling-card").length'),2);
+      await evaluate(`(()=>{const s=document.querySelector('[aria-label="Fornecedor de Ipê-amarelo"]');s.value='viveiro_comunitario';s.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+      await evaluate('document.querySelector("[data-species-id=extra0] input").click()');
+      assert.equal(await evaluate('document.querySelector("[data-species-id=extra0] select").value'),'viveiro_comunitario');
+      await evaluate('document.querySelector("[data-species-id=species1] summary").click()');
+      const expanded = await evaluate(`(()=>{const card=document.querySelector('[data-species-id=species1]'),details=card.querySelector('details'),c=card.getBoundingClientRect(),d=details.getBoundingClientRect();return {open:details.open,card:c.width,details:d.width,sections:details.querySelectorAll('section').length,overflow:card.scrollWidth>card.clientWidth+1}})()`);
+      assert.ok(expanded.open&&expanded.details>=expanded.card-3&&expanded.sections===3&&!expanded.overflow,JSON.stringify(expanded));
+      await capture(`adoption-edit-expanded-${width}-${theme}-${actor}`);
+      await click('Local de plantio');await waitFor('document.querySelector(".adoption-edit-dialog .leaflet-container")');
+      assert.ok(await evaluate('document.querySelector(".adoption-map-canvas").getBoundingClientRect().height>=300'));
+      await input('Ex.: Em frente à escola, próximo à praça','Em frente à escola municipal');
+      await capture(`adoption-edit-location-${width}-${theme}-${actor}`);
+      await click('Contato');await waitFor('document.querySelector(".adoption-edit-fields")');
+      await evaluate(`(()=>{const el=document.querySelector('input[autocomplete=name]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'Pessoa atualizada');el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+      await capture(`adoption-edit-contact-${width}-${theme}-${actor}`);
+      // Validation must open the section containing an invalid hidden field.
+      await click('Espécies');await waitFor('document.querySelector(".tree-seedling-picker")');
+      assert.ok(await evaluate('[...document.querySelectorAll(".tree-seedling-provider select")].every(s=>s.value==="viveiro_comunitario")'),'Troca de viveiro deve persistir entre abas');
+      await evaluate('document.querySelector("[data-species-id=species1] input").click()');
+      await evaluate('document.querySelector("[data-species-id=extra0] input").click()');
+      await click('Contato');await click('Salvar alterações');
+      await waitFor('document.querySelector(".adoption-edit-error")');
+      assert.equal(await evaluate('document.querySelector("[role=tab][data-state=active]").textContent'),'Espécies');
+      await select('Filtrar por viveiro','viveiro_consulta');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-seedling-card").length'),1);
+      await evaluate('document.querySelector("[data-species-id=consultation] input").click()');
+      assert.equal(await evaluate('document.querySelector(".tree-seedling-provider select").value'),'viveiro_consulta');
+      assert.ok(await evaluate('document.querySelector(".tree-seedling-consultation").textContent.includes("confirmará")'));
+      await capture(`adoption-edit-consultation-${width}-${theme}-${actor}`);
+      await click('Salvar alterações');await waitFor('!document.querySelector(".adoption-edit-dialog")');
+      const saved = await evaluate('window.calls.filter(c=>c.name==="edit_tree_adoption").at(-1).args.p_changes');
+      assert.equal(saved.reference_point,'Em frente à escola municipal');assert.equal(saved.requester_name,'Pessoa atualizada');
+      assert.deepEqual(saved.items,[{species_id:'consultation',quantity:1,provider:'viveiro_consulta'}]);
+      assert.equal(await evaluate('window.requests[0].status'),'em_analise');
+      scenarios++;
+    }
+    for(const width of [1440,1920]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:1080,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?manager&details-audit&edit-catalog-audit&edit-sparse');
+      await waitFor('document.querySelector(".adoption-request-open")');await click('Ver pedido e histórico');await click('Alterar pedido');
+      await waitFor('document.querySelector(".adoption-edit-dialog .tree-seedling-card")');await pause(250);
+      const size=await evaluate('(()=>{const r=document.querySelector(".adoption-edit-dialog").getBoundingClientRect();return {width:r.width,height:r.height}})()');
+      assert.ok(size.width<=1121&&size.height<680,'Catálogo curto deve usar altura natural: '+JSON.stringify(size));
+      await capture(`adoption-edit-compact-${width}`);
+    }
+    console.log(JSON.stringify({scenarios,consultationSaved:true,compactModal:true,otherNurseries:true,expandedDetails:true,tabPersistence:true,hiddenValidation:true,saved:true}));
   } else if (process.argv.includes('--reference-edit')) {
     for (const [width,height] of [[390,844],[1440,900],[1920,1080]]) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
@@ -380,6 +465,7 @@ try {
       await click('Ver pedido e histórico');
       await click('Alterar pedido');
       await waitFor('document.querySelector(".adoption-edit-dialog")');
+      await click('Local de plantio');
       await waitFor('document.querySelector(".adoption-edit-dialog .leaflet-container")');
       const map = await evaluate(`(()=>{const canvas=document.querySelector('.adoption-edit-dialog .adoption-map-canvas').getBoundingClientRect(),body=document.querySelector('.adoption-edit-body').getBoundingClientRect();return {height:canvas.height,top:canvas.top,bodyTop:body.top,bodyBottom:body.bottom}})()`);
       assert.ok(map.height>=260 && map.top>=map.bodyTop && map.top<map.bodyBottom, `Mapa visível ao abrir em ${width}px: ${JSON.stringify(map)}`);

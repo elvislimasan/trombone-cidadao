@@ -2,7 +2,7 @@ import React from 'react';
 import { Droplets, MapPin, Pencil, Plus, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { pipaDateTime, pipaNumber } from '@/lib/pipa';
+import { pipaDateTime, pipaNumber, pipaTankCapacity, pipaTankRequester } from '@/lib/pipa';
 import PipaWaterStatus from './PipaWaterStatus';
 import PipaProviderBadge from './PipaProviderBadge';
 
@@ -13,7 +13,8 @@ export default function PipaTankDetails({ tank, level, onClose, onOpen, canReque
     ...(tank.official_code ? [['Código do órgão', tank.official_code]] : []),
     ['Localidade', tank.locality],
     ['Abastecimento habitual', <PipaProviderBadge provider={tank.provider} />],
-    ['Capacidade', `${pipaNumber(tank.capacity_liters)} L`],
+    ['Capacidade', pipaTankCapacity(tank.capacity_liters)],
+    ['Pessoas atendidas', tank.people_served == null ? 'Não informado' : pipaNumber(tank.people_served)],
     ['Consumo médio', tank.emptying_days ? `${tank.emptying_days} dias (partindo cheia)` : 'Não configurado'],
     ['Última entrega', pipaDateTime(level?.lastDelivery)],
     ...(level?.emptyAt ? [['Esvaziamento estimado', pipaDateTime(level.emptyAt)]] : []),
@@ -49,7 +50,7 @@ export default function PipaTankDetails({ tank, level, onClose, onOpen, canReque
           <summary className="cursor-pointer text-sm font-semibold">Responsável pela caixa</summary>
           <p className="mt-3 text-xs text-content-secondary">Dados pessoais restritos à equipe autorizada.</p>
           <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 min-[420px]:grid-cols-2">
-            {[['Nome', tank.responsible_name], ['CPF', tank.responsible_document], ['Telefone', tank.responsible_phone], ['Endereço', tank.responsible_address]].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-[11px] text-content-secondary">{label}</dt><dd className="mt-0.5 break-words text-sm">{value || '—'}</dd></div>)}
+            {[['Nome', tank.responsible_name], ['CPF', tank.responsible_document], ['Telefone', tank.responsible_phone], ['Endereço', tank.responsible_address]].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-[11px] text-content-secondary">{label}</dt><dd className="mt-0.5 break-words text-sm">{value || 'Não informado'}</dd></div>)}
           </dl>
         </details>
 
@@ -58,7 +59,7 @@ export default function PipaTankDetails({ tank, level, onClose, onOpen, canReque
             <Button variant="outline" size="sm" onClick={() => onOpen('tank', tank)}><Pencil className="mr-1.5 h-3.5 w-3.5" />Editar caixa</Button>
             <Button variant="outline" size="sm" onClick={() => onOpen('manual', { tank_id: tank.id, channel_id: tank.channel_id })}><Truck className="mr-1.5 h-3.5 w-3.5" />Registrar entrega</Button>
           </div>}
-          {canRequest && <Button size="sm" className="w-full" onClick={() => onOpen('request', { tank_id: tank.id, channel_id: tank.channel_id, requester_name: tank.responsible_name, requester_phone: tank.responsible_phone })}><Plus className="mr-1.5 h-3.5 w-3.5" />Solicitar água</Button>}
+          {canRequest && <Button size="sm" className="w-full" onClick={() => onOpen('request', { tank_id: tank.id, channel_id: tank.channel_id, ...pipaTankRequester(tank) })}><Plus className="mr-1.5 h-3.5 w-3.5" />Solicitar água</Button>}
         </div>}
       </div>
     </DialogContent>

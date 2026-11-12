@@ -29,7 +29,7 @@ export function pipaWaterLevels(tanks, deliveries, requests, now = Date.now()) {
     const history = (events.get(tank.id) || []).sort((a, b) => a.at - b.at || Number(b.dry || false) - Number(a.dry || false));
     const lastDelivery = history.filter(e => !e.dry).at(-1)?.at;
     const reportedDry = history.at(-1)?.dry === true;
-    const result = { state: 'unknown', percent: null, emptyAt: null, lastDelivery: lastDelivery ? new Date(lastDelivery).toISOString() : null, urgent, reportedDry, needsAttention: urgent, reason: !days ? 'Cadastre o tempo médio para esvaziar.' : 'Registre um abastecimento para iniciar a estimativa.' };
+    const result = { state: 'unknown', percent: null, emptyAt: null, lastDelivery: lastDelivery ? new Date(lastDelivery).toISOString() : null, urgent, reportedDry, needsAttention: urgent, reason: !(capacity > 0) ? 'Informe a capacidade para estimar o nível.' : !days ? 'Cadastre o tempo médio para esvaziar.' : 'Registre um abastecimento para iniciar a estimativa.' };
     if (tank.active === false) return [tank.id, { ...result, state: 'inactive', urgent: false, needsAttention: false, priority: 5 }];
     if (reportedDry) Object.assign(result, { state: 'empty', percent: 0, emptyAt: new Date(history.at(-1).at).toISOString(), reason: 'Caixa seca informada em uma solicitação.' });
     else if (Number.isInteger(days) && days >= 1 && days <= 365 && capacity > 0 && history.length) {

@@ -44,7 +44,18 @@ export function availableAdoptionSpecies(species, availability) {
   return species.filter(item => availableIds.has(item.id));
 }
 
-export function validateAdoption(form, cityId, species, step = null, availability = [], requesterCpf = '', { requireCpf = true } = {}) {
+// A pending preference can be edited before the nursery confirms its stock.
+// Approval and new requests continue to require confirmed availability.
+export function editableAdoptionProviders(availability, speciesId) {
+  return availability.filter(item => item.species_id === speciesId && ['disponivel', 'sob_consulta'].includes(item.status) && knownProvider(item));
+}
+
+export function editableAdoptionSpecies(species, availability) {
+  const ids = new Set(availability.filter(item => ['disponivel', 'sob_consulta'].includes(item.status) && knownProvider(item)).map(item => item.species_id));
+  return species.filter(item => ids.has(item.id));
+}
+
+export function validateAdoption(form, cityId, species, step = null, availability = [], requesterCpf = '', { requireCpf = true, allowConsultation = false } = {}) {
   if (!cityId) return 'Selecione a cidade onde pretende plantar.';
   if (step === null || step === 0) {
     if (!Object.hasOwn(ADOPTION_TYPES, form.request_type)) return 'Escolha entre muda e plantio.';
@@ -73,7 +84,8 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
       if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > (form.request_type === 'muda' ? MONTHLY_SEEDLING_LIMIT : 1000)) return form.request_type === 'muda' ? 'Informe de 1 a 6 mudas por espécie.' : 'Informe uma quantidade inteira de 1 a 1.000 para cada espécie.';
       if (!species.some(species => species.id === item.species_id && String(species.city_id) === String(cityId))) return 'Escolha uma espécie cadastrada nesta cidade.';
       if (!item.provider) return 'Escolha o local de fornecimento de cada espécie.';
-      if (!availableAdoptionProviders(availability, item.species_id).some(row => row.provider === item.provider)) return 'A espécie não tem disponibilidade confirmada neste fornecedor. Atualize o catálogo e escolha uma opção disponível.';
+      const providers = allowConsultation ? editableAdoptionProviders : availableAdoptionProviders;
+      if (!providers(availability, item.species_id).some(row => row.provider === item.provider)) return allowConsultation ? 'A espécie não está disponível nem sob consulta neste viveiro. Atualize o catálogo e escolha outra opção.' : 'A espécie não tem disponibilidade confirmada neste fornecedor. Atualize o catálogo e escolha uma opção disponível.';
     }
     if (form.request_type === 'muda' && adoptionQuantity(form) > MONTHLY_SEEDLING_LIMIT) return 'Você pode solicitar até 6 mudas por pedido.';
     if (adoptionQuantity(form) > 1000) return 'O pedido pode ter até 1.000 árvores no total.';

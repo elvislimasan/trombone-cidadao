@@ -4,6 +4,8 @@ export const PIPA_PROVIDERS = { prefeitura: 'Prefeitura', exercito: 'Exército B
 export const PIPA_KINDS = { regular: 'Rotina', urgent: 'Urgente · caixa seca', one_off: 'Carrada avulsa' };
 export const PIPA_STATUSES = { pending: 'Pendente', assigned: 'Direcionada', in_transit: 'Em rota', completed: 'Atendida', cancelled: 'Cancelada' };
 export const pipaNumber = value => Number(value || 0).toLocaleString('pt-BR');
+export const pipaTankCapacity = value => value == null || value === '' ? 'Não informada' : `${pipaNumber(value)} L`;
+export const pipaTankRequester = tank => ({ requester_name: tank.responsible_name === 'Não informado' ? '' : tank.responsible_name || '', requester_phone: tank.responsible_phone || '' });
 const dayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Fortaleza', year: 'numeric', month: '2-digit', day: '2-digit' });
 export const pipaDay = (date = new Date()) => dayFormatter.format(new Date(date));
 export const pipaMonth = date => pipaDay(date).slice(0, 7) + '-01';

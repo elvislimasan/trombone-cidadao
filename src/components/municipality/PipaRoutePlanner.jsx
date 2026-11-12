@@ -19,7 +19,7 @@ export default function PipaRoutePlanner({ data, channels, driver, city, onClose
   const [step, setStep] = useState(0), [previewId, setPreviewId] = useState(''), [feedback, setFeedback] = useState('');
   const id = useRef(crypto.randomUUID()), saving = useRef(false), previewRef = useRef(null);
   const selectedDriver = drivers.find(d => d.id === driverId);
-  const tanks = data.tanks.filter(t => t.active !== false && (!t.channel_id || t.channel_id === selectedDriver?.channel_id)).sort((a,b) => levels ? pipaWaterPriority(a,b,levels) : 0);
+  const tanks = data.tanks.filter(t => t.active !== false && !t.archived_at && (!t.channel_id || t.channel_id === selectedDriver?.channel_id)).sort((a,b) => levels ? pipaWaterPriority(a,b,levels) : 0);
   const chosen = ids.map(id => tanks.find(t => t.id === id)).filter(Boolean);
   const preview = tanks.find(t => t.id === previewId);
   useEffect(() => { previewRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }, [previewId]);
