@@ -93,6 +93,7 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
       <div className="tree-form-location-heading"><h3>Confira o local</h3><p>Endereço preenchido pelo mapa. Ajuste se precisar.</p></div>
       <div className="adoption-address-fields">
         <label className="adoption-field">{form.zone === 'rural' ? 'Propriedade ou referência' : 'Endereço e número'}<Input maxLength={300} placeholder={form.zone === 'rural' ? 'Ex.: Sítio, comunidade e estrada de acesso' : 'Rua, número ou ponto de referência'} value={form.address} onChange={event => correct('address', event.target.value)} /></label>
+        <label className="adoption-field">Ponto de referência (opcional)<Input maxLength={300} placeholder="Ex.: Em frente à escola, próximo à praça" value={form.reference_point || ''} onChange={event => onChange({ reference_point: event.target.value })} /></label>
         <label className="adoption-field">Bairro ou localidade<select name="neighborhood" aria-label="Bairro ou localidade" disabled={busy || loadingNeighborhoods || neighborhoodError || !neighborhoods.length} value={matchedNeighborhood || form.neighborhood || ''} onChange={event => correct('neighborhood', event.target.value)}>
           <option value="">{loadingNeighborhoods ? 'Carregando bairros…' : neighborhoodError ? 'Não foi possível carregar' : neighborhoods.length ? 'Selecione o bairro' : 'Nenhum bairro cadastrado'}</option>
           {form.neighborhood && !matchedNeighborhood && <option value={form.neighborhood} disabled>{form.neighborhood} (não cadastrado)</option>}

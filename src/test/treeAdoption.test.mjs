@@ -109,3 +109,16 @@ test('payload mantém chave idempotente e não aceita campos administrativos inj
   assert.equal(payload.id, 'chave'); assert.equal(payload.address, 'Rua Nova'); assert.equal(payload.commitment, true);
   assert.equal(payload.status, undefined); assert.equal(payload.author_id, undefined); assert.equal(payload.tree_id, undefined);
 });
+
+test('ponto de referência é opcional, aparece no payload e respeita o limite', () => {
+  const form = { ...valid, reference_point: ' Em frente à escola municipal ' };
+  assert.equal(validate(form, 64, species), '');
+  assert.equal(adoptionPayload(form, 64, 'pedido').reference_point, 'Em frente à escola municipal');
+  assert.equal(validate({ ...form, reference_point: 'x'.repeat(301) }, 64, species, 1), 'O ponto de referência pode ter até 300 caracteres.');
+});
+
+test('edição de pedido de mudas mantém a validação de espécies sem pedir CPF novamente', () => {
+  const form = { ...valid, request_type: 'muda', items: [{ species_id: 'ipe', provider: 'viveiro_municipal', quantity: 2 }] };
+  assert.equal(validateAdoption(form, 64, species, null, availability, '', { requireCpf: false }), '');
+  assert.equal(validateAdoption(form, 64, species, null, availability, ''), 'Informe um CPF válido para solicitar mudas.');
+});

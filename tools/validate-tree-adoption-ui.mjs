@@ -42,6 +42,7 @@ const stubs = {
       if(window.failSave)return {error:{message:'Falha simulada. Os dados foram mantidos.'}};
       if(name==='submit_tree_adoption'){let row=window.requests.find(r=>r.id===args.p_request.id);if(!row){row={...args.p_request,author_id:'citizen',status:'solicitada',created_at:new Date().toISOString(),species:species[0]};window.requests.push(row);window.events.push({id:'e1',request_id:row.id,status:row.status,message:'Solicitação recebida pela equipe.',created_at:row.created_at});}return {data:row};}
       if(name==='update_tree_adoption'){const row=window.requests.find(r=>r.id===args.p_id);if(row.status!==args.p_expected_status)return {error:{message:'Pedido atualizado por outra pessoa.'}};Object.assign(row,{status:args.p_status,approved_species_id:args.p_details.species_id,confirmed_provider:args.p_details.provider});window.events.push({id:crypto.randomUUID(),request_id:row.id,status:row.status,message:args.p_message,created_at:new Date().toISOString()});return {data:row};}
+      if(name==='edit_tree_adoption'){const row=window.requests.find(r=>r.id===args.p_id);Object.assign(row,args.p_changes,{status:'em_analise',approved_species_id:null,confirmed_provider:null,scheduled_at:null,updated_at:new Date().toISOString()});return {data:row};}
       return {data:[]};
     },from(table){const filters=[],excludes=[];let start=0,end=999,payload,newSpecies,one=false;const q={select(){return q},eq(k,v){filters.push([k,v]);return q},in(){return q},single(){one=true;return q},maybeSingle(){one=true;return q},not(k,op,v){excludes.push([k,v===null?[null,undefined]:v.slice(1,-1).split(',')]);return q},order(){return q},limit(n){end=n-1;return q},range(a,b){start=a;end=b;return q},insert(v){newSpecies=v;return q},upsert(v){payload=v;return q},then(ok,fail){
       if(newSpecies){const row={id:'created-species',...newSpecies};species.push(row);return Promise.resolve({data:row,error:null}).then(ok,fail);}
@@ -370,6 +371,31 @@ try {
       await waitFor('!document.querySelector(".adoption-create-dialog")');
       assert.ok(await evaluate('document.querySelector(".tree-requests-page")!==null'), 'Fechar retorna a Meus pedidos quando o pedido partiu dali');
       console.log(`${width}px/${theme}: quatro etapas, foco, ações, rascunho, erro e reenvio OK.`);
+    }
+  } else if (process.argv.includes('--reference-edit')) {
+    for (const [width,height] of [[390,844],[1440,900],[1920,1080]]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+      await navigate('?manager&details-audit');
+      await waitFor('document.querySelector(".adoption-request-open")');
+      await click('Ver pedido e histórico');
+      await click('Alterar pedido');
+      await waitFor('document.querySelector(".adoption-edit-dialog")');
+      await waitFor('document.querySelector(".adoption-edit-dialog .leaflet-container")');
+      const map = await evaluate(`(()=>{const canvas=document.querySelector('.adoption-edit-dialog .adoption-map-canvas').getBoundingClientRect(),body=document.querySelector('.adoption-edit-body').getBoundingClientRect();return {height:canvas.height,top:canvas.top,bodyTop:body.top,bodyBottom:body.bottom}})()`);
+      assert.ok(map.height>=260 && map.top>=map.bodyTop && map.top<map.bodyBottom, `Mapa visível ao abrir em ${width}px: ${JSON.stringify(map)}`);
+      const leafletHeight = await evaluate('document.querySelector(".adoption-edit-dialog .leaflet-container").getBoundingClientRect().height');
+      assert.ok(leafletHeight >= 260, `Mapa Leaflet com altura visível em ${width}px: ${leafletHeight}`);
+      await waitFor('document.querySelector(".adoption-edit-dialog .leaflet-tile-loaded")');
+      await capture(`adoption-edit-local-${width}`);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), `Sem rolagem horizontal em ${width}px`);
+      const visible = await evaluate(`(()=>{const field=[...document.querySelectorAll('.adoption-edit-dialog label')].find(el=>el.textContent.startsWith('Ponto de referência'));const body=document.querySelector('.adoption-edit-body');field.scrollIntoView({block:'center'});const f=field.getBoundingClientRect(),b=body.getBoundingClientRect(),footer=document.querySelector('.adoption-edit-dialog footer').getBoundingClientRect();return {found:!!field,top:f.top,bottom:f.bottom,bodyTop:b.top,footerTop:footer.top}})()`);
+      assert.ok(visible.found && visible.top>=visible.bodyTop-1 && visible.bottom<=visible.footerTop+1, `Ponto de referência acessível acima do rodapé em ${width}px: ${JSON.stringify(visible)}`);
+      await input('Ex.: Em frente à escola, próximo à praça','Em frente à escola municipal');
+      await click('Salvar alterações');
+      await waitFor('!document.querySelector(".adoption-edit-dialog")');
+      assert.equal(await evaluate('window.requests[0].reference_point'),'Em frente à escola municipal');
+      assert.equal(await evaluate('window.requests[0].status'),'em_analise');
+      console.log(`${width}x${height}: referência acessível, edição salva e pedido volta à análise`);
     }
   } else {
   const layoutOnly = process.argv.includes('--layout-only');

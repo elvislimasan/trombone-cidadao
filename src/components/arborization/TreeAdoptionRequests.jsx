@@ -14,6 +14,7 @@ import TreeAdoptionRequestCard, { AdoptionStatus } from './TreeAdoptionRequestCa
 import { TreePlantingNextStep } from './TreeJourney';
 import TreeAdoptionPickup from './TreeAdoptionPickup';
 import TreeAdoptionReceiptButton from './TreeAdoptionReceiptButton';
+import TreeAdoptionEditDialog from './TreeAdoptionEditDialog';
 import './treeAdoptionManagement.css';
 import './treeCitizenRequests.css';
 import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
@@ -42,8 +43,10 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
   const [revision, setRevision] = useState(0);
   const terminal = ADOPTION_TERMINAL.includes(request.status);
+  const canEdit = !terminal && (dispatcher || request.author_id === user?.id);
   const whatsapp = manager && whatsappNumber(request.requester_phone);
   const items = adoptionItems(request);
   const requestedSpecies = request.species?.common_name || catalog.species.find(item => item.id === request.species_id)?.common_name || 'Espécie cadastrada';
@@ -82,6 +85,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
   const context = <div className="adoption-detail-context"><section className="adoption-detail-summary"><h3><Leaf size={16} />Resumo do pedido</h3><dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
         {[["Solicitante", request.requester_name || 'Não informado no pedido antigo'], ['Telefone / WhatsApp', request.requester_phone], ['E-mail', request.requester_email], ['Quantidade total', adoptionQuantity(request)], ["Espécie solicitada", requestedSpecies], ['Fornecedor solicitado', adoptionProviderLabel(request.provider, catalog)], ['Local', `${ADOPTION_ZONES[request.zone]} · ${ADOPTION_PLACES[request.planting_place]}`], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação acima do plantio', ADOPTION_WIRING[request.overhead_wiring]], ['Endereço / referência', [request.address, request.neighborhood].filter(Boolean).join(' · ')], ['Espécie confirmada', confirmedSpecies], ['Fornecedor confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]].filter(([, value]) => value).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-content-secondary">{label}</dt><dd className="mt-1 break-words font-medium">{value}{label === 'Telefone / WhatsApp' && whatsapp && <span className="mt-2 block">{whatsapp && <Button asChild variant="outline" size="sm" className="w-fit max-w-full whitespace-normal"><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label={`Abrir WhatsApp de ${request.requester_name || 'quem fez a solicitação'}`}><MessageCircle className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />Conversar no WhatsApp</a></Button>}</span>}</dd></div>)}
       </dl>
+      {request.reference_point && <p className="text-sm"><span className="text-content-secondary">Ponto de referência: </span><strong className="break-words">{request.reference_point}</strong></p>}
       <ul className="space-y-2 text-sm" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}>{item.quantity} × {catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')} · {adoptionProviderLabel(item.provider, catalog)}</li>)}</ul>
       {request.notes && <div className="adoption-detail-notes"><p>Observações do solicitante</p><p>{request.notes}</p></div>}
       <a className="text-sm font-semibold text-primary underline" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver local do plantio no mapa</a>
@@ -103,13 +107,14 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </fieldset>
       </form> : <aside className="adoption-detail-action"><span className="adoption-request-icon"><ClipboardList size={24} /></span><h3>Atendimento encerrado</h3><p className="text-sm text-content-secondary">O resultado e as orientações ficam registrados no histórico deste pedido.</p>{!manager && request.status === 'concluida' && <TreePlantingNextStep cityId={request.city_id} />}</aside>;
+  if (editing) return <TreeAdoptionEditDialog request={request} catalog={catalog} city={city} onClose={() => setEditing(false)} onSaved={() => { onUpdated(); onClose(); }} />;
   return <Dialog open onOpenChange={open => { if (!open && !busyRef.current) onClose(); }}>
     <TaskDialogContent className={`adoption-request-dialog${manager ? ' adoption-manager-detail' : ''}${!manager ? ' adoption-citizen-detail' : ''}`} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true }); }} onInteractOutside={event => { if (busy) event.preventDefault(); }} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }}>
       <DialogHeader className="adoption-detail-header task-dialog-heading"><div className="adoption-detail-title"><span className="adoption-request-icon"><Sprout size={25} /></span><div><p className="adoption-detail-eyebrow">Adote uma árvore</p><DialogTitle>{adoptionProtocol(request)}</DialogTitle><DialogDescription>{ADOPTION_TYPES[request.request_type]}</DialogDescription></div></div><AdoptionStatus status={request.status} /></DialogHeader>
       <TaskDialogBody className="adoption-detail-scroll">
       <div className="adoption-detail-layout">{manager && !terminal && action}{context}{(!manager || terminal) && action}</div>
       </TaskDialogBody>
-      <TaskDialogFooter><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Fechar</Button>{!terminal && <Button type="submit" form={formId} disabled={busy || !status || message.trim().length < 5}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar atualização</Button>}</TaskDialogFooter>
+      <TaskDialogFooter><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Fechar</Button>{canEdit && <Button type="button" variant="outline" disabled={busy} onClick={() => { catalog.refresh(); setEditing(true); }}>Alterar pedido</Button>}{!terminal && <Button type="submit" form={formId} disabled={busy || !status || message.trim().length < 5}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar atualização</Button>}</TaskDialogFooter>
     </TaskDialogContent>
   </Dialog>;
 }

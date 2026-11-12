@@ -12,7 +12,7 @@ export const ADOPTION_PROVIDERS = { viveiro_municipal: 'Viveiro municipal', inst
 export const ADOPTION_AVAILABILITY = { disponivel: 'Disponível para solicitação', indisponivel: 'Indisponível', sob_consulta: 'Sob consulta' };
 export const ADOPTION_STATUSES = { solicitada: 'Solicitação enviada', em_analise: 'Em análise técnica', aguardando_informacao: 'Aguardando informação', aguardando_disponibilidade: 'Aguardando disponibilidade', aprovada: 'Aprovada', agendada: 'Plantio agendado', pronta_retirada: 'Muda pronta para retirada', concluida: 'Solicitação atendida', recusada: 'Recusada', cancelada: 'Cancelada' };
 export const ADOPTION_TERMINAL = ['concluida', 'recusada', 'cancelada'];
-export const EMPTY_ADOPTION = { request_type: '', zone: '', planting_place: '', purpose: '', overhead_wiring: '', species_id: '', provider: '', items: [], requester_name: '', requester_phone: '', requester_email: '', address: '', neighborhood: '', latitude: '', longitude: '', notes: '', commitment: false };
+export const EMPTY_ADOPTION = { request_type: '', zone: '', planting_place: '', purpose: '', overhead_wiring: '', species_id: '', provider: '', items: [], requester_name: '', requester_phone: '', requester_email: '', address: '', reference_point: '', neighborhood: '', latitude: '', longitude: '', notes: '', commitment: false };
 export const ADOPTION_CITY_ID = 64; // Primeira etapa do convênio: Floresta · PE.
 export const MONTHLY_SEEDLING_LIMIT = 6;
 export const ADOPTION_CITY_NOTICE = 'A prefeitura desta cidade ainda não tem convênio com a plataforma Trombone Cidadão para oferta de mudas ou plantio de árvores. Procure a prefeitura municipal da sua cidade e sugira essa ideia!';
@@ -44,7 +44,7 @@ export function availableAdoptionSpecies(species, availability) {
   return species.filter(item => availableIds.has(item.id));
 }
 
-export function validateAdoption(form, cityId, species, step = null, availability = [], requesterCpf = '') {
+export function validateAdoption(form, cityId, species, step = null, availability = [], requesterCpf = '', { requireCpf = true } = {}) {
   if (!cityId) return 'Selecione a cidade onde pretende plantar.';
   if (step === null || step === 0) {
     if (!Object.hasOwn(ADOPTION_TYPES, form.request_type)) return 'Escolha entre muda e plantio.';
@@ -52,7 +52,7 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
     if (String(form.requester_name || '').trim().length < 3 || form.requester_name.trim().length > 160) return 'Informe seu nome completo (3 a 160 caracteres).';
     if (!/^[+\d\s().-]+$/.test(form.requester_phone || '') || !/^\d{10,15}$/.test(String(form.requester_phone || '').replace(/\D/g, ''))) return 'Informe um telefone de contato com DDD.';
     if (form.requester_email && (form.requester_email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.requester_email.trim()))) return 'Informe um e-mail válido ou deixe o campo vazio.';
-    if (form.request_type === 'muda' && !isValidCpf(requesterCpf)) return 'Informe um CPF válido para solicitar mudas.';
+    if (requireCpf && form.request_type === 'muda' && !isValidCpf(requesterCpf)) return 'Informe um CPF válido para solicitar mudas.';
   }
   if (step === null || step === 1) {
     for (const [field, options, message] of [
@@ -60,6 +60,7 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
       ['overhead_wiring', ADOPTION_WIRING, 'Informe se existe fiação aérea.'],
     ]) if (!Object.hasOwn(options, form[field])) return message;
     if (String(form.address || '').trim().length < 5) return 'Informe o endereço ou a referência do local (pelo menos 5 caracteres).';
+    if (String(form.reference_point || '').trim().length > 300) return 'O ponto de referência pode ter até 300 caracteres.';
     if ([form.latitude, form.longitude].some(value => value === '' || value == null)
       || !Number.isFinite(Number(form.latitude)) || Math.abs(Number(form.latitude)) > 90
       || !Number.isFinite(Number(form.longitude)) || Math.abs(Number(form.longitude)) > 180) return 'Marque o local do plantio no mapa.';

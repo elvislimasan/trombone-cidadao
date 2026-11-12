@@ -1,0 +1,26 @@
+.task-dialog.adoption-edit-dialog[role=dialog] { --task-dialog-width: 1040px; }
+.adoption-edit-body { padding: 20px; }
+.adoption-edit-section { min-width: 0; scroll-margin-top: 16px; }
+.adoption-edit-section + .adoption-edit-section { margin-top: 24px; padding-top: 22px; border-top: 1px solid rgb(var(--border-subtle)); }
+.adoption-edit-section-title { margin-bottom: 14px; font-size: 16px; font-weight: 700; }
+.adoption-edit-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.adoption-edit-notes { grid-column: 1 / -1; }
+.adoption-edit-error, .adoption-edit-status { flex-basis: 100%; font-size: 13px; }
+.adoption-edit-error { color: rgb(var(--danger)); }
+.adoption-edit-status { color: rgb(var(--text-secondary)); }
+.adoption-edit-dialog .adoption-location-layout { grid-template-rows: auto auto; }
+.adoption-edit-dialog .adoption-location-layout > .adoption-form-intro { grid-column: 1 / -1; grid-row: 1; }
+.adoption-edit-dialog .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
+.adoption-edit-dialog .adoption-location-layout > .adoption-location-fields { grid-column: 2; grid-row: 2; }
+.adoption-edit-dialog .adoption-address-fields { grid-template-columns: minmax(0,1fr); }
+.adoption-edit-dialog .adoption-map-canvas { flex: none; height: 360px; min-height: 360px; }
+@media(max-width:767px) {
+  .adoption-edit-body { padding: 16px; }
+  .adoption-edit-section + .adoption-edit-section { margin-top: 20px; padding-top: 18px; }
+  .adoption-edit-fields { grid-template-columns: minmax(0,1fr); }
+  .adoption-edit-dialog .adoption-location-layout { grid-template-columns: minmax(0,1fr); }
+  .adoption-edit-dialog .adoption-location-layout > .adoption-form-intro { grid-column: 1; grid-row: 1; }
+  .adoption-edit-dialog .adoption-location-layout > .adoption-location-map { grid-column: 1; grid-row: 2; }
+  .adoption-edit-dialog .adoption-location-layout > .adoption-location-fields { grid-column: 1; grid-row: 3; }
+  .adoption-edit-dialog .adoption-map-canvas { height: 300px; min-height: 300px; }
+}

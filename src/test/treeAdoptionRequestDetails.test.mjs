@@ -22,6 +22,7 @@ const mocks = {
   '@/hooks/useTreeAdoptionCatalog': { __esModule: true, default: () => ({}) },
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: ({ status }) => React.createElement('span', {}, adoption.ADOPTION_STATUSES[status]) },
   './TreeAdoptionReceiptButton': { __esModule: true, default: () => null },
+  './TreeAdoptionEditDialog': { __esModule: true, default: () => null },
   './TreeAdoptionPickup': { __esModule: true, default: () => null },
   './treeAdoptionManagement.css': {},
   './TreeProgramPhoto': { __esModule: true, default: () => null },
@@ -69,4 +70,15 @@ test('contato antigo sem telefone válido não oferece link de WhatsApp', () => 
     const html = renderToStaticMarkup(React.createElement(RequestDetails, { request: { ...request, requester_phone: phone }, catalog, manager: true, dispatcher: true, onClose() {}, onUpdated() {} }));
     assert.doesNotMatch(html, /wa\.me/);
   }
+});
+
+test('ponto de referência e edição aparecem para o autor e o gestor em pedido ativo', () => {
+  for (const manager of [false, true]) {
+    const html = renderToStaticMarkup(React.createElement(RequestDetails, { request: { ...request, reference_point: 'Em frente à escola' }, catalog, manager, dispatcher: manager, onClose() {}, onUpdated() {} }));
+    assert.match(html, /Ponto de referência/);
+    assert.match(html, /Em frente à escola/);
+    assert.match(html, /Alterar pedido/);
+  }
+  const closed = renderToStaticMarkup(React.createElement(RequestDetails, { request: { ...request, status: 'concluida' }, catalog, manager: false, dispatcher: false, onClose() {}, onUpdated() {} }));
+  assert.doesNotMatch(closed, /Alterar pedido/);
 });
