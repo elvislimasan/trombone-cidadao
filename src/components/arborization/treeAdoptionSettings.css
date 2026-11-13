@@ -1,0 +1,21 @@
+.tree-adoption-settings { min-width: 0; padding: 20px; border: 1px solid rgb(var(--border-subtle)); border-radius: 16px; background: rgb(var(--surface-raised)); }
+.tree-adoption-settings-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; color: rgb(var(--text-secondary)); }
+.tree-adoption-settings-heading h2 { margin: 0; font-size: 16px; font-weight: 700; color: rgb(var(--text-primary)); }
+.tree-adoption-settings-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tree-adoption-settings-option { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 12px; background: rgb(var(--surface-base)); }
+.tree-adoption-settings-icon { display: grid; width: 40px; height: 40px; flex-shrink: 0; place-items: center; border-radius: 10px; background: rgb(var(--text-tertiary) / .1); color: rgb(var(--text-secondary)); }
+.tree-adoption-settings-option[data-state='checked'] .tree-adoption-settings-icon { background: rgb(var(--success-bg)); color: rgb(var(--success-fg)); }
+.tree-adoption-settings-label { display: grid; min-width: 0; flex: 1; gap: 4px; }
+.tree-adoption-settings-label label { width: fit-content; cursor: pointer; font-size: 14px; font-weight: 600; }
+.tree-adoption-settings-label > span { font-size: 12px; color: rgb(var(--text-secondary)); }
+.tree-adoption-settings-option[data-state='checked'] .tree-adoption-settings-label > span { color: rgb(var(--success-fg)); }
+.tree-adoption-settings-switch { box-sizing: border-box; border-color: rgb(var(--border-default)); }
+.tree-adoption-settings-switch[data-state='unchecked'] { background: rgb(var(--text-tertiary) / .3); }
+.tree-adoption-settings-switch[data-state='checked'] { background: rgb(var(--tc-green-600)); border-color: rgb(var(--tc-green-600)); }
+.tree-adoption-settings-switch > span { background: #fff; }
+.tree-adoption-settings-help { margin-top: 12px; font-size: 12px; line-height: 1.6; color: rgb(var(--text-secondary)); }
+@media (max-width: 639px) {
+  .tree-adoption-settings { padding: 16px; }
+  .tree-adoption-settings-options { grid-template-columns: minmax(0, 1fr); }
+  .tree-adoption-settings-option { padding: 12px; gap: 10px; }
+}

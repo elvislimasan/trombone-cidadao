@@ -23,6 +23,18 @@ test('handles complete years and leap-day anniversaries', () => {
   assert.equal(getWorkDelayMetric(delay('2024-02-29', '2026-02-28'), 'years').label, 'ANOS DE ATRASO');
 });
 
+test('keeps remaining months when displaying years', () => {
+  const data = delay('2024-12-13', '2026-11-13');
+  assert.equal(getWorkDelayMetric(data, 'months').number, '23');
+  assert.deepEqual(getWorkDelayMetric(data, 'years'), { value: 1, number: '1', label: 'ANO E 11 MESES DE ATRASO' });
+  assert.equal(getWorkDelayMetric(delay('2024-12-13', '2026-01-13'), 'years').label, 'ANO E 1 MÊS DE ATRASO');
+  assert.equal(getWorkDelayMetric(delay('2024-12-13', '2027-01-13'), 'years').label, 'ANOS E 1 MÊS DE ATRASO');
+  assert.equal(getWorkDelayMetric(delay('2024-12-13', '2027-11-13'), 'years').label, 'ANOS E 11 MESES DE ATRASO');
+  assert.equal(getWorkDelayMetric(delay('2024-12-13', '2026-11-12'), 'years').label, 'ANO E 10 MESES DE ATRASO');
+  assert.equal(getWorkDelayMetric(delay('2024-01-31', '2025-02-28'), 'years').label, 'ANO E 1 MÊS DE ATRASO');
+  assert.equal(getWorkDelayMetric(delay('2024-12-13', '2026-12-13'), 'years').label, 'ANOS DE ATRASO');
+});
+
 test('unavailable units fall back to days without displaying a fraction', () => {
   const data = delay('2026-11-01', '2026-11-08');
   assert.deepEqual(getAvailableWorkDelayUnits(data), ['days']);
@@ -37,6 +49,7 @@ test('unavailable units fall back to days without displaying a fraction', () => 
 test('uses the same calendar rules for future deadlines', () => {
   assert.deepEqual(getWorkDelayMetric(delay('2026-05-31', '2026-01-31'), 'months'), { value: 4, number: '4', label: 'MESES PARA O PRAZO' });
   assert.equal(getWorkDelayMetric(delay('2026-11-09', '2026-11-08'), 'years').label, 'DIA PARA O PRAZO');
+  assert.deepEqual(getWorkDelayMetric(delay('2026-11-13', '2024-12-13'), 'years'), { value: 1, number: '1', label: 'ANO E 11 MESES PARA O PRAZO' });
 });
 
 test('the deadline day remains zero and explicitly says today in every unit', () => {

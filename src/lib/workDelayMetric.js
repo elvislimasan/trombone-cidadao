@@ -36,9 +36,11 @@ export function getWorkDelayMetric(computed, timeUnit = 'days') {
   const months = unit.id === 'days' ? 0 : completeMonths(computed.expectedDay, computed.actualDay);
   const value = unit.id === 'years' ? Math.floor(months / 12) : unit.id === 'months' ? months : computed.metricNumber;
   const name = value === 1 ? unit.singular : unit.plural;
+  const remainingMonths = unit.id === 'years' ? months % 12 : 0;
+  const duration = remainingMonths ? `${name} E ${remainingMonths} ${remainingMonths === 1 ? 'MÊS' : 'MESES'}` : name;
   return {
     value,
     number: new Intl.NumberFormat('pt-BR').format(value),
-    label: computed.isDueToday ? 'PRAZO VENCE HOJE' : `${name} ${computed.isOverdue ? 'DE ATRASO' : 'PARA O PRAZO'}`,
+    label: computed.isDueToday ? 'PRAZO VENCE HOJE' : `${duration} ${computed.isOverdue ? 'DE ATRASO' : 'PARA O PRAZO'}`,
   };
 }

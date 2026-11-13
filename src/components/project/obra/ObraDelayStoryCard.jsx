@@ -86,7 +86,7 @@ const ObraDelayStoryCard = forwardRef(function ObraDelayStoryCard({
       </>}
     </div>
     <div style={{ position: 'absolute', top: 1220, left: 80, right: 80, display: 'flex', justifyContent: 'center' }}>
-      <Brush color={YELLOW} style={{ ...display, color: '#111111', textAlign: 'center', fontSize: 77, lineHeight: 1.05, width: '100%' }}>{metricLabel}</Brush>
+      <Brush color={YELLOW} style={{ ...display, color: '#111111', textAlign: 'center', fontSize: metricLabel.length > 20 ? 62 : 77, lineHeight: 1.05, width: '100%' }}><span data-story-metric-label>{metricLabel}</span></Brush>
     </div>
     <div data-story-link-heading style={{ position: 'absolute', top: 1348, left: 190, right: 190, textAlign: 'center' }}>
       <Brush color="#d91f26" style={{ ...display, color: '#ffffff', fontSize: 52, lineHeight: 1.1 }}>ACOMPANHE ESSA OBRA</Brush>

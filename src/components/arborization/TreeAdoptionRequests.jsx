@@ -16,6 +16,7 @@ import { TreePlantingNextStep } from './TreeJourney';
 import TreeAdoptionPickup from './TreeAdoptionPickup';
 import TreeAdoptionReceiptButton from './TreeAdoptionReceiptButton';
 import TreeAdoptionEditDialog from './TreeAdoptionEditDialog';
+import TreeAdoptionSettings from './TreeAdoptionSettings';
 import './treeAdoptionManagement.css';
 import './treeCitizenRequests.css';
 import './treeAdoptionDetails.css';
@@ -92,7 +93,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
       <TabsTrigger value="summary"><Leaf size={16} aria-hidden="true" />Resumo do pedido</TabsTrigger>
       <TabsTrigger value="history"><Clock3 size={16} aria-hidden="true" />Histórico</TabsTrigger>
     </TabsList>
-    <TabsContent value="summary" className="adoption-detail-summary">
+    <TabsContent value="summary" className="adoption-detail-summary" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
       <section className="adoption-detail-section" aria-label="Espécies solicitadas">
         <header><h3><Sprout size={17} aria-hidden="true" />Espécies solicitadas</h3><span className="adoption-detail-quantity">{adoptionQuantity(request)} {request.request_type === 'muda' ? (adoptionQuantity(request) === 1 ? 'muda' : 'mudas') : (adoptionQuantity(request) === 1 ? 'árvore' : 'árvores')}</span></header>
         <ul className="adoption-detail-items" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}><span className="adoption-detail-item-quantity" aria-label={`${item.quantity} unidades`}>{item.quantity}×</span><div><strong>{catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')}</strong><span>{adoptionProviderLabel(item.provider, catalog)}</span></div></li>)}</ul>
@@ -106,7 +107,7 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
         <dl className="adoption-detail-facts">
           <div><dt>Nome</dt><dd>{request.requester_name || 'Não informado no pedido antigo'}</dd></div>
           {request.requester_phone && <div><dt>Telefone / WhatsApp</dt><dd className="adoption-detail-phone"><span>{request.requester_phone}</span>{whatsapp && <Button asChild variant="outline" size="sm" className="adoption-detail-whatsapp"><a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" aria-label={`Abrir WhatsApp de ${request.requester_name || 'quem fez a solicitação'}`}><MessageCircle size={15} aria-hidden="true" />WhatsApp</a></Button>}</dd></div>}
-          {request.requester_email && <div className="is-wide"><dt>E-mail</dt><dd>{request.requester_email}</dd></div>}
+          {request.requester_email && <div><dt>E-mail</dt><dd>{request.requester_email}</dd></div>}
         </dl>
       </section>
       {(confirmedSpecies || request.confirmed_provider || request.scheduled_at || request.fulfilled_on) && <section className="adoption-detail-section" aria-label="Atendimento confirmado"><header><h3><ClipboardList size={17} aria-hidden="true" />Atendimento confirmado</h3></header>{facts([['Espécie confirmada', confirmedSpecies], ['Viveiro confirmado', adoptionProviderLabel(request.confirmed_provider, catalog)], ['Plantio agendado', request.scheduled_at && formatDate(request.scheduled_at)], ['Data do atendimento', request.fulfilled_on && request.fulfilled_on.split('-').reverse().join('/')]])}</section>}
@@ -212,6 +213,7 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
   if (management && !authorized) return <p className="text-sm text-content-secondary">Pedidos disponíveis para gestores e atendentes com responsabilidade de Arborização nesta cidade.</p>;
   return <section className={management ? 'tree-adoption-management-content' : 'adoption-citizen-requests'} data-section="pedidos" aria-label={management ? 'Atendimento Adote uma árvore' : 'Minhas solicitações de árvores'}>
 
+    {management && <TreeAdoptionSettings key={cityId} cityId={cityId} canEdit={dispatcher} />}
     {catalog.error && <p role="alert" className="text-sm text-destructive">{catalog.error} <button className="underline" onClick={catalog.refresh}>Tentar novamente</button></p>}
     {openingRequest && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Abrindo pedido da notificação…</p>}
     {requestError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm"><p>{requestError}</p><Button variant="outline" size="sm" onClick={() => setRequestAttempt(value => value + 1)}>Tentar novamente</Button></div>}

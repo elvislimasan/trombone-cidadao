@@ -34,6 +34,7 @@ const adminLinks = [
   { to: '/admin/obras/opcoes', icon: 'ListChecks', title: 'Opções de Obras', description: 'Gerencie categorias e áreas das obras.', module: 'works' },
   { to: '/admin/pavimentacao', icon: 'Route', title: 'Gerenciar mapa de ruas', description: 'Edite ruas, traçados e contornos de bairros.', module: 'urban_planning' },
   { to: '/admin/arborizacao', icon: 'Trees', title: 'Gerenciar arborização', description: 'Cadastre árvores, espécies, condições e manejos por cidade.', module: 'arborization' },
+  { to: '/admin/arborizacao/solicitacoes', icon: 'Sprout', title: 'Solicitações de árvores', description: '', module: 'arborization' },
   { to: '/admin/vereadores', icon: 'Landmark', title: 'Vereadores e vínculos', description: 'Cadastre vereadores e analise solicitações de vínculo de contas.', module: 'pavement' },
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Guia da Cidade', description: 'Adicione e edite locais do Guia da Cidade.', module: 'services' },
@@ -68,6 +69,10 @@ const normalizar = (valor) => String(valor || '')
   .toLowerCase();
 
 const criarConsultasPendentes = () => ({
+  '/admin/arborizacao/solicitacoes': () => supabase
+    .from('tree_adoption_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'solicitada'),
   '/admin/moderacao/broncas': () => supabase
     .from('reports')
     .select('id', { count: 'exact', head: true })
@@ -164,7 +169,7 @@ const AdminPage = () => {
         <title>Painel Administrativo - Trombone Cidadão</title>
         <meta name="description" content="Painel de controle para administradores." />
       </Helmet>
-      <div className="mx-auto w-full max-w-[112rem] px-3 py-8 sm:px-5 lg:px-8">
+      <div className="page-shell-fluid px-3 py-8 sm:px-5 lg:px-8">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <h1 className="text-2xl font-extrabold text-content-primary">Gestão da plataforma</h1>

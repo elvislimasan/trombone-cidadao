@@ -26,6 +26,12 @@ serve(async req => {
     const args = { p_kind: body.kind, p_city: body.city_id ?? null, p_prefeitura: body.prefeitura_id ?? null, p_channel: body.channel_id ?? null, p_roles: body.roles ?? [] };
     const { error: permissionError } = await client.rpc('validate_municipal_provisioning', args);
     if (permissionError) return json({ error: permissionError.message }, 403);
+    const disabledModules = body.disabled_modules ?? [];
+    if (!Array.isArray(disabledModules) || disabledModules.some((module: unknown) => typeof module !== 'string')) return json({ error: 'Informe os módulos do funcionário.' }, 400);
+    if (body.kind === 'staff') {
+      const { error: modulesError } = await client.rpc('validate_municipal_staff_modules', { p_prefeitura: args.p_prefeitura, p_channel: args.p_channel, p_disabled_modules: disabledModules });
+      if (modulesError) return json({ error: modulesError.message }, 403);
+    }
     // 144 bits de aleatoriedade, sem enviar e-mail de convite.
     const password = Array.from(crypto.getRandomValues(new Uint8Array(18)), byte => byte.toString(16).padStart(2, '0')).join('') + 'aA1!';
     const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password, email_confirm: true,
@@ -34,7 +40,7 @@ serve(async req => {
     });
     if (createError || !created.user) return json({ error: createError?.code === 'email_exists' || createError?.status === 422 ? 'Este e-mail já possui uma conta. Use a opção de vincular conta existente; a senha atual foi preservada.' : 'Não foi possível criar o acesso. Verifique o e-mail e tente novamente.' }, 400);
     createdUserId = created.user.id;
-    const { data, error: provisionError } = await client.rpc('provision_municipal_account', { ...args, p_user: created.user.id, p_name: body.name ?? null });
+    const { data, error: provisionError } = await client.rpc('provision_municipal_account_modules', { ...args, p_user: created.user.id, p_name: body.name ?? null, p_disabled_modules: disabledModules });
     if (provisionError) {
       await admin.auth.admin.deleteUser(created.user.id);
       createdUserId = null;

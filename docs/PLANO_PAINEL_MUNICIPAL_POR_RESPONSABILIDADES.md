@@ -8,7 +8,7 @@
 
 ## 1. Resultado esperado e escopo
 
-**Decisão de organização revisada:** a secretaria determina os tipos de solicitação, os mapas e os serviços pelos quais responde. O cadastro do funcionário informa a secretaria e o cargo; não repete a seleção de módulos. A autorização efetiva é a combinação **escopo da secretaria × ações do cargo × vínculo ativo**.
+**Decisão de organização revisada em 13/11/2026:** a secretaria determina os tipos de solicitação, os mapas e os serviços pelos quais responde. O funcionário herda esse escopo; o administrador pode desmarcar módulos individualmente em **Módulos com acesso**, tanto na criação quanto no vínculo e na edição. O cargo continua separado. A autorização efetiva é a combinação **escopo da secretaria × módulos liberados para a pessoa × ações do cargo × vínculo ativo**. A migração 426 registra somente as exceções, sem ampliar o escopo da secretaria.
 
 Exemplo: Agricultura pode receber Poda e cuidar do inventário de árvores. Seu gestor não recebe postes nem execução elétrica. Iluminação pode receber solicitações de lâmpada apagada, manter postes e habilitar eletricistas. Os nomes das secretarias não concedem acesso: o administrador configura essas áreas explicitamente.
 

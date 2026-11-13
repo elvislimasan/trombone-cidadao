@@ -12,12 +12,12 @@ import { cityStateUf } from '@/lib/cityLocation';
 import { municipalContextPath } from '@/lib/municipalAccess';
 import { TERRITORIAL_BASE } from '@/lib/territorialAccess';
 
-export default function TreeAdoptionManagementPage({ section = 'requests' }) {
+export default function TreeAdoptionManagementPage({ section = 'requests', admin = false }) {
   const workspace = useOutletContext();
   const { user } = useAuth();
   const access = usePermissions();
   const { cities, loadingCities, activeCityId } = useCity();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const municipal = Boolean(workspace?.municipality);
   // Gestores do inventário sem vínculo municipal usam a mesma fila, limitada
   // às suas cidades. No painel, a prefeitura ativa define o escopo da tela.
@@ -33,10 +33,10 @@ export default function TreeAdoptionManagementPage({ section = 'requests' }) {
 
   const cityLabel = [city.name, cityStateUf(city)].filter(Boolean).join(' · ');
   return <main className="tree-adoption-management-page page-shell-fluid" style={{ paddingInline: 'clamp(1rem, 2vw, 2rem)' }}>
-    <Helmet><title>{section === 'community' ? 'Árvores da comunidade' : section === 'nurseries' ? 'Viveiros e mudas' : 'Solicitações'} · Adote uma árvore | Prefeitura</title><meta name="robots" content="noindex" /></Helmet>
+    <Helmet><title>{section === 'community' ? 'Árvores da comunidade' : section === 'nurseries' ? 'Viveiros e mudas' : 'Solicitações'} · Adote uma árvore | {admin ? 'Admin' : 'Prefeitura'}</title><meta name="robots" content="noindex" /></Helmet>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-xs font-semibold text-brand">Atendimento municipal · {cityLabel}</p>
-      {(municipal ? workspace.inventoryModules?.includes('arborization') : allowedCities.length > 0) && <Button asChild variant="outline" size="sm"><Link to={municipalContextPath(`${TERRITORIAL_BASE}/arborizacao`, city.id, workspace?.activeChannelId)}>Voltar ao inventário</Link></Button>}
+      {!municipal && allowedCities.length > 1 ? <label className="grid gap-1 text-sm font-medium">Cidade<select className="min-h-[44px] rounded-md border bg-background px-3" value={city.id} onChange={event => setParams(current => { const next = new URLSearchParams(current); next.set('cidade', event.target.value); return next; })}>{allowedCities.map(row => <option key={row.id} value={row.id}>{[row.name, cityStateUf(row)].filter(Boolean).join(' · ')}</option>)}</select></label> : <p className="text-xs font-semibold text-brand">{admin ? 'Admin' : 'Atendimento municipal'} · {cityLabel}</p>}
+      <div className="flex flex-wrap gap-2">{admin && <Button asChild variant="outline" size="sm"><Link to="/admin">Painel do admin</Link></Button>}{(municipal ? workspace.inventoryModules?.includes('arborization') : allowedCities.length > 0) && <Button asChild variant="outline" size="sm"><Link to={municipalContextPath(admin ? '/admin/arborizacao' : `${TERRITORIAL_BASE}/arborizacao`, city.id, workspace?.activeChannelId)}>Voltar ao inventário</Link></Button>}</div>
     </div>
     <div className="tree-adoption-management-panel rounded-xl border border-edge-subtle bg-surface-raised">
       {section === 'community' ? <CommunityTreeReview key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} /> : section === 'nurseries' ? <TreeNurseriesManagement key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} city={city} /> : <TreeAdoptionRequests key={`${user?.id}:${city.id}:${workspace?.activeChannelId || ''}`} cityId={city.id} city={city} management headingLevel={1} />}

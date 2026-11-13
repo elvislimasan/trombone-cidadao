@@ -28,8 +28,9 @@ import { MunicipalPageHeader } from '@/components/municipality/MunicipalPageUi';
 import { loadMunicipalRows } from '@/lib/municipalTable';
 import { MUNICIPAL_STAFF_ROLES } from '@/lib/municipalAccess';
 import { notifyPermissionsChanged } from '@/lib/permissionUpdates';
+import { enabledStaffModules, initialStaffAccess } from '@/lib/municipalStaffModules';
 
-const EMPTY_ACCESS = { cargos: [] };
+const EMPTY_ACCESS = initialStaffAccess();
 const accessLabel = access => (access?.cargos || []).map(id => MUNICIPAL_STAFF_ROLES.find(role => role.id === id)?.label || id).join(' · ') || 'Sem cargo configurado';
 const memberDate = (value) => value ? new Date(value).toLocaleDateString('pt-BR') : 'Não informada';
 
@@ -166,6 +167,7 @@ export default function MunicipalityTeamPage() {
       const data = await createMunicipalAccount({
         kind: 'staff', prefeitura_id: scopeId, channel_id: inviteChannelId,
         email: email.trim().toLowerCase(), roles: inviteAccess.cargos,
+        disabled_modules: inviteAccess.disabled_modules || [],
       });
       if (scope.current !== invitedScope) return;
       setCredentials(data);
@@ -182,8 +184,9 @@ export default function MunicipalityTeamPage() {
     setWorking(true); setAssignError('');
     const assignedScope = scopeKey;
     try {
-      const { error } = await supabase.rpc('municipal_assign_existing_public_official', {
+      const { error } = await supabase.rpc('municipal_assign_public_official_modules', {
         p_prefeitura: scopeId, p_canal: assignChannelId, p_user: assignUserId, p_cargos: assignAccess.cargos,
+        p_disabled_modules: assignAccess.disabled_modules || [],
       });
       if (scope.current !== assignedScope) return;
       if (error) throw error;
@@ -203,8 +206,9 @@ export default function MunicipalityTeamPage() {
     const savedScope = scopeKey;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc('set_municipal_staff_roles', {
+      const { error } = await supabase.rpc('set_municipal_staff_access', {
         p_member_id: selected.id, p_cargos: editAccess.cargos, p_active: editActive, p_version: selected.access?.versao ?? 0,
+        p_disabled_modules: editAccess.disabled_modules || [],
       });
       if (error) throw error;
       if (scope.current !== savedScope) return;
@@ -268,12 +272,12 @@ export default function MunicipalityTeamPage() {
                     const nextId = event.target.value;
                     const nextChannel = channels.find(channel => String(channel.id) === String(nextId));
                     setAssignChannelId(nextId); setAssignUserId(''); setAssignError('');
-                    setAssignAccess(nextChannel && !(nextChannel.categorias || []).length ? { cargos: ['inventario'] } : EMPTY_ACCESS);
+                    setAssignAccess(initialStaffAccess(nextChannel));
                   }} className="mt-1 h-10 w-full rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map(channel => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
                   <div><Label htmlFor="assign-user">Funcionário Órgão Público</Label><select id="assign-user" required disabled={working || !assignChannelId} value={assignUserId} onChange={event => setAssignUserId(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione um funcionário</option>{assignableOfficials.map(candidate => <option key={candidate.user_id} value={candidate.user_id}>{candidate.name || 'Perfil sem nome'}{candidate.phone ? ` · ${candidate.phone}` : ''}</option>)}</select>
                     {assignChannelId && assignableOfficials.length === 0 && <p className="mt-1 text-xs text-content-secondary">Não há contas Órgão Público disponíveis para esta secretaria. Crie um acesso com senha temporária para novos servidores.</p>}
                   </div>
-                  <MunicipalStaffResponsibilities value={assignAccess} onChange={setAssignAccess} disabled={working} roles={assignRoles} />
+                  <MunicipalStaffResponsibilities value={assignAccess} onChange={setAssignAccess} disabled={working} roles={assignRoles} channel={selectedAssignChannel} />
                   {assignError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{assignError}</p>}
                 </form>
               </section>
@@ -292,9 +296,9 @@ export default function MunicipalityTeamPage() {
 
               {!credentials && <form id="municipal-create-access-form" onSubmit={createAccess} className="mt-5 grid gap-4">
                 <div className="rounded-xl bg-surface-subtle p-3 text-sm"><p className="font-semibold">{municipality?.cidade?.name || municipality?.nome}{municipality?.cidade?.states?.uf ? ` · ${municipality.cidade.states.uf}` : ''}</p><p className="mt-1 text-xs text-content-secondary">Conta Órgão Público vinculada à prefeitura ativa. Cadastro pessoal no primeiro acesso e troca obrigatória da senha após 24 horas da geração.</p></div>
-                <div><Label htmlFor="invite-channel">Secretaria do funcionário</Label><select id="invite-channel" required disabled={working || Boolean(credentials)} value={inviteChannelId} onChange={(event) => { const nextId = event.target.value; const nextChannel = channels.find(channel => String(channel.id) === String(nextId)); setInviteChannelId(nextId); setInviteAccess(nextChannel && !(nextChannel.categorias || []).length ? { cargos: ['inventario'] } : EMPTY_ACCESS); }} className="mt-1 h-10 w-full min-w-0 rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map((channel) => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
+                <div><Label htmlFor="invite-channel">Secretaria do funcionário</Label><select id="invite-channel" required disabled={working || Boolean(credentials)} value={inviteChannelId} onChange={(event) => { const nextId = event.target.value; const nextChannel = channels.find(channel => String(channel.id) === String(nextId)); setInviteChannelId(nextId); setInviteAccess(initialStaffAccess(nextChannel)); }} className="mt-1 h-10 w-full min-w-0 rounded-md border border-edge-strong bg-surface-raised px-3 text-sm"><option value="">Selecione a secretaria</option>{channels.filter(channel => channel.ativo).map((channel) => <option key={channel.id} value={channel.id}>{channel.nome}</option>)}</select></div>
                 <div><Label htmlFor="team-email">E-mail institucional</Label><Input id="team-email" type="email" required disabled={working || Boolean(credentials)} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="servidor@prefeitura.gov.br" /></div>
-                <MunicipalStaffResponsibilities value={inviteAccess} onChange={setInviteAccess} disabled={working || Boolean(credentials)} roles={inviteRoles} />
+                <MunicipalStaffResponsibilities value={inviteAccess} onChange={setInviteAccess} disabled={working || Boolean(credentials)} roles={inviteRoles} channel={selectedInviteChannel} />
 
                 {inviteError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{inviteError}</p>}
               </form>}
@@ -330,7 +334,7 @@ export default function MunicipalityTeamPage() {
                 { key: 'nome', label: 'Nome', width: '18%', value: (member) => member.perfil?.name || 'Servidor municipal', render: (member) => <span className="font-bold text-content-primary">{member.perfil?.name || 'Servidor municipal'}</span> },
                 { key: 'email', label: 'E-mail', width: '21%', value: (member) => member.email, render: (member) => <span className="break-all">{member.email || 'Não informado'}</span> },
                 { key: 'secretaria', label: 'Secretaria', width: '18%', value: (member) => channelName(member.canal_id) },
-                { key: 'role', label: 'Acesso', value: (member) => accessLabel(member.access) },
+                { key: 'role', label: 'Acesso', value: (member) => accessLabel(member.access), render: member => { const channel = channels.find(row => row.id === member.canal_id); return <div><span>{accessLabel(member.access)}</span>{channel?.municipal_modules?.length > 0 && <span className="mt-1 block text-xs text-content-secondary">{enabledStaffModules(channel, member.access).map(module => module.label).join(' · ') || 'Nenhum módulo habilitado'}</span>}</div>; } },
                 { key: 'status', label: 'Situação', value: (member) => member.ativo ? 'Ativo' : 'Suspenso', render: (member) => <span className={`rounded-full px-2 py-1 text-xs font-semibold ${member.ativo ? 'bg-success-bg text-success-fg' : 'bg-surface-subtle text-content-secondary'}`}>{member.ativo ? 'Ativo' : 'Suspenso'}</span> },
                 { key: 'date', label: 'Na plataforma desde', value: (member) => member.created_at || '', render: (member) => memberDate(member.created_at) },
               ]} />
@@ -343,7 +347,7 @@ export default function MunicipalityTeamPage() {
                   <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><CalendarDays className="h-4 w-4" />Na plataforma desde</dt><dd className="mt-1">{memberDate(selected.created_at)}</dd></div>
                 </dl>
                 <p className="text-xs leading-5 text-content-secondary">Os dados pessoais são mantidos pelo próprio usuário no perfil. Aqui você gerencia o acesso à secretaria.</p>
-                <MunicipalStaffResponsibilities value={editAccess} onChange={setEditAccess} disabled={saving} />
+                <MunicipalStaffResponsibilities value={editAccess} onChange={setEditAccess} disabled={saving} channel={channels.find(channel => channel.id === selected.canal_id)} />
 
                 <div><Label htmlFor="edit-member-status">Situação do acesso</Label><select id="edit-member-status" value={String(editActive)} disabled={saving} onChange={(event) => setEditActive(event.target.value === 'true')} className="mt-2 h-10 w-full rounded-md border border-edge-subtle bg-surface-raised px-3"><option value="true">Ativo</option><option value="false">Suspenso</option></select><p className="mt-2 text-xs text-content-secondary">Suspender remove o acesso a esta secretaria; o cadastro e o histórico permanecem.</p></div>
               </div>}

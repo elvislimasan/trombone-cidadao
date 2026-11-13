@@ -37,6 +37,7 @@ const stubs = {
       species[0].planting_guidance='Orientação de plantio e cuidados com a muda. '.repeat(15);
       if(location.search.includes('edit-sparse'))availability.forEach(row=>{if(row.species_id!=='species1'||row.provider!=='viveiro_municipal')row.status='indisponivel'});
     }
+    window.plantingSettings={64:!location.search.includes('planting-settings-audit'),65:false};window.seedlingsSettings={64:!location.search.includes('seedlings-paused'),65:true};window.settingsSaves=[];
     const initialAvailability=structuredClone(availability);
     window.clearAvailability=()=>{availability=[]};window.restoreAvailability=()=>{availability=structuredClone(initialAvailability)};
     window.requests=/(manager|attendant|details-audit)/.test(location.search)?[{id:'12345678-0000-0000-0000-000000000001',city_id:64,author_id:'citizen',species_id:'species1',request_type:'plantio',zone:'urbana',planting_place:'calcada',purpose:'sombra',overhead_wiring:'sim',provider:'viveiro_municipal',address:'Rua do Plantio, 20',neighborhood:'Centro',latitude:-8.6,longitude:-38.57,status:'solicitada',created_at:new Date().toISOString(),species:species[0]}]:[];
@@ -54,8 +55,13 @@ const stubs = {
       if(name==='update_tree_adoption'){const row=window.requests.find(r=>r.id===args.p_id);if(row.status!==args.p_expected_status)return {error:{message:'Pedido atualizado por outra pessoa.'}};Object.assign(row,{status:args.p_status,approved_species_id:args.p_details.species_id,confirmed_provider:args.p_details.provider});window.events.push({id:crypto.randomUUID(),request_id:row.id,status:row.status,message:args.p_message,created_at:new Date().toISOString()});return {data:row};}
       if(name==='edit_tree_adoption'){const row=window.requests.find(r=>r.id===args.p_id);Object.assign(row,args.p_changes,{status:'em_analise',approved_species_id:null,confirmed_provider:null,scheduled_at:null,updated_at:new Date().toISOString()});return {data:row};}
       return {data:[]};
-    },from(table){const filters=[],excludes=[];let start=0,end=999,payload,newSpecies,one=false;const q={select(){return q},eq(k,v){filters.push([k,v]);return q},in(){return q},single(){one=true;return q},maybeSingle(){one=true;return q},not(k,op,v){excludes.push([k,v===null?[null,undefined]:v.slice(1,-1).split(',')]);return q},order(){return q},limit(n){end=n-1;return q},range(a,b){start=a;end=b;return q},insert(v){newSpecies=v;return q},upsert(v){payload=v;return q},then(ok,fail){
+    },from(table){const filters=[],excludes=[];let start=0,end=999,payload,newSpecies,one=false;const q={select(){return q},or(){return q},is(){return q},eq(k,v){filters.push([k,v]);return q},in(){return q},single(){one=true;return q},maybeSingle(){one=true;return q},not(k,op,v){excludes.push([k,v===null?[null,undefined]:v.slice(1,-1).split(',')]);return q},order(){return q},limit(n){end=n-1;return q},range(a,b){start=a;end=b;return q},insert(v){newSpecies=v;return q},upsert(v){payload=v;return q},then(ok,fail){
       if(newSpecies){const row={id:'created-species',...newSpecies};species.push(row);return Promise.resolve({data:row,error:null}).then(ok,fail);}
+      if(table==='tree_adoption_settings'){
+        if(payload){if(window.failSettingsSave)return Promise.resolve({error:{message:'Falha ao salvar.'}}).then(ok,fail);if('planting_enabled' in payload)window.plantingSettings[payload.city_id]=payload.planting_enabled;if('seedlings_enabled' in payload)window.seedlingsSettings[payload.city_id]=payload.seedlings_enabled;window.settingsSaves.push(payload);return Promise.resolve({data:{city_id:payload.city_id,planting_enabled:window.plantingSettings[payload.city_id],seedlings_enabled:window.seedlingsSettings[payload.city_id]},error:null}).then(ok,fail);}
+        if(window.failSettingsLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
+        const cityId=filters.find(([key])=>key==='city_id')?.[1];return Promise.resolve({data:{city_id:cityId,planting_enabled:window.plantingSettings[cityId]===true,seedlings_enabled:window.seedlingsSettings[cityId]===true},error:null}).then(ok,fail);
+      }
       if(payload){if(window.failAvailabilitySave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);window.availabilitySaves.push(payload);for(const row of Array.isArray(payload)?payload:[payload]){availability=availability.filter(r=>r.species_id!==row.species_id||r.provider!==row.provider);availability.push({...row,updated_at:new Date().toISOString()});}return Promise.resolve({data:payload}).then(ok,fail);}
       if(table==='tree_species_availability'&&window.failAvailabilityLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
       if(table==='bairros'){
@@ -71,10 +77,11 @@ const stubs = {
 };
 await build({
   stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import{MemoryRouter,Routes,Route,useLocation}from'react-router-dom';import L from 'leaflet';import AdoptTreePage from '@/pages/AdoptTreePage';import{TreeAdoptionHomeSection}from'@/components/arborization/TreeAdoptionIntroduction';import Management from '@/pages/TreeAdoptionManagementPage';import Layout from '@/components/municipality/MunicipalityLayout';
+    import Admin from '@/pages/admin/AdminPage';
     if(location.search.includes('dark'))document.documentElement.classList.add('dark');L.Map.addInitHook(function(){window.testMap=this;});
     const desktop=matchMedia('(min-width:980px)').matches,management=/(manager|attendant|reader)/.test(location.search);
     function CitizenShell(){const route=useLocation(),params=new URLSearchParams(route.search),bounded=desktop&&['solicitar','minhas'].includes(params.get('aba'));if(route.pathname==='/login')return <pre data-testid="login-return">{JSON.stringify(route.state?.from)}</pre>;return <div className={'qa-app-root'+(bounded?' tree-adoption-app':'')}><header className="qa-site-header">Trombone Cidadão</header><main className={'qa-app-main'+(bounded?' tree-adoption-app-main':'')} style={{paddingTop:56,paddingBottom:bounded?0:80}}><div className="qa-route-outlet">{params.has('home-preview')?<div className="page-shell-fluid" style={{padding:'24px clamp(16px,2vw,32px)'}}><TreeAdoptionHomeSection cityId={64}/></div>:<AdoptTreePage/>}</div></main></div>}
-    createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={management?[location.search.includes('nursery-audit')?'/prefeitura/adote-uma-arvore/viveiros?cidade=64&secretaria=agri':'/prefeitura/adote-uma-arvore?cidade=64&secretaria=agri']:['/'+location.search]}>{management?<Routes><Route element={<Layout/>}><Route path="/prefeitura/adote-uma-arvore" element={<Management/>}/><Route path="/prefeitura/adote-uma-arvore/viveiros" element={<Management section="nurseries"/>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações da cidade</h1>}/><Route path="/prefeitura/gestao-territorial/arborizacao" element={<h1>Inventário de árvores</h1>}/></Route></Routes>:<CitizenShell/>}</MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
+    createRoot(document.getElementById('root')).render(<MemoryRouter initialEntries={location.search.includes('admin-panel')?['/admin']:management?[location.search.includes('nursery-audit')?'/prefeitura/adote-uma-arvore/viveiros?cidade=64&secretaria=agri':'/prefeitura/adote-uma-arvore?cidade=64&secretaria=agri']:['/'+location.search]}>{location.search.includes('admin-panel')?<Routes><Route path="/admin" element={<Admin/>}/><Route path="/admin/arborizacao/solicitacoes" element={<Management admin/>}/></Routes>:management?<Routes><Route element={<Layout/>}><Route path="/prefeitura/adote-uma-arvore" element={<Management/>}/><Route path="/prefeitura/adote-uma-arvore/viveiros" element={<Management section="nurseries"/>}/><Route path="/prefeitura/broncas" element={<h1>Solicitações da cidade</h1>}/><Route path="/prefeitura/gestao-territorial/arborizacao" element={<h1>Inventário de árvores</h1>}/></Route></Routes>:<CitizenShell/>}</MemoryRouter>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, jsx: 'automatic', loader: { '.png': 'dataurl' }, outfile: path.join(out, 'preview.js'),
   define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' }, alias: { '@': path.join(root, 'src') },
   plugins: [{ name: 'fixtures', setup(builder) {
@@ -91,7 +98,7 @@ sourceCss += '\n' + await fs.readFile(path.join(out, 'preview.css'), 'utf8');
 // reserva inferior/rodapé institucional na rota desktop de adoção.
 sourceCss += '\n.qa-app-root{display:flex;flex-direction:column;min-height:100vh}.qa-app-main,.qa-route-outlet{display:flex;flex-direction:column;flex:1;min-height:0}.qa-site-header{position:fixed;inset:0 0 auto;height:56px;z-index:1001;display:flex;align-items:center;padding-inline:32px;background:rgb(var(--brand));color:rgb(var(--text-on-brand));font-weight:700}';
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
-const css = await postcss([tailwind({ ...config, content: ['src/pages/AdoptTreePage.jsx', 'src/pages/TreeAdoptionManagementPage.jsx', 'src/components/municipality/MunicipalityLayout.jsx', 'src/components/arborization/*.jsx', 'src/components/municipality/MunicipalDemandLocation.jsx', 'src/components/LocationPickerMap.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
+const css = await postcss([tailwind({ ...config, content: ['src/pages/AdoptTreePage.jsx', 'src/pages/TreeAdoptionManagementPage.jsx', 'src/pages/admin/AdminPage.jsx', 'src/components/municipality/MunicipalityLayout.jsx', 'src/components/arborization/*.jsx', 'src/components/municipality/MunicipalDemandLocation.jsx', 'src/components/LocationPickerMap.jsx', 'src/components/CitySelector.jsx', 'src/components/ui/*.jsx'] })]).process(sourceCss, { from: path.join(root, 'src/index.css') });
 await fs.writeFile(path.join(out, 'preview.css'), css.css + '\n' + await fs.readFile('node_modules/leaflet/dist/leaflet.css', 'utf8'));
 const server = http.createServer(async (req, res) => {
   const file = req.url.split('?')[0];
@@ -156,7 +163,96 @@ try {
     if (stage==='revisao' && height>=900) assert.ok(await evaluate('[...document.querySelectorAll(".adoption-review-column")].every(el=>el.scrollHeight<=el.clientHeight+1)'), 'Revisão resumida deve caber sem rolagem interna');
     if (await evaluate('document.querySelector(".adoption-form").dataset.step==="0"')) assert.ok(await evaluate(`(()=>{const fields=document.querySelector('.adoption-request-form'),body=document.querySelector('.adoption-form-body'),f=fields.getBoundingClientRect(),b=body.getBoundingClientRect();return f.top>=b.top&&f.bottom<=b.bottom&&fields.scrollHeight<=fields.clientHeight+1})()`), 'Campos iniciais precisam caber na área do formulário');
   };
-  if (process.argv.includes('--nursery-audit')) {
+  if (process.argv.includes('--planting-settings-audit')) {
+    const setting = key => `document.querySelector('[data-setting="${key}"]')`;
+    const toggleSetting = async (key, value) => {
+      await waitFor(`${setting(key)}&&!${setting(key)}.disabled`);
+      await evaluate(`${setting(key)}.click()`);
+      await waitFor(`${setting(key)}.getAttribute('aria-checked')==='${value}'&&!${setting(key)}.disabled`);
+    };
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]) for (const theme of ['light', 'dark']) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?planting-settings-audit&manager&admin-panel');
+      await waitFor(`document.querySelector('a[href="/admin/arborizacao/solicitacoes"]')`);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await evaluate(`document.querySelector('a[href="/admin/arborizacao/solicitacoes"]').click()`);
+      await waitFor(`document.querySelector('[role="switch"]:not(:disabled)')`);
+      await evaluate(`document.documentElement.classList.toggle('dark',${theme === 'dark'})`);
+      assert.equal(await evaluate('document.querySelectorAll(".tree-adoption-settings [role=switch]").length'), 2);
+      assert.equal(await evaluate(`${setting('seedlingsEnabled')}.getAttribute('aria-checked')`), 'true');
+      assert.ok(await evaluate(`(()=>{const rows=[...document.querySelectorAll('.tree-adoption-settings-option')];return rows.every(row=>{const control=row.querySelector('[role=switch]'),label=row.querySelector('label'),r=row.getBoundingClientRect(),c=control.getBoundingClientRect();return label.control===control&&c.left>=r.left&&c.right<=r.right&&c.width>=44&&c.height>=24&&getComputedStyle(control).backgroundColor!=='rgba(0, 0, 0, 0)'})&&${width >= 640 ? "rows[0].getBoundingClientRect().top===rows[1].getBoundingClientRect().top" : "rows[0].getBoundingClientRect().bottom<rows[1].getBoundingClientRect().top"}})()`), 'Controles identificados e organizados em colunas no desktop e linhas no celular');
+      assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute("aria-checked")`),'false');
+      assert.ok(await evaluate('document.querySelector(".adoption-request-card")!==null'),'Pedidos antigos continuam visíveis');
+      if(width>=1200){
+        const bounds=await evaluate('(()=>{const r=document.querySelector(".tree-adoption-management-page").getBoundingClientRect();return {left:r.left,right:innerWidth-r.right,width:r.width}})()');
+        assert.ok(bounds.left<=64&&bounds.right<=64,JSON.stringify(bounds));
+      }
+      await evaluate(`document.querySelector('[role="switch"]').click()`);
+      await waitFor(`document.querySelector('[role="switch"]').getAttribute("aria-checked")==="true"`);
+      await evaluate(`window.failSettingsSave=true;document.querySelector('[role="switch"]').click()`);
+      await waitFor(`document.querySelector('.tree-adoption-settings [role="alert"]')`);
+      assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute("aria-checked")`),'true');
+      await evaluate(`window.failSettingsSave=false;document.querySelector('[role="switch"]').click()`);
+      await waitFor(`document.querySelector('[role="switch"]').getAttribute("aria-checked")==="false"`);
+      await toggleSetting('seedlingsEnabled', false);
+      assert.equal(await evaluate('window.plantingSettings[64]'), false);
+      await toggleSetting('plantingEnabled', true);
+      assert.equal(await evaluate('window.seedlingsSettings[64]'), false, 'Ativar plantio preserva a pausa de mudas');
+      await toggleSetting('plantingEnabled', false);
+      assert.ok(await evaluate('document.querySelector(".adoption-request-card")!==null'), 'Pausar as duas modalidades preserva a fila');
+      await capture('configuracoes-pausadas-'+theme+'-'+width);
+      await toggleSetting('seedlingsEnabled', true);
+      await capture('configuracoes-'+theme+'-'+width);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await navigate('?planting-settings-audit');
+      await waitFor('document.querySelector(".adoption-form")');
+      await waitFor('document.body.textContent.includes("apenas mudas para você retirar e plantar")');
+      assert.equal(await evaluate(`document.querySelector('input[value="plantio"]')===null`),true);
+      await radio('muda');
+      assert.ok(await evaluate(`document.querySelector('input[placeholder="000.000.000-00"]')!==null`));
+      await evaluate('window.plantingSettings[64]=true;window.dispatchEvent(new Event("tree-adoption-settings-updated"))');
+      await waitFor(`document.querySelector('input[value="plantio"]')`);
+      await radio('plantio');
+      await evaluate('window.plantingSettings[64]=false;window.dispatchEvent(new Event("tree-adoption-settings-updated"))');
+      await waitFor(`!document.querySelector('input[value="plantio"]')`);
+      assert.equal(await evaluate(`document.querySelector('input[value="muda"]').checked`),false,'Não converte plantio em retirada sem a escolha do usuário');
+      await click('Continuar');
+      await waitFor('document.querySelector(".adoption-form [role=alert]")');
+      assert.equal(await evaluate('document.querySelector(".adoption-form").dataset.step'),'0');
+      await evaluate('sessionStorage.setItem("tc_tree_adoption_draft:64:citizen",JSON.stringify({requestId:"95000000-0000-0000-0000-000000000001",step:3,form:{request_type:"plantio",purpose:"sombra",requester_name:"Maria da Silva"}}))');
+      await navigate('?planting-settings-audit');
+      await waitFor('document.querySelector(".adoption-form")?.dataset.step==="0"');
+      assert.ok(await evaluate(`document.querySelector('input[value="muda"]')&&!document.querySelector('input[value="muda"]').checked`));
+      await radio('muda');await capture('plantio-cidadao-'+width);
+      await evaluate('window.seedlingsSettings[64]=false;window.dispatchEvent(new Event("tree-adoption-settings-updated"))');
+      await waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Novas solicitações de plantio e mudas estão temporariamente desativadas")');
+      assert.ok(await evaluate('!document.querySelector(".adoption-form")'), 'Pausar ambas bloqueia o formulário aberto');
+      await evaluate('window.plantingSettings[64]=true;window.dispatchEvent(new Event("tree-adoption-settings-updated"))');
+      await waitFor('document.querySelector("input[value=plantio]")');
+      assert.ok(await evaluate('!document.querySelector("input[value=muda]")'), 'Mudas pausadas não aparecem como opção');
+      await radio('plantio');
+      assert.ok(await evaluate(`!document.querySelector('input[placeholder="000.000.000-00"]')`), 'Plantio não exige CPF de retirada');
+      await evaluate('window.failSettingsLoad=true;window.dispatchEvent(new Event("tree-adoption-settings-updated"))');
+      await waitFor('document.querySelector("[role=dialog] [role=alert]")');
+      assert.ok(await evaluate('!document.querySelector(".adoption-form")'), 'Falha de consulta não libera pedidos pausados');
+      await evaluate('window.failSettingsLoad=false');await click('Tentar novamente');
+      await waitFor('document.querySelector("input[value=plantio]")');
+      await navigate('?planting-settings-audit&seedlings-paused');
+      await waitFor('document.querySelector("[role=dialog]")?.textContent.includes("Novas solicitações de plantio e mudas estão temporariamente desativadas")');
+      assert.ok(await evaluate('!document.querySelector(".adoption-form")'), 'Link direto respeita as duas modalidades pausadas');
+      await click('Meus pedidos');
+      await waitFor('!document.querySelector("[role=dialog]")&&document.querySelector(".tree-requests-page")');
+      await navigate('?planting-settings-audit&seedlings-paused&overview');
+      await waitFor('document.querySelector(".adoption-program-request-actions button")?.disabled');
+      assert.ok(await evaluate('document.querySelector(".adoption-program-note").textContent.includes("temporariamente desativadas")'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      console.log(width+'px '+theme+': dois controles, quatro combinações, falhas, rascunhos e acesso a pedidos existentes OK.');
+    }
+    await navigate('?planting-settings-audit&attendant');
+    await waitFor(`document.querySelector('[role="switch"]')`);
+    assert.ok(await evaluate(`[...document.querySelectorAll('.tree-adoption-settings [role="switch"]')].every(el=>el.disabled)`));
+    console.log('Atendente sem permissão de configuração; erros de execução: '+errors.length);
+  } else if (process.argv.includes('--nursery-audit')) {
     let scenarios=0;
     for(const [width,height] of [[390,844],[844,390],[1440,900],[1920,1080]]) for(const theme of ['light','dark']) {
       await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
@@ -245,7 +341,46 @@ try {
     console.log(JSON.stringify({scenarios,touchAndWheelScroll:true,lastSection:true,focusReturn:true,retry:true}));
   } else
 
-  if (process.argv.includes('--species-layout')) {
+  if (process.argv.includes('--selected-species-audit')) {
+    let scenarios = 0;
+    for (const [width, height] of [[390, 844], [1440, 900], [1920, 1080]]) for (const theme of ['light', 'dark']) for (const editing of [true, false]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
+      const items = [{ species_id: 'extra20', quantity: 1, provider: 'viveiro_municipal' }];
+      if (editing) {
+        await navigate('?manager&details-audit');await waitFor('document.querySelector(".adoption-request-card")');
+        await evaluate(`window.requests[0].items=${JSON.stringify(items)};window.requests[0].species_id='extra20'`);
+        await click('Ver pedido e histórico');await click('Alterar pedido');
+      } else {
+        await navigate();await waitFor('document.querySelector(".adoption-form")');
+        const draft = { requestId: crypto.randomUUID(), step: 2, form: { request_type: 'plantio', items, species_id: 'extra20', provider: 'viveiro_municipal' } };
+        await evaluate(`sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',${JSON.stringify(JSON.stringify(draft))})`);
+        await navigate('?resume');
+      }
+      await waitFor('document.querySelector(".tree-seedling-card")');
+      await evaluate(`document.documentElement.classList.toggle('dark',${theme === 'dark'})`);
+      assert.equal(await evaluate('document.querySelector(".tree-seedling-card").dataset.speciesId'), 'extra20', 'Seleção de uma página posterior aparece no topo ao abrir');
+      await click('Próxima');
+      const nextId = await evaluate('document.querySelector(".tree-seedling-card").dataset.speciesId');
+      await evaluate(`document.querySelector('[data-species-id="${nextId}"] input[type=checkbox]').click()`);
+      await waitFor('document.querySelector(".tree-seedling-pagination > span").textContent.startsWith("1 de")');
+      assert.deepEqual((await evaluate('[...document.querySelectorAll(".tree-seedling-card")].slice(0,2).map(card=>card.dataset.speciesId)')).sort(), ['extra20', nextId].sort(), 'Selecionadas ficam antes da paginação');
+      assert.ok(await evaluate('[...document.querySelectorAll(".tree-seedling-card")].slice(0,2).every(card=>card.querySelector("input[type=checkbox]").checked)'));
+      await evaluate('document.querySelector("[data-species-id=extra20] input[type=checkbox]").click()');
+      assert.equal(await evaluate('document.querySelector(".tree-seedling-card").dataset.speciesId'), nextId, 'Desmarcar retira a espécie do grupo prioritário');
+      await click('Escolhidas (1)');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-seedling-card").length'), 1);
+      await click('Ver todas');
+      assert.equal(await evaluate('document.querySelector(".tree-seedling-card").dataset.speciesId'), nextId);
+      await input('Buscar espécie', 'sem resultado');
+      assert.equal(await evaluate('document.querySelectorAll(".tree-seedling-card").length'), 0, 'Ordenação preserva a busca');
+      await input('Buscar espécie', '');
+      await waitFor('document.querySelector(".tree-seedling-card")');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture(`especies-selecionadas-${editing ? 'edicao' : 'novo'}-${theme}-${width}`);
+      scenarios++;
+    }
+    console.log(JSON.stringify({ scenarios, selectedFirst: true, pagination: true, deselection: true, filters: true }));
+  } else if (process.argv.includes('--species-layout')) {
     const draft = { requestId: '95000000-0000-0000-0000-000000000001', step: 2, form: { request_type: 'muda', purpose: 'sombra', zone: 'urbana', planting_place: 'quintal', overhead_wiring: 'nao', address: 'Rua do Plantio, 20', neighborhood: 'Centro', latitude: -8.6, longitude: -38.57, requester_name: 'Maria da Silva', requester_phone: '87999999999', items: [], commitment: false } };
     for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1440, 900], [1920, 1080]]) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 768 }, sessionId);
@@ -829,5 +964,5 @@ try {
   }
   }
   assert.deepEqual(errors, []);
-  if(!process.argv.includes('--details-audit')&&!process.argv.includes('--nursery-audit')&&!process.argv.includes('--species-layout')) console.log(process.argv.includes('--consistent-forms') ? 'Padronização: 10 combinações de largura/tema, quatro etapas e erros de execução: 0.' : 'Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
+  if(!process.argv.includes('--planting-settings-audit')&&!process.argv.includes('--details-audit')&&!process.argv.includes('--nursery-audit')&&!process.argv.includes('--species-layout')&&!process.argv.includes('--selected-species-audit')) console.log(process.argv.includes('--consistent-forms') ? 'Padronização: 10 combinações de largura/tema, quatro etapas e erros de execução: 0.' : 'Atendente: análise sem aprovação. Troca de cidade: rascunho limpo. Visitante: login antes do formulário. Erros de execução: 0.');
 } finally { ws?.close(); chrome.kill(); server.close(); }

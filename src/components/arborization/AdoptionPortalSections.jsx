@@ -50,11 +50,12 @@ export function AdoptionCareActions({ cityId }) {
   </section>;
 }
 
-export function AdoptionProgramFaq({ cityName }) {
+export function AdoptionProgramFaq({ cityName, plantingEnabled = false, seedlingsEnabled = true }) {
   return <section className="adoption-program-faq" aria-labelledby="adoption-faq-title">
     <div className="adoption-faq-intro"><span><MessageCircle size={29} aria-hidden="true" /></span><div><h2 id="adoption-faq-title">Dúvidas frequentes</h2><p>Veja as respostas para as principais perguntas sobre o programa de arborização{cityName ? ` em ${cityName}` : ''}.</p></div></div>
     <div className="adoption-faq-questions">{[
       ['Quem pode participar?', 'Entre na sua conta para solicitar e acompanhar o pedido. O atendimento depende da disponibilidade na cidade selecionada.'],
+      ['Quem realiza o plantio?', plantingEnabled && seedlingsEnabled ? 'Você pode pedir mudas para retirar e plantar ou solicitar o plantio pela equipe. Aguarde a confirmação do atendimento.' : plantingEnabled ? 'Neste momento, apenas o plantio pela equipe está disponível. Aguarde a confirmação do atendimento.' : seedlingsEnabled ? 'Neste momento, o programa recebe apenas pedidos de mudas. Você retira e planta seguindo as orientações da equipe. A solicitação de plantio pela equipe está desativada.' : 'Novas solicitações de plantio e mudas estão temporariamente desativadas nesta cidade. Pedidos já recebidos continuam no atendimento.'],
       ['Quando posso retirar ou plantar?', 'Aguarde a confirmação da equipe. Em calçadas, praças e outros espaços públicos, o plantio precisa de autorização.'],
       ['Já tenho uma árvore. Posso participar?', 'Sim. Cadastre uma foto e a localização em “Cadastrar minha árvore”. Você pode começar o diário de cuidados enquanto a equipe analisa o cadastro.'],
       ['E depois do plantio?', 'Cadastre sua árvore em “Minhas árvores” e registre regas, fotos do crescimento e observações. Siga as orientações da equipe para cuidar da espécie. Você escolhe quais registros compartilhar.'],

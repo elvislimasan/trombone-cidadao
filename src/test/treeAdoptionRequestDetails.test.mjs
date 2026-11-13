@@ -24,6 +24,7 @@ const mocks = {
   './TreeAdoptionRequestCard': { __esModule: true, default: () => null, AdoptionStatus: ({ status }) => React.createElement('span', {}, adoption.ADOPTION_STATUSES[status]) },
   './TreeAdoptionReceiptButton': { __esModule: true, default: () => null },
   './TreeAdoptionEditDialog': { __esModule: true, default: () => null },
+  './TreeAdoptionSettings': { __esModule: true, default: () => null },
   './TreeAdoptionPickup': { __esModule: true, default: () => null },
   './treeAdoptionManagement.css': {},
   './TreeProgramPhoto': { __esModule: true, default: () => null },

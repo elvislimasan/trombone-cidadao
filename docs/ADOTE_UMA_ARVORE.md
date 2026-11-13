@@ -30,7 +30,7 @@ Ao cadastrar ou alterar uma oferta para **Disponível**, o banco envia uma únic
 
 ## Solicitação do cidadão
 
-1. **Seu pedido:** escolher receber uma muda ou solicitar plantio pela equipe, e a finalidade (sombra, ornamentação ou frutífera), com opções visíveis em cartões.
+1. **Seu pedido:** escolher receber mudas e a finalidade (sombra, ornamentação ou frutífera), com opções visíveis em cartões. O pedido de plantio pela equipe aparece somente quando ativado pela gestão na cidade.
 2. **Local de plantio:** marcar o ponto no mapa, informar zona urbana/rural, tipo de espaço, endereço/localidade e presença de fiação aérea. No desktop, mapa e campos ficam lado a lado; no celular, o mapa aparece antes dos campos de endereço. As coordenadas ficam disponíveis em um detalhe expansível.
 3. **Árvore e fornecedor:** buscar no catálogo por nome popular, regional ou científico, escolher uma espécie e consultar o fornecedor. A página mostra resumo, indicação para calçada e orientação de plantio.
 4. **Revisão:** conferir pedido, endereço e espécie em uma coluna, com o mapa do ponto já aberto ao lado. Há ações para alterar cada seção ou ajustar o local, observações opcionais e compromisso de cuidado. Em área pública, o plantio depende da autorização da equipe. No desktop, a revisão ocupa a altura disponível e mantém o envio visível.
@@ -67,6 +67,7 @@ Diagnóstico do banco vinculado em 27/10/2026, em transação somente de leitura
 
 ## Atendimento nos painéis existentes
 
+- **Painel do admin → Solicitações de árvores**: acesso direto em `/admin/arborizacao/solicitacoes`, com a mesma fila e histórico do atendimento municipal. O seletor de cidade mostra apenas cidades autorizadas; o master pode selecionar qualquer cidade. O cartão do painel indica pedidos com status **Solicitação enviada**, respeitando a RLS.
 - **Prefeitura → Adote uma árvore**: tela exclusiva de atendimento em `/prefeitura/adote-uma-arvore?cidade=ID`, com fila, histórico, avaliação e disponibilidade dos fornecedores. O menu aparece para administradores municipais, gestores do inventário e gestores/atendentes responsáveis pela categoria `poda` (Arborização), conforme a cidade e a secretaria ativas. A autorização final continua no servidor.
 - **Gestão de Arborização → Atender solicitações**: abre a mesma tela exclusiva, mantendo a cidade e a secretaria. O inventário não incorpora a fila nem exibe o convite para solicitar uma muda ou plantio.
 - O convite e o formulário de solicitação pertencem ao fluxo público do cidadão. Links antigos com `/prefeitura/demandas?programa=adote-uma-arvore` redirecionam para a tela exclusiva.
@@ -74,6 +75,14 @@ Diagnóstico do banco vinculado em 27/10/2026, em transação somente de leitura
 Os pedidos têm um fluxo específico de adoção, compartilhado pelos dois painéis. Não são duplicados como broncas ou ordens de serviço genéricas. As tabelas são `tree_adoption_requests`, `tree_adoption_events` e `tree_species_availability`; os catálogos e o inventário continuam sendo `city_tree_species` e `city_trees`.
 
 Atendentes podem receber, analisar, enviar orientações e registrar pendências de informação ou disponibilidade. Gestores de Arborização, administradores municipais e gestores da secretaria com permissão de distribuição podem aprovar, recusar, cancelar administrativamente, agendar e concluir. O servidor verifica as permissões vigentes por cidade em cada consulta e atualização; a interface não concede permissões por conta própria.
+
+### Configurações de solicitações
+
+Aplicar `425_tree_adoption_planting_settings.sql` e `427_tree_adoption_seedlings_settings.sql` após as migrações anteriores e publicar a aplicação atualizada. As configurações são independentes por cidade: `tree_adoption_settings.planting_enabled` começa **desativada** e `seedlings_enabled` começa **ativada**, inclusive quando ainda não existe registro de configuração. A nova migração preserva o estado de plantio e mantém mudas disponíveis nas cidades existentes. A solicitação de mudas continua seguindo as regras de disponibilidade e CPF existentes.
+
+A seção **Configurações** aparece na fila de atendimento, tanto no admin quanto na prefeitura, com dois controles: **Plantio pela equipe** e **Solicitação de mudas**. Podem ser ativados ou desativados separadamente, inclusive pausando ambos. Somente quem tem `can_dispatch_tree_adoption` na cidade pode alterar a configuração; atendentes têm leitura. Desativar impede novos pedidos da modalidade no banco, inclusive por clientes antigos ou chamadas diretas. Pedidos existentes continuam disponíveis para acompanhamento, edição e atendimento, e reenvios idempotentes continuam retornando o pedido já gravado.
+
+O formulário mostra apenas as modalidades ativadas. Quando ambas estão desativadas, informa a pausa e mantém o acesso a **Meus pedidos**. Falhas na consulta bloqueiam novos envios e oferecem tentar novamente. Rascunhos de uma modalidade desativada voltam à primeira etapa sem converter a solicitação automaticamente: o cidadão precisa escolher uma opção disponível e, para mudas, informar o CPF. A configuração é consultada novamente ao retornar à janela, ao alterar o controle e após uma rejeição de regra no envio.
 
 ### Etapas
 
@@ -96,6 +105,9 @@ powershell -File tools/validate-arborization-db.ps1 -TestFile supabase/tests/tre
 node --import ./tools/test-alias.mjs --test src/test/treePickup.test.mjs
 node tools/validate-tree-adoption-ui.mjs
 node tools/validate-tree-adoption-ui.mjs --edit-catalog-audit
+node --test --test-isolation=none src/test/treeAdoptionSettings.test.mjs
+node tools/validate-tree-adoption-settings-db.mjs
+node tools/validate-tree-adoption-ui.mjs --planting-settings-audit
 powershell -File tools/validate-arborization-db.ps1 -TestFile supabase/tests/tree_adoption_edit_consultation.sql
 npx vite build
 ```

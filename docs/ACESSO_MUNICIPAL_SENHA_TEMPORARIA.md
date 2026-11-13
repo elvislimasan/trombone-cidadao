@@ -1,6 +1,6 @@
 # Acesso municipal com senha temporária
 
-Administradores da plataforma criam acessos em **Prefeituras e acessos → Criar acesso de administrador**. Administradores municipais criam funcionários em **Equipe e acessos → Criar acesso de funcionário**, escolhendo secretaria e cargos.
+Administradores da plataforma criam acessos em **Prefeituras e acessos → Criar acesso de administrador**. Administradores municipais criam funcionários em **Equipe e acessos → Criar acesso de funcionário**, escolhendo secretaria, cargos e módulos com acesso.
 
 O sistema cria a conta sem enviar convite e mostra e-mail e senha aleatória uma única vez, com botão para copiar. O prazo de 24 horas começa na geração, não no primeiro login. No primeiro acesso são obrigatórios nome completo, telefone com DDD e aceite dos termos; cidade, prefeitura e cargos vêm da administração. Depois de 24 horas, o usuário precisa definir uma senha pessoal para continuar, inclusive se já estiver conectado. Pode trocar antes pelo fluxo normal de alteração de senha. A troca é confirmada pelo Auth no servidor; metadados enviados pelo cliente não liberam o acesso.
 
@@ -20,7 +20,19 @@ Se a função responder `Could not find the function public.validate_municipal_p
 
 A migração registra `public.check_municipal_account` em `pgrst.db_pre_request` do papel `authenticator`, bloqueando consultas e RPCs de contas provisionadas com cadastro pendente ou senha vencida. A leitura necessária à inicialização da sessão e os RPCs de cadastro/status continuam disponíveis. Se o ambiente possuir um hook próprio de PostgREST fora deste repositório, componha os dois hooks antes de aplicar a migração. Contas anteriores sem registro em `municipal_account_setup` mantêm o fluxo existente.
 
+## Módulos por funcionário
+
+Aplicar `426_municipal_staff_modules.sql` após as migrações anteriores, republicar `create-municipal-account` e depois publicar o frontend. A criação passa a usar o RPC atômico `provision_municipal_account_modules`; publicar somente a interface não atualiza a função de provisionamento.
+
+Na criação, no vínculo de conta existente e na edição, **Módulos com acesso** lista somente as áreas configuradas para a secretaria: Arborização, Operação-pipa, Iluminação e Ruas. Todas começam marcadas. Desmarcar cria uma exceção para aquele vínculo, sem mudar o cargo ou os acessos de outra pessoa/secretaria. É possível desmarcar todas. **Usar todos da secretaria** remove as exceções.
+
+`orgao_membro_acessos.disabled_modules` contém somente bloqueios; uma lista vazia mantém a herança, inclusive para áreas adicionadas depois pela secretaria. Os acessos existentes continuam herdando tudo. A secretaria permanece o limite superior do acesso e o cargo continua determinando as ações. Categorias de atendimento sem um desses módulos mantêm suas regras de cargo.
+
+O banco filtra os inventários, categorias e atividades retornados pelo workspace e aplica os bloqueios nas políticas RLS e nos RPCs de operação, inclusive na leitura de solicitações municipais privadas criadas pelo próprio funcionário. Relatos comuns e áreas públicas do cidadão seguem suas regras anteriores. Administradores municipais conservam seu acesso administrativo. Edições validam a versão do acesso e geram auditoria; alterações feitas por clientes antigos preservam os bloqueios individuais.
+
 ## Validação local
+
+`powershell -File tools/validate-municipal-responsibilities-db.ps1` valida os fluxos reais, as políticas do Pipa e o isolamento por funcionário/secretaria. `node tools/validate-municipal-responsibilities-ui.mjs --staff-modules` verifica criação, vínculo, edição, erro de gravação e restauração em 390, 1440 e 1920 px, nos temas claro e escuro. `node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/municipalStaffModules.test.mjs src/test/municipalAccountProvisioning.test.mjs` verifica herança e provisionamento.
 
 `powershell -File tools/validate-arborization-db.ps1 -TestFile supabase/tests/municipal_temporary_access.sql`
 

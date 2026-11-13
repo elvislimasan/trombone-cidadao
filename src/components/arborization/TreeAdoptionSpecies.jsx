@@ -35,7 +35,7 @@ function SeedlingCard({ species, item, providers, catalog, requestType, onToggle
   const directions = pickup ? pickupInstructions({ ...pickup, latitude: null, longitude: null }) : '';
   return <article className={`tree-seedling-card${selected ? ' is-selected' : ''}`} data-species-id={species.id}>
     <label className="tree-seedling-select"><input className="sr-only" type="checkbox" name="adoption-species" value={species.id} checked={selected} disabled={selectionDisabled} onChange={onToggle} /><SpeciesImage species={species} className="tree-seedling-photo" /><span className="tree-seedling-identity"><strong>{species.common_name}</strong><small>{selected ? (underConsultation ? 'Selecionada · Sob consulta' : 'Selecionada') : selectionDisabled ? 'Limite do pedido atingido' : underConsultation ? 'Sob consulta' : 'Disponível para solicitar'}</small><span className="tree-seedling-nurseries">{providers.map(row => adoptionProviderLabel(row.provider, catalog) + (row.status === 'sob_consulta' ? ' (Sob consulta)' : '')).join(' · ')}</span></span><span className="tree-seedling-check" aria-hidden="true">{selected && <Check size={16} />}</span></label>
-    {selected && <div className="tree-seedling-controls"><SeedlingQuantity item={item} name={species.common_name} max={maxQuantity} onChange={quantity => onChange({ quantity })} /><label className="tree-seedling-provider">{requestType === 'plantio' ? 'Fornecedor' : 'Retirar em'}<select required aria-label={`Fornecedor de ${species.common_name}`} value={item.provider} onChange={event => onChange({ provider: event.target.value })}><option value="">Escolha o viveiro</option>{providers.map(row => <option key={row.provider} value={row.provider}>{adoptionProviderLabel(row.provider, catalog)}{row.status === 'sob_consulta' ? ' · Sob consulta' : ''}</option>)}</select>{provider?.status === 'sob_consulta' && <span className="tree-seedling-consultation" role="status">Sob consulta. A equipe confirmará a disponibilidade.</span>}</label></div>}
+    {selected && <div className="tree-seedling-controls"><SeedlingQuantity item={item} name={species.common_name} max={maxQuantity} onChange={quantity => onChange({ quantity })} /><label className="tree-seedling-provider">{requestType === 'plantio' ? 'Fornecedor' : 'Retirar em'}<select required aria-label={`Fornecedor de ${species.common_name}`} value={item.provider} onChange={event => onChange({ provider: event.target.value })}><option value="">Escolha o viveiro</option>{providers.map(row => <option key={row.provider} value={row.provider}>{adoptionProviderLabel(row.provider, catalog)}{row.status === 'sob_consulta' ? ' · Sob consulta' : ''}</option>)}</select>{provider?.status === 'sob_consulta' }</label></div>}
     <details className="tree-seedling-details"><summary>Espécie e orientações<ChevronDown size={16} aria-hidden="true" /></summary><div className="tree-seedling-detail-content">
       <section><h4>Sobre a espécie</h4>{species.scientific_name && <p className="italic">{species.scientific_name}</p>}<SpeciesFacts species={species} />{species.summary && <p>{species.summary}</p>}</section>
       {species.planting_guidance && <section><h4>Plantio e cuidados</h4><p className="whitespace-pre-wrap">{species.planting_guidance}</p></section>}
@@ -51,6 +51,7 @@ export default function TreeAdoptionSpecies({ catalog, form, onChange, cityId, a
   const [nursery, setNursery] = useState('');
   const providersFor = allowConsultation ? editableAdoptionProviders : availableAdoptionProviders;
   const items = adoptionItems(form);
+  const selectedIds = new Set(items.map(item => item.species_id));
   const total = adoptionQuantity(form);
   const seedlingRequest = form.request_type === 'muda';
   const unavailable = items.filter(item => !catalog.species.some(species => species.id === item.species_id));
@@ -66,9 +67,11 @@ export default function TreeAdoptionSpecies({ catalog, form, onChange, cityId, a
     const next = exists ? items.filter(item => item.species_id !== id) : [...items, { species_id: id, quantity: 1, provider: providers.find(row => row.provider === nursery)?.provider || (providers.length === 1 ? providers[0].provider : '') }];
     const focus = exists ? next[0] : next[next.length - 1];
     onChange({ items: next, species_id: focus?.species_id || '', provider: focus?.provider || '' });
+    setPage(0);
   };
   const nurseryOptions = [...new Set(catalog.species.flatMap(species => providersFor(catalog.availability, species.id).map(row => row.provider)))].map(provider => ({ provider, name: adoptionProviderLabel(provider, catalog) })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  const filtered = catalog.species.filter(species => (!nursery || providersFor(catalog.availability, species.id).some(row => row.provider === nursery)) && (!selectedOnly || items.some(item => item.species_id === species.id)) && treeNameKey([species.common_name, species.scientific_name, ...(species.aliases || [])].join(' ')).includes(treeNameKey(search)));
+  const filtered = catalog.species.filter(species => (!nursery || providersFor(catalog.availability, species.id).some(row => row.provider === nursery)) && (!selectedOnly || selectedIds.has(species.id)) && treeNameKey([species.common_name, species.scientific_name, ...(species.aliases || [])].join(' ')).includes(treeNameKey(search)))
+    .sort((a, b) => Number(selectedIds.has(b.id)) - Number(selectedIds.has(a.id)));
   const pageCount = Math.max(1, Math.ceil(filtered.length / 6));
   const currentPage = Math.min(page, pageCount - 1);
   if (catalog.loading) return <p role="status" className="flex items-center gap-2 py-8"><Loader2 size={20} className="animate-spin" />Carregando mudas…</p>;

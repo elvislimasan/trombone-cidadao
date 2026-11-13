@@ -34,11 +34,12 @@ const stubs = {
   '@/lib/appError': `export const showAppError=x=>{window.uiErrors.push(x)};export const showAppNotice=()=>{};`,
   '@/lib/customSupabaseClient': `
     window.rpcCalls=[];window.uiErrors=[];const mode=new URLSearchParams(location.search).get('mode')||'agriculture';
-    const admin=mode==='admin';const combined=mode==='combined';const field=mode.endsWith('-executor');const specialty=mode==='tree-executor'?'arborizacao':mode==='road-executor'?'ruas':'servicos_gerais';const executor=mode==='executor'||field;const cargos=mode==='attendant'?['atendente']:executor?['executor']:mode==='inventory'?['inventario']:mode==='reader'?['leitura']:combined?['gestor','executor']:['gestor'];
+    const admin=mode==='admin'||mode==='admin-modules';const combined=mode==='combined';const field=mode.endsWith('-executor');const specialty=mode==='tree-executor'?'arborizacao':mode==='road-executor'?'ruas':'servicos_gerais';const executor=mode==='executor'||field;const cargos=mode==='attendant'?['atendente']:executor?['executor']:mode==='inventory'?['inventario']:mode==='reader'?['leitura']:combined?['gestor','executor']:['gestor'];
     const prefeitura={id:'pref64',city_id:64,nome:'Prefeitura de Floresta',status:'ativa',categorias_habilitadas:['poda','iluminacao','buracos','limpeza'],cidade:{name:'Floresta',states:{uf:'PE'}}};
     if(${JSON.stringify(process.argv.includes('--location-map'))})prefeitura.cidade={name:'Floresta',state_id:17};
     const agri={id:'agri',nome:'Agricultura',city_id:64,ativo:true,canal_triagem:false,municipal_modules:['arborization'],execution_specialties:['arborizacao'],execution_categories:{arborizacao:['poda']},access_version:1,email:'agri@municipio.gov.br',emails_copia:[],reply_to:'agri@municipio.gov.br',categorias:[{category_id:'poda'}],cidade:prefeitura.cidade};
     const light={...agri,id:'light',nome:'Iluminação',municipal_modules:['lighting'],execution_specialties:['eletricista'],categorias:[{category_id:'iluminacao'}]};
+    if(mode==='admin-modules')agri.municipal_modules=['arborization','water_supply'];window.staffDisabledModules=[];window.staffAccessVersion=1;
     const roads={...agri,id:'roads',nome:'Obras',municipal_modules:['urban_planning'],execution_specialties:['ruas'],execution_categories:{ruas:['buracos']},categorias:[{category_id:'buracos'}]};const general={...agri,id:'general',nome:'Serviços urbanos',municipal_modules:[],execution_specialties:['servicos_gerais'],execution_categories:{servicos_gerais:['limpeza']},categorias:[{category_id:'limpeza'}]};
     const channels=field?[specialty==='arborizacao'?agri:specialty==='ruas'?roads:general]:admin?[agri,light]:(combined||executor)?[light]:[agri];const canal=channels[0];
     const access={membro_id:'member1',canal_id:canal.id,city_id:64,cargos,atendimento:(mode==='inventory'||executor)?'nenhum':mode==='reader'?'leitura':mode==='attendant'?'atendente':'gestor',especialidades_execucao:field?[specialty]:(combined||executor)?['eletricista']:[],inventario_iluminacao:combined,versao:1};
@@ -53,7 +54,9 @@ const stubs = {
       if(name==='municipal_lighting_map_clusters')data=poles.map(pole=>({cluster_lat:pole.latitude,cluster_lng:pole.longitude,item_count:1,pole}));
       if(name==='municipal_execution_workspace')data={execution_contract:1,execution_activities:field?[{canal_id:canal.id,city_id:64,specialty,category_ids:canal.categorias.map(row=>row.category_id)}]:[],actor_user_id:mode==='wrong-session'?'previous-account':'worker',access_contract:2,category_channels:mappings.map(row=>({...row,city_id:64})),memberships,channels,accesses:admin?[]:[access],inventories:[],inventory_views:canal.id==='agri'&&!field?[{city_id:64,canal_id:'agri',module:'arborization'}]:[],execution_team:[]};
       if(name==='resumo_demandas_municipais')data={total:1,abertas:1,em_andamento:0,concluidas:0,atrasadas:0,sem_responsavel:0};
-      if(name==='municipal_team_access')data=[{membro_id:'member1',access:{...access,cargos:['gestor']},asset_modules:[]}];
+      if(name==='municipal_team_access')data=[{membro_id:'member1',access:{...access,cargos:['gestor'],versao:window.staffAccessVersion,disabled_modules:window.staffDisabledModules},asset_modules:[]}];
+      if(name==='municipal_public_official_candidates')data=[{user_id:'new-worker',name:'Novo funcionário'}];
+      if(name==='set_municipal_staff_access'&&!window.staffSaveFailure){window.staffDisabledModules=params.p_disabled_modules;window.staffAccessVersion++;}
       if(name==='listar_emails_equipe_prefeitura')data=[{membro_id:'member1',email:'servidor@municipio.gov.br'}];
       if(name==='convidar_funcionario_secretaria')data={token:'invitation'};
       if(name==='salvar_secretaria_execucao')data=params.p_id||'new-channel';
@@ -62,7 +65,7 @@ const stubs = {
       if(name==='detalhar_ordem_executor')data={order:{...workOrder},reports:[{...linkedReport}],events:[],attachments:[],results:executionResults};
       if(name==='registrar_execucao_executor'){workOrder.status=params.p_acao==='concluir'?'concluida':'em_andamento';workOrder.versao++;if(params.p_acao==='concluir')linkedReport.status='resolved';executionResults.push({id:params.p_operacao});data={id:workOrder.id,status:workOrder.status,versao:workOrder.versao};}
       if(name==='estatisticas_executor')data={completed:4,impediments:1,assets:2,this_month:3,neighborhoods:1,services:[{service:specialty==='arborizacao'?'poda':specialty==='ruas'?'reparo':'limpeza',total:4}],top_neighborhoods:[{name:'Centro',count:4}],ranking:[{user_id:'worker',nome:'Servidor municipal',servicos:4}],recent:[]};
-      const response={data,error:name==='convidar_funcionario_secretaria'&&window.inviteFailure?{message:'A secretaria não possui execução de campo habilitada.'}:null};return {then(resolve,reject){return Promise.resolve(response).then(resolve,reject)},maybeSingle(){return this},order(){return this},range(){return this},abortSignal(){return this}};
+      const response={data,error:name==='set_municipal_staff_access'&&window.staffSaveFailure?{message:'Falha ao salvar acesso.'}:name==='convidar_funcionario_secretaria'&&window.inviteFailure?{message:'A secretaria não possui execução de campo habilitada.'}:null};return {then(resolve,reject){return Promise.resolve(response).then(resolve,reject)},maybeSingle(){return this},order(){return this},range(){return this},abortSignal(){return this}};
     },from(table){let start=0,end=999;let singular=false;const filters=[];const builder={limit(n){end=n-1;return this},neq(key,value){filters.push([key,value,'neq']);return this},is(){return this},not(){return this},lte(){return this},select(){return this},ilike(){return this},gte(){return this},lt(){return this},eq(key,value){filters.push([key,value]);return this},in(key,values){filters.push([key,values]);return this},or(value){if(table==='poles')filters.push(['__or',value]);return this},abortSignal(){return this},order(){return this},range(a,b){start=a;end=b;return this},maybeSingle(){singular=true;return this},single(){singular=true;return this},then(resolve,reject){let data=table==='poles'?poles:table==='demandas_municipais'?[workOrder]:table==='reports'?overviewReports:table==='prefeitura_membros'?memberships:table==='orgao_canais'?channels:table==='categories'?[{id:'poda',name:'Poda'},{id:'iluminacao',name:'Iluminação'},{id:'buracos',name:'Buracos'},{id:'limpeza',name:'Limpeza'}]:table==='orgao_membros'?[member]:table==='orgao_categorias'?mappings:table==='site_config'?[{site_name:'Trombone Cidadão',logo_url:'/logo.png'}]:[];
       for(const [key,value,operator] of filters)if(key==='__or')data=data.filter(row=>value.split(',').some(term=>{const [field,op,raw]=term.split('.');return op==='ilike'?String(row[field]||'').toLowerCase().includes(raw.replaceAll('%','').toLowerCase()):op==='is'?row[field]==null:row[field]===(raw==='true'?true:raw==='false'?false:raw)}));else if(key!=='user_id'&&key!=='papel')data=data.filter(row=>operator==='neq'?row[key]!==value:Array.isArray(value)?value.includes(row[key]):row[key]===value);if(table==='reports')window.overviewQueries.push(filters);const count=data.length;data=data.slice(start,end+1);return Promise.resolve({count,data:singular?data[0]||null:data,error:table==='reports'&&window.failOverview?{message:'Consulta indisponível'}:null}).then(resolve,reject)}};return builder}};`,
 };
@@ -100,7 +103,50 @@ try {
   const wait=async expression=>{for(let i=0;i<120;i++){if(await evaluate('Boolean('+expression+')'))return;await pause(50);}throw Error('Timeout: '+expression+' / route: '+await evaluate('window.previewRoute')+' / browser errors: '+JSON.stringify(errors)+' / console errors: '+JSON.stringify(consoleErrors)+' / '+await evaluate('document.body.innerText')+' / paths: '+await evaluate("[...document.querySelectorAll('.leaflet-overlay-pane path')].map(el=>el.outerHTML).join('')"));};
   const visit=async(mode,page)=>{await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/?`+new URLSearchParams({mode,page})},sessionId);await wait('document.querySelector("main")||document.querySelector("[role=alert]")');};
   const results=[];
-  if (process.argv.includes('--form-audit')) {
+  if (process.argv.includes('--staff-modules')) {
+    const click=async text=>{await evaluate(`[...document.querySelectorAll('[role=dialog] button,main button')].find(el=>el.textContent.trim()===${JSON.stringify(text)}).click()`);await pause(50);};
+    const select=async(id,value)=>{await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('change',{bubbles:true}))})()`);await pause(50);};
+    const moduleInput=()=>`[...document.querySelectorAll('[role=dialog] fieldset')].find(el=>el.querySelector('legend')?.textContent==='Módulos com acesso')?.querySelectorAll('label')`;
+    const toggle=async label=>{await evaluate(`Array.from(${moduleInput()}).find(el=>el.textContent.trim()===${JSON.stringify(label)}).querySelector('input').click()`);await pause(30);};
+    const selectedModules=()=>evaluate(`Array.from(${moduleInput()}).filter(el=>el.querySelector('input').checked).map(el=>el.textContent.trim())`);
+    const open=async()=>{await wait('document.querySelector("table tbody button")');await evaluate('document.querySelector("table tbody button").click()');await wait(`Array.from(document.querySelectorAll('legend')).some(el=>el.textContent==='Módulos com acesso')`);};
+    for(const width of [390,1440,1920]) for(const theme of ['light','dark']) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false},sessionId);
+      await visit('admin-modules','/prefeitura/equipe');await open();
+      await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'})`);
+      assert.deepEqual(await selectedModules(),['Arborização','Operação-pipa']);
+      await toggle('Operação-pipa');await evaluate('window.staffSaveFailure=true');await click('Salvar alterações');
+      await wait('window.uiErrors.length>0');assert.deepEqual(await selectedModules(),['Arborização']);
+      await evaluate('window.staffSaveFailure=false');await click('Salvar alterações');await wait('!document.querySelector("[role=dialog]")');
+      assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="set_municipal_staff_access").at(-1).params.p_disabled_modules'),['water_supply']);
+      await open();assert.deepEqual(await selectedModules(),['Arborização']);
+      await click('Usar todos da secretaria');assert.deepEqual(await selectedModules(),['Arborização','Operação-pipa']);
+      await toggle('Arborização');await toggle('Operação-pipa');assert.deepEqual(await selectedModules(),[]);
+      await evaluate(`[...document.querySelectorAll('legend')].find(el=>el.textContent==='Módulos com acesso').parentElement.scrollIntoView({block:'center'})`);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,`staff-modules-${width}-${theme}.png`),Buffer.from(shot.data,'base64'));
+      await click('Salvar alterações');await wait('!document.querySelector("[role=dialog]")');
+      assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="set_municipal_staff_access").at(-1).params.p_disabled_modules'),['arborization','water_supply']);
+      await click('Criar acesso');await wait('document.getElementById("invite-channel")');await select('invite-channel','agri');
+      assert.deepEqual(await selectedModules(),['Arborização','Operação-pipa']);
+      await toggle('Operação-pipa');
+      await evaluate(`(()=>{const el=document.getElementById('team-email');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'novo@example.test');el.dispatchEvent(new Event('input',{bubbles:true}));[...document.querySelectorAll('[role=dialog] label')].find(el=>el.textContent.startsWith('Gestor')).querySelector('input').click()})()`);
+      await evaluate('document.getElementById("municipal-create-access-form").requestSubmit()');await wait('document.body.innerText.includes("Acesso criado")');
+      assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="create-municipal-account").at(-1).params.disabled_modules'),['water_supply']);
+      results.push({width,theme,inherited:true,saved:true,retry:true,reset:true,createWithModules:true,noOverflow:true});
+    }
+    await visit('admin-modules','/prefeitura/equipe');
+    await evaluate(`document.querySelector('button[aria-label="Mais ações da equipe"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`);
+    await wait('document.querySelector("[role=menu]")');
+    await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.includes('Vincular conta existente')).click()`);
+    await wait('document.getElementById("assign-channel")');await select('assign-channel','agri');await select('assign-user','new-worker');
+    assert.deepEqual(await selectedModules(),['Arborização','Operação-pipa']);await toggle('Arborização');
+    await evaluate(`[...document.querySelectorAll('[role=dialog] label')].find(el=>el.textContent.startsWith('Gestor')).querySelector('input').click()`);
+    await evaluate('document.getElementById("municipal-assign-form").requestSubmit()');
+    await wait('!document.querySelector("[role=dialog]")');
+    assert.deepEqual(await evaluate('window.rpcCalls.find(row=>row.name==="municipal_assign_public_official_modules").params.p_disabled_modules'),['arborization']);
+    results.push({assignExistingAccount:true,modules:true});
+  } else if (process.argv.includes('--form-audit')) {
     const openText = async text => { await wait(`[...document.querySelectorAll('main button')].some(b=>b.textContent.trim()===${JSON.stringify(text)})`);await evaluate(`[...document.querySelectorAll('main button')].find(b=>b.textContent.trim()===${JSON.stringify(text)}).click()`); };
     const menu = async (label, item) => { await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`);await wait('document.querySelector("[role=menu]")');await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.includes(${JSON.stringify(item)})).click()`); };
     const cases = [

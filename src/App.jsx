@@ -951,6 +951,7 @@ function AppShell() {
               <Route path="/arborizacao/arvore/:id" element={<TreePage />} />
               <Route path="/arborizacao/gerenciar" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/admin/arborizacao" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
+              <Route path="/admin/arborizacao/solicitacoes" element={<ModuleRoute module="arborization" adminOnly><TreeAdoptionManagementPage admin /></ModuleRoute>} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/guia-da-cidade" element={<ServicesPage />} />

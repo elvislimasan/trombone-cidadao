@@ -18,7 +18,7 @@ const journeys = [
     { to: '/abaixo-assinados', title: 'Apoiar um abaixo-assinado', description: 'Participe de uma causa da cidade.', icon: FileSignature, keywords: 'petição assinatura' },
   ] },
   { id: 'cuidar', label: 'Cuidar', title: 'Cuidar da cidade', description: 'Pequenos cuidados fazem a diferença.', icon: Sprout, actions: [
-    { to: '/adoteumaarvore', title: 'Pedir uma muda ou plantio', description: 'Conheça as opções para adotar uma árvore.', icon: Sprout, keywords: 'adoção adote árvore plantar viveiro fornecedor' },
+    { to: '/adoteumaarvore', title: 'Solicitar mudas de árvores', description: 'Conheça as opções para adotar uma árvore.', icon: Sprout, keywords: 'adoção adote árvore plantar viveiro fornecedor' },
     { to: '/arvores-da-comunidade', title: 'Árvores da comunidade', description: 'Cadastre sua árvore e registre os cuidados.', icon: Trees, keywords: 'minhas árvores regar diário cuidar foto' },
     { to: '/mapa-arborizacao', title: 'Consultar as árvores da cidade', description: 'Explore o mapa da arborização urbana.', icon: Trees, keywords: 'inventário espécie poda' },
     { to: '/missoes', title: 'Encontrar uma missão', description: 'Escolha uma forma de ajudar.', icon: Compass, keywords: 'patrulha rota coleção', requiresAuth: true },

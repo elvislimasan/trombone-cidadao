@@ -7,13 +7,14 @@ const source = ts.transpileModule(readFileSync(new URL('../../supabase/functions
   compilerOptions: { module: ts.ModuleKind.CommonJS },
 }).outputText;
 
-function fixture({ authenticated = true, allowed = true, duplicate = false, provisionFailure = false, transportFailure = false } = {}) {
+function fixture({ authenticated = true, allowed = true, modulesAllowed = true, duplicate = false, provisionFailure = false, transportFailure = false } = {}) {
   const calls = []; let handler;
   const client = {
     auth: { async getUser() { return { data: { user: authenticated ? { id: 'actor' } : null } }; } },
     async rpc(name, args) {
       calls.push({ name, args });
       if (name === 'validate_municipal_provisioning') return { data: 64, error: allowed ? null : { message: 'Sem permissão' } };
+      if (name === 'validate_municipal_staff_modules') return { error: modulesAllowed ? null : { message: 'Módulos inválidos' } };
       if (transportFailure) throw new Error('Network interrupted');
       return { data: { user_id: 'new-user', password_expires_at: '2026-10-27T15:00:00Z' }, error: provisionFailure ? { message: 'Secretaria indisponível' } : null };
     },
@@ -61,7 +62,7 @@ test('e-mail existente não é redefinido, vinculado ou excluído', async () => 
   const f = fixture({ duplicate: true }); const response = await f.invoke();
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /conta existente/);
-  assert.ok(!f.calls.some(call => ['provision_municipal_account', 'deleteUser'].includes(call.name)));
+  assert.ok(!f.calls.some(call => ['provision_municipal_account_modules', 'deleteUser'].includes(call.name)));
 });
 
 test('remove a conta recém-criada se o vínculo falhar ou a conexão for interrompida', async () => {
@@ -71,4 +72,18 @@ test('remove a conta recém-criada se o vínculo falhar ou a conexão for interr
     assert.deepEqual(f.calls.filter(call => call.name === 'deleteUser').map(call => call.id), ['new-user']);
     assert.equal(body.temporary_password, undefined);
   }
+});
+
+test('valida módulos antes de criar a conta e envia as restrições ao provisionamento atômico', async () => {
+  const f = fixture();
+  await f.invoke({ kind: 'staff', prefeitura_id: 'pref', channel_id: 'channel', roles: ['gestor'], email: 'staff@example.test', disabled_modules: ['water_supply'] });
+  assert.deepEqual(f.calls.find(call => call.name === 'validate_municipal_staff_modules').args.p_disabled_modules, ['water_supply']);
+  assert.deepEqual(f.calls.find(call => call.name === 'provision_municipal_account_modules').args.p_disabled_modules, ['water_supply']);
+  assert.ok(f.calls.findIndex(call => call.name === 'validate_municipal_staff_modules') < f.calls.findIndex(call => call.name === 'createUser'));
+  const denied = fixture({ modulesAllowed: false });
+  assert.equal((await denied.invoke()).status, 403);
+  assert.ok(!denied.calls.some(call => call.name === 'createUser'));
+  const invalid = fixture();
+  assert.equal((await invalid.invoke({ kind: 'staff', email: 'staff@example.test', disabled_modules: 'water_supply' })).status, 400);
+  assert.ok(!invalid.calls.some(call => call.name === 'createUser'));
 });

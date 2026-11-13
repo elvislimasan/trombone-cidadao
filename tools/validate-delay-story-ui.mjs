@@ -17,11 +17,12 @@ await build({ stdin: { contents: `
   import ElectricianPoleFields from '@/components/municipality/ElectricianPoleFields';
   import {electricianPoleForm} from '@/lib/electricianPole';
   const day=offset=>new Date(Date.now()+offset*86400000).toISOString().slice(0,10);
+  const monthsAgo=months=>{const now=new Date();return new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-months,1)).toISOString().slice(0,10)};
   window.downloads=[];window.notices=[];
   HTMLAnchorElement.prototype.click=function(){window.downloads.push({name:this.download,data:this.href})};
   function App(){const [mode,setMode]=useState('overdue');const [form,setForm]=useState(()=>electricianPoleForm({id:1,identifier:'X12345',lamp_type:'Vapor de sódio'}));
     return <main className="page-shell-fluid p-4 sm:p-8"><div className="flex flex-wrap gap-3">{['overdue','future','today','completed','invalid','long','no-photo','failed-photo','year'].map(mode=><button key={mode} onClick={()=>setMode(mode)}>{mode}</button>)}</div>
-      <div className="grid gap-5 md:grid-cols-2"><ObraDelayMeter expectedEndDate={mode==='invalid'?'invalid':day(mode==='future'?5:mode==='today'?0:mode==='year'?-800:-123)} status={mode==='completed'?'completed':'in-progress'} executionDays={180}
+      <div className="grid gap-5 md:grid-cols-2"><ObraDelayMeter expectedEndDate={mode==='invalid'?'invalid':mode==='year'?monthsAgo(23):day(mode==='future'?5:mode==='today'?0:-123)} status={mode==='completed'?'completed':'in-progress'} executionDays={180}
         phaseName="Construção" work={{id:'exemplo',thumbnail_url:mode==='no-photo'?'':mode==='failed-photo'?'/missing-photo.jpg':'/work-example.svg',title:mode==='long'?'Obra de exemplo com um título extenso para verificar a apresentação dos dados em diferentes modelos sem sobrepor as datas ou ocultar o QR Code no rodapé da arte':'Obra de exemplo · dados ilustrativos',city:'Cidade de exemplo',state:'PE'}} shareUrl="https://trombonecidadao.com.br/obras-publicas/exemplo"/>
       <ElectricianPoleFields value={form} onChange={setForm}/></div></main>}
   createRoot(document.getElementById('root')).render(<App/>);
@@ -148,11 +149,29 @@ try {
     await wait('document.querySelector("[data-story-photo]")');
     await close();
     await click('year');
+    await evaluate(`document.querySelector('section input[data-delay-unit=months]').click()`);
+    await wait('document.querySelector("section").textContent.includes("23")');
     await evaluate(`document.querySelector('section input[data-delay-unit=years]').click()`);
+    await wait('document.querySelector("section").textContent.includes("ANO E 11 MESES DE ATRASO")');
     await click('Compartilhar story');
-    await wait('document.querySelector("[data-story-metric]")?.textContent==="2"');
+    await wait('document.querySelector("[data-story-metric]")?.textContent==="1"');
     assert.ok(await evaluate('document.querySelector("[role=dialog] input[data-delay-unit=years]").checked&&!document.querySelector("[role=dialog] input[data-delay-unit=years]").disabled'), 'Anos liberados após completar um ano');
-    assert.ok(await evaluate('document.querySelector("[data-story-model]").textContent.includes("ANOS DE ATRASO")'));
+    await wait('[...document.querySelectorAll("button")].some(button=>button.textContent.trim()==="Baixar arte"&&!button.disabled)');
+    for (const appearance of ['dark', 'light']) {
+      await evaluate(`document.querySelector('input[name=delay-story-appearance][value=${appearance}]').click()`);
+      for (const model of ['impacto', 'editorial', 'alerta']) {
+        await evaluate(`document.querySelector('input[name=delay-story-model][value=${model}]').click()`);
+        assert.equal(await evaluate('document.querySelector("[data-story-metric-label]").textContent'), 'ANO E 11 MESES DE ATRASO');
+        await evaluate('document.fonts.ready');
+        assert.ok(await evaluate(`(()=>{const card=[...document.querySelectorAll('[data-story-model]')].at(-1),label=card.querySelector('[data-story-metric-label]'),r=label.getBoundingClientRect(),brush=label.parentElement.getBoundingClientRect(),next=card.querySelector('[data-story-link-heading]').getBoundingClientRect();return label.getClientRects().length===1&&r.left>=brush.left&&r.right<=brush.right&&brush.bottom<next.top})()`), 'Anos e meses devem caber na faixa sem sobrepor a chamada');
+        if (width === 1440) {
+          await click('Baixar arte'); await wait('document.body.innerText.includes("Arte salva")');
+          const png = await evaluate('window.downloads.at(-1)');
+          assert.equal(png.name, `atrasometro-exemplo-${model}-${appearance}-anos.png`);
+          await fs.writeFile(path.join(out, png.name), Buffer.from(png.data.split(',')[1], 'base64'));
+        }
+      }
+    }
     await close();
     for (const [mode, label] of [['future', 'DIAS PARA O PRAZO'], ['today', 'PRAZO VENCE HOJE']]) {
       await click(mode); await click('Compartilhar story'); await wait('document.querySelector("[role=dialog] img")');
