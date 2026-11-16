@@ -185,7 +185,7 @@ export default function FeedPage() {
   // não há um segundo desenho de alerta para manter em dia.
   const radar = useCityEvents(activeCityId, { escopo: 'abertos', limite: 3 });
   const eventosDoRadar = radar.eventos || [];
-  const agora = useMemo(() => new Date(), []);
+  const agora = radar.agora;
 
   const cityNotice = eventosDoRadar.length > 0 ? (
     <section className="mt-3 overflow-hidden rounded-2xl border border-edge-subtle bg-surface-raised lg:hidden" aria-label="Acontecendo na cidade">

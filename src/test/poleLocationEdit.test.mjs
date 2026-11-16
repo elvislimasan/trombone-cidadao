@@ -26,7 +26,7 @@ function state(overrides={}) {
     showAppError:(error)=>calls.push({error}),showAppNotice:(notice)=>calls.push({notice}),
     supabase:{
       rpc:async(name,params)=>{calls.push({name,params}); return {data:2236,error:null};},
-      from:()=>({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{latitude:scope.form.latitude,longitude:scope.form.longitude},error:null})})})})}),
+      from:()=>({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{identifier:scope.form.identifier,latitude:scope.form.latitude,longitude:scope.form.longitude},error:null})})})})}),
     },
     ...overrides,
   };
@@ -44,7 +44,7 @@ test('salvar poste existente envia coordenadas corrigidas ao servidor',async()=>
 });
 test('não confirma localização quando função antiga ignora as coordenadas',async()=>{
   const {scope,calls}=state();
-  scope.supabase.from=()=>({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{latitude:-8.5,longitude:-38.5},error:null})})})})});
+  scope.supabase.from=()=>({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{identifier:scope.form.identifier,latitude:-8.5,longitude:-38.5},error:null})})})})});
   await action('save',scope)();
   assert.ok(calls.some(call=>call.error?.description?.includes('localização não foi gravada')));
   assert.equal(calls.some(call=>call.notice),false);
@@ -155,4 +155,23 @@ test('erro ao remover preserva a seleção para consultar ou tentar novamente', 
   assert.ok(calls.some(call => call.error?.title === 'Não foi possível remover o poste'));
   assert.equal(calls.some(call => call.refreshed), false);
   assert.equal(scope.saveLock.current, false);
+});
+
+test('retorno vazio do banco não confirma edição nem remoção', async () => {
+  for (const name of ['save', 'removePole']) {
+    const { scope, calls } = removalState();
+    scope.supabase.rpc = async () => ({ data: null, error: null });
+    await action(name, scope)();
+    assert.ok(calls.some(call => call.error?.description?.includes('não confirmou')));
+    assert.equal(calls.some(call => call.notice), false);
+    assert.ok(scope.selected);
+  }
+});
+
+test('código não persistido mantém editor aberto e informa erro', async () => {
+  const { scope, calls } = state();
+  scope.supabase.from = () => ({select:()=>({eq:()=>({eq:()=>({single:async()=>({data:{identifier:'ANTIGO',latitude:scope.form.latitude,longitude:scope.form.longitude},error:null})})})})});
+  await action('save', scope)();
+  assert.ok(calls.some(call => call.error?.description?.includes('código do poste não foi gravado')));
+  assert.equal(calls.some(call => call.notice), false);
 });

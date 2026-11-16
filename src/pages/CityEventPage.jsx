@@ -196,7 +196,7 @@ export default function CityEventPage() {
               <h1 className="text-2xl font-extrabold leading-tight text-content-primary sm:text-3xl">
                 {tipo.rotulo}
               </h1>
-              <SeloDeStatus status={evento.status} />
+              <SeloDeStatus status={evento.status} type={evento.type} />
             </div>
             <p className="mt-1 text-base text-content-secondary">{evento.title}</p>
           </div>

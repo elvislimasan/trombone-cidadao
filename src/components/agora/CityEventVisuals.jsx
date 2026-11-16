@@ -113,13 +113,13 @@ const TONS_STATUS = {
 };
 
 /** O selo de estado — "EM ANDAMENTO", "NORMALIZADO", "VERIFICAR". */
-export const SeloDeStatus = ({ status, className = '' }) => {
+export const SeloDeStatus = ({ status, type, className = '' }) => {
   const s = statusDe(status);
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${TONS_STATUS[s.tom] || TONS_STATUS.neutro} ${className}`}
     >
-      {s.curto}
+      {type === 'event' && status === 'resolved' ? 'ENCERRADO' : s.curto}
     </span>
   );
 };
