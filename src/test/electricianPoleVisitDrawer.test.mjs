@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { Window } from 'happy-dom';
 import * as categoryFields from '../lib/reportCategoryFields.js';
 import * as poleDisplay from '../lib/poleDisplay.js';
+import * as electricianPanel from '../lib/electricianPanel.js';
 
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const require = createRequire(import.meta.url);
@@ -52,6 +53,7 @@ test('a visita mostra o problema de cada solicitação sem mudar a elegibilidade
     '@/lib/poleDisplay': poleDisplay,
     '@/lib/lightingCatalog': { LAMP_TYPES: [] },
     '@/lib/reportCategoryFields': categoryFields,
+    '@/lib/electricianPanel': electricianPanel,
     '@/lib/appError': { showAppNotice() {} },
   };
   const code = ts.transpileModule(read('src/components/municipality/ElectricianPoleVisitDrawer.jsx'), {

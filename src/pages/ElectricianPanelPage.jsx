@@ -11,8 +11,8 @@ import { MunicipalEmptyState, MunicipalPageHeader, MunicipalStageFilter } from '
 import { supabase } from '@/lib/customSupabaseClient';
 import { DEMAND_PRIORITIES, DEMAND_STATUSES } from '@/lib/municipalDemand';
 import { useElectricianServicesPage, ELECTRICIAN_SERVICES_PAGE_SIZE } from '@/hooks/useElectricianServicesPage';
-import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
-import { formatDistance, offerGroup, offerKey } from '@/lib/electricianPanel';
+import { rotuloDoTipoDeProblemaIluminacao, TIPOS_DE_PROBLEMA_ILUMINACAO } from '@/lib/reportCategoryFields';
+import { ELECTRICIAN_SERVICE_TYPES, formatDistance, offerGroup, offerKey } from '@/lib/electricianPanel';
 import { compactPoleReference, electricianVisitTitle, poleIdentifierFromTitle } from '@/lib/electricianPole';
 import { electricianOfferPoleCode, loadElectricianOfferPole } from '@/lib/electricianOfferPole';
 
@@ -60,6 +60,7 @@ export default function ElectricianPanelPage() {
   const [previewPole, setPreviewPole] = useState(null);
   const [query, setQuery] = useState('');
   const [sortMode, setSortMode] = useState('priority');
+  const [serviceType, setServiceType] = useState('');
   const [stage, setStage] = useState('fazer');
   const view = params.get('vista') === 'mapa' ? 'map' : 'cards';
   const mapMode = view === 'map';
@@ -124,7 +125,7 @@ export default function ElectricianPanelPage() {
   }, [preview, municipalityId]);
 
   const { items: visibleItems, page, pages, total, stageCounts, loading, error, refresh, setPage } = useElectricianServicesPage({
-    municipalityId, userId: context.userId, tab, stage, query, sortMode, deferred, showDeferred, enabled: !mapMode,
+    municipalityId, userId: context.userId, tab, stage, query, sortMode, serviceType, deferred, showDeferred, enabled: !mapMode,
   });
   const offers = useMemo(() => tab === 'disponiveis' ? visibleItems : [], [tab, visibleItems]);
   useEffect(() => {
@@ -200,9 +201,10 @@ export default function ElectricianPanelPage() {
     <section className={mapMode ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'min-w-0'} aria-label={mapMode ? 'Mapa de iluminação pública' : tab === 'minhas' ? 'Minhas ordens' : 'Oportunidades disponíveis'}>
       {!mapMode && <>
       <MunicipalPageHeader title={tab === 'minhas' ? 'Minhas ordens' : 'Serviços disponíveis'} description={tab === 'minhas' ? 'Escolha uma ordem para continuar o atendimento.' : 'Confira o local e os detalhes antes de aceitar.'} />
-      <div className="mt-3 flex min-w-0 items-center gap-1.5 sm:mt-5 sm:gap-3">
-        <label className="relative min-w-0 flex-1"><span className="sr-only">Buscar serviço</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-secondary" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Número do poste, protocolo ou endereço" className="h-9 rounded-lg bg-surface-raised pl-9 text-xs sm:h-10 sm:text-sm" /></label>
-        <select aria-label="Ordenar serviços" value={sortMode} onChange={(event) => setSortMode(event.target.value)} className="h-9 max-w-28 rounded-lg border border-edge-default bg-surface-raised px-2 text-xs sm:h-10"><option value="priority">Prioridade</option><option value="recent">Mais recentes</option><option value="oldest">Mais antigas</option></select>
+      <div className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-2 sm:mt-5 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)_9rem_2.5rem] lg:gap-3">
+        <label className="relative col-span-2 min-w-0 lg:col-span-1"><span className="sr-only">Buscar serviço</span><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-secondary" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Número do poste, protocolo ou endereço" className="h-9 rounded-lg bg-surface-raised pl-9 text-xs sm:h-10 sm:text-sm" /></label>
+        <select aria-label="Tipo de serviço" value={serviceType} onChange={event => setServiceType(event.target.value)} className="col-span-2 h-9 min-w-0 rounded-lg border border-edge-default bg-surface-raised px-2 text-xs sm:h-10 lg:col-span-1"><option value="">Todos os tipos de serviço</option><optgroup label="Problema informado">{TIPOS_DE_PROBLEMA_ILUMINACAO.map(({ value, label }) => <option key={value} value={`problema:${value}`}>{label.charAt(0).toLocaleUpperCase('pt-BR') + label.slice(1)}</option>)}</optgroup><optgroup label="Serviços da ordem">{ELECTRICIAN_SERVICE_TYPES.map(([value, label]) => <option key={value} value={`servico:${value}`}>{label}</option>)}</optgroup></select>
+        <select aria-label="Ordenar serviços" value={sortMode} onChange={(event) => setSortMode(event.target.value)} className="h-9 min-w-0 rounded-lg border border-edge-default bg-surface-raised px-2 text-xs sm:h-10"><option value="priority">Prioridade</option><option value="recent">Mais recentes</option><option value="oldest">Mais antigas</option></select>
         <Button type="button" variant="outline" size="icon" onClick={refresh} disabled={loading} aria-label="Atualizar serviços" title="Atualizar serviços" className="h-9 w-9 shrink-0 rounded-lg bg-surface-raised sm:h-10 sm:w-10"><RotateCcw className={'h-4 w-4 ' + (loading ? 'animate-spin' : '')} /></Button>
       </div>
       {tab === 'disponiveis' && deferred.length > 0 && <label className="mt-3 flex min-h-10 items-center gap-2 text-xs text-content-secondary"><input type="checkbox" checked={showDeferred} onChange={(event) => setShowDeferred(event.target.checked)} className="h-4 w-4 accent-brand" />Mostrar serviços deixados para depois ({deferred.length})</label>}

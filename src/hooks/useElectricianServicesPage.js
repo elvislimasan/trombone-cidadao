@@ -8,7 +8,7 @@ export const ELECTRICIAN_SERVICES_PAGE_SIZE = 20;
 const EMPTY_COUNTS = { fazer: 0, execucao: 0, conferencia: 0, historico: 0 };
 const EMPTY_ITEMS = [];
 
-export function useExecutorServicesPage({ municipalityId, userId, tab, stage, query, sortMode, deferred, showDeferred, enabled = true, activity, channelId, all = false, includeAvailable = false }) {
+export function useExecutorServicesPage({ municipalityId, userId, tab, stage, query, sortMode, deferred, showDeferred, serviceType = '', enabled = true, activity, channelId, all = false, includeAvailable = false }) {
   const normalized = query.trim();
   const [term, setTerm] = useState(normalized);
   const [selection, setSelection] = useState({ scope: '', page: 1 });
@@ -20,8 +20,9 @@ export function useExecutorServicesPage({ municipalityId, userId, tab, stage, qu
     return () => clearTimeout(timer);
   }, [normalized]);
 
-  const scope = JSON.stringify({ userId, rpc: activity ? 'listar_painel_executor' : 'listar_painel_eletricista', all, includeAvailable, args: {
+  const scope = JSON.stringify({ userId, rpc: activity ? 'listar_painel_executor' : serviceType ? 'listar_painel_eletricista_por_servico' : 'listar_painel_eletricista', all, includeAvailable, args: {
     ...(activity ? { p_especialidade: activity, p_canal: channelId || null } : {}),
+    ...(!activity && serviceType ? { p_tipo_servico: serviceType } : {}),
     p_prefeitura: municipalityId, p_aba: tab, p_etapa: tab === 'minhas' ? stage : 'fazer',
     p_busca: term, p_ordem: sortMode,
     p_adiadas: tab === 'disponiveis' && !showDeferred ? deferred : [],

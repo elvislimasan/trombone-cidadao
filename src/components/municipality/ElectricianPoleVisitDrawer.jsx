@@ -9,6 +9,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { poleDisplayLabel, poleReferenceText } from '@/lib/poleDisplay';
 import { DEFAULT_MAINTENANCE_LAMP_TYPE, LAMP_TYPES } from '@/lib/lightingCatalog';
 import { rotuloDoTipoDeProblemaIluminacao } from '@/lib/reportCategoryFields';
+import { ELECTRICIAN_SERVICE_TYPES } from '@/lib/electricianPanel';
 import { showAppNotice } from '@/lib/appError';
 
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -19,7 +20,7 @@ import { ehErroDeRede } from '@/lib/offlineErros';
 
 const POLE_FIELDS = 'id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w';
 const STATUS_LABEL = { aceso: 'Aceso / funcionando', apagado: 'Apagado ou com problema' };
-const SERVICE_OPTIONS = [['lamp_replacement', 'Troca de lâmpada'], ['arm_installation', 'Instalação de braço de luz'], ['relay_replacement', 'Troca de relé'], ['other', 'Outro serviço']];
+const SERVICE_OPTIONS = ELECTRICIAN_SERVICE_TYPES;
 const formatDate = (value) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não informado';
 
 export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose, onSaved, onBusyChange }) {
@@ -102,7 +103,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
           p_report: status === 'aceso' ? reportId : null,
         },
       });
-      showAppNotice({ title: 'Visita guardada no aparelho', description: 'O envio será automático quando houver conexão. A solicitação será confirmada após o envio.' });
+      showAppNotice({ title: 'Visita guardada no aparelho', description: 'O envio será automático quando houver conexão. O registro será confirmado após o envio.' });
       selectionId.current++; setSelected(null);
       onSaved?.({ pole: selected, status, reportId: null, offline: true });
       onClose(); void sync();
