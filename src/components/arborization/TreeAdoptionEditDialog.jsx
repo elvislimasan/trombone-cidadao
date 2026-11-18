@@ -7,15 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/customSupabaseClient';
 import { cityStateUf } from '@/lib/cityLocation';
-import { adoptionItems, adoptionProtocol, ADOPTION_PURPOSES, EMPTY_ADOPTION, editableAdoptionSpecies, validateAdoption } from '@/lib/treeAdoption';
+import { adoptionItems, adoptionProtocol, adoptionFulfillment, ADOPTION_PURPOSES, EMPTY_ADOPTION, editableAdoptionSpecies, validateAdoption } from '@/lib/treeAdoption';
 import TreeAdoptionLocation from './TreeAdoptionLocation';
 import TreeAdoptionSpecies from './TreeAdoptionSpecies';
+import TreeAdoptionFulfillment from './TreeAdoptionFulfillment';
+import useTreeAdoptionSettings from '@/hooks/useTreeAdoptionSettings';
 import './treeAdoption.css';
 import './treeAdoptionFlow.css';
 import './treeAdoptionEdit.css';
 
 const editablePayload = form => ({
   request_type: form.request_type,
+  fulfillment_method: adoptionFulfillment(form),
   purpose: form.purpose,
   zone: form.zone,
   planting_place: form.planting_place,
@@ -33,6 +36,8 @@ const editablePayload = form => ({
 });
 
 export default function TreeAdoptionEditDialog({ request, catalog, city, onClose, onSaved }) {
+  const settings = useTreeAdoptionSettings(request.city_id);
+  const canKeepDelivery = adoptionFulfillment(request) === 'entrega';
   const [form, setForm] = useState(() => ({ ...EMPTY_ADOPTION, ...request, items: adoptionItems(request), commitment: true }));
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -49,6 +54,9 @@ export default function TreeAdoptionEditDialog({ request, catalog, city, onClose
   const save = async event => {
     event.preventDefault();
     if (busyRef.current || locating || !changed) return;
+    if (form.request_type === 'muda' && form.fulfillment_method === 'entrega' && !canKeepDelivery && !settings.deliveryEnabled) {
+      setError('As entregas estão desativadas. Escolha retirar no viveiro.'); changeTab('species'); return;
+    }
     for (const step of [0, 1, 2]) {
       const message = validateAdoption(form, request.city_id, editableCatalog.species, step, catalog.availability, '', { requireCpf: false, allowConsultation: true });
       if (message) {
@@ -85,6 +93,7 @@ export default function TreeAdoptionEditDialog({ request, catalog, city, onClose
           <fieldset disabled={busy} className="min-w-0">
             <TabsContent value="species" className="adoption-edit-section">
               <h3 className="adoption-edit-section-title">Espécies e quantidade</h3>
+              <TreeAdoptionFulfillment form={form} cityId={request.city_id} onChange={change} deliveryEnabled={canKeepDelivery || settings.deliveryEnabled} />
               <TreeAdoptionSpecies catalog={editableCatalog} form={form} onChange={change} cityId={request.city_id} allowConsultation />
             </TabsContent>
             <TabsContent value="location" className="adoption-edit-section">

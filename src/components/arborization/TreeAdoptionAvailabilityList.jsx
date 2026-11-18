@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ADOPTION_AVAILABILITY } from '@/lib/treeAdoption';
 import { treeNameKey } from '@/lib/treeInventory';
+import TreeSpeciesField from './TreeSpeciesField';
 
 const PAGE_SIZE = 12;
 
-function SpeciesAvailabilityCard({ row, onStatusChange }) {
+function SpeciesAvailabilityCard({ row, onStatusChange, species, cityId, canEditSpecies, onSpeciesUpdated }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -27,13 +28,14 @@ function SpeciesAvailabilityCard({ row, onStatusChange }) {
       <div><h3>{name}</h3>{row.species?.scientific_name && <p>{row.species.scientific_name}</p>}</div>
     </div>
     <label className="nursery-offer-status"><span>Disponibilidade {busy ? <Loader2 size={14} className="animate-spin" /> : saved && <CheckCircle2 size={14} />}</span><select aria-label={`Disponibilidade de ${name}`} disabled={busy} value={row.status} onChange={changeStatus} className={`is-${row.status}`}>{Object.entries(ADOPTION_AVAILABILITY).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+    {canEditSpecies && <TreeSpeciesField editOnly compact species={species} value={row.species_id} cityId={cityId} allowCreate={false} allowEdit disabled={busy} onUpdated={onSpeciesUpdated} />}
     {busy && <p role="status" className="nursery-offer-feedback">Salvando…</p>}
     {saved && !busy && <p role="status" className="nursery-offer-feedback is-saved">Disponibilidade atualizada</p>}
     {error && <p role="alert" className="nursery-offer-feedback text-destructive">{error}</p>}
   </article>;
 }
 
-export default function TreeAdoptionAvailabilityList({ catalog, nursery, onNew, onStatusChange }) {
+export default function TreeAdoptionAvailabilityList({ catalog, nursery, cityId, canEditSpecies = false, onNew, onStatusChange, onSpeciesUpdated }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -48,7 +50,7 @@ export default function TreeAdoptionAvailabilityList({ catalog, nursery, onNew, 
   return <section className="nursery-offers" aria-label={`Mudas e árvores de ${nursery.name}`}>
     <div className="nursery-offers-heading"><h2>Mudas e árvores</h2><Button onClick={onNew} disabled={catalog.loading || Boolean(catalog.error)}><Plus className="mr-2 h-4 w-4" />Adicionar espécies</Button></div>
     {(rows.length > 6 || search || status) && <div className="tree-nursery-availability-filters"><label className="tree-nursery-search"><span className="sr-only">Buscar espécies</span><Search size={17} /><Input placeholder="Buscar espécie" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} /></label><select aria-label="Filtrar disponibilidade" className="h-11 min-w-0 rounded-md border bg-background px-3 text-sm" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="">Todas as situações</option>{Object.entries(ADOPTION_AVAILABILITY).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
-    {catalog.loading ? <p role="status" className="flex items-center justify-center gap-2 py-8 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Carregando espécies…</p> : catalog.error ? <p role="alert" className="text-sm text-destructive">{catalog.error}</p> : !rows.length ? <div className="adoption-queue-empty"><span className="tree-nursery-icon"><Leaf size={25} /></span><h3>Adicione a primeira espécie</h3><p>Escolha as mudas e árvores oferecidas neste viveiro.</p></div> : !filtered.length ? <p className="p-6 text-sm text-content-secondary">Nenhuma espécie corresponde aos filtros.</p> : <div className="nursery-offers-grid">{filtered.slice(start, start + PAGE_SIZE).map(row => <SpeciesAvailabilityCard key={row.species_id} row={row} onStatusChange={onStatusChange} />)}</div>}
+    {catalog.loading ? <p role="status" className="flex items-center justify-center gap-2 py-8 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Carregando espécies…</p> : catalog.error ? <p role="alert" className="text-sm text-destructive">{catalog.error}</p> : !rows.length ? <div className="adoption-queue-empty"><span className="tree-nursery-icon"><Leaf size={25} /></span><h3>Adicione a primeira espécie</h3><p>Escolha as mudas e árvores oferecidas neste viveiro.</p></div> : !filtered.length ? <p className="p-6 text-sm text-content-secondary">Nenhuma espécie corresponde aos filtros.</p> : <div className="nursery-offers-grid">{filtered.slice(start, start + PAGE_SIZE).map(row => <SpeciesAvailabilityCard key={row.species_id} row={row} onStatusChange={onStatusChange} species={catalog.species} cityId={cityId} canEditSpecies={canEditSpecies} onSpeciesUpdated={onSpeciesUpdated} />)}</div>}
     {pages > 1 && <div className="tree-availability-pagination"><p className="text-xs text-content-secondary">{start + 1}–{Math.min(start + PAGE_SIZE, filtered.length)} de {filtered.length} espécies</p><div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span className="text-xs">{currentPage} de {pages}</span><Button variant="outline" size="sm" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div></div>}
   </section>;
 }

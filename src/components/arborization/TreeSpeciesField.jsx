@@ -10,7 +10,7 @@ import { treeNameKey, uploadTreePhoto } from '@/lib/treeInventory';
 import { supabase } from '@/lib/customSupabaseClient';
 import { SIDEWALK_SUITABILITY, speciesAliases } from '@/lib/treeSpecies';
 
-export default function TreeSpeciesField({ species, value, onSelect, onCreated, onUpdated, cityId, label = 'Nome popular', disabled = false, loading = false, allowCreate = true, allowEdit = allowCreate, allowUnknown = true, onCreatingChange, compact = false, creationOnly = false }) {
+export default function TreeSpeciesField({ species, value, onSelect, onCreated, onUpdated, cityId, label = 'Nome popular', disabled = false, loading = false, allowCreate = true, allowEdit = allowCreate, allowGenerate = true, allowUnknown = true, onCreatingChange, compact = false, creationOnly = false, editOnly = false }) {
   const id = useId();
   const trigger = useRef(null);
   const savingRef = useRef(false);
@@ -50,7 +50,7 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
   };
   const choose = item => { onSelect(item); setOpen(false); setSearch(''); };
   const generateSummary = async () => {
-    if (generatingRef.current || !draft.common_name.trim()) return;
+    if (!allowGenerate || generatingRef.current || !draft.common_name.trim()) return;
     generatingRef.current = true; setGenerating(true); setError(''); setAiNotice('');
     try {
       const { data, error: generationError } = await supabase.functions.invoke('generate-tree-species-summary', { body: { city_id: cityId, common_name: draft.common_name.trim(), scientific_name: draft.scientific_name.trim() } });
@@ -98,6 +98,7 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
   };
 
   return <div className={`min-w-0 space-y-2 ${compact ? 'tree-species-compact' : ''}`} data-testid="tree-species-field">
+    {editOnly ? allowEdit && selected && <Button ref={trigger} type="button" variant="outline" size="sm" className="w-full gap-2" disabled={disabled || loading} aria-label={`Editar espécie ${selected.common_name}`} title="Editar dados, características e foto padrão da espécie" onClick={edit}><Pencil className="h-3.5 w-3.5" />Editar espécie</Button> : <>
     <div className="flex flex-wrap items-center justify-between gap-2"><label id={`${id}-label`} className="text-sm font-medium">{label}</label>
       {!draft && <div className="flex flex-wrap gap-1">
         {allowEdit && selected && <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-primary" disabled={disabled || loading} onClick={edit}><Pencil className="h-3.5 w-3.5" />Editar espécie</Button>}
@@ -130,8 +131,10 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
     {!compact && selected?.scientific_name && <p className="break-words text-xs italic text-muted-foreground" data-testid="selected-species-info">{selected.scientific_name}</p>}
     {!compact && !!selected?.aliases?.length && <p className="break-words text-xs text-muted-foreground">Também conhecida como: {selected.aliases.join(', ')}</p>}
     {!compact && selected?.illustration_url && !draft && <figure className="space-y-1.5"><img src={selected.illustration_url} alt={`Imagem ilustrativa da espécie ${selected.common_name}`} className="h-28 w-full rounded-lg object-contain bg-surface-subtle" /><figcaption className="text-[11px] text-muted-foreground">Imagem ilustrativa da espécie {selected.common_name}.</figcaption></figure>}
+    </>}
     {draft && <Dialog open onOpenChange={next => { if (!next && !savingRef.current) close(); }}>
-      <DialogContent hideClose data-testid="tree-species-editor" className="z-[10040] flex max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-md flex-col gap-0 overflow-hidden rounded-xl p-0" overlayClassName="z-[10035] bg-black/50"
+      {/* Cadastro e edição compartilham este formulário; a largura é limitada somente no modal. */}
+      <DialogContent hideClose data-testid="tree-species-editor" className="z-[10040] flex max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-xl p-0" overlayClassName="z-[10035] bg-black/50"
         onInteractOutside={event => event.preventDefault()} onEscapeKeyDown={event => { event.stopPropagation(); if (savingRef.current) event.preventDefault(); }}>
         <DialogHeader className="shrink-0 border-b px-5 py-4 text-left">
           <div className="flex items-center justify-between gap-3"><DialogTitle>{editing ? 'Editar espécie' : 'Nova espécie'}</DialogTitle><Button type="button" size="icon" variant="ghost" className="h-8 w-8" disabled={saving || generating} aria-label="Fechar espécie" onClick={close}><X className="h-4 w-4" /></Button></div>
@@ -139,26 +142,35 @@ export default function TreeSpeciesField({ species, value, onSelect, onCreated, 
         </DialogHeader>
         <form onSubmit={submit} className="flex min-h-0 flex-col overflow-hidden">
         <div className="min-h-0 overflow-y-auto px-5 py-4" data-testid="tree-species-body">
-        <fieldset disabled={saving || generating} className="min-w-0 space-y-4">
-          <label className="grid gap-1.5 text-sm font-medium">Nome popular principal<Input autoFocus required maxLength={160} placeholder="Ex.: Nim" value={draft.common_name} onChange={event => setDraft(current => ({ ...current, common_name: event.target.value }))} /></label>
-          {editing && <p className="text-xs text-muted-foreground">A alteração será aplicada a todas as árvores vinculadas a esta espécie.</p>}
-          <label className="grid gap-1.5 text-sm font-medium">Outros nomes populares ou regionais<textarea className="min-h-[72px] w-full rounded-md border bg-background p-3 font-normal" maxLength={4000} placeholder="Separe os nomes por ponto e vírgula ou por linha" value={draft.aliases} onChange={event => setDraft(current => ({ ...current, aliases: event.target.value }))} /></label>
-          <label className="grid gap-1.5 text-sm font-medium">Nome científico<Input maxLength={200} placeholder="Opcional" value={draft.scientific_name} onChange={event => setDraft(current => ({ ...current, scientific_name: event.target.value }))} /></label>
-          <label className="grid gap-1.5 text-sm font-medium">Origem<select className="h-10 w-full rounded-md border bg-background px-3 font-normal" value={draft.origin} onChange={event => setDraft(current => ({ ...current, origin: event.target.value }))}>{Object.entries(TREE_ORIGINS).map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
-          <div className="space-y-2 border-t pt-4"><Button type="button" variant="outline" size="sm" className="h-auto min-h-9 whitespace-normal" disabled={!draft.common_name.trim()} onClick={generateSummary}>{generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{generating ? 'Gerando sugestão…' : 'Gerar resumo e orientação com IA'}</Button><p className="text-xs text-muted-foreground">Preenche ou substitui o resumo e a orientação abaixo. Revise antes de salvar.</p></div>
-          <label className="grid gap-1.5 text-sm font-medium">Resumo da espécie<textarea className="min-h-[140px] w-full rounded-md border bg-background p-3 font-normal" maxLength={5000} placeholder="Características, propriedades medicinais e cuidados…" value={draft.summary} onChange={event => setDraft(current => ({ ...current, summary: event.target.value }))} /></label>
-          <label className="grid gap-1.5 text-sm font-medium">Plantio em calçada<select className="h-10 w-full rounded-md border bg-background px-3 font-normal" value={draft.sidewalk_suitability} onChange={event => setDraft(current => ({ ...current, sidewalk_suitability: event.target.value }))}>{Object.entries(SIDEWALK_SUITABILITY).map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
-          <label className="grid gap-1.5 text-sm font-medium">Orientações de plantio<textarea className="min-h-[90px] w-full rounded-md border bg-background p-3 font-normal" maxLength={3000} placeholder="Raízes, porte, espaço disponível e restrições…" value={draft.planting_guidance} onChange={event => setDraft(current => ({ ...current, planting_guidance: event.target.value }))} /></label>
-          {aiNotice && <p role="status" className="text-xs text-muted-foreground">{aiNotice}</p>}
-          <label className="grid gap-1.5 text-sm font-medium">Imagem padrão<Input ref={illustrationInput} type="file" accept="image/jpeg,image/png,image/webp" className="text-xs" onChange={event => {
-            const file = event.target.files?.[0];
-            if (file && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) { setError('Selecione uma imagem JPG, PNG ou WebP de até 5 MB.'); event.target.value = ''; return; }
-            setError(''); setIllustration(file || null);
-          }} /></label>
-          <p className="text-xs text-muted-foreground">JPG, PNG ou WebP · até 5 MB</p>
-          {(preview || draft.illustration_url) && <figure className="space-y-2"><img src={preview || draft.illustration_url} alt="Prévia da imagem ilustrativa da espécie" className="h-36 w-full rounded-lg bg-surface-subtle object-contain" /><figcaption className="text-xs text-muted-foreground">Imagem ilustrativa da espécie{draft.common_name.trim() ? ` ${draft.common_name.trim()}` : ''}.</figcaption><Button type="button" size="sm" variant="ghost" onClick={() => { setIllustration(null); setDraft(current => ({ ...current, illustration_url: '' })); if (illustrationInput.current) illustrationInput.current.value = ''; }}>Remover ilustração</Button></figure>}
-          {duplicate && <p role="status" className="rounded-lg bg-surface-subtle p-3 text-sm">“{duplicate.common_name}” já cadastrada.</p>}
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <fieldset disabled={saving || generating} className="grid min-w-0 items-start gap-5 md:grid-cols-2">
+          <section aria-labelledby={`${id}-identity`} className="min-w-0 space-y-4 rounded-lg border p-4" data-testid="tree-species-identity">
+            <h3 id={`${id}-identity`} className="text-sm font-semibold">Identificação</h3>
+            <label className="grid gap-1.5 text-sm font-medium">Nome popular principal<Input autoFocus required maxLength={160} placeholder="Ex.: Nim" value={draft.common_name} onChange={event => setDraft(current => ({ ...current, common_name: event.target.value }))} /></label>
+            {editing && <p className="text-xs text-muted-foreground">As alterações serão aplicadas ao catálogo da cidade, aos viveiros e às árvores vinculadas a esta espécie.</p>}
+            <label className="grid gap-1.5 text-sm font-medium">Outros nomes populares ou regionais<textarea className="min-h-[72px] w-full rounded-md border bg-background p-3 font-normal" maxLength={4000} placeholder="Separe os nomes por ponto e vírgula ou por linha" value={draft.aliases} onChange={event => setDraft(current => ({ ...current, aliases: event.target.value }))} /></label>
+            <label className="grid gap-1.5 text-sm font-medium">Nome científico<Input maxLength={200} placeholder="Opcional" value={draft.scientific_name} onChange={event => setDraft(current => ({ ...current, scientific_name: event.target.value }))} /></label>
+            <label className="grid gap-1.5 text-sm font-medium">Origem<select className="h-10 w-full rounded-md border bg-background px-3 font-normal" value={draft.origin} onChange={event => setDraft(current => ({ ...current, origin: event.target.value }))}>{Object.entries(TREE_ORIGINS).map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
+          </section>
+          <section aria-labelledby={`${id}-characteristics`} className="min-w-0 space-y-4 rounded-lg border p-4 md:col-start-2 md:row-span-2 md:row-start-1" data-testid="tree-species-characteristics">
+            <h3 id={`${id}-characteristics`} className="text-sm font-semibold">Características e plantio</h3>
+            {allowGenerate && <div className="space-y-2"><Button type="button" variant="outline" size="sm" className="h-auto min-h-9 gap-2 whitespace-normal" disabled={!draft.common_name.trim()} onClick={generateSummary}>{generating ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Sparkles className="h-4 w-4 shrink-0" />}{generating ? 'Gerando sugestão…' : 'Gerar resumo e orientação com IA'}</Button><p className="text-xs text-muted-foreground">Substitui o resumo e as orientações. Revise antes de salvar.</p></div>}
+            <label className="grid gap-1.5 text-sm font-medium">Resumo da espécie<textarea className="min-h-[160px] w-full rounded-md border bg-background p-3 font-normal" maxLength={5000} placeholder="Características, propriedades medicinais e cuidados…" value={draft.summary} onChange={event => setDraft(current => ({ ...current, summary: event.target.value }))} /></label>
+            <label className="grid gap-1.5 text-sm font-medium">Plantio em calçada<select className="h-10 w-full rounded-md border bg-background px-3 font-normal" value={draft.sidewalk_suitability} onChange={event => setDraft(current => ({ ...current, sidewalk_suitability: event.target.value }))}>{Object.entries(SIDEWALK_SUITABILITY).map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
+            <label className="grid gap-1.5 text-sm font-medium">Orientações de plantio<textarea className="min-h-[110px] w-full rounded-md border bg-background p-3 font-normal" maxLength={3000} placeholder="Raízes, porte, espaço disponível e restrições…" value={draft.planting_guidance} onChange={event => setDraft(current => ({ ...current, planting_guidance: event.target.value }))} /></label>
+            {aiNotice && <p role="status" className="text-xs text-muted-foreground">{aiNotice}</p>}
+          </section>
+          <section aria-labelledby={`${id}-photo`} className="min-w-0 space-y-3 rounded-lg border p-4 md:col-start-1 md:row-start-2" data-testid="tree-species-photo">
+            <h3 id={`${id}-photo`} className="text-sm font-semibold">Foto padrão</h3>
+            <label className="grid gap-1.5 text-sm font-medium"><span className="sr-only">Selecionar foto padrão</span><Input ref={illustrationInput} type="file" accept="image/jpeg,image/png,image/webp" className="text-xs" onChange={event => {
+              const file = event.target.files?.[0];
+              if (file && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) { setError('Selecione uma imagem JPG, PNG ou WebP de até 5 MB.'); event.target.value = ''; return; }
+              setError(''); setIllustration(file || null);
+            }} /></label>
+            <p className="text-xs text-muted-foreground">JPG, PNG ou WebP · até 5 MB</p>
+            {(preview || draft.illustration_url) && <figure className="space-y-2"><img src={preview || draft.illustration_url} alt="Prévia da imagem ilustrativa da espécie" className="h-36 w-full rounded-lg bg-surface-subtle object-contain" /><figcaption className="text-xs text-muted-foreground">Imagem ilustrativa da espécie{draft.common_name.trim() ? ` ${draft.common_name.trim()}` : ''}.</figcaption><Button type="button" size="sm" variant="ghost" onClick={() => { setIllustration(null); setDraft(current => ({ ...current, illustration_url: '' })); if (illustrationInput.current) illustrationInput.current.value = ''; }}>Remover ilustração</Button></figure>}
+          </section>
+          {duplicate && <p role="status" className="rounded-lg bg-surface-subtle p-3 text-sm md:col-span-2">“{duplicate.common_name}” já cadastrada.</p>}
+          {error && <p role="alert" className="text-sm text-destructive md:col-span-2">{error}</p>}
         </fieldset>
         </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t bg-background px-5 py-4" data-testid="tree-species-footer"><Button type="button" size="sm" variant="ghost" disabled={saving || generating} onClick={close}>Cancelar</Button><Button type="submit" size="sm" disabled={saving || generating}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{editing ? 'Salvar espécie' : duplicate ? 'Usar espécie existente' : 'Adicionar ao catálogo'}</Button></div>

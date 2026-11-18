@@ -239,6 +239,12 @@ const DirectoryDetailsPage = () => {
           </div>
         </section>}
         </div>
+        {item.type !== 'public' && <section aria-labelledby="advertise-guide-title" className="mt-6 flex min-w-0 flex-col items-start gap-4 border-t border-edge-subtle pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <h2 id="advertise-guide-title" className="text-base font-extrabold text-content-primary">Este comércio é seu? Destaque seu negócio no Trombone Cidadão</h2>
+          <Button asChild className="h-11 shrink-0 rounded-xl px-5">
+            <Link to="/contato">Anuncie seu Comércio</Link>
+          </Button>
+        </section>}
       </motion.div>
       {canEdit && <DirectoryEditDialog open={editOpen} onOpenChange={setEditOpen} item={item} categories={categories} allowedCityIds={user.is_admin || user.is_master ? undefined : ambassadorCityIds} onSaved={fetchItem} />}
       {canEdit && <DirectoryLocationDialog open={locationOpen} onOpenChange={setLocationOpen} item={item} onSaved={fetchItem} />}

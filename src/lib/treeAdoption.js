@@ -4,6 +4,10 @@ export const TREE_ADOPTION_MANAGEMENT_PATH = '/prefeitura/adote-uma-arvore';
 export const TREE_ADOPTION_REQUESTS_PATH = `${TREE_ADOPTION_MANAGEMENT_PATH}/solicitacoes`;
 export const TREE_NURSERIES_MANAGEMENT_PATH = `${TREE_ADOPTION_MANAGEMENT_PATH}/viveiros`;
 export const ADOPTION_TYPES = { muda: 'Receber uma muda', plantio: 'Solicitar plantio pela equipe' };
+export const ADOPTION_FULFILLMENT = { retirada: 'Retirar no viveiro', entrega: 'Receber em casa' };
+export const MUNICIPAL_NURSERY_LOCATION = 'Dentro da Secretaria de Produção Rural de Floresta';
+export const adoptionFulfillment = request => request.request_type === 'muda' ? (request.fulfillment_method || 'retirada') : null;
+export const adoptionFulfillmentLabel = request => ADOPTION_FULFILLMENT[adoptionFulfillment(request)] || '';
 export const ADOPTION_ZONES = { urbana: 'Zona urbana', rural: 'Zona rural' };
 export const ADOPTION_PLACES = { calcada: 'Calçada', quintal: 'Quintal', praca: 'Praça', avenida: 'Avenida', outro: 'Outro local' };
 export const ADOPTION_PURPOSES = { sombra: 'Sombra', ornamentacao: 'Ornamentação', frutifera: 'Frutífera' };
@@ -12,7 +16,7 @@ export const ADOPTION_PROVIDERS = { viveiro_municipal: 'Viveiro municipal', inst
 export const ADOPTION_AVAILABILITY = { disponivel: 'Disponível para solicitação', indisponivel: 'Indisponível', sob_consulta: 'Sob consulta' };
 export const ADOPTION_STATUSES = { solicitada: 'Solicitação enviada', em_analise: 'Em análise técnica', aguardando_informacao: 'Aguardando informação', aguardando_disponibilidade: 'Aguardando disponibilidade', aprovada: 'Aprovada', agendada: 'Plantio agendado', pronta_retirada: 'Muda pronta para retirada', concluida: 'Solicitação atendida', recusada: 'Recusada', cancelada: 'Cancelada' };
 export const ADOPTION_TERMINAL = ['concluida', 'recusada', 'cancelada'];
-export const EMPTY_ADOPTION = { request_type: '', zone: '', planting_place: '', purpose: '', overhead_wiring: '', species_id: '', provider: '', items: [], requester_name: '', requester_phone: '', requester_email: '', address: '', reference_point: '', neighborhood: '', latitude: '', longitude: '', notes: '', commitment: false };
+export const EMPTY_ADOPTION = { request_type: '', fulfillment_method: 'retirada', zone: '', planting_place: '', purpose: '', overhead_wiring: '', species_id: '', provider: '', items: [], requester_name: '', requester_phone: '', requester_email: '', address: '', reference_point: '', neighborhood: '', latitude: '', longitude: '', notes: '', commitment: false };
 export const ADOPTION_CITY_ID = 64; // Primeira etapa do convênio: Floresta · PE.
 export const MONTHLY_SEEDLING_LIMIT = 6;
 export const ADOPTION_CITY_NOTICE = 'A prefeitura desta cidade ainda não tem convênio com a plataforma Trombone Cidadão para oferta de mudas ou plantio de árvores. Procure a prefeitura municipal da sua cidade e sugira essa ideia!';
@@ -32,7 +36,7 @@ export function adoptionNextStatuses(request) {
   if (ADOPTION_TERMINAL.includes(request.status)) return [];
   return Object.keys(ADOPTION_STATUSES).filter(status => status !== request.status
     && (status !== 'agendada' || request.request_type === 'plantio')
-    && (status !== 'pronta_retirada' || request.request_type === 'muda'));
+    && (status !== 'pronta_retirada' || adoptionFulfillment(request) === 'retirada'));
 }
 
 export function availableAdoptionProviders(availability, speciesId) {
@@ -59,6 +63,7 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
   if (!cityId) return 'Selecione a cidade onde pretende plantar.';
   if (step === null || step === 0) {
     if (!Object.hasOwn(ADOPTION_TYPES, form.request_type)) return 'Escolha entre muda e plantio.';
+    if (form.request_type === 'muda' && !Object.hasOwn(ADOPTION_FULFILLMENT, form.fulfillment_method)) return 'Escolha entre receber em casa e retirar no viveiro.';
     if (!Object.hasOwn(ADOPTION_PURPOSES, form.purpose)) return 'Informe a finalidade.';
     if (String(form.requester_name || '').trim().length < 3 || form.requester_name.trim().length > 160) return 'Informe seu nome completo (3 a 160 caracteres).';
     if (!/^[+\d\s().-]+$/.test(form.requester_phone || '') || !/^\d{10,15}$/.test(String(form.requester_phone || '').replace(/\D/g, ''))) return 'Informe um telefone de contato com DDD.';
@@ -97,7 +102,7 @@ export function validateAdoption(form, cityId, species, step = null, availabilit
 export function adoptionPayload(form, cityId, id) {
   const items = adoptionItems(form).map(item => ({ species_id: item.species_id, provider: item.provider, quantity: Number(item.quantity) }));
   return { id, city_id: cityId, commitment: form.commitment === true, ...Object.fromEntries(Object.keys(EMPTY_ADOPTION).filter(key => !['commitment', 'items'].includes(key)).map(key =>
-    [key, ['latitude', 'longitude'].includes(key) ? Number(form[key]) : String(form[key] || '').trim() || null])), items, species_id: items[0]?.species_id, provider: items[0]?.provider };
+    [key, ['latitude', 'longitude'].includes(key) ? Number(form[key]) : String(form[key] || '').trim() || null])), fulfillment_method: adoptionFulfillment(form), items, species_id: items[0]?.species_id, provider: items[0]?.provider };
 }
 
 export const adoptionProtocol = request => `ARV-${request.id.slice(0, 8).toUpperCase()}`;

@@ -10,20 +10,20 @@ function fixture(result) {
 }
 
 test('plantio começa desativado sem cidade ou sem configuração', async () => {
-  assert.deepEqual(await loadTreeAdoptionSettings(null, null), { plantingEnabled: false, seedlingsEnabled: false });
-  assert.deepEqual(await loadTreeAdoptionSettings(fixture({ data: null }), 64), { plantingEnabled: false, seedlingsEnabled: true });
+  assert.deepEqual(await loadTreeAdoptionSettings(null, null), { plantingEnabled: false, seedlingsEnabled: false, deliveryEnabled:false });
+  assert.deepEqual(await loadTreeAdoptionSettings(fixture({ data: null }), 64), { plantingEnabled: false, seedlingsEnabled: true, deliveryEnabled:true });
 });
 test('habilita somente com valor booleano explícito e na cidade consultada', async () => {
   for (const [city_id, planting_enabled, expected] of [[64, true, true], [64, false, false], [65, true, false], [64, 'true', false]]) {
     const client = fixture({ data: { city_id, planting_enabled, seedlings_enabled: true } });
-    assert.deepEqual(await loadTreeAdoptionSettings(client, 64), { plantingEnabled: expected, seedlingsEnabled: city_id === 64 });
+    assert.deepEqual(await loadTreeAdoptionSettings(client, 64), { plantingEnabled: expected, seedlingsEnabled: city_id === 64, deliveryEnabled:false });
     assert.ok(client.calls.some(call => call[0] === 'eq' && call[1] === 'city_id' && call[2] === 64));
   }
 });
 
 test('as modalidades são independentes e exigem booleanos válidos', async () => {
   for (const planting of [true, false]) for (const seedlings of [true, false]) {
-    assert.deepEqual(await loadTreeAdoptionSettings(fixture({ data: { city_id: 64, planting_enabled: planting, seedlings_enabled: seedlings } }), 64), { plantingEnabled: planting, seedlingsEnabled: seedlings });
+    assert.deepEqual(await loadTreeAdoptionSettings(fixture({ data: { city_id: 64, planting_enabled: planting, seedlings_enabled: seedlings } }), 64), { plantingEnabled: planting, seedlingsEnabled: seedlings, deliveryEnabled:false });
   }
   assert.equal((await loadTreeAdoptionSettings(fixture({ data: { city_id: 64, seedlings_enabled: 'true' } }), 64)).seedlingsEnabled, false);
 });
@@ -33,7 +33,7 @@ test('falha de consulta não se transforma em permissão para plantio', async ()
 test('salva ativação e desativação por cidade e confirma a resposta', async () => {
   for (const enabled of [true, false]) {
     const client = fixture({ data: { city_id: 64, planting_enabled: enabled, seedlings_enabled: false } });
-    assert.deepEqual(await saveTreeAdoptionSettings(client, 64, { plantingEnabled: enabled }), { plantingEnabled: enabled, seedlingsEnabled: false });
+    assert.deepEqual(await saveTreeAdoptionSettings(client, 64, { plantingEnabled: enabled }), { plantingEnabled: enabled, seedlingsEnabled: false, deliveryEnabled:false });
     assert.deepEqual(client.calls.find(call => call[0] === 'upsert'), ['upsert', { city_id: 64, planting_enabled: enabled }, { onConflict: 'city_id' }]);
   }
   await assert.rejects(saveTreeAdoptionSettings(fixture({ error: new Error('Sem permissão') }), 64, { plantingEnabled: true }), /Sem permissão/);
@@ -43,10 +43,21 @@ test('salva ativação e desativação por cidade e confirma a resposta', async 
 test('alterar mudas não regrava a configuração de plantio', async () => {
   for (const seedlingsEnabled of [false, true]) {
     const client = fixture({ data: { city_id: 64, planting_enabled: true, seedlings_enabled: seedlingsEnabled } });
-    assert.deepEqual(await saveTreeAdoptionSettings(client, 64, { seedlingsEnabled }), { plantingEnabled: true, seedlingsEnabled });
+    assert.deepEqual(await saveTreeAdoptionSettings(client, 64, { seedlingsEnabled }), { plantingEnabled: true, seedlingsEnabled, deliveryEnabled:false });
     assert.deepEqual(client.calls.find(call => call[0] === 'upsert'), ['upsert', { city_id: 64, seedlings_enabled: seedlingsEnabled }, { onConflict: 'city_id' }]);
   }
   await assert.rejects(saveTreeAdoptionSettings(fixture({ data: { city_id: 64, seedlings_enabled: true } }), 64, { seedlingsEnabled: false }), /confirmar/);
   await assert.rejects(saveTreeAdoptionSettings(null, null, { seedlingsEnabled: false }), /cidade/);
   await assert.rejects(saveTreeAdoptionSettings(null, 64, { seedlingsEnabled: 'false' }), /configuração/);
+});
+
+test('gestor altera apenas entrega e não regrava plantio ou solicitação de mudas', async () => {
+  for (const deliveryEnabled of [false,true]) {
+    const client=fixture({data:{city_id:64,planting_enabled:true,seedlings_enabled:true,delivery_enabled:deliveryEnabled}});
+    assert.deepEqual(await saveTreeAdoptionSettings(client,64,{deliveryEnabled}),{plantingEnabled:true,seedlingsEnabled:true,deliveryEnabled});
+    assert.deepEqual(client.calls.find(call=>call[0]==='upsert'),['upsert',{city_id:64,delivery_enabled:deliveryEnabled},{onConflict:'city_id'}]);
+    assert.equal((await loadTreeAdoptionSettings(client,64)).deliveryEnabled,deliveryEnabled);
+    assert.equal((await loadTreeAdoptionSettings(client,65)).deliveryEnabled,false);
+  }
+  await assert.rejects(saveTreeAdoptionSettings(fixture({data:{city_id:64,delivery_enabled:true}}),64,{deliveryEnabled:false}),/confirmar/);
 });

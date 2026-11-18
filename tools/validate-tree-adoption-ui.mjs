@@ -37,13 +37,19 @@ const stubs = {
       species[0].planting_guidance='Orientação de plantio e cuidados com a muda. '.repeat(15);
       if(location.search.includes('edit-sparse'))availability.forEach(row=>{if(row.species_id!=='species1'||row.provider!=='viveiro_municipal')row.status='indisponivel'});
     }
-    window.plantingSettings={64:!location.search.includes('planting-settings-audit'),65:false};window.seedlingsSettings={64:!location.search.includes('seedlings-paused'),65:true};window.settingsSaves=[];
+    window.plantingSettings={64:!location.search.includes('planting-settings-audit'),65:false};window.seedlingsSettings={64:!location.search.includes('seedlings-paused'),65:true};window.deliverySettings={64:!location.search.includes('delivery-paused'),65:true};window.settingsSaves=[];
     const initialAvailability=structuredClone(availability);
     window.clearAvailability=()=>{availability=[]};window.restoreAvailability=()=>{availability=structuredClone(initialAvailability)};
+    window.speciesSaves=[];window.speciesUploads=[];window.speciesRemovedUploads=[];window.speciesAiCalls=[];
     window.requests=/(manager|attendant|details-audit)/.test(location.search)?[{id:'12345678-0000-0000-0000-000000000001',city_id:64,author_id:'citizen',species_id:'species1',request_type:'plantio',zone:'urbana',planting_place:'calcada',purpose:'sombra',overhead_wiring:'sim',provider:'viveiro_municipal',address:'Rua do Plantio, 20',neighborhood:'Centro',latitude:-8.6,longitude:-38.57,status:'solicitada',created_at:new Date().toISOString(),species:species[0]}]:[];
     if(location.search.includes('many-manager')){const base=window.requests[0];window.requests=Array.from({length:18},(_,i)=>({...base,id:'12345678-0000-0000-0000-'+String(i+1).padStart(12,'0'),status:['solicitada','em_analise','aguardando_informacao','aprovada'][i%4],address:'Rua de teste '+(i+1)+', Centro',request_type:i%2?'muda':'plantio'}));}
     if(location.search.includes('details-audit'))window.requests.forEach(r=>Object.assign(r,{requester_name:'Pessoa de teste',requester_phone:'87999999999',requester_email:'pessoa@example.test',notes:'Detalhes importantes do local. '.repeat(20),status:location.search.includes('terminal')?'concluida':location.search.includes('pickup')?'pronta_retirada':'solicitada',request_type:location.search.includes('pickup')?'muda':'plantio'}));window.events=[];window.calls=[];window.alerts=[];window.mapQueries=[];window.availabilitySaves=[];
-    export const supabase={auth:{getSession:async()=>({data:{session:window.missingSession?null:{access_token:'fixture',user:{id:'citizen'}}}}),refreshSession:async()=>{window.sessionRefreshes=(window.sessionRefreshes||0)+1;return {data:{session:window.missingSession?null:{access_token:'renewed-fixture',user:{id:'citizen'}}}};}},functions:{invoke:async()=>({data:{}})},rpc:async(name,args)=>{
+    export const supabase={storage:{from:()=>({upload:async(path)=>{window.speciesUploads.push(path);return {error:null}},getPublicUrl:()=>({data:{publicUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='}}),remove:async paths=>{window.speciesRemovedUploads.push(...paths);return {error:null}}})},auth:{getUser:async()=>({data:{user:{id:'citizen'}}}),getSession:async()=>({data:{session:window.missingSession?null:{access_token:'fixture',user:{id:'citizen'}}}}),refreshSession:async()=>{window.sessionRefreshes=(window.sessionRefreshes||0)+1;return {data:{session:window.missingSession?null:{access_token:'renewed-fixture',user:{id:'citizen'}}}};}},functions:{invoke:async(name,options)=>{
+      if(name!=='generate-tree-species-summary')return {data:{}};
+      window.speciesAiCalls.push({name,body:options.body});
+      await new Promise(resolve=>setTimeout(resolve,200));
+      return window.failSpeciesAi?{data:{error:'Falha simulada na geração. Seus dados foram mantidos.'}}:{data:{summary:'Resumo gerado para revisão.',sidewalk_suitability:'com_restricoes',planting_guidance:'Orientação gerada para revisão.'}};
+    }},rpc:async(name,args)=>{
       window.calls.push({name,args});
       if(name==='municipal_execution_workspace')return {data:{actor_user_id:'citizen',access_contract:2,execution_contract:1,memberships:[{papel:location.search.includes('manager')&&!location.search.includes('inventory')?'administrador':'colaborador',prefeitura:{id:'pref64',city_id:64,nome:'Prefeitura de Floresta',categorias_habilitadas:['poda'],cidade:location.search.includes('missing-city')||location.search.includes('no-city-metadata')?{}:{name:'Floresta',states:{uf:'PE'}}}}],channels:[{id:'agri',city_id:64,nome:'Meio ambiente'}],accesses:[{city_id:64,canal_id:'agri',atendimento:location.search.includes('inventory')?'nenhum':location.search.includes('reader')?'leitura':'atendente',especialidades_execucao:[]}],category_channels:[{city_id:64,canal_id:'agri',category_id:'poda'}],inventories:location.search.includes('manager')?[{city_id:64,canal_id:'agri',module:'arborization'}]:[],inventory_views:[]}};
       if(name==='can_manage_tree_adoption')return {data:/(manager|attendant)/.test(location.search)};
@@ -55,12 +61,13 @@ const stubs = {
       if(name==='update_tree_adoption'){const row=window.requests.find(r=>r.id===args.p_id);if(row.status!==args.p_expected_status)return {error:{message:'Pedido atualizado por outra pessoa.'}};Object.assign(row,{status:args.p_status,approved_species_id:args.p_details.species_id,confirmed_provider:args.p_details.provider});window.events.push({id:crypto.randomUUID(),request_id:row.id,status:row.status,message:args.p_message,created_at:new Date().toISOString()});return {data:row};}
       if(name==='edit_tree_adoption'){const row=window.requests.find(r=>r.id===args.p_id);Object.assign(row,args.p_changes,{status:'em_analise',approved_species_id:null,confirmed_provider:null,scheduled_at:null,updated_at:new Date().toISOString()});return {data:row};}
       return {data:[]};
-    },from(table){const filters=[],excludes=[];let start=0,end=999,payload,newSpecies,one=false;const q={select(){return q},or(){return q},is(){return q},eq(k,v){filters.push([k,v]);return q},in(){return q},single(){one=true;return q},maybeSingle(){one=true;return q},not(k,op,v){excludes.push([k,v===null?[null,undefined]:v.slice(1,-1).split(',')]);return q},order(){return q},limit(n){end=n-1;return q},range(a,b){start=a;end=b;return q},insert(v){newSpecies=v;return q},upsert(v){payload=v;return q},then(ok,fail){
+    },from(table){const filters=[],excludes=[];let start=0,end=999,payload,newSpecies,speciesUpdate,one=false;const q={select(){return q},or(){return q},is(){return q},eq(k,v){filters.push([k,v]);return q},in(){return q},single(){one=true;return q},maybeSingle(){one=true;return q},not(k,op,v){excludes.push([k,v===null?[null,undefined]:v.slice(1,-1).split(',')]);return q},order(){return q},limit(n){end=n-1;return q},range(a,b){start=a;end=b;return q},insert(v){newSpecies=v;return q},update(v){speciesUpdate=v;return q},upsert(v){payload=v;return q},then(ok,fail){
+      if(speciesUpdate&&table==='city_tree_species'){if(window.failSpeciesSave)return Promise.resolve({error:{code:'42501'}}).then(ok,fail);const row=species.find(r=>filters.every(([k,v])=>String(r[k])===String(v)));Object.assign(row,speciesUpdate);window.speciesSaves.push({filters,values:speciesUpdate});return Promise.resolve({data:{...row},error:null}).then(ok,fail);}
       if(newSpecies){const row={id:'created-species',...newSpecies};species.push(row);return Promise.resolve({data:row,error:null}).then(ok,fail);}
       if(table==='tree_adoption_settings'){
-        if(payload){if(window.failSettingsSave)return Promise.resolve({error:{message:'Falha ao salvar.'}}).then(ok,fail);if('planting_enabled' in payload)window.plantingSettings[payload.city_id]=payload.planting_enabled;if('seedlings_enabled' in payload)window.seedlingsSettings[payload.city_id]=payload.seedlings_enabled;window.settingsSaves.push(payload);return Promise.resolve({data:{city_id:payload.city_id,planting_enabled:window.plantingSettings[payload.city_id],seedlings_enabled:window.seedlingsSettings[payload.city_id]},error:null}).then(ok,fail);}
+        if(payload){if(window.failSettingsSave)return Promise.resolve({error:{message:'Falha ao salvar.'}}).then(ok,fail);if('planting_enabled' in payload)window.plantingSettings[payload.city_id]=payload.planting_enabled;if('seedlings_enabled' in payload)window.seedlingsSettings[payload.city_id]=payload.seedlings_enabled;if('delivery_enabled' in payload)window.deliverySettings[payload.city_id]=payload.delivery_enabled;window.settingsSaves.push(payload);return Promise.resolve({data:{city_id:payload.city_id,planting_enabled:window.plantingSettings[payload.city_id],seedlings_enabled:window.seedlingsSettings[payload.city_id],delivery_enabled:window.deliverySettings[payload.city_id]},error:null}).then(ok,fail);}
         if(window.failSettingsLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
-        const cityId=filters.find(([key])=>key==='city_id')?.[1];return Promise.resolve({data:{city_id:cityId,planting_enabled:window.plantingSettings[cityId]===true,seedlings_enabled:window.seedlingsSettings[cityId]===true},error:null}).then(ok,fail);
+        const cityId=filters.find(([key])=>key==='city_id')?.[1];return Promise.resolve({data:{city_id:cityId,planting_enabled:window.plantingSettings[cityId]===true,seedlings_enabled:window.seedlingsSettings[cityId]===true,delivery_enabled:window.deliverySettings[cityId]===true},error:null}).then(ok,fail);
       }
       if(payload){if(window.failAvailabilitySave)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);window.availabilitySaves.push(payload);for(const row of Array.isArray(payload)?payload:[payload]){availability=availability.filter(r=>r.species_id!==row.species_id||r.provider!==row.provider);availability.push({...row,updated_at:new Date().toISOString()});}return Promise.resolve({data:payload}).then(ok,fail);}
       if(table==='tree_species_availability'&&window.failAvailabilityLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
@@ -163,7 +170,78 @@ try {
     if (stage==='revisao' && height>=900) assert.ok(await evaluate('[...document.querySelectorAll(".adoption-review-column")].every(el=>el.scrollHeight<=el.clientHeight+1)'), 'Revisão resumida deve caber sem rolagem interna');
     if (await evaluate('document.querySelector(".adoption-form").dataset.step==="0"')) assert.ok(await evaluate(`(()=>{const fields=document.querySelector('.adoption-request-form'),body=document.querySelector('.adoption-form-body'),f=fields.getBoundingClientRect(),b=body.getBoundingClientRect();return f.top>=b.top&&f.bottom<=b.bottom&&fields.scrollHeight<=fields.clientHeight+1})()`), 'Campos iniciais precisam caber na área do formulário');
   };
-  if (process.argv.includes('--planting-settings-audit')) {
+  if (process.argv.includes('--fulfillment-safe-area')) {
+    const results = [];
+    const draft = { requestId: 'a4320000-0000-0000-0000-000000000001', step: 0, form: { request_type:'muda',fulfillment_method:'retirada',purpose:'sombra',zone:'urbana',planting_place:'quintal',overhead_wiring:'nao',address:'Rua de entrega, 20',reference_point:'Em frente à praça',neighborhood:'Centro',latitude:-8.6,longitude:-38.57,requester_name:'Maria da Silva',requester_phone:'87999999999',requester_email:'maria@example.test',items:[{species_id:'species1',quantity:1,provider:'viveiro_municipal'}],commitment:true } };
+    const cases = [
+      {width:390,height:844,name:'android',top:28,bottom:24,left:0,right:0},
+      {width:390,height:844,name:'iphone',top:59,bottom:34,left:0,right:0},
+      {width:844,height:390,name:'landscape',top:0,bottom:21,left:44,right:44},
+      {width:1440,height:900,name:'desktop',top:0,bottom:0,left:0,right:0},
+      {width:1920,height:1080,name:'wide',top:0,bottom:0,left:0,right:0},
+    ];
+    for (const size of cases) for (const method of ['retirada','entrega']) {
+      await send('Emulation.setDeviceMetricsOverride',{width:size.width,height:size.height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?aba=programa');await waitFor('document.querySelector(".adoption-program-request-actions")');
+      await evaluate(`sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',${JSON.stringify(JSON.stringify(draft))})`);
+      await navigate('?aba=solicitar');await waitFor('document.querySelector(".adoption-form")');
+      await evaluate(`(()=>{const root=document.documentElement;${['top','bottom','left','right'].map(side=>`root.style.setProperty('--safe-area-${side}','${size[side]}px');`).join('')}root.style.setProperty('--header-safe-top','0px');root.classList.toggle('dark',${method==='entrega'});})()`);
+      await waitFor(`document.querySelector('input[type=radio][value="${method}"]')`);await radio(method);await input('000.000.000-00','529.982.247-25');
+      assert.ok(await evaluate(`document.querySelector('[aria-label="Recebimento das mudas"]').textContent.includes(${JSON.stringify(method==='retirada'?'Secretaria de Produção Rural de Floresta':'endereço informado')})`));
+      const check = async step => {
+        await waitFor(`document.querySelector('.adoption-form')?.dataset.step==='${step}'`);await pause(350);
+        const geometry = await evaluate(`(()=>{const d=document.querySelector('.adoption-create-dialog'),h=d.querySelector('.adoption-dialog-heading'),b=d.querySelector('.adoption-form-body'),f=d.querySelector('.wizard-actions'),r=d.getBoundingClientRect(),hr=h.getBoundingClientRect(),br=b.getBoundingClientRect(),fr=f.getBoundingClientRect();return{top:hr.top,bottom:fr.bottom,left:fr.left,right:fr.right,bodyHeight:br.height,bodyBottom:br.bottom,footerTop:fr.top,dialogTop:r.top,dialogBottom:r.bottom,overflow:document.documentElement.scrollWidth>innerWidth}})()`);
+        assert.ok(geometry.top>=size.top&&geometry.bottom<=size.height-size.bottom+1&&geometry.left>=size.left&&geometry.right<=size.width-size.right+1&&!geometry.overflow&&geometry.bodyHeight>0&&geometry.bodyBottom<=geometry.footerTop+1,JSON.stringify({size,step,geometry}));
+      };
+      for (let step=0;step<4;step++) {await check(step);await capture(`fulfillment-${size.name}-${method}-step${step}`);if(step<3)await click(step===2?'Revisar pedido':'Continuar');}
+      assert.ok(await evaluate(`document.querySelector('.tree-review-summary').textContent.includes(${JSON.stringify(method==='entrega'?'Receber em casa':'Retirar no viveiro')})`));
+      await evaluate('window.failSave=true');await click('Enviar solicitação');await waitFor('document.querySelector(".adoption-form-error")');
+      assert.equal(await evaluate('JSON.parse(sessionStorage.getItem("tc_tree_adoption_draft:64:citizen")).form.fulfillment_method'),method);
+      await evaluate('window.failSave=false');await click('Enviar solicitação');await waitFor('document.querySelector(".adoption-success-panel")');
+      assert.equal(await evaluate('window.requests[0].fulfillment_method'),method);
+      assert.equal(await evaluate('window.requests[0].address'),'Rua de entrega, 20');
+      assert.ok(await evaluate(`document.querySelector('.adoption-success-steps').textContent.includes(${JSON.stringify(method==='entrega'?'combinar a entrega':'retirar as mudas no viveiro')})`));
+      await click('Acompanhar solicitação');await waitFor('document.querySelector(".adoption-request-card")');
+      assert.ok(await evaluate(`document.querySelector('.adoption-request-card').textContent.includes(${JSON.stringify(method==='entrega'?'Receber em casa':'Retirar no viveiro')})`));
+      results.push({size:size.name,method,steps:4,safeAreas:true,retry:true,persisted:true});
+    }
+    // Pedidos acumulados podem mudar de entrega para retirada sem refazer o cadastro.
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false},sessionId);
+    await navigate('?overview&details-audit&aba=minhas');await waitFor('document.querySelector(".adoption-request-card")');
+    await evaluate("document.documentElement.style.setProperty('--safe-area-top','59px');document.documentElement.style.setProperty('--safe-area-bottom','34px')");
+    await evaluate("Object.assign(window.requests[0],{request_type:'muda',fulfillment_method:'entrega'})");
+    const modalSafe = async selector => {await pause(350);assert.ok(await evaluate(`(()=>{const d=document.querySelector(${JSON.stringify(selector)}),close=d.querySelector(':scope > button:last-child').getBoundingClientRect(),f=d.querySelector('footer').getBoundingClientRect();return close.top>=59&&f.bottom<=810&&d.scrollWidth<=d.clientWidth+1})()`));};
+    await evaluate('document.querySelector(".adoption-request-card button[aria-label]").click()');await waitFor('document.querySelector(".adoption-request-dialog")');await modalSafe('.adoption-request-dialog');await click('Alterar pedido');
+    await waitFor('document.querySelector(".adoption-edit-dialog input[value=retirada]")');await modalSafe('.adoption-edit-dialog');await radio('retirada');await click('Salvar alterações');
+    await waitFor('!document.querySelector(".adoption-edit-dialog")');
+    const edited=await evaluate('window.calls.find(c=>c.name==="edit_tree_adoption").args.p_changes');assert.equal(edited.fulfillment_method,'retirada');
+    await navigate('?manager&details-audit');await waitFor('document.querySelector(".adoption-request-card")');
+    await evaluate("Object.assign(window.requests[0],{request_type:'muda',fulfillment_method:'entrega'})");
+    await select('Recebimento','entrega');await waitFor('document.querySelector(".adoption-request-card")?.textContent.includes("Receber em casa")');
+    await select('Recebimento','retirada');await waitFor('!document.querySelector(".adoption-request-card")');
+    await select('Recebimento','');await waitFor('document.querySelector(".adoption-request-card")');
+    for (const width of [390,1440,1920]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?manager&details-audit');await waitFor('document.querySelector("[data-setting=deliveryEnabled]")?.getAttribute("aria-checked")==="true"&&!document.querySelector("[data-setting=deliveryEnabled]").disabled');
+      await evaluate('window.failSettingsSave=true;document.querySelector("[data-setting=deliveryEnabled]").click()');await waitFor('document.querySelector(".tree-adoption-settings [role=alert]")');
+      assert.equal(await evaluate('document.querySelector("[data-setting=deliveryEnabled]").getAttribute("aria-checked")'),'true');
+      await evaluate('window.failSettingsSave=false;document.querySelector("[data-setting=deliveryEnabled]").click()');
+      await waitFor('document.querySelector("[data-setting=deliveryEnabled]")?.getAttribute("aria-checked")==="false"&&!document.querySelector("[data-setting=deliveryEnabled]").disabled');
+      assert.ok(await evaluate('window.plantingSettings[64]&&window.seedlingsSettings[64]&&!window.deliverySettings[64]'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture(`delivery-settings-${width}`);
+      await evaluate('document.querySelector("[data-setting=deliveryEnabled]").click()');await waitFor('document.querySelector("[data-setting=deliveryEnabled]")?.getAttribute("aria-checked")==="true"');
+    }
+    await evaluate(`sessionStorage.setItem('tc_tree_adoption_draft:64:citizen',${JSON.stringify(JSON.stringify({...draft,step:3,form:{...draft.form,fulfillment_method:'entrega'}}))})`);
+    await navigate('?delivery-paused&aba=solicitar');await waitFor('document.querySelector(".adoption-form")');
+    assert.equal(await evaluate('document.querySelector(".adoption-form").dataset.step'),'0');
+    assert.equal(await evaluate('document.querySelector(".adoption-form input[type=radio][value=entrega]")'),null);
+    await click('Continuar');await waitFor('document.querySelector(".adoption-form-error")?.textContent.includes("entregas estão desativadas")');
+    await radio('retirada');await input('000.000.000-00','529.982.247-25');await click('Continuar');await waitFor('document.querySelector(".adoption-form").dataset.step==="1"');
+    await navigate('?attendant');await waitFor('document.querySelector("[data-setting=deliveryEnabled]")');
+    assert.equal(await evaluate('document.querySelector("[data-setting=deliveryEnabled]").disabled'),true);
+    assert.equal(errors.length,0,JSON.stringify(errors));console.log(JSON.stringify({results,editExisting:true,otherModalsSafe:true,managementFilter:true,adminDeliveryToggle:true,deliveryPaused:true}));
+  } else if (process.argv.includes('--planting-settings-audit')) {
     const setting = key => `document.querySelector('[data-setting="${key}"]')`;
     const toggleSetting = async (key, value) => {
       await waitFor(`${setting(key)}&&!${setting(key)}.disabled`);
@@ -178,7 +256,7 @@ try {
       await evaluate(`document.querySelector('a[href="/admin/arborizacao/solicitacoes"]').click()`);
       await waitFor(`document.querySelector('[role="switch"]:not(:disabled)')`);
       await evaluate(`document.documentElement.classList.toggle('dark',${theme === 'dark'})`);
-      assert.equal(await evaluate('document.querySelectorAll(".tree-adoption-settings [role=switch]").length'), 2);
+      assert.equal(await evaluate('document.querySelectorAll(".tree-adoption-settings [role=switch]").length'), 3);
       assert.equal(await evaluate(`${setting('seedlingsEnabled')}.getAttribute('aria-checked')`), 'true');
       assert.ok(await evaluate(`(()=>{const rows=[...document.querySelectorAll('.tree-adoption-settings-option')];return rows.every(row=>{const control=row.querySelector('[role=switch]'),label=row.querySelector('label'),r=row.getBoundingClientRect(),c=control.getBoundingClientRect();return label.control===control&&c.left>=r.left&&c.right<=r.right&&c.width>=44&&c.height>=24&&getComputedStyle(control).backgroundColor!=='rgba(0, 0, 0, 0)'})&&${width >= 640 ? "rows[0].getBoundingClientRect().top===rows[1].getBoundingClientRect().top" : "rows[0].getBoundingClientRect().bottom<rows[1].getBoundingClientRect().top"}})()`), 'Controles identificados e organizados em colunas no desktop e linhas no celular');
       assert.equal(await evaluate(`document.querySelector('[role="switch"]').getAttribute("aria-checked")`),'false');
@@ -246,12 +324,64 @@ try {
       await waitFor('document.querySelector(".adoption-program-request-actions button")?.disabled');
       assert.ok(await evaluate('document.querySelector(".adoption-program-note").textContent.includes("temporariamente desativadas")'));
       assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
-      console.log(width+'px '+theme+': dois controles, quatro combinações, falhas, rascunhos e acesso a pedidos existentes OK.');
+      console.log(width+'px '+theme+': três controles, quatro combinações de plantio/mudas, falhas, rascunhos e acesso a pedidos existentes OK.');
     }
     await navigate('?planting-settings-audit&attendant');
     await waitFor(`document.querySelector('[role="switch"]')`);
     assert.ok(await evaluate(`[...document.querySelectorAll('.tree-adoption-settings [role="switch"]')].every(el=>el.disabled)`));
     console.log('Atendente sem permissão de configuração; erros de execução: '+errors.length);
+  } else if (process.argv.includes('--nursery-species-edit')) {
+    let scenarios = 0;
+    const edit = async () => { await evaluate('document.querySelector(".nursery-offer-card[data-species-id=species1] button[aria-label^=\\"Editar espécie\\"]").click()'); await waitFor('document.querySelector("[data-testid=tree-species-editor]")'); };
+    const fillField = (label, value) => evaluate(`(()=>{const el=[...document.querySelectorAll('[data-testid=tree-species-editor] label')].find(el=>el.textContent.startsWith(${JSON.stringify(label)})).querySelector('input,textarea');Object.getOwnPropertyDescriptor(el.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    for (const role of ['manager','attendant']) for (const [width,height] of [[390,844],[1440,900],[1920,1080]]) for (const theme of ['light','dark']) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate(`?${role}&nursery-audit`);await waitFor('document.querySelector(".tree-nursery-card")');await click('Gerenciar viveiro');
+      await waitFor('document.querySelector(".nursery-offer-card")');await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'})`);
+      await capture(`nursery-edit-cards-${role}-${width}-${theme}`);
+      await edit();assert.ok(await evaluate(`document.querySelector('[data-testid=tree-species-editor]').innerText.includes('Gerar resumo e orientação com IA')`));
+      assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-testid=tree-species-editor] section h3')].map(el=>el.textContent)`),['Identificação','Características e plantio','Foto padrão']);
+      if(width>=768)assert.ok(await evaluate(`(()=>{const a=document.querySelector('[data-testid=tree-species-identity]').getBoundingClientRect(),b=document.querySelector('[data-testid=tree-species-characteristics]').getBoundingClientRect(),c=document.querySelector('[data-testid=tree-species-photo]').getBoundingClientRect();return a.left<b.left&&Math.abs(a.top-b.top)<2&&c.top>=a.bottom&&Math.abs(c.left-a.left)<2})()`));
+      await fillField('Nome popular principal','Alteração descartada');
+      await evaluate('window.failSpeciesAi=true');await click('Gerar resumo e orientação com IA');await waitFor('document.querySelector("[data-testid=tree-species-editor] [role=alert]")');
+      assert.equal(await evaluate(`document.querySelector('[data-testid=tree-species-editor] textarea[maxlength="5000"]').value`),'Espécie do catálogo municipal.');
+      await evaluate('window.failSpeciesAi=false');await click('Gerar resumo e orientação com IA');await waitFor(`document.querySelector('[data-testid=tree-species-editor] textarea[maxlength="5000"]').value==='Resumo gerado para revisão.'`);
+      assert.equal(await evaluate(`document.querySelector('[data-testid=tree-species-editor] textarea[maxlength="3000"]').value`),'Orientação gerada para revisão.');
+      assert.equal(await evaluate('window.speciesAiCalls.at(-1).body.city_id'),64);
+      await capture(`nursery-ai-modal-${role}-${width}-${theme}`);
+      await click('Cancelar');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('window.speciesSaves.length'),0);
+      await edit();await fillField('Nome popular principal','Ipê atualizado');await fillField('Nome científico','Handroanthus atualizado');
+      await fillField('Resumo da espécie','Características revisadas da espécie.');await fillField('Orientações de plantio','Manter espaço adequado para as raízes.');
+      await evaluate(`(()=>{const data=new DataTransfer();data.items.add(new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='),c=>c.charCodeAt(0))],'especie.png',{type:'image/png'}));const input=document.querySelector('[data-testid=tree-species-editor] input[type=file]');input.files=data.files;input.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+      await evaluate('window.failSpeciesSave=true');await click('Salvar espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor] [role=alert]")');
+      assert.equal(await evaluate('document.querySelector("[data-testid=tree-species-editor] input").value'),'Ipê atualizado');
+      assert.equal(await evaluate('window.speciesRemovedUploads.length'),1);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      assert.ok(await evaluate(`(()=>{const d=document.querySelector('[data-testid=tree-species-editor]'),r=d.getBoundingClientRect(),f=d.querySelector('[data-testid=tree-species-footer]').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&d.scrollWidth<=d.clientWidth+1&&f.bottom<=r.bottom+1})()`));
+      await capture(`nursery-edit-species-${role}-${width}-${theme}`);
+      await evaluate('window.failSpeciesSave=false');await click('Salvar espécie');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")&&document.querySelector(".nursery-offer-card[data-species-id=species1] h3")?.textContent==="Ipê atualizado"');
+      const saved = await evaluate('window.speciesSaves[0]');
+      assert.deepEqual(saved.filters,[['id','species1'],['city_id',64]]);
+      assert.equal(saved.values.summary,'Características revisadas da espécie.');assert.equal(saved.values.planting_guidance,'Manter espaço adequado para as raízes.');assert.equal(saved.values.scientific_name,'Handroanthus atualizado');assert.ok(saved.values.illustration_url.startsWith('data:image/png'));
+      assert.equal(await evaluate('window.availabilitySaves.length'),0);
+      assert.ok(await evaluate('Boolean(document.querySelector(".nursery-offer-card[data-species-id=species1] .nursery-offer-identity img"))'));
+      await edit();assert.equal(await evaluate('document.querySelector("[data-testid=tree-species-editor] input").value'),'Ipê atualizado');
+      await click('Remover ilustração');await click('Salvar espécie');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")&&document.querySelector(".nursery-offer-card")');
+      assert.equal(await evaluate('window.speciesSaves.at(-1).values.illustration_url'),null);
+      assert.equal(await evaluate('document.querySelector(".nursery-offer-card[data-species-id=species1] .nursery-offer-identity img")'),null);
+      scenarios++;
+    }
+    await navigate('?attendant&nursery-audit');await waitFor('document.querySelector(".tree-nursery-card")');await click('Gerenciar viveiro');await click('Adicionar espécies');await waitFor('document.querySelector(".tree-nursery-species-editor")');
+    await click('Nova espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-testid=tree-species-editor] section h3')].map(el=>el.textContent)`),['Identificação','Características e plantio','Foto padrão']);
+    assert.ok(await evaluate(`[...document.querySelectorAll('[data-testid=tree-species-editor] button')].find(el=>el.textContent==='Gerar resumo e orientação com IA').disabled`));
+    await fillField('Nome popular principal','Espécie do atendente');await click('Gerar resumo e orientação com IA');await waitFor(`document.querySelector('[data-testid=tree-species-editor] textarea[maxlength="5000"]').value==='Resumo gerado para revisão.'`);await click('Adicionar ao catálogo');
+    await waitFor('!document.querySelector("[data-testid=tree-species-editor]")&&document.querySelector(".tree-nursery-species-options").innerText.includes("Espécie do atendente")');
+    await navigate('?reader&nursery-audit');await waitFor('[...document.querySelectorAll("h1")].some(el=>el.textContent==="Solicitações da cidade")');
+    assert.equal(await evaluate('document.querySelector(".nursery-offer-card")'),null);
+    assert.equal(errors.length,0,JSON.stringify(errors));
+    console.log(JSON.stringify({scenarios,cancel:true,retry:true,photoUpload:true,photoRemoval:true,cityScope:true,availabilityPreserved:true,nurseryStaffWithoutInventory:true,speciesCreation:true,readerDenied:true,aiGenerationAndRetry:true,sharedOrganizedModal:true}));
   } else if (process.argv.includes('--nursery-audit')) {
     let scenarios=0;
     for(const [width,height] of [[390,844],[844,390],[1440,900],[1920,1080]]) for(const theme of ['light','dark']) {

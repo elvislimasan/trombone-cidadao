@@ -1,4 +1,4 @@
-import { adoptionItems, ADOPTION_PROVIDERS } from './treeAdoption.js';
+import { adoptionItems, adoptionFulfillment, ADOPTION_PROVIDERS, ADOPTION_CITY_ID, MUNICIPAL_NURSERY_LOCATION } from './treeAdoption.js';
 import { cityStateUf } from './cityLocation.js';
 import { pickupDetails } from './treePickup.js';
 
@@ -17,7 +17,7 @@ export function pickupDirectionsUrl(details, city) {
 }
 
 export function adoptionPickupLocations(request, catalog = {}, city) {
-  if (request?.status !== 'pronta_retirada' || request.request_type !== 'muda' || catalog.error) return [];
+  if (request?.status !== 'pronta_retirada' || adoptionFulfillment(request) !== 'retirada' || catalog.error) return [];
   const items = adoptionItems(request);
   // A single-item approval can change both species and provider. Multiple-item
   // approvals preserve each item's own provider in the existing database flow.
@@ -33,6 +33,7 @@ export function adoptionPickupLocations(request, catalog = {}, city) {
     // old availability must not send someone to an outdated pickup address.
     const source = nursery || availability;
     const details = pickupDetails(source);
+    if (!details.address && String(request.city_id) === String(ADOPTION_CITY_ID) && target.provider === 'viveiro_municipal') details.address = MUNICIPAL_NURSERY_LOCATION;
     const href = pickupDirectionsUrl(details, context);
     const label = nursery?.name || availability?.nursery?.name || ADOPTION_PROVIDERS[target.provider] || 'Local de retirada';
     const key = `${target.provider}:${href || details.address || ''}`;

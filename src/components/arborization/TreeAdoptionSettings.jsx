@@ -1,5 +1,5 @@
 import React, { useId, useRef, useState } from 'react';
-import { Settings2, Sprout, Trees } from 'lucide-react';
+import { Settings2, Sprout, Trees, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -10,6 +10,7 @@ import './treeAdoptionSettings.css';
 const OPTIONS = [
   { key: 'plantingEnabled', title: 'Plantio pela equipe', icon: Trees },
   { key: 'seedlingsEnabled', title: 'Solicitação de mudas', icon: Sprout },
+  { key: 'deliveryEnabled', title: 'Entrega em casa', icon: Truck },
 ];
 
 export default function TreeAdoptionSettings({ cityId, canEdit }) {

@@ -966,6 +966,29 @@ try {
       await capture('tree-qr-'+width);
       results.push({width,aliases:true,aiDraft:true,livingWithoutNeighborhood:true,manualNeighborhood:true,existingMarkers:true,qrPdf:true,noOverflow:true});
     }
+  }else if(process.argv.includes('--species-modal')){
+    for(const [width,height] of [[390,844],[1440,900],[1920,1080]]){
+      await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('');await waitFor('document.querySelectorAll(".tree-map-pin").length===2');
+      await click('Cadastrar árvore');await waitFor('document.querySelector(".tree-entry-dialog [role=combobox]")&&!document.querySelector(".tree-entry-dialog [role=combobox]").disabled');
+      await click('Usar GPS');await waitFor('document.querySelectorAll(".tree-map-current-point").length===1');
+      await waitFor('document.querySelector(".tree-entry-address")?.innerText.includes("Rua Joaquim")');await click('Continuar');
+      await waitFor('document.querySelector(".tree-entry-dialog").dataset.step==="1"');await choose('Nome popular','s2');await click('Editar espécie');
+      await waitFor('document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('document.querySelectorAll("[role=dialog]").length'),2);
+      assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-testid=tree-species-editor] section h3')].map(el=>el.textContent)`),['Identificação','Características e plantio','Foto padrão']);
+      await click('Gerar resumo e orientação com IA');await waitFor(`document.querySelector('[data-testid=tree-species-editor] textarea[maxlength="5000"]').value.includes('Resumo de teste')`);
+      await capture('shared-species-edit-'+width);await click('Cancelar');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.equal(await evaluate('window.writes.length'),0);assert.equal(await evaluate('document.querySelectorAll(".tree-map-current-point").length'),1);
+      await click('Nova espécie');await waitFor('document.querySelector("[data-testid=tree-species-editor]")');await input('Nome popular','Espécie do modal compartilhado');
+      await click('Gerar resumo e orientação com IA');await waitFor(`document.querySelector('[data-testid=tree-species-editor] textarea[maxlength="5000"]').value.includes('Resumo de teste')`);
+      assert.ok(await evaluate(`(()=>{const d=document.querySelector('[data-testid=tree-species-editor]'),r=d.getBoundingClientRect(),f=d.querySelector('[data-testid=tree-species-footer]').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&d.scrollWidth<=d.clientWidth+1&&f.bottom<=r.bottom+1})()`));
+      await capture('shared-species-create-'+width);await click('Adicionar ao catálogo');await waitFor('!document.querySelector("[data-testid=tree-species-editor]")');
+      assert.ok(await evaluate('window.writes.length===1&&window.writes[0].table==="city_tree_species"&&window.writes[0].payload.summary.includes("Resumo de teste")'));
+      assert.equal(await evaluate('document.querySelectorAll(".tree-map-current-point").length'),1);
+      assert.equal(await evaluate('document.querySelector(".tree-entry-dialog").dataset.step'),'1');
+      results.push({width,sharedModal:true,aiForCreateAndEdit:true,noAutomaticSave:true,preservesTreeDraft:true,visibleFooter:true});
+    }
   }else if(process.argv.includes('--edit-species')){
     const attachIllustration = async () => {
       const {root:doc}=await send('DOM.getDocument',{},sessionId);

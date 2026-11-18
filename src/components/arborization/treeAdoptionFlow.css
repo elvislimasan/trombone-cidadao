@@ -186,3 +186,31 @@ html.adoption-request-is-open { overflow: hidden; }
   .adoption-create-dialog .tree-seedling-grid { grid-template-columns: minmax(0, 1fr); }
   .adoption-create-dialog .adoption-auth-panel { padding: 24px 16px; }
 }
+
+/* Native insets can come from CSS variables when the WebView reports env() as
+   zero. Reserve them once on the dialog so every step, heading and action stays
+   inside the usable area, including landscape and the success screen. */
+.task-dialog:is(.adoption-create-dialog,.adoption-request-dialog,.adoption-edit-dialog)[role=dialog] {
+  transition-property: opacity;
+  --adoption-inset-top: max(var(--safe-area-top,0px),var(--header-safe-top,0px),env(safe-area-inset-top,0px));
+  --adoption-inset-right: max(var(--safe-area-right,0px),env(safe-area-inset-right,0px));
+  --adoption-inset-bottom: max(var(--safe-area-bottom,0px),env(safe-area-inset-bottom,0px));
+  --adoption-inset-left: max(var(--safe-area-left,0px),env(safe-area-inset-left,0px));
+  padding: var(--adoption-inset-top) var(--adoption-inset-right) var(--adoption-inset-bottom) var(--adoption-inset-left);
+}
+.task-dialog:is(.adoption-request-dialog,.adoption-edit-dialog) > button:last-child { top:calc(8px + var(--adoption-inset-top)); right:calc(8px + var(--adoption-inset-right)); }
+.adoption-create-dialog > .adoption-dialog-heading { padding: 12px 24px; }
+.adoption-create-dialog .adoption-form-layout .adoption-form-footer { padding: 16px 24px; }
+.task-dialog.adoption-request-dialog .adoption-detail-footer,
+.task-dialog.adoption-edit-dialog .task-dialog-footer { padding-bottom: 14px; }
+@media (max-width:767px) {
+  .adoption-create-dialog > .adoption-dialog-heading { padding: 12px 16px; }
+  .adoption-create-dialog .adoption-form-layout .adoption-form-footer { padding-inline:16px; }
+}
+@media (max-height:520px) and (max-width:979px) {
+  .task-dialog.adoption-create-dialog[role=dialog] { inset:0 !important; width:100%; height:100dvh; max-height:none; transform:none !important; border:0; border-radius:0; }
+  .adoption-create-dialog > .adoption-dialog-heading { padding:8px 16px; }
+  .adoption-create-dialog .adoption-wizard-step,
+  .adoption-create-dialog .adoption-draft-note { display:none; }
+  .adoption-create-dialog .adoption-form-layout .adoption-form-footer { padding:8px 16px; }
+}
