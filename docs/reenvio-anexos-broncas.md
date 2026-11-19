@@ -18,6 +18,8 @@ Antes de publicar o frontend/app, implantar as duas funções:
 npm run deploy:functions:report-media
 ```
 
+O script executa duas publicações separadas e interrompe se uma falhar. Confirmar no servidor que ambas foram atualizadas: publicar somente `report-media` deixa o envio anônimo usando a função antiga, que rejeita a preparação dos anexos separada do registro.
+
 Não há migração de banco. `create-anonymous-report` mantém a resposta antiga para apps já publicados; clientes novos enviam `deferMedia: true` e usam `report-media` separadamente. As funções exigem as variáveis Supabase já usadas no projeto.
 
 O servidor usa identificadores estáveis e consulta arquivos e referências existentes antes de assinar novo envio. Repetir a confirmação não duplica a imagem e uma resposta perdida após o PUT não exige enviar os bytes novamente.

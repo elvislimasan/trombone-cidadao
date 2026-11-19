@@ -33,7 +33,7 @@
     "capacitor:sync": "npx cap sync",
     "capacitor:add-android": "npx cap add android",
     "deploy:edge_function": "npx supabase functions deploy send-push-notification",
-    "deploy:functions:report-media": "npx supabase functions deploy report-media create-anonymous-report --project-ref mrejgpcxaevooofyenzq --no-verify-jwt",
+    "deploy:functions:report-media": "npx supabase functions deploy report-media --project-ref mrejgpcxaevooofyenzq --no-verify-jwt && npx supabase functions deploy create-anonymous-report --project-ref mrejgpcxaevooofyenzq --no-verify-jwt",
     "deploy:functions": "npx supabase functions deploy send-push-notification create-payment-intent share-report og-image share-preview share-petition share-street share-city-event share-public-profile share-councilor share-city-guide --no-verify-jwt && npx supabase functions deploy create-municipal-account create-pipa-account",
     "deploy:functions:prod": "npx supabase functions deploy send-push-notification create-payment-intent share-report og-image share-preview share-petition share-street share-city-event share-public-profile share-councilor share-city-guide create-municipal-account create-pipa-account --project-ref mrejgpcxaevooofyenzq",
     "deploy:functions:nacionalizacao": "npx supabase functions deploy send-ambassador-invite-email accept-ambassador-invite reverse-geocode backfill-public-works-city --project-ref mrejgpcxaevooofyenzq",

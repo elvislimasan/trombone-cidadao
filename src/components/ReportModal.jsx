@@ -57,6 +57,7 @@ import WebCameraCapture from "@/components/WebCameraCapture";
 import { prefersDeviceCamera, prefersBrowserCamera, openDeviceCamera } from '@/lib/deviceCamera';
 import { compressToJpeg } from '@/hooks/useNativeCamera';
 import { REPORT_PHOTO_ACCEPT, isHeicPhoto, isReportPhoto, normalizeReportPhoto, HEIC_CONVERSION_ERROR } from '@/lib/reportPhoto';
+import { anonymousReportError } from '@/lib/anonymousReportError';
 import MediaViewer from "@/components/MediaViewer";
 import ColaborarOuRegistrar from "@/components/report/ColaborarOuRegistrar";
 import SugestaoDeCategoria, { registrarEscolha } from "@/components/report/SugestaoDeCategoria";
@@ -3147,6 +3148,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     }
 
     const submissionController = new AbortController();
+    let captchaSubmitted = false;
     uploadAbortControllerRef.current = submissionController;
     setIsSubmitting(true);
     setUploadProgress(0);
@@ -3184,6 +3186,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         neighborhood,
       };
 
+      captchaSubmitted = true;
       const { data, error } = await supabase.functions.invoke("create-anonymous-report", {
         body: {
           token: anonCaptchaValue,
@@ -3194,7 +3197,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         },
       });
       if (error || !data?.id) {
-        throw new Error(error?.message || data?.error || "Não foi possível registrar a bronca. Tente novamente.");
+        throw await anonymousReportError(error, data);
       }
       const savedReport = { reportId: data.id, title: formData.title, protocol: data.protocol, recoveryToken: data.recoveryToken, anonymous: true };
       await rememberReport(savedReport);
@@ -3207,13 +3210,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       }
 
       clearReportDraft();
-      setAnonCaptchaValue(null);
-      if (anonRecaptchaRef.current) {
-        try {
-          anonRecaptchaRef.current.reset();
-        } catch {}
-      }
-
       window.dispatchEvent(new CustomEvent("reports-updated", { detail: { id: data.id } }));
       window.dispatchEvent(new CustomEvent('report-submitted', { detail: {
         id: data.id, title: formData.title, protocol: data.protocol, published: false, anonymous: true,
@@ -3230,6 +3226,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         variant: "destructive",
       });
     } finally {
+      // O desafio pode ter sido consumido mesmo quando a função rejeita o
+      // registro depois da validação. Uma nova tentativa precisa de outro token.
+      if (captchaSubmitted) {
+        setAnonCaptchaValue(null);
+        try { anonRecaptchaRef.current?.reset(); } catch { /* O formulário pode ter fechado. */ }
+      }
       if (uploadAbortControllerRef.current === submissionController) {
         uploadAbortControllerRef.current = null;
       }
@@ -4125,6 +4127,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                           "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
                         }
                         onChange={setAnonCaptchaValue}
+                        onExpired={() => setAnonCaptchaValue(null)}
+                        onErrored={() => setAnonCaptchaValue(null)}
                         size="normal"
                       />
                     </div>
