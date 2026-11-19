@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, CheckCircle2, Clock, X } from 'lucide-react';
+import { useUpload } from '@/contexts/UploadContext';
 
 export default function ReportSubmissionNotice() {
   const [submission, setSubmission] = useState(null);
+  const { reports, showMediaManager } = useUpload();
   useEffect(() => {
     const received = event => setSubmission(event.detail);
     window.addEventListener('report-submitted', received);
@@ -28,6 +30,7 @@ export default function ReportSubmissionNotice() {
         {submission.protocol && <p className="report-notice-protocol">Protocolo <strong>{submission.protocol}</strong></p>}
       </div>
       {!submission.anonymous && <Link to={submission.published ? `/bronca/${submission.id}` : '/perfil'} onClick={() => setSubmission(null)} className="report-notice-link">{submission.published ? 'Ver bronca' : 'Minhas broncas'}<ArrowUpRight size={17} aria-hidden="true" /></Link>}
+      <button type="button" className="report-notice-link" onClick={() => showMediaManager(reports.find(item => item.reportId === submission.id))}>Adicionar ou reenviar fotos</button>
     </div>
     {submission.anonymous && <p className="report-notice-anonymous">Guarde o protocolo. O envio sem conta não aparece nas suas broncas do Perfil.</p>}
   </aside>;

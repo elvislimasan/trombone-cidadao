@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import { resolveRegisteredNeighborhood } from "../_shared/reportNeighborhoods.js";
+import { issueReportMediaAccess } from "../_shared/reportMediaAccess.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +68,7 @@ serve(async (req) => {
   }
 
   try {
-    const { token, siteKey, report, media } = await req.json();
+    const { token, siteKey, report, media, deferMedia = false } = await req.json();
 
     const tokenStr = String(token ?? "").trim();
     if (!tokenStr) {
@@ -195,7 +196,7 @@ serve(async (req) => {
     }
 
     const mediaList: Array<Record<string, unknown>> = Array.isArray(media) ? media : [];
-    if (mediaList.length === 0) {
+    if (mediaList.length === 0 && !deferMedia) {
       return new Response(JSON.stringify({ error: "missing_media" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
@@ -251,7 +252,7 @@ serve(async (req) => {
     const { data, error } = await supabaseAdmin
       .from("reports")
       .insert(insertPayload)
-      .select("id")
+      .select("id,protocol")
       .single();
 
     if (error) {
@@ -266,6 +267,15 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "insert_failed" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
+      });
+    }
+
+    // Clientes atuais salvam primeiro a bronca e enviam os anexos separadamente.
+    // A resposta antiga é mantida para versões já publicadas do aplicativo.
+    if (deferMedia) {
+      const recoveryToken = await issueReportMediaAccess(reportId, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      return new Response(JSON.stringify({ id: reportId, protocol: data.protocol, recoveryToken, uploads: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
     }
 

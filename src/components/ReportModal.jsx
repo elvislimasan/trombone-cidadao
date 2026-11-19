@@ -56,6 +56,7 @@ import CameraCapture from "@/components/CameraCapture";
 import WebCameraCapture from "@/components/WebCameraCapture";
 import { prefersDeviceCamera, prefersBrowserCamera, openDeviceCamera } from '@/lib/deviceCamera';
 import { compressToJpeg } from '@/hooks/useNativeCamera';
+import { REPORT_PHOTO_ACCEPT, isHeicPhoto, isReportPhoto, normalizeReportPhoto, HEIC_CONVERSION_ERROR } from '@/lib/reportPhoto';
 import MediaViewer from "@/components/MediaViewer";
 import ColaborarOuRegistrar from "@/components/report/ColaborarOuRegistrar";
 import SugestaoDeCategoria, { registrarEscolha } from "@/components/report/SugestaoDeCategoria";
@@ -65,7 +66,6 @@ import {
   validateVideoFile,
 } from "@/utils/videoProcessor";
 import { showAppError, showAppInfo, showAppNotice } from '@/lib/appError';
-import { notifyNative } from '@/lib/nativeNotification';
 import PoleNumberSearch from '@/components/report/PoleNumberSearch';
 import { createReportPole, removeReportPole, mergeNearbyReportPoles, resolveReportSubmissionLocation } from '@/lib/reportPole';
 import { confirmApp } from '@/lib/appConfirm';
@@ -169,7 +169,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       setFormData(current => ({ ...current, tree_id: null, tree_label: '', tree_registration: null, tree_photo_file: null, tree_service: 'poda' }));
     }
   }, [formData.category, formData.tree_id, formData.tree_registration]);
-  const { registerUpload, queueWebUpload, failUploadBatch } = useUpload();
+  const { queueReportMedia, rememberReport } = useUpload();
   const { user, session } = useAuth();
   // Mesma regra que decide moderation_status no envio: admin/master publicam
   // direto, todo o resto passa pela moderação. Uma constante só, para o aviso
@@ -1624,7 +1624,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
             ...prev.photos,
             {
               file: null, // Importante: null para não ocupar memória JS
-              name: fileName,
+              name: /\.jpe?g$/i.test(finalPath) ? fileName.replace(/\.[^.]+$/, '') + '.jpg' : fileName,
               nativePath: finalPath,
               preview: Capacitor.convertFileSrc(previewPath),
             },
@@ -2180,13 +2180,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       return;
     }
 
-    const validImageTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-    ];
     const validVideoTypes = ["video/mp4", "video/quicktime", "video/webm"];
 
     // Limite de tamanho para vídeos (1GB)
@@ -2195,14 +2188,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB
 
     for (let file of files) {
-      // Alguns seletores de arquivos devolvem WebP sem MIME, apesar da extensão correta.
-      if (/\.webp$/i.test(file.name) && (!file.type || file.type === 'application/octet-stream')) file = new File([file], file.name, { type: 'image/webp', lastModified: file.lastModified });
+      if (fileType === "photos") file = normalizeReportPhoto(file);
       // Validar tipo
-      if (fileType === "photos" && !validImageTypes.includes(file.type)) {
+      if (fileType === "photos" && !isReportPhoto(file)) {
         showAppError({
           title: "Tipo de arquivo inválido!",
           description:
-            "Por favor, selecione apenas imagens (JPEG, PNG, WEBP ou GIF).",
+            "Selecione uma imagem JPEG, PNG, WEBP, GIF ou HEIC/HEIF.",
           variant: "destructive",
         });
         continue;
@@ -2243,24 +2235,31 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
 
       try {
         // Para imagens da galeria, sempre otimizar para reduzir tamanho (limitando a 1MB e redimensionando)
-        if (fileType === "photos" && file.size > 200 * 1024) {
+        if (fileType === "photos" && (file.size > 200 * 1024 || isHeicPhoto(file))) {
           // Processar imagens acima de 200KB
-          if (Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
-            const reader = new FileReader();
+          if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("VideoProcessor")) {
             setIsPhotoProcessing(true);
             setPhotoProcessingProgress(5);
             setPhotoProcessingMessage("Otimizando imagem...");
             // window.__BLOCK_NAVIGATION__ = true;
             // window.__BLOCK_MODAL_CLOSE__ = true;
-            reader.onload = async (e) => {
+            try {
+              // Aguardar cada leitura evita liberar o envio antes de a foto
+              // entrar no formulário e limita o uso de memória no iPhone.
+              const base64String = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Não foi possível ler a foto. Selecione-a novamente.'));
+                reader.onabort = () => reject(new Error('A leitura da foto foi interrompida. Selecione-a novamente.'));
+                reader.readAsDataURL(file);
+              });
               try {
-                const base64String = e.target.result;
                 const base64Data =
                   typeof base64String === "string" && base64String.includes(",")
                     ? base64String.split(",")[1]
                     : base64String;
                 const ts = Date.now();
-                const originalExtension = file.type === 'image/webp' ? 'webp' : file.type === 'image/png' ? 'png' : file.type === 'image/gif' ? 'gif' : 'jpg';
+                const originalExtension = isHeicPhoto(file) ? (/\.heif$/i.test(file.name) || file.type.startsWith('image/heif') ? 'heif' : 'heic') : file.type === 'image/webp' ? 'webp' : file.type === 'image/png' ? 'png' : file.type === 'image/gif' ? 'gif' : 'jpg';
                 const relPath = `temp/gallery_${ts}.${originalExtension}`;
                 await Filesystem.writeFile({
                   path: relPath,
@@ -2285,8 +2284,12 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     format: "jpeg",
                   });
                   outPath = comp.outputPath || uri;
-                } catch {}
+                } catch {
+                  if (isHeicPhoto(file)) throw new Error(HEIC_CONVERSION_ERROR);
+                }
+                if (isHeicPhoto(file) && !/\.jpe?g$/i.test(outPath)) throw new Error(HEIC_CONVERSION_ERROR);
                 setPhotoProcessingProgress(85);
+                if (!isMountedRef.current) return;
                 setFormData((prev) => ({
                   ...prev,
                   [fileType]: [
@@ -2295,13 +2298,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                       file: null,
                       name: outPath === uri ? file.name : file.name.replace(/\.[^.]+$/, '') + '.jpg',
                       nativePath: outPath,
-                      preview: null,
+                      preview: Capacitor.convertFileSrc(outPath),
                       size: file.size,
                     },
                   ],
                 }));
                 setPhotoProcessingProgress(100);
               } catch (error) {
+                if (isHeicPhoto(file)) throw error;
+                if (!isMountedRef.current) return;
                 const previewUrl = URL.createObjectURL(file);
                 setFormData((prev) => ({
                   ...prev,
@@ -2315,17 +2320,16 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                     },
                   ],
                 }));
-              } finally {
-                setIsPhotoProcessing(false);
-                setPhotoProcessingProgress(0);
-                setPhotoProcessingMessage("");
-                setTimeout(() => {
-                  window.__BLOCK_NAVIGATION__ = false;
-                  window.__BLOCK_MODAL_CLOSE__ = false;
-                }, 1200);
               }
-            };
-            reader.readAsDataURL(file);
+            } finally {
+              setIsPhotoProcessing(false);
+              setPhotoProcessingProgress(0);
+              setPhotoProcessingMessage("");
+              setTimeout(() => {
+                window.__BLOCK_NAVIGATION__ = false;
+                window.__BLOCK_MODAL_CLOSE__ = false;
+              }, 1200);
+            }
           } else {
             setIsPhotoProcessing(true);
             setPhotoProcessingProgress(5);
@@ -2334,6 +2338,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
               // Blob URL evita duplicar fotos grandes como strings Base64.
               // O helper libera a URL temporária e mantém o original se falhar.
               const optimizedFile = await compressToJpeg(file, 1280, 0.7);
+              if (isHeicPhoto(optimizedFile)) throw new Error(HEIC_CONVERSION_ERROR);
               const previewUrl = URL.createObjectURL(optimizedFile);
               if (!isMountedRef.current) {
                 URL.revokeObjectURL(previewUrl);
@@ -2523,240 +2528,15 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
   };
 
   const uploadMedia = async (reportId, { signal } = {}) => {
-    // Preparar listas de mídia
-    const photosToUpload = formData.photos
-      .map((p) => ({
-        file: p.file,
-        name: p.name,
-        type: "photo",
-        nativePath: p.nativePath,
-      }))
-      .filter(Boolean);
-
-    const videosToUpload = formData.videos
-      .map((v) => ({
-        file: v.file,
-        name: v.name,
-        type: "video",
-        nativePath: v.nativePath,
-        uploadId: v.uploadId,
-        storagePath: v.storagePath,
-        isProcessing: v.isProcessing,
-      }))
-      .filter(Boolean);
-
-    const mediaToUpload = [...photosToUpload, ...videosToUpload];
-    if (mediaToUpload.length === 0) return { success: true };
-    updateSubmissionLock(true);
     throwIfSubmissionAborted(signal);
-
-    // 1. Preparar metadados e tarefas de upload
-    const isNative = Capacitor.isNativePlatform();
-    const pluginAvailable = Capacitor.isPluginAvailable("VideoProcessor");
-
-    // Linhas inseridas imediatamente apenas para o fluxo NATIVO (Android):
-    // ali o upload roda em um Foreground Service que conclui mesmo se o app
-    // for fechado, então o arquivo chega ao caminho referenciado pela linha.
-    // No fluxo WEB/iOS o upload morre junto com o app; por isso a linha em
-    // report_media só é inserida QUANDO o upload conclui (ver UploadContext),
-    // evitando referências órfãs que aparecem como "mídia que não abre".
-    const nativeRows = [];
-    const uploadTasks = [];
-
-    for (const [mediaIndex, media] of mediaToUpload.entries()) {
-      // Sanitizar nome
-      const rawFileName = media.name || `arquivo_${Date.now()}`;
-      const safeFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const uniquePart =
-        (typeof crypto !== 'undefined' && crypto.randomUUID?.())
-        || `${Date.now()}-${mediaIndex}-${Math.random().toString(36).slice(2, 8)}`;
-      const filePath = `${user.id}/${reportId}/${uniquePart}-${safeFileName}`;
-
-      // Obter URL pública (assumindo bucket público 'reports-media')
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("reports-media").getPublicUrl(filePath);
-
-      const usesNative = isNative && media.nativePath && pluginAvailable;
-      const mediaRow = {
-        report_id: reportId,
-        url: publicUrl,
-        type: media.type,
-        name: media.name,
-      };
-
-      if (usesNative) {
-        nativeRows.push(mediaRow);
+    const report = { reportId, ownerId: user.id, title: formData.title };
+    await rememberReport(report);
+    for (const [field, type] of [['photos', 'photo'], ['videos', 'video']]) {
+      for (const media of formData[field]) {
+        await queueReportMedia({ file: media.file, nativePath: media.nativePath, name: media.name, type }, report);
       }
-
-      uploadTasks.push({ media, filePath, publicUrl, usesNative, mediaRow });
     }
-
-    const batchMetadata = {
-      reportId,
-      batchId: reportId,
-      expectedUploads: uploadTasks.length,
-      isReportUpload: true,
-    };
-
-    try {
-      // 2. Inserir no Banco as referências do fluxo nativo
-      if (nativeRows.length > 0) {
-        let insertQuery = supabase.from("report_media").insert(nativeRows);
-        if (signal && typeof insertQuery.abortSignal === 'function') {
-          insertQuery = insertQuery.abortSignal(signal);
-        }
-        const { error: insertError } = await insertQuery;
-        throwIfSubmissionAborted(signal);
-        if (insertError) {
-          console.error("Erro ao inserir mídia (nativo):", insertError);
-          throw new Error(`Erro ao salvar referências: ${insertError.message}`);
-        }
-      }
-
-      // 3. Aguardar a preparação de todos os membros. O arquivo continua em
-      // background, mas o recibo só aparece depois que cada envio foi registrado.
-      for (const task of uploadTasks) {
-        const { media, filePath } = task;
-        throwIfSubmissionAborted(signal);
-
-          if (task.usesNative) {
-            // --- FLUXO NATIVO (ANDROID) ---
-            // O plugin VideoProcessor só existe no Android. No iOS ele não está
-            // disponível, então caímos no FLUXO WEB abaixo (fetch + queueWebUpload),
-            // evitando que o upload falhe silenciosamente.
-            // Gerar URL assinada apenas para fluxo nativo
-            const { data: signed, error: signedErr } = await supabase.storage
-              .from("reports-media")
-              .createSignedUploadUrl(filePath, 3600); // 1h validade
-            throwIfSubmissionAborted(signal);
-
-            if (signedErr || !signed?.signedUrl) {
-              console.error("Falha URL assinada:", signedErr);
-              throw new Error(
-                `Não foi possível preparar o envio de “${media.name || 'arquivo'}”.`
-              );
-            }
-            const uploadUrl = signed.signedUrl || signed.url;
-
-            const cleanNativePath = media.nativePath.startsWith("file://")
-              ? media.nativePath.replace("file://", "")
-              : media.nativePath;
-
-            if (media.type === "video") {
-              const { uploadId } = await VideoProcessor.uploadVideoInBackground(
-                {
-                  filePath: cleanNativePath,
-                  uploadUrl: uploadUrl,
-                  headers: { "Content-Type": "video/mp4", "x-upsert": "false" },
-                  skipCompression: false,
-                }
-              );
-              registerUpload(uploadId, {
-                name: media.name || "Vídeo",
-                type: "video",
-                ...batchMetadata,
-              });
-              throwIfSubmissionAborted(signal);
-            } else {
-              let finalPath = cleanNativePath;
-              try {
-                const comp = await VideoProcessor.compressImage({
-                  filePath: cleanNativePath,
-                  maxWidth: 1600,
-                  maxHeight: 1600,
-                  quality: "high",
-                  format: "jpeg",
-                });
-                if (comp && comp.outputPath) finalPath = comp.outputPath;
-              } catch (e) {
-                throwIfSubmissionAborted(signal);
-                //                             console.warn("Compressão de imagem falhou, usando original:", e);
-              }
-
-              const { uploadId } = await VideoProcessor.uploadVideoInBackground(
-                {
-                  filePath: finalPath,
-                  uploadUrl: uploadUrl,
-                  headers: {
-                    "Content-Type": /\.webp(?:\?|$)/i.test(finalPath) ? "image/webp" : "image/jpeg",
-                    "x-upsert": "false",
-                  },
-                  skipCompression: true,
-                }
-              );
-              registerUpload(uploadId, {
-                name: media.name || "Foto",
-                type: "photo",
-                ...batchMetadata,
-              });
-              throwIfSubmissionAborted(signal);
-            }
-          } else {
-            // --- FLUXO WEB ---
-            let fileToUpload = media.file;
-
-            if (!fileToUpload && media.nativePath) {
-              try {
-                const r = await fetch(
-                  Capacitor.convertFileSrc(media.nativePath),
-                  { signal }
-                );
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                const b = await r.blob();
-                throwIfSubmissionAborted(signal);
-                fileToUpload = new File([b], media.name, {
-                  type: media.type === "video" ? "video/mp4" : (/\.webp$/i.test(media.name || '') ? "image/webp" : "image/jpeg"),
-                });
-              } catch (e) {
-                console.error("Falha ao recuperar arquivo para upload web:", e);
-                if (e?.name === 'AbortError') throw e;
-                throw new Error(
-                  `Não foi possível acessar “${media.name || 'arquivo'}” para envio.`
-                );
-              }
-            }
-
-            if (fileToUpload) {
-              // Determinar se precisa comprimir (se ainda estava processando, usamos o original e comprimimos agora)
-              const shouldCompress =
-                media.type === "video" && media.isProcessing;
-
-              await queueWebUpload(
-                fileToUpload,
-                filePath,
-                {
-                  name: media.name,
-                  type: media.type === "video" ? "video" : "photo",
-                  ...batchMetadata,
-                  // Linha de report_media inserida só após o upload concluir
-                  mediaRow: task.mediaRow,
-                },
-                {
-                  skipCompression: !shouldCompress,
-                }
-              );
-              throwIfSubmissionAborted(signal);
-            } else {
-              throw new Error(
-                `O arquivo “${media.name || 'anexo'}” não está mais disponível.`
-              );
-            }
-          }
-      }
-
-      return { success: true };
-    } catch (error) {
-      const wasCancelled = error?.name === 'AbortError' || signal?.aborted;
-      const reason = wasCancelled
-        ? 'Envio cancelado.'
-        : error?.message || 'Um dos anexos não pôde ser preparado para envio.';
-      failUploadBatch({ ...batchMetadata, silent: wasCancelled }, reason);
-      if (wasCancelled && error?.name !== 'AbortError') {
-        throw createSubmissionAbortError();
-      }
-      throw error;
-    }
+    return { success: true };
   };
 
   const fieldToWizardStep = {
@@ -2818,14 +2598,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       ) {
         newErrors.pole_number =
           "Por favor, selecione um poste sugerido ou informe o número/plaqueta.";
-        hasErrors = true;
-      }
-    }
-
-    if (stepToValidate === 2) {
-      if (!municipalMode && formData.photos.length + formData.videos.length === 0) {
-        newErrors.photos =
-          reportCopy("Por favor, adicione pelo menos uma foto ou vídeo da bronca.");
         hasErrors = true;
       }
     }
@@ -2938,11 +2710,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
       newErrors.address = "Por favor, preencha o endereço de referência.";
       hasErrors = true;
     }
-    if (!municipalMode && formData.photos.length + formData.videos.length === 0) {
-      newErrors.photos =
-        reportCopy("Por favor, adicione pelo menos uma foto ou vídeo da bronca.");
-      hasErrors = true;
-    }
     if (
       formData.category === "iluminacao" &&
       !formData.pole_id &&
@@ -3028,7 +2795,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         if (!result?.success) {
           throw new Error(
             result?.errors?.[0] ||
-            reportCopy("Falha ao preparar os anexos. A criação da bronca foi cancelada.")
+            reportCopy("A bronca foi salva, mas alguns anexos ficaram pendentes.")
           );
         }
         return result;
@@ -3320,10 +3087,6 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
     return isWithinRadiusKm(formData.location, florestaCenter, 35);
   }, [florestaCenter, formData.location, user]);
 
-  const hasAttachments = useMemo(() => {
-    return (formData.photos?.length || 0) + (formData.videos?.length || 0) > 0;
-  }, [formData.photos?.length, formData.videos?.length]);
-
   const handleLoginToSubmit = async () => {
     if (!validateStep(0)) {
       setWizardStep(0);
@@ -3421,230 +3184,26 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         neighborhood,
       };
 
-      // Detectar plataforma nativa com plugin disponível
-      const isAnonNative = Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("VideoProcessor");
-
-      // Retorna o content-type a partir do nome/tipo sem ler bytes
-      const getAnonContentType = (name, type) => {
-        const ext = String(name || "").split(".").pop().toLowerCase();
-        if (type === "video") return "video/mp4";
-        if (ext === "webp") return "image/webp";
-        if (ext === "png") return "image/png";
-        return "image/jpeg";
-      };
-
-      // Para plataformas nativas com nativePath: NÃO lemos bytes no JS.
-      // O upload é feito via VideoProcessor.uploadFile (Android usa ContentResolver
-      // para content:// URIs; iOS usa URLSession). Isso evita arquivos corrompidos
-      // causados por leituras via WebView de conteúdos grandes ou content:// URIs.
-      const fileByClientId = new Map();     // clientId -> File (upload web)
-      const nativeByClientId = new Map();   // clientId -> { nativePath, contentType }
-
-      const resolvedMedia = [];
-
-      const processAnonItem = async (item, type, idx) => {
-        const fallbackName = type === "video" ? `video_${idx + 1}.mp4` : `foto_${idx + 1}.jpg`;
-        const name = item?.name || fallbackName;
-        const clientId = `${type}:${idx}`;
-        const contentType = getAnonContentType(name, type);
-
-        // Nativo com nativePath → upload via plugin (sem ler bytes no JS).
-        // Sem verificar item.file: após addVideoFile sem compressão, item.file pode ser
-        // o objeto nativo simples (não File/Blob), então priorizamos sempre o caminho nativo.
-        if (isAnonNative && item?.nativePath) {
-          nativeByClientId.set(clientId, { nativePath: item.nativePath, contentType });
-          return { clientId, type, name, contentType };
-        }
-
-        // Arquivo web já disponível (File ou Blob real)
-        if (item?.file instanceof File || item?.file instanceof Blob) {
-          const ct = item.file.type || contentType;
-          fileByClientId.set(clientId, item.file);
-          return { clientId, type, name, contentType: ct };
-        }
-
-        // Fallback: nativePath em plataforma web (PWA) — lê via fetch com checagem
-        if (item?.nativePath) {
-          try {
-            const r = await fetch(Capacitor.convertFileSrc(item.nativePath), {
-              signal: submissionController.signal,
-            });
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            const b = await r.blob();
-            throwIfSubmissionAborted(submissionController.signal);
-            if (!b.size) throw new Error("Arquivo vazio");
-            const file = new File([b], name, { type: b.type || contentType });
-            fileByClientId.set(clientId, file);
-            return { clientId, type, name, contentType: b.type || contentType };
-          } catch (e) {
-            if (e?.name === 'AbortError' || submissionController.signal.aborted) {
-              throw createSubmissionAbortError();
-            }
-            console.error("Falha ao recuperar anexo para envio anônimo:", e);
-          }
-        }
-
-        return null;
-      };
-
-      for (let i = 0; i < (formData.photos || []).length; i++) {
-        const entry = await processAnonItem(formData.photos[i], "photo", i);
-        if (entry) resolvedMedia.push(entry);
-      }
-      for (let i = 0; i < (formData.videos || []).length; i++) {
-        const entry = await processAnonItem(formData.videos[i], "video", i);
-        if (entry) resolvedMedia.push(entry);
-      }
-
-      const requestedMediaCount =
-        (formData.photos || []).length + (formData.videos || []).length;
-      if (resolvedMedia.length !== requestedMediaCount) {
-        showAppError({
-          title: "Anexo indisponível",
-          description: "Não foi possível acessar todos os arquivos anexados. Anexe-os novamente antes de enviar.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      throwIfSubmissionAborted(submissionController.signal);
       const { data, error } = await supabase.functions.invoke("create-anonymous-report", {
         body: {
           token: anonCaptchaValue,
           siteKey: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
           report: payload,
-          media: resolvedMedia.map(({ file: _f, ...rest }) => rest),
+          media: [],
+          deferMedia: true,
         },
       });
-      throwIfSubmissionAborted(submissionController.signal);
-
-      if (
-        error
-        || !data?.id
-        || !Array.isArray(data?.uploads)
-        || data.uploads.length !== resolvedMedia.length
-      ) {
-        const isCityError = data?.error === "city_unresolved";
-        showAppError({
-          title: isCityError
-            ? "Não foi possível identificar a cidade"
-            : "Erro ao enviar bronca",
-          description: isCityError
-            ? "Confira se o marcador no mapa está sobre a localização correta e tente novamente."
-            : error?.message || data?.error || "Não foi possível enviar anonimamente.",
-          variant: "destructive",
-        });
-        return;
+      if (error || !data?.id) {
+        throw new Error(error?.message || data?.error || "Não foi possível registrar a bronca. Tente novamente.");
       }
-
-      const uploads = data.uploads || [];
-      const anonymousBatchId = `anon:${data.id}`;
-      updateSubmissionLock(true);
-      const resolvedByClientId = new Map(
-        resolvedMedia.map((item) => [String(item.clientId), item])
-      );
-      const preparedUploads = uploads.map((upload) => {
-        const clientId = String(upload?.clientId || "");
-        const signedUrl = String(upload?.signedUrl || "");
-        const resolved = resolvedByClientId.get(clientId);
-        const nativeInfo = nativeByClientId.get(clientId);
-        const localFile = fileByClientId.get(clientId);
-
-        if (!clientId || !signedUrl || !resolved || (!nativeInfo && !localFile)) {
-          throw new Error('Um dos anexos não pôde ser preparado para envio.');
+      const savedReport = { reportId: data.id, title: formData.title, protocol: data.protocol, recoveryToken: data.recoveryToken, anonymous: true };
+      await rememberReport(savedReport);
+      // A bronca já está salva. Cada arquivo tem sua própria tentativa e pode
+      // ser reenviado ou substituído sem criar outra bronca.
+      for (const [field, type] of [['photos', 'photo'], ['videos', 'video']]) {
+        for (const media of formData[field]) {
+          await queueReportMedia({ file: media.file, nativePath: media.nativePath, name: media.name, type }, savedReport);
         }
-
-        return { upload, clientId, signedUrl, resolved, nativeInfo, localFile };
-      });
-      const directUploads = preparedUploads.filter((item) => item.localFile);
-      const nativeUploads = preparedUploads.filter((item) => item.nativeInfo);
-
-      try {
-        // Uploads que passam pela WebView terminam antes do recibo. Assim o card
-        // web nunca afirma que a bronca foi enviada com anexo ainda pendente.
-        for (const item of directUploads) {
-          throwIfSubmissionAborted(submissionController.signal);
-          const response = await fetch(item.signedUrl, {
-            method: "PUT",
-            headers: {
-              "Content-Type": item.localFile.type || "application/octet-stream",
-              "x-upsert": "false",
-            },
-            body: item.localFile,
-            signal: submissionController.signal,
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        }
-
-        // No Android, o serviço nativo continua em background. Todos os membros
-        // são registrados antes de fechar; a notificação final vem do lote.
-        for (const item of nativeUploads) {
-          throwIfSubmissionAborted(submissionController.signal);
-          const cleanPath = item.nativeInfo.nativePath.startsWith("file://")
-            ? item.nativeInfo.nativePath.replace("file://", "")
-            : item.nativeInfo.nativePath;
-          let finalPath = cleanPath;
-
-          if (!item.nativeInfo.contentType.startsWith("video/")) {
-            try {
-              const compressed = await VideoProcessor.compressImage({
-                filePath: cleanPath,
-                maxWidth: 1600,
-                maxHeight: 1600,
-                quality: "high",
-                format: "jpeg",
-              });
-              if (compressed?.outputPath) finalPath = compressed.outputPath;
-            } catch (compressionError) {
-              throwIfSubmissionAborted(submissionController.signal);
-              // Usa o original quando apenas a otimização falhar.
-            }
-          }
-
-          const isVideo = item.nativeInfo.contentType.startsWith("video/");
-          const { uploadId } = await VideoProcessor.uploadVideoInBackground({
-            filePath: finalPath,
-            uploadUrl: item.signedUrl,
-            headers: {
-              "Content-Type": isVideo ? "video/mp4" : (/\.webp(?:\?|$)/i.test(finalPath) ? "image/webp" : "image/jpeg"),
-              "x-upsert": "false",
-            },
-            skipCompression: !isVideo,
-          });
-          registerUpload(uploadId, {
-            name: item.resolved.name || (isVideo ? "Vídeo" : "Foto"),
-            type: isVideo ? "video" : "photo",
-            batchId: anonymousBatchId,
-            expectedUploads: nativeUploads.length,
-            isReportUpload: true,
-          });
-          throwIfSubmissionAborted(submissionController.signal);
-        }
-
-        if (Capacitor.isNativePlatform() && nativeUploads.length === 0) {
-          void notifyNative({
-            title: 'Upload concluído',
-            body: 'Sua bronca e os anexos foram enviados com sucesso.',
-            dedupeKey: `upload-concluido:${anonymousBatchId}`,
-          });
-        }
-      } catch (uploadError) {
-        const wasCancelled =
-          uploadError?.name === 'AbortError' || submissionController.signal.aborted;
-        failUploadBatch(
-          {
-            batchId: anonymousBatchId,
-            isReportUpload: true,
-            silent: wasCancelled,
-          },
-          wasCancelled
-            ? 'Envio cancelado.'
-            : uploadError?.message || 'Não foi possível enviar todos os anexos.'
-        );
-        if (wasCancelled && uploadError?.name !== 'AbortError') {
-          throw createSubmissionAbortError();
-        }
-        throw uploadError;
       }
 
       clearReportDraft();
@@ -3666,8 +3225,8 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
         return;
       }
       showAppError({
-        title: "Erro ao enviar anexos",
-        description: err?.message || "Não foi possível enviar os anexos anonimamente. Tente novamente.",
+        title: "Erro ao registrar bronca",
+        description: err?.message || "Não foi possível registrar a bronca. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -4297,7 +3856,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   <div data-error-field="photos" tabIndex={-1} aria-label="Fotos e vídeos do problema">
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-sm font-medium text-foreground">
-                        Evidências {municipalMode ? <span className="text-muted-foreground">(opcional)</span> : <span className="text-destructive">*</span>}
+                        Evidências <span className="text-muted-foreground">(opcional)</span>
                       </label>
                       {(formData.photos.length > 0 ||
                         formData.videos.length > 0) && (
@@ -4318,13 +3877,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                       formData.videos.length === 0 &&
                       !errors.photos && (
                         <p className="text-xs text-muted-foreground mb-2">
-                          {municipalMode ? 'Você pode adicionar fotos ou vídeos, se tiver.' : 'Adicione pelo menos uma foto ou vídeo'}
+                          Você pode adicionar fotos depois do envio.
                         </p>
                       )}
                     <div className="space-y-3" data-error-field="photos">
                       <input
                         type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                        accept={REPORT_PHOTO_ACCEPT}
                         multiple
                         onChange={(e) => handleFileChange(e, "photos")}
                         ref={photoGalleryInputRef}
@@ -4333,7 +3892,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                       />
                       <input
                         type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                        accept={REPORT_PHOTO_ACCEPT}
                         capture="environment"
                         onChange={(e) => handleFileChange(e, "photos")}
                         ref={photoCameraInputRef}
@@ -5149,7 +4708,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium text-foreground">
-                    Mídia {municipalMode ? <span className="text-muted-foreground">(opcional)</span> : <span className="text-destructive">*</span>}
+                    Mídia <span className="text-muted-foreground">(opcional)</span>
                   </label>
                   {(formData.photos.length > 0 ||
                     formData.videos.length > 0) && (
@@ -5170,13 +4729,13 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   formData.videos.length === 0 &&
                   !errors.photos && (
                     <p className="text-xs text-muted-foreground mb-2">
-                      {municipalMode ? 'Você pode adicionar fotos ou vídeos, se tiver.' : 'Adicione pelo menos uma foto ou vídeo'}
+                      Você pode adicionar fotos depois do envio.
                     </p>
                   )}
                 <div className="space-y-3" data-error-field="photos">
                   <input
                     type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    accept={REPORT_PHOTO_ACCEPT}
                     multiple
                     onChange={(e) => handleFileChange(e, "photos")}
                     ref={photoGalleryInputRef}
@@ -5185,7 +4744,7 @@ const ReportModal = ({ onClose, onSubmit, municipalMode = false, municipalCityId
                   />
                   <input
                     type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    accept={REPORT_PHOTO_ACCEPT}
                     capture="environment"
                     onChange={(e) => handleFileChange(e, "photos")}
                     ref={photoCameraInputRef}

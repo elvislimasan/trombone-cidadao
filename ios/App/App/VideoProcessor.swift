@@ -36,7 +36,6 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
         var progress: Int = 0
         var status: String = "pending"
         var task: URLSessionUploadTask?
-        var responseCode: Int = 0
         var tempFile: String?
     }
 
@@ -90,7 +89,7 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let maxWidth = CGFloat(call.getInt("maxWidth") ?? 1280)
         let maxHeight = CGFloat(call.getInt("maxHeight") ?? 960)
-        let maxSizeMB = Double(call.getInt("maxSizeMB") ?? 10)
+        let maxSizeMB = call.getDouble("maxSizeMB") ?? 10
         let quality = call.getString("quality") ?? "medium"
         let format = call.getString("format") ?? "jpeg"
 
@@ -114,7 +113,7 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
 
             let ext = (format.lowercased() == "png") ? "png" : "jpg"
             let outputURL = self.cachesDir("compressed_images")
-                .appendingPathComponent("img_\(Int(Date().timeIntervalSince1970 * 1000)).\(ext)")
+                .appendingPathComponent("img_\(UUID().uuidString).\(ext)")
 
             let maxBytes = Int(maxSizeMB * 1024 * 1024)
             var data: Data?
@@ -315,7 +314,7 @@ public class VideoProcessorPlugin: CAPPlugin, CAPBridgedPlugin {
         let uploadId = UUID().uuidString
 
         stateQueue.sync {
-            uploads[uploadId] = UploadState(progress: 0, status: "pending", task: nil, responseCode: 0, tempFile: nil)
+            uploads[uploadId] = UploadState(progress: 0, status: "pending", task: nil, tempFile: nil)
         }
 
         // Resolve imediatamente (fire-and-forget), como no Android.
@@ -714,21 +713,16 @@ extension VideoProcessorPlugin: URLSessionDataDelegate {
         if let id = uploadId { notify(id, progress, "uploading", store: false) }
     }
 
-    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse) {
-        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        stateQueue.sync {
-            if let id = taskToUpload[dataTask.taskIdentifier] { uploads[id]?.responseCode = code }
-        }
-    }
-
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         var uploadId: String?
-        var responseCode = 0
+        // A resposta final pertence à task. O antigo didReceive sem
+        // completionHandler não era chamado pelo URLSessionDataDelegate,
+        // deixando o código em zero inclusive quando o Storage retornava 200.
+        let responseCode = (task.response as? HTTPURLResponse)?.statusCode ?? 0
         var tempFile: String?
         stateQueue.sync {
             uploadId = taskToUpload[task.taskIdentifier]
             if let id = uploadId {
-                responseCode = uploads[id]?.responseCode ?? 0
                 tempFile = uploads[id]?.tempFile
             }
             taskToUpload.removeValue(forKey: task.taskIdentifier)

@@ -17,6 +17,7 @@ import LinkReportModal from "@/components/LinkReportModal";
 import ReportDetails from "@/components/ReportDetails";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
 import { useReportPermissions } from "@/hooks/useReportPermissions";
+import { useUpload } from '@/contexts/UploadContext';
 import { supabase } from "@/lib/customSupabaseClient";
 import { getReportShareUrl } from "@/lib/shareUtils";
 import { rotuloDoTipoDeProblemaEsgoto } from "@/lib/reportCategoryFields";
@@ -133,11 +134,13 @@ const ReportPage = () => {
     isAuthorOrAdmin,
     canModerate,
     canEditCategory,
+    canAddPhotos,
     canEditWaterUtility,
     canMarkResolved,
     canConfirmUpdate,
     canDeleteUpdate,
   } = useReportPermissions(report);
+  const { showMediaManager } = useUpload();
 
   const UPDATES_VISIBLE_COUNT = 3;
 
@@ -1187,6 +1190,12 @@ const ReportPage = () => {
     return () => { loadRequest.current += 1; };
   }, [fetchReport]);
 
+  useEffect(() => {
+    const received = event => { if (event.detail?.id === reportId) fetchReport(); };
+    window.addEventListener('reports-updated', received);
+    return () => window.removeEventListener('reports-updated', received);
+  }, [reportId, fetchReport]);
+
   // O histórico e o painel usam o mesmo atendimento. Recarregar ao mudar o
   // status também cobre alterações locais, como a reabertura pela moderação.
   useEffect(() => {
@@ -1612,6 +1621,7 @@ const ReportPage = () => {
                   <div className="lg:hidden"><ReportParticipation report={report} onSupport={handleUpvoteClick} onShare={handleShare} onSave={() => handleFavoriteToggle(report.id, report.is_favorited)} /></div>
 
                   {/* gallery */}
+                  {canAddPhotos && <Button variant="outline" onClick={() => showMediaManager({ reportId: report.id, ownerId: user.id, title: report.title, protocol: report.protocol })}>Adicionar fotos à bronca</Button>}
                   {viewerMedia.length > 1 && (
                     <div className="bg-surface-raised border border-edge-subtle rounded-2xl px-4 py-4">
                       <ReportMediaGallery

@@ -87,3 +87,11 @@ test('contato inválido impede gravar solicitação', async () => {
     assert.deepEqual(calls, []);
   });
 });
+
+test('falha de anexo mantém a bronca criada e emite confirmação', async () => {
+  await withHook(false, async () => {
+    await createReport(form, async () => { throw new Error('upload unavailable'); });
+    assert.equal(calls.some(call => call.table === 'reports' && call.operation === 'delete'), false);
+    assert.equal(receipts.length, 1);
+  });
+});

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { resolveRegisteredNeighborhood } from '../../supabase/functions/_shared/reportNeighborhoods.js';
+import { issueReportMediaAccess, verifyReportMediaAccess } from '../../supabase/functions/_shared/reportMediaAccess.js';
 
 const source = readFileSync(new URL('../../supabase/functions/create-anonymous-report/index.ts', import.meta.url), 'utf8')
   .replace(/^import .+\r?\n/gm, '');
@@ -36,20 +37,22 @@ const makeHandler = ({ geo, cityId }) => {
       createSignedUploadUrl: async () => ({ data: { signedUrl: 'https://example.test/upload' } }),
     }) },
   };
-  new Function('serve', 'createClient', 'Deno', 'fetch', 'resolveRegisteredNeighborhood', code)(
+  new Function('serve', 'createClient', 'Deno', 'fetch', 'resolveRegisteredNeighborhood', 'issueReportMediaAccess', code)(
     (fn) => { handler = fn; },
     () => client,
     { env: { get: () => 'configured' } },
     async () => Response.json({ tokenProperties: { valid: true }, riskAnalysis: { score: 0.9 } }),
     resolveRegisteredNeighborhood,
+    issueReportMediaAccess,
   );
   return { handler, calls, inserts };
 };
 
-const request = (city_id, { neighborhood, withMedia = false } = {}) => new Request('https://example.test/create-anonymous-report', {
+const request = (city_id, { neighborhood, withMedia = false, deferMedia = false } = {}) => new Request('https://example.test/create-anonymous-report', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
+    deferMedia,
     token: 'valid-token', siteKey: 'site-key',
     report: {
       title: 'Buraco', category: 'buracos', address: 'Rua A',
@@ -110,4 +113,15 @@ test('bairro ausente continua nulo quando só o município foi identificado', as
   const response = await handler(request(64, { neighborhood: ' ', withMedia: true }));
   assert.equal(response.status, 200);
   assert.equal(inserts[0].neighborhood, null);
+});
+
+test('novo fluxo anônimo salva sem mídia e entrega autorização para anexar depois', async () => {
+  const { handler, inserts } = makeHandler({ geo: null, cityId: 64 });
+  const response = await handler(request(64, { deferMedia: true }));
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(inserts.length, 1);
+  assert.equal(data.id, 'created-report');
+  assert.deepEqual(data.uploads, []);
+  assert.equal(await verifyReportMediaAccess(data.id, data.recoveryToken, 'configured'), true);
 });
