@@ -28,6 +28,7 @@ const journeys = [
     { to: '/obras-publicas', title: 'Obras públicas', description: 'Veja o andamento das obras.', icon: Construction, keywords: 'construção reforma' },
     { to: '/mapa-pavimentacao', title: 'Ruas e pavimentação', description: 'Consulte a situação das ruas.', icon: Route, keywords: 'asfalto calçamento' },
     { to: '/agora', title: 'Radar da cidade', description: 'Acompanhe acontecimentos e avisos locais.', icon: Radio, keywords: 'alerta água energia trânsito evento agora' },
+    { to: '/camara', title: 'Câmara e vereadores', description: '', icon: Building, keywords: 'radar legislativo vereador lei votação sessão transparência' },
     { to: '/noticias', title: 'Notícias', description: 'Leia as novidades da cidade.', icon: Newspaper, keywords: 'jornal informação' },
     { to: '/imoveis-alugados', title: 'Imóveis públicos alugados', description: 'Consulte os imóveis e contratos públicos.', icon: Building, keywords: 'aluguel contrato prefeitura' },
     { to: '/estatisticas', title: 'Indicadores da cidade', description: 'Veja a participação e os resultados.', icon: BarChart3, keywords: 'estatísticas números dados' },

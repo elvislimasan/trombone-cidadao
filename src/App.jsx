@@ -34,6 +34,8 @@ import AdoptTreePage from '@/pages/AdoptTreePage';
 import TreePage from '@/pages/TreePage';
 import PavementStreetPage from '@/pages/PavementStreetPage';
 import CouncilorProfilePage from '@/pages/CouncilorProfilePage';
+import LegislativePage, { LegislativeEntry } from '@/pages/LegislativePage';
+import ManageLegislativePage from '@/pages/admin/ManageLegislativePage';
 import ManageMyCouncilorPage from '@/pages/ManageMyCouncilorPage';
 import ServicesPage from '@/pages/ServicesPage';
 import DirectoryDetailsPage from '@/pages/DirectoryDetailsPage';
@@ -954,6 +956,15 @@ function AppShell() {
               <Route path="/admin/arborizacao" element={<ModuleRoute module="arborization"><ArborizationMapPage management /></ModuleRoute>} />
               <Route path="/admin/arborizacao/solicitacoes" element={<ModuleRoute module="arborization" adminOnly><TreeAdoptionManagementPage admin /></ModuleRoute>} />
               <Route path="/vereadores/:cityId/:slug" element={<CouncilorProfilePage />} />
+              <Route path="/camara" element={<LegislativeEntry />} />
+              <Route path="/camara/:cityId" element={<LegislativePage />} />
+              <Route path="/camara/:cityId/vereadores" element={<LegislativePage view="directory" />} />
+              <Route path="/camara/:cityId/vereadores/:parliamentarianId" element={<LegislativePage view="parliamentarian" />} />
+              <Route path="/camara/:cityId/materias" element={<LegislativePage view="matters" />} />
+              <Route path="/camara/:cityId/materias/:matterId" element={<LegislativePage view="matter" />} />
+              <Route path="/camara/:cityId/sessoes" element={<LegislativePage view="sessions" />} />
+              <Route path="/camara/:cityId/sessoes/:sessionId" element={<LegislativePage view="session" />} />
+              <Route path="/camara/:cityId/demandas" element={<LegislativePage view="recurrences" />} />
               <Route path="/share/vereador/:cityId/:slug" element={<CouncilorProfilePage />} />
               <Route path="/guia-da-cidade" element={<ServicesPage />} />
               <Route path="/guia-da-cidade/categoria/:categoryId" element={<ServicesPage />} />
@@ -1022,6 +1033,7 @@ function AppShell() {
               <Route path="/admin/obras/opcoes" element={<ModuleRoute module="works" adminOnly><ManageWorkOptionsPage /></ModuleRoute>} />
               <Route path="/admin/pavimentacao" element={<ModuleRoute module="urban_planning"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/vereadores" element={<ModuleRoute module="pavement" adminOnly><ManageCouncilorsPage /></ModuleRoute>} />
+              <Route path="/admin/legislativo" element={<ModuleRoute module="legislative" adminOnly><ManageLegislativePage /></ModuleRoute>} />
               <Route path="/pavimentacao/gerenciar" element={<ModuleRoute module="urban_planning"><ManagePavementPage /></ModuleRoute>} />
               <Route path="/admin/configuracoes" element={<AdminRoute><SiteSettingsPage /></AdminRoute>} />
               <Route path="/admin/identidade-da-cidade" element={<AdminRoute><ManageCityIdentityPage /></AdminRoute>} />

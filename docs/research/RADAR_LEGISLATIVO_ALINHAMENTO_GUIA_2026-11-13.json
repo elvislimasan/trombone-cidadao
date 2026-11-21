@@ -1,0 +1,141 @@
+{
+  "verified_at": "2026-11-13T18:55:31.986Z",
+  "environment": "development",
+  "project": "xxdletrjyjajtrmhwzev",
+  "guide": "Como-criar-o-Radar-da-sua-cidade.pdf",
+  "migrations": [
+    435,
+    436,
+    437
+  ],
+  "official_profiles_checked": 32,
+  "groups": {
+    "leis": 200,
+    "outros": 456,
+    "cobrancas": 22,
+    "melhorias": 349,
+    "homenagens": 91
+  },
+  "public_views": [
+    {
+      "view": "overview",
+      "ms": 1095,
+      "total": 1118,
+      "metrics": {
+        "matters": 1118,
+        "honorary": 91,
+        "requests": 399,
+        "normative": 226,
+        "classified": 0
+      },
+      "groups": {
+        "leis": 200,
+        "outros": 456,
+        "cobrancas": 22,
+        "melhorias": 349,
+        "homenagens": 91
+      }
+    },
+    {
+      "view": "matters",
+      "ms": 636,
+      "total": 1118,
+      "metrics": {
+        "matters": 1118,
+        "honorary": 91,
+        "requests": 399,
+        "normative": 226,
+        "classified": 0
+      }
+    },
+    {
+      "view": "matter",
+      "ms": 1112
+    },
+    {
+      "view": "sessions",
+      "ms": 208,
+      "total": 123
+    },
+    {
+      "view": "session",
+      "ms": 950
+    },
+    {
+      "view": "directory",
+      "ms": 179
+    },
+    {
+      "view": "recurrences",
+      "ms": 719,
+      "total": 2
+    },
+    {
+      "view": "parliamentarian",
+      "ms": 645,
+      "total": 40,
+      "metrics": {
+        "matters": 40,
+        "honorary": 5,
+        "requests": 28,
+        "normative": 6,
+        "classified": 0
+      }
+    },
+    {
+      "view": "matters",
+      "ms": 712,
+      "total": 14,
+      "metrics": {
+        "matters": 14,
+        "honorary": 2,
+        "requests": 8,
+        "normative": 2,
+        "classified": 0
+      }
+    }
+  ],
+  "official_sample": {
+    "run_id": "dec51387-adbb-4d36-959d-315ae1985649",
+    "period": {
+      "start": "2025-01-01",
+      "end": "2026-11-13"
+    },
+    "sessions_match": true,
+    "all_sample_counts_match": true,
+    "people": [
+      {
+        "id": 3,
+        "name": "GILBERTO QUIRINO"
+      },
+      {
+        "id": 15,
+        "name": "ANDRÉ FERRAZ"
+      },
+      {
+        "id": 32,
+        "name": "LENILDA BELO"
+      }
+    ]
+  },
+  "validation": {
+    "unit_and_regression_tests": 29,
+    "database_migrations": 10,
+    "browser_scenarios": 6,
+    "browser_widths": [
+      390,
+      1440,
+      1920
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "runtime_errors": 0,
+    "vite_build": "passed",
+    "create_profile_and_link_existing": "passed",
+    "quality_block_and_manual_review": "passed"
+  },
+  "production_modified": false,
+  "frontend_hosting_deployed": false
+}

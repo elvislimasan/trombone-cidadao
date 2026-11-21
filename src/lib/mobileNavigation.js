@@ -44,6 +44,7 @@ const routes = [
   { paths: ['/guia-da-cidade', '/share/guia'], title: 'Guia da cidade' },
   { paths: ['/guia-da-cidade/*', '/share/guia/*', '/guiadacidade/*', '/servicos/*'], title: 'Guia da cidade', fallbackTo: '/guia-da-cidade' },
   { paths: ['/vereadores/*', '/share/vereador/*'], title: 'Atuação legislativa' },
+  { paths: ['/camara', '/camara/*'], title: 'Câmara', tab: '/explorar', fallbackTo: '/explorar' },
   { paths: ['/missoes'], title: 'Missões' },
   { paths: ['/rota-do-dia'], title: 'Rota do dia', fallbackTo: '/missoes' },
   { paths: ['/colecao'], title: 'Minha coleção', fallbackTo: '/missoes' },

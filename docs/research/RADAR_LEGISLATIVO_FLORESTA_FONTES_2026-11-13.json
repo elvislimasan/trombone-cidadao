@@ -1,0 +1,241 @@
+{
+  "assessment": "Viabilidade de integração legislativa de Floresta–PE no Trombone Cidadão",
+  "assessment_date": "2026-11-13",
+  "timezone": "America/Fortaleza",
+  "city_id": 64,
+  "method": "GET público sem autenticação; páginas de amostra e metadados de paginação. Não constitui auditoria integral do acervo nem cálculo de desempenho.",
+  "first_checked_at": "2026-11-13T16:09:27.948Z",
+  "last_checked_at": "2026-11-13T16:10:23.172Z",
+  "observations": [
+    "A API respondeu com pagination e results; os totais são metadados declarados pela fonte.",
+    "Links de paginação e documentos retornaram HTTP mesmo em consultas HTTPS.",
+    "A legislatura externa 9 foi apresentada como 2025–2026; período e exercício devem ser conciliados com a documentação oficial antes da publicação de indicadores de mandato.",
+    "3.053 resultados de votação e 382 registros de voto individual são unidades distintas, em recortes históricos; não permitem uma taxa de cobertura por divisão direta.",
+    "Respostas de amostra incluíram campos técnicos ip e user; este relatório não reproduz seus valores.",
+    "A pesquisa não confirmou os números da referência Radar PTlândia nem calculou indicadores equivalentes para Floresta."
+  ],
+  "requests": [
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/",
+      "http_status": 200,
+      "content_type": "application/json",
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/parlamentares/parlamentar/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 32,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 32,
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/materialegislativa/?ano=2025&page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 609,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 609,
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/tipomaterialegislativa/?page_size=30",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 34,
+      "returned_page_end_index": 30,
+      "declared_total_pages": 2,
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/sessaoplenaria/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 659,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 659,
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/registrovotacao/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 3053,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 3053,
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/votoparlamentar/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 382,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 382,
+      "checked_at": "2026-11-13T16:09:27.948Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/parlamentares/legislatura/?page_size=30",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 7,
+      "returned_page_end_index": 7,
+      "declared_total_pages": 1,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/parlamentares/mandato/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 67,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 67,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/autoria/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 8495,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 8495,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/base/autor/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 51,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 51,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/sessaoplenariapresenca/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 7117,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 7117,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/presencaordemdia/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 6897,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 6897,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/ordemdia/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 4526,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 4526,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/tramitacao/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 5330,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 5330,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/parlamentares/filiacao/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 50,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 50,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/norma/normajuridica/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 2783,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 2783,
+      "checked_at": "2026-11-13T16:09:47.869Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/materialegislativa/?ano=2026&page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 506,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 506,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/materialegislativa/?ano=2026&tipo=21&page_size=2",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 45,
+      "returned_page_end_index": 2,
+      "declared_total_pages": 23,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/votoparlamentar/?page_size=1&o=-id",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 382,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 382,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/sessaoplenaria/?page_size=1&o=-data_inicio",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 659,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 659,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/materia/tipomaterialegislativa/?page=2&page_size=30",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 34,
+      "returned_page_end_index": 34,
+      "declared_total_pages": 2,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/base/autor/?page_size=1&tipo=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 32,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 32,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/presencaordemdia/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 6897,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 6897,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    },
+    {
+      "url": "https://sapl.floresta.pe.leg.br/api/sessao/expedientemateria/?page_size=1",
+      "http_status": 200,
+      "content_type": "application/json",
+      "total_entries": 4329,
+      "returned_page_end_index": 1,
+      "declared_total_pages": 4329,
+      "checked_at": "2026-11-13T16:10:23.172Z"
+    }
+  ]
+}

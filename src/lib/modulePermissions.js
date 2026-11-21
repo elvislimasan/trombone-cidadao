@@ -2,6 +2,7 @@ export const MODULES = {
   works: 'Obras',
   rentals: 'Imóveis Alugados',
   pavement: 'Pavimentação e vereadores',
+  legislative: 'Radar legislativo',
   urban_planning: 'Gestão de ruas',
   arborization: 'Gestão de arborização',
   services: 'Serviços',
@@ -13,6 +14,7 @@ export const MODULE_KEYS = Object.keys(MODULES);
 export function canWriteModule(user, rules, module, planningCityIds = [], treeCityIds = [], municipalGrants = {}) {
   if (!user?.id) return false;
   if (user.is_master) return true;
+  if (module === 'legislative' && !user.is_admin) return false;
   // As demais contas exigem Órgão Público, cargo por cidade e liberação.
   if (module === 'urban_planning' || module === 'arborization') {
     const cities = module === 'arborization' ? treeCityIds : planningCityIds;

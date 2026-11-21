@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "city_id": 64,
+  "run_id": "dec51387-adbb-4d36-959d-315ae1985649",
+  "verified_at": "2026-11-13T18:39:27.070Z",
+  "period": {
+    "start": "2025-01-01",
+    "end": "2026-11-13"
+  },
+  "sessions": {
+    "trombone": 123,
+    "official": 123,
+    "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026",
+    "http_status": 200,
+    "matches": true
+  },
+  "people": [
+    {
+      "id": 3,
+      "name": "GILBERTO QUIRINO",
+      "official_profile_url": "https://sapl.floresta.pe.leg.br/parlamentar/3",
+      "matters": {
+        "trombone": 14,
+        "official": 14,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/materia/pesquisar-materia?data_apresentacao_0=01%2F01%2F2025&data_apresentacao_1=13%2F11%2F2026&autoria__autor=4&pesquisar=Pesquisar",
+        "http_status": 200
+      },
+      "attendance": {
+        "trombone": 119,
+        "official": 119,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026"
+      },
+      "agenda_attendance": {
+        "trombone": 119,
+        "official": 119,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026"
+      },
+      "author_report": {
+        "url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/materia-por-autor?data_apresentacao_0=01%2F01%2F2025&data_apresentacao_1=13%2F11%2F2026&autoria__autor=4&pesquisar=Pesquisar",
+        "http_status": 500
+      }
+    },
+    {
+      "id": 15,
+      "name": "ANDRÉ FERRAZ",
+      "official_profile_url": "https://sapl.floresta.pe.leg.br/parlamentar/15",
+      "matters": {
+        "trombone": 40,
+        "official": 40,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/materia/pesquisar-materia?data_apresentacao_0=01%2F01%2F2025&data_apresentacao_1=13%2F11%2F2026&autoria__autor=30&pesquisar=Pesquisar",
+        "http_status": 200
+      },
+      "attendance": {
+        "trombone": 93,
+        "official": 93,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026"
+      },
+      "agenda_attendance": {
+        "trombone": 93,
+        "official": 93,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026"
+      },
+      "author_report": {
+        "url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/materia-por-autor?data_apresentacao_0=01%2F01%2F2025&data_apresentacao_1=13%2F11%2F2026&autoria__autor=30&pesquisar=Pesquisar",
+        "http_status": 500
+      }
+    },
+    {
+      "id": 32,
+      "name": "LENILDA BELO",
+      "official_profile_url": "https://sapl.floresta.pe.leg.br/parlamentar/32",
+      "matters": {
+        "trombone": 49,
+        "official": 49,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/materia/pesquisar-materia?data_apresentacao_0=01%2F01%2F2025&data_apresentacao_1=13%2F11%2F2026&autoria__autor=53&pesquisar=Pesquisar",
+        "http_status": 200
+      },
+      "attendance": {
+        "trombone": 110,
+        "official": 110,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026"
+      },
+      "agenda_attendance": {
+        "trombone": 110,
+        "official": 110,
+        "matches": true,
+        "official_url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/presenca?legislatura=9&tipo=&exibir_ordem_dia=on&data_inicio_0=01%2F01%2F2025&data_inicio_1=13%2F11%2F2026"
+      },
+      "author_report": {
+        "url": "https://sapl.floresta.pe.leg.br/sistema/relatorios/materia-por-autor?data_apresentacao_0=01%2F01%2F2025&data_apresentacao_1=13%2F11%2F2026&autoria__autor=53&pesquisar=Pesquisar",
+        "http_status": 500
+      }
+    }
+  ],
+  "limitations": [
+    "Conferência de amostra de três parlamentares e do total de sessões; não é auditoria integral de cada documento ou mandato.",
+    "O relatório separado de matérias por autor pode falhar na Câmara; a pesquisa oficial é a alternativa identificada em cada comparação.",
+    "Grupos são estimativas por regras e locais são extraídos do texto. Não foram auditados integralmente de forma humana.",
+    "Não foram confirmados denominadores de frequência, suplências, unanimidade ou execução dos serviços.",
+    "A conferência vale para o período e o acervo identificados; novas coletas não recebem automaticamente este selo de comparação."
+  ]
+}
