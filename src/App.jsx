@@ -88,6 +88,7 @@ import { isReservedUsername } from '@/lib/username';
 import { UploadProvider } from '@/contexts/UploadContext';
 import WebUploadIndicator from '@/components/WebUploadIndicator';
 import UploadStatusBar from '@/components/UploadStatusBar';
+import ReportMediaManager from '@/components/ReportMediaManager';
 import HomePageImproved from './pages/HomePage-improved';
 import MapPage from './pages/MapPage';
 import MissionsPage from '@/pages/MissionsPage';
@@ -1050,8 +1051,9 @@ function AppShell() {
               Sair é pelo X do painel ou pelo botão voltar do aparelho. */}
           {!interfaceIsolada && <BottomNav />}
           {!areaPrefeituraAtiva && <ReportSubmissionNotice />}
-          {!areaPrefeituraAtiva && <WebUploadIndicator />}
-          {!areaPrefeituraAtiva && <UploadStatusBar />}
+          <WebUploadIndicator />
+          <UploadStatusBar />
+          <ReportMediaManager />
         </div>
       </MobileHeaderProvider>
     </UploadProvider>

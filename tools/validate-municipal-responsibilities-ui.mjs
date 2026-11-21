@@ -39,6 +39,7 @@ const stubs = {
     if(${JSON.stringify(process.argv.includes('--location-map'))})prefeitura.cidade={name:'Floresta',state_id:17};
     const agri={id:'agri',nome:'Agricultura',city_id:64,ativo:true,canal_triagem:false,municipal_modules:['arborization'],execution_specialties:['arborizacao'],execution_categories:{arborizacao:['poda']},access_version:1,email:'agri@municipio.gov.br',emails_copia:[],reply_to:'agri@municipio.gov.br',categorias:[{category_id:'poda'}],cidade:prefeitura.cidade};
     const light={...agri,id:'light',nome:'Iluminação',municipal_modules:['lighting'],execution_specialties:['eletricista'],categorias:[{category_id:'iluminacao'}]};
+    if(${JSON.stringify(process.argv.includes('--staff-department'))})light.execution_specialties=[];
     if(mode==='admin-modules')agri.municipal_modules=['arborization','water_supply'];window.staffDisabledModules=[];window.staffAccessVersion=1;
     const roads={...agri,id:'roads',nome:'Obras',municipal_modules:['urban_planning'],execution_specialties:['ruas'],execution_categories:{ruas:['buracos']},categorias:[{category_id:'buracos'}]};const general={...agri,id:'general',nome:'Serviços urbanos',municipal_modules:[],execution_specialties:['servicos_gerais'],execution_categories:{servicos_gerais:['limpeza']},categorias:[{category_id:'limpeza'}]};
     const channels=field?[specialty==='arborizacao'?agri:specialty==='ruas'?roads:general]:admin?[agri,light]:(combined||executor)?[light]:[agri];const canal=channels[0];
@@ -54,9 +55,10 @@ const stubs = {
       if(name==='municipal_lighting_map_clusters')data=poles.map(pole=>({cluster_lat:pole.latitude,cluster_lng:pole.longitude,item_count:1,pole}));
       if(name==='municipal_execution_workspace')data={execution_contract:1,execution_activities:field?[{canal_id:canal.id,city_id:64,specialty,category_ids:canal.categorias.map(row=>row.category_id)}]:[],actor_user_id:mode==='wrong-session'?'previous-account':'worker',access_contract:2,category_channels:mappings.map(row=>({...row,city_id:64})),memberships,channels,accesses:admin?[]:[access],inventories:[],inventory_views:canal.id==='agri'&&!field?[{city_id:64,canal_id:'agri',module:'arborization'}]:[],execution_team:[]};
       if(name==='resumo_demandas_municipais')data={total:1,abertas:1,em_andamento:0,concluidas:0,atrasadas:0,sem_responsavel:0};
-      if(name==='municipal_team_access')data=[{membro_id:'member1',access:{...access,cargos:['gestor'],versao:window.staffAccessVersion,disabled_modules:window.staffDisabledModules},asset_modules:[]}];
+      if(name==='municipal_team_access')data=[{membro_id:'member1',access:{...access,cargos:window.staffRoles||['gestor'],versao:window.staffAccessVersion,disabled_modules:window.staffDisabledModules},asset_modules:[]}];
       if(name==='municipal_public_official_candidates')data=[{user_id:'new-worker',name:'Novo funcionário'}];
       if(name==='set_municipal_staff_access'&&!window.staffSaveFailure){window.staffDisabledModules=params.p_disabled_modules;window.staffAccessVersion++;}
+      if(name==='transfer_municipal_staff_department'&&!window.staffSaveFailure){member.canal_id=params.p_channel_id;member.ativo=params.p_active;window.staffRoles=params.p_cargos;window.staffDisabledModules=params.p_disabled_modules;window.staffAccessVersion++;}
       if(name==='listar_emails_equipe_prefeitura')data=[{membro_id:'member1',email:'servidor@municipio.gov.br'}];
       if(name==='convidar_funcionario_secretaria')data={token:'invitation'};
       if(name==='salvar_secretaria_execucao')data=params.p_id||'new-channel';
@@ -65,7 +67,7 @@ const stubs = {
       if(name==='detalhar_ordem_executor')data={order:{...workOrder},reports:[{...linkedReport}],events:[],attachments:[],results:executionResults};
       if(name==='registrar_execucao_executor'){workOrder.status=params.p_acao==='concluir'?'concluida':'em_andamento';workOrder.versao++;if(params.p_acao==='concluir')linkedReport.status='resolved';executionResults.push({id:params.p_operacao});data={id:workOrder.id,status:workOrder.status,versao:workOrder.versao};}
       if(name==='estatisticas_executor')data={completed:4,impediments:1,assets:2,this_month:3,neighborhoods:1,services:[{service:specialty==='arborizacao'?'poda':specialty==='ruas'?'reparo':'limpeza',total:4}],top_neighborhoods:[{name:'Centro',count:4}],ranking:[{user_id:'worker',nome:'Servidor municipal',servicos:4}],recent:[]};
-      const response={data,error:name==='set_municipal_staff_access'&&window.staffSaveFailure?{message:'Falha ao salvar acesso.'}:name==='convidar_funcionario_secretaria'&&window.inviteFailure?{message:'A secretaria não possui execução de campo habilitada.'}:null};return {then(resolve,reject){return Promise.resolve(response).then(resolve,reject)},maybeSingle(){return this},order(){return this},range(){return this},abortSignal(){return this}};
+      const response={data,error:['set_municipal_staff_access','transfer_municipal_staff_department'].includes(name)&&window.staffSaveFailure?{message:'Falha ao salvar acesso.'}:name==='convidar_funcionario_secretaria'&&window.inviteFailure?{message:'A secretaria não possui execução de campo habilitada.'}:null};return {then(resolve,reject){return Promise.resolve(response).then(resolve,reject)},maybeSingle(){return this},order(){return this},range(){return this},abortSignal(){return this}};
     },from(table){let start=0,end=999;let singular=false;const filters=[];const builder={limit(n){end=n-1;return this},neq(key,value){filters.push([key,value,'neq']);return this},is(){return this},not(){return this},lte(){return this},select(){return this},ilike(){return this},gte(){return this},lt(){return this},eq(key,value){filters.push([key,value]);return this},in(key,values){filters.push([key,values]);return this},or(value){if(table==='poles')filters.push(['__or',value]);return this},abortSignal(){return this},order(){return this},range(a,b){start=a;end=b;return this},maybeSingle(){singular=true;return this},single(){singular=true;return this},then(resolve,reject){let data=table==='poles'?poles:table==='demandas_municipais'?[workOrder]:table==='reports'?overviewReports:table==='prefeitura_membros'?memberships:table==='orgao_canais'?channels:table==='categories'?[{id:'poda',name:'Poda'},{id:'iluminacao',name:'Iluminação'},{id:'buracos',name:'Buracos'},{id:'limpeza',name:'Limpeza'}]:table==='orgao_membros'?[member]:table==='orgao_categorias'?mappings:table==='site_config'?[{site_name:'Trombone Cidadão',logo_url:'/logo.png'}]:[];
       for(const [key,value,operator] of filters)if(key==='__or')data=data.filter(row=>value.split(',').some(term=>{const [field,op,raw]=term.split('.');return op==='ilike'?String(row[field]||'').toLowerCase().includes(raw.replaceAll('%','').toLowerCase()):op==='is'?row[field]==null:row[field]===(raw==='true'?true:raw==='false'?false:raw)}));else if(key!=='user_id'&&key!=='papel')data=data.filter(row=>operator==='neq'?row[key]!==value:Array.isArray(value)?value.includes(row[key]):row[key]===value);if(table==='reports')window.overviewQueries.push(filters);const count=data.length;data=data.slice(start,end+1);return Promise.resolve({count,data:singular?data[0]||null:data,error:table==='reports'&&window.failOverview?{message:'Consulta indisponível'}:null}).then(resolve,reject)}};return builder}};`,
 };
@@ -103,7 +105,38 @@ try {
   const wait=async expression=>{for(let i=0;i<120;i++){if(await evaluate('Boolean('+expression+')'))return;await pause(50);}throw Error('Timeout: '+expression+' / route: '+await evaluate('window.previewRoute')+' / browser errors: '+JSON.stringify(errors)+' / console errors: '+JSON.stringify(consoleErrors)+' / '+await evaluate('document.body.innerText')+' / paths: '+await evaluate("[...document.querySelectorAll('.leaflet-overlay-pane path')].map(el=>el.outerHTML).join('')"));};
   const visit=async(mode,page)=>{await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/?`+new URLSearchParams({mode,page})},sessionId);await wait('document.querySelector("main")||document.querySelector("[role=alert]")');};
   const results=[];
-  if (process.argv.includes('--staff-modules')) {
+  if (process.argv.includes('--staff-department')) {
+    const click=async text=>{await evaluate(`[...document.querySelectorAll('[role=dialog] button,main button')].find(el=>el.textContent.trim()===${JSON.stringify(text)}).click()`);await pause(50);};
+    const select=async(id,value)=>{await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('change',{bubbles:true}))})()`);await pause(50);};
+    const open=async()=>{await wait('document.querySelector("table tbody button")');await evaluate('document.querySelector("table tbody button").click()');await wait('document.getElementById("edit-member-channel")');};
+    const saveDisabled=()=>evaluate(`[...document.querySelectorAll('[role=dialog] button')].find(el=>el.textContent==='Salvar alterações').disabled`);
+    for(const width of [390,1440,1920]) for(const theme of ['light','dark']) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false},sessionId);
+      await visit('admin-modules','/prefeitura/equipe');await open();
+      await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'})`);
+      assert.equal(await evaluate('document.getElementById("edit-member-channel").value'),'agri');
+      assert.equal(await saveDisabled(),true);
+      await evaluate(`[...document.querySelectorAll('[role=dialog] fieldset label')].find(el=>el.textContent.includes('Executor de campo')).querySelector('input').click()`);
+      await select('edit-member-channel','light');assert.equal(await saveDisabled(),false);
+      assert.equal(await evaluate(`[...document.querySelectorAll('[role=dialog] fieldset label')].some(el=>el.textContent.includes('Executor de campo'))`),false);
+      assert.ok(await evaluate('document.getElementById("edit-member-channel-hint").textContent.includes("anterior será removido")'));
+      assert.deepEqual(await evaluate(`[...document.querySelectorAll('[role=dialog] fieldset legend')].find(el=>el.textContent==='Módulos com acesso').parentElement.querySelector('label').textContent.trim()`),'Iluminação');
+      await click('Cancelar');await open();assert.equal(await evaluate('document.getElementById("edit-member-channel").value'),'agri');
+      assert.equal(await evaluate('window.rpcCalls.filter(row=>row.name==="transfer_municipal_staff_department").length'),0);
+      await select('edit-member-channel','light');
+      await evaluate('window.staffSaveFailure=true');await click('Salvar alterações');
+      await wait('document.querySelector("[role=dialog] [role=alert]")');
+      assert.equal(await evaluate('document.getElementById("edit-member-channel").value'),'light');
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      const shot=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,`staff-department-${width}-${theme}.png`),Buffer.from(shot.data,'base64'));
+      await evaluate('window.staffSaveFailure=false');await click('Salvar alterações');await wait('!document.querySelector("[role=dialog]")');
+      const params=await evaluate('window.rpcCalls.filter(row=>row.name==="transfer_municipal_staff_department").at(-1).params');
+      assert.equal(params.p_member_id,'member1');assert.equal(params.p_channel_id,'light');assert.equal(params.p_version,1);assert.deepEqual(params.p_cargos,['gestor']);
+      await open();assert.equal(await evaluate('document.getElementById("edit-member-channel").value'),'light');assert.equal(await saveDisabled(),true);
+      await click('Cancelar');await select('team-channel','agri');await wait('!document.querySelector("table tbody button")');
+      results.push({width,theme,transfer:true,cancel:true,retry:true,destinationModules:true,unsupportedExecutorRemoved:true,sourceFilterUpdated:true,noOverflow:true});
+    }
+  } else if (process.argv.includes('--staff-modules')) {
     const click=async text=>{await evaluate(`[...document.querySelectorAll('[role=dialog] button,main button')].find(el=>el.textContent.trim()===${JSON.stringify(text)}).click()`);await pause(50);};
     const select=async(id,value)=>{await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('change',{bubbles:true}))})()`);await pause(50);};
     const moduleInput=()=>`[...document.querySelectorAll('[role=dialog] fieldset')].find(el=>el.querySelector('legend')?.textContent==='Módulos com acesso')?.querySelectorAll('label')`;
@@ -116,7 +149,7 @@ try {
       await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'})`);
       assert.deepEqual(await selectedModules(),['Arborização','Operação-pipa']);
       await toggle('Operação-pipa');await evaluate('window.staffSaveFailure=true');await click('Salvar alterações');
-      await wait('window.uiErrors.length>0');assert.deepEqual(await selectedModules(),['Arborização']);
+      await wait('document.querySelector("[role=dialog] [role=alert]")');assert.deepEqual(await selectedModules(),['Arborização']);
       await evaluate('window.staffSaveFailure=false');await click('Salvar alterações');await wait('!document.querySelector("[role=dialog]")');
       assert.deepEqual(await evaluate('window.rpcCalls.filter(row=>row.name==="set_municipal_staff_access").at(-1).params.p_disabled_modules'),['water_supply']);
       await open();assert.deepEqual(await selectedModules(),['Arborização']);

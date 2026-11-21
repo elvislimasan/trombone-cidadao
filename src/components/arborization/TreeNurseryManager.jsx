@@ -6,7 +6,6 @@ import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, Clock3,
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/customSupabaseClient';
-import { useCanManageArborization } from '@/hooks/useCanManageArborization';
 import { ADOPTION_AVAILABILITY } from '@/lib/treeAdoption';
 import { treeNameKey } from '@/lib/treeInventory';
 import { pickupDetails, pickupInstructions, pickupPayload, validatePickup, PICKUP_DAYS } from '@/lib/treePickup';
@@ -40,7 +39,7 @@ function nurserySummary(nursery, offers) {
 }
 
 function NurserySteps({ current }) {
-  return <div className="nursery-wizard"><WizardProgress steps={['Local', 'Atendimento', 'Esp?cies']} current={current} label="Etapas do cadastro do viveiro" /></div>;
+  return <div className="nursery-wizard"><WizardProgress steps={['Local', 'Atendimento', 'Espécies']} current={current} label="Etapas do cadastro do viveiro" /></div>;
 }
 
 export function NurseryEditor({ nursery, cityId, city, onClose, onSaved }) {
@@ -88,8 +87,7 @@ export function NurseryEditor({ nursery, cityId, city, onClose, onSaved }) {
   </form>;
 }
 
-export function NurserySpeciesEditor({ nursery, catalog, cityId, initialRow, onClose, onSaved, onboarding = false }) {
-  const { canManage } = useCanManageArborization(cityId);
+export function NurserySpeciesEditor({ nursery, catalog, cityId, initialRow, onClose, onSaved, onboarding = false, canManageSpecies = false }) {
   const [selected, setSelected] = useState(initialRow ? [initialRow.species_id] : []);
   const [status, setStatus] = useState(initialRow?.status || 'disponivel');
   const [search, setSearch] = useState('');
@@ -125,7 +123,7 @@ export function NurserySpeciesEditor({ nursery, catalog, cityId, initialRow, onC
           <span className="nursery-species-name"><strong>{row.common_name}</strong>{row.scientific_name && <small>{row.scientific_name}</small>}</span>
         </label>)}</div>
         {!filtered.length && <p className="nursery-no-species">Nenhuma espécie encontrada. Busque outro nome ou cadastre uma espécie.</p>}
-        {!initialRow && canManage && <TreeSpeciesField compact creationOnly label="Não encontrou a espécie?" cityId={cityId} species={species} value="" allowUnknown={false} allowEdit={false} allowCreate={canManage} onCreatingChange={setCreating} onSelect={item => { if (item) setSelected(current => [...new Set([...current, item.id])]); }} onCreated={item => { setCreated(current => [...current, item]); setSelected(current => [...new Set([...current, item.id])]); }} />}
+        {!initialRow && canManageSpecies && <TreeSpeciesField compact creationOnly label="Não encontrou a espécie?" cityId={cityId} species={species} value="" allowUnknown={false} allowEdit={false} allowCreate={canManageSpecies} onCreatingChange={setCreating} onSelect={item => { if (item) setSelected(current => [...new Set([...current, item.id])]); }} onCreated={item => { setCreated(current => [...current, item]); setSelected(current => [...new Set([...current, item.id])]); }} />}
       </section>
       <fieldset className="nursery-status-choices"><legend>Disponibilidade</legend><p>Aplicar às espécies selecionadas.</p>{Object.entries(ADOPTION_AVAILABILITY).map(([key, label]) => <label key={key} className={`nursery-status-choice is-${key} ${status === key ? 'is-selected' : ''}`}><input type="radio" name="nursery-availability" value={key} checked={status === key} onChange={() => setStatus(key)} /><span><strong>{label}</strong><small>{key === 'disponivel' ? 'Pode ser solicitada pelo cidadão.' : key === 'sob_consulta' ? 'A equipe precisa confirmar a oferta.' : 'Sem oferta para novos pedidos.'}</small></span></label>)}<p className="nursery-status-note"><MapPin size={16} />A retirada será em {nursery.name}.</p></fieldset>
     </fieldset>
@@ -133,7 +131,7 @@ export function NurserySpeciesEditor({ nursery, catalog, cityId, initialRow, onC
   </form>;
 }
 
-export default function TreeNurseryManager({ catalog, cityId, city }) {
+export default function TreeNurseryManager({ catalog, cityId, city, canManageSpecies = false }) {
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState('list');
   const [editingRow, setEditingRow] = useState(null);
@@ -188,13 +186,13 @@ export default function TreeNurseryManager({ catalog, cityId, city }) {
     {content}
   </div>;
   if (view === 'editor') return workspace(<NurseryTaskDialog title={nursery ? 'Editar viveiro' : 'Novo viveiro'} onClose={() => setView(nursery ? 'nursery' : 'list')}><NurseryEditor nursery={nursery} cityId={cityId} city={city} onClose={() => setView(nursery ? 'nursery' : 'list')} onSaved={row => { setSelected(row); setEditingRow(null); setOnboarding(!nursery); setView(nursery ? 'nursery' : 'species'); refresh('Viveiro salvo.'); }} /></NurseryTaskDialog>);
-  if (view === 'species' && nursery) return workspace(<NurseryTaskDialog title="Espécies do viveiro" onClose={() => setView('nursery')}><NurserySpeciesEditor nursery={nursery} catalog={catalog} cityId={cityId} initialRow={editingRow} onboarding={onboarding} onClose={() => setView('nursery')} onSaved={() => { setView('nursery'); refresh('Espécies do viveiro atualizadas.'); }} /></NurseryTaskDialog>);
+  if (view === 'species' && nursery) return workspace(<NurseryTaskDialog title="Espécies do viveiro" onClose={() => setView('nursery')}><NurserySpeciesEditor nursery={nursery} catalog={catalog} cityId={cityId} initialRow={editingRow} onboarding={onboarding} canManageSpecies={canManageSpecies} onClose={() => setView('nursery')} onSaved={() => { setView('nursery'); refresh('Espécies do viveiro atualizadas.'); }} /></NurseryTaskDialog>);
   if (view === 'nursery' && nursery) {
     const summary = nurserySummary(nursery, offersByNursery.get(nursery.id) || []);
     return workspace(<div className="tree-nursery-detail">
       <header className="tree-nursery-detail-header"><div className="tree-nursery-heading"><Button variant="outline" size="icon" onClick={onList} aria-label="Voltar aos viveiros"><ArrowLeft size={18} /></Button><div><h1>{nursery.name}</h1><p>{summary.offers.length} {summary.offers.length === 1 ? 'espécie cadastrada' : 'espécies cadastradas'}</p></div></div><Button variant="outline" size="sm" disabled={disabled} onClick={() => setView('editor')}><Pencil className="mr-2 h-4 w-4" />Editar viveiro</Button></header>
       {notice && <p role="status" className="tree-nursery-notice"><CheckCircle2 size={18} />{notice}</p>}
-      <TreeAdoptionAvailabilityList key={nursery.id} catalog={{ ...catalog, availability: summary.offers }} nursery={nursery} onNew={() => openSpecies()} onStatusChange={updateStatus} />
+      <TreeAdoptionAvailabilityList key={nursery.id} catalog={{ ...catalog, availability: summary.offers }} nursery={nursery} cityId={cityId} canEditSpecies={canManageSpecies} onNew={() => openSpecies()} onStatusChange={updateStatus} onSpeciesUpdated={() => refresh('Espécie atualizada.')} />
     </div>);
   }
   return workspace(<section className="tree-nursery-list" aria-label="Viveiros cadastrados">

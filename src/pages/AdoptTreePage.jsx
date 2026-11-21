@@ -12,6 +12,7 @@ import TreeAdoptionIntroduction from '@/components/arborization/TreeAdoptionIntr
 import TreeAdoptionRequests from '@/components/arborization/TreeAdoptionRequests';
 import TreeAdoptionLocation from '@/components/arborization/TreeAdoptionLocation';
 import TreeAdoptionSpecies from '@/components/arborization/TreeAdoptionSpecies';
+import TreeAdoptionFulfillment from '@/components/arborization/TreeAdoptionFulfillment';
 import { TreePlantingNextStep } from '@/components/arborization/TreeJourney';
 import { TreeFormHeading } from '@/components/arborization/TreeFormLayout';
 import { AdoptionChoiceGroup } from '@/components/arborization/TreeAdoptionFields';
@@ -19,11 +20,11 @@ import { CityViewProvider, useCityView } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import { cityStateUf } from '@/lib/cityLocation';
-import { readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '@/lib/treeAdoptionClient';
+import { loadAdoptionCooldown, readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '@/lib/treeAdoptionClient';
 import { cpfDigits, formatCpf } from '@/lib/cpf';
 import useTreeAdoptionCatalog from '@/hooks/useTreeAdoptionCatalog';
 import useTreeAdoptionSettings from '@/hooks/useTreeAdoptionSettings';
-import { ADOPTION_CITY_ID, ADOPTION_CITY_NOTICE, adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, EMPTY_ADOPTION, adoptionProtocol, validateAdoption, adoptionPayload } from '@/lib/treeAdoption';
+import { ADOPTION_CITY_ID, ADOPTION_CITY_NOTICE, adoptionItems, adoptionQuantity, adoptionFulfillment, adoptionFulfillmentLabel, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, EMPTY_ADOPTION, adoptionProtocol, validateAdoption, adoptionPayload } from '@/lib/treeAdoption';
 import '@/components/arborization/treeAdoption.css';
 import '@/components/arborization/treeAdoptionFlow.css';
 
@@ -71,10 +72,22 @@ function AdoptionForm({ open, cityId, city, cityLabel, settings, onSubmitted, on
   const requestId = useRef(draft?.requestId || crypto.randomUUID());
   const [locating, setLocating] = useState(false);
   const [success, setSuccess] = useState(null);
+  const [cooldownRevision, setCooldownRevision] = useState(0);
+  const [cooldown, setCooldown] = useState({ loading: true, next: null, error: '' });
+  useEffect(() => {
+    if (!open || !user?.id || success) return;
+    let active = true;
+    setCooldown({ loading: true, next: null, error: '' });
+    loadAdoptionCooldown(supabase, user.id, requestId.current)
+      .then(next => { if (active) setCooldown({ loading: false, next, error: '' }); })
+      .catch(error => { if (active) setCooldown({ loading: false, next: null, error: error.message }); });
+    return () => { active = false; };
+  }, [open, user?.id, success, cooldownRevision]);
   useEffect(() => {
     const disabledType = (form.request_type === 'plantio' && !settings.plantingEnabled) || (form.request_type === 'muda' && !settings.seedlingsEnabled);
-    if (!settings.loading && disabledType && !success) setStep(0);
-  }, [settings.loading, settings.plantingEnabled, settings.seedlingsEnabled, form.request_type, success]);
+    const disabledDelivery = form.request_type === 'muda' && form.fulfillment_method === 'entrega' && !settings.deliveryEnabled;
+    if (!settings.loading && (disabledType || disabledDelivery) && !success) setStep(0);
+  }, [settings.loading, settings.plantingEnabled, settings.seedlingsEnabled, settings.deliveryEnabled, form.request_type, form.fulfillment_method, success]);
   useEffect(() => {
     storeAdoptionDraft(draftStorage(), cityId, user?.id, success ? null : { form, step, requestId: requestId.current });
   }, [form, step, success, cityId, user?.id]);
@@ -114,6 +127,9 @@ function AdoptionForm({ open, cityId, city, cityLabel, settings, onSubmitted, on
   const submit = async event => {
     event.preventDefault();
     if (busyRef.current) return;
+    if (form.request_type === 'muda' && form.fulfillment_method === 'entrega' && !settings.deliveryEnabled) {
+      setError('As entregas estão desativadas. Escolha retirar no viveiro.'); setStep(0); return;
+    }
     if (settings.loading || settings.error || (form.request_type === 'plantio' && !settings.plantingEnabled) || (form.request_type === 'muda' && !settings.seedlingsEnabled)) {
       setError(settings.loading ? 'Aguarde a consulta da disponibilidade de solicitações.' : settings.error || `As solicitações de ${form.request_type === 'plantio' ? 'plantio' : 'mudas'} estão desativadas. Escolha uma modalidade disponível.`);
       setStep(0); return;
@@ -157,23 +173,27 @@ function AdoptionForm({ open, cityId, city, cityLabel, settings, onSubmitted, on
   </Dialog>;
   if (!success && (settings.loading || settings.error || (!settings.plantingEnabled && !settings.seedlingsEnabled))) return renderDialog(<section className="adoption-auth-panel"><p role={settings.error ? 'alert' : 'status'}>{settings.loading ? 'Consultando disponibilidade…' : settings.error || 'Novas solicitações de plantio e mudas estão temporariamente desativadas nesta cidade.'}</p>{settings.error && <Button variant="outline" onClick={settings.refresh}>Tentar novamente</Button>}{!settings.loading && <Button variant="outline" onClick={showRequests}>Meus pedidos</Button>}</section>);
   if (!user) return renderDialog(<section className="adoption-auth-panel"><span className="adoption-auth-icon"><Sprout className="h-8 w-8" /></span><h2 className="text-2xl font-bold">O primeiro passo para uma cidade mais verde</h2><p className="max-w-xl text-sm leading-relaxed text-content-secondary">Entre na sua conta para solicitar mudas e acompanhar seu pedido.</p><Button asChild><Link to="/login" state={loginState}>Entrar para solicitar</Link></Button></section>);
-  if (success) return renderDialog(<section className="adoption-auth-panel adoption-success-panel" role="status"><CheckCircle2 className="h-10 w-10 text-primary" /><h2 className="text-2xl font-bold">Sua solicitação foi enviada</h2><div className="adoption-receipt"><span>Protocolo do pedido</span><strong>{adoptionProtocol(success)}</strong></div><p className="max-w-xl text-sm leading-relaxed text-content-secondary">A equipe de arborização de {cityLabel} avaliará o local e a espécie. Aguarde a confirmação antes de ir ao fornecedor.</p><ol className="adoption-success-steps" aria-label="Próximos passos"><li><span>1</span>Veja o andamento e responda às orientações em Meus pedidos.</li><li><span>2</span>{success.request_type === 'plantio' ? 'Aguarde a confirmação para acompanhar o plantio pela equipe.' : 'Aguarde a confirmação para retirar as mudas e realizar o plantio.'}</li><li><span>3</span>Depois de plantar, cadastre sua árvore e comece o diário de cuidados.</li></ol><div className="flex flex-wrap justify-center gap-3"><Button onClick={showRequests}>Acompanhar solicitação</Button><Button variant="outline" onClick={resetRequest}>Fazer outra solicitação</Button></div></section>);
-  const intro = <TreeFormHeading className="adoption-form-intro" headingRef={headingRef} step={step} total={STEPS.length} title={STEPS[step].title} description={STEPS[step].description} />;
+  if (!success && (cooldown.loading || cooldown.error || cooldown.next)) return renderDialog(<section className="adoption-auth-panel"><p role={cooldown.error ? 'alert' : 'status'}>{cooldown.loading ? 'Consultando prazo para novo pedido…' : cooldown.error || `Limite de 1 pedido a cada 30 dias. Novo pedido disponível em ${new Date(cooldown.next).toLocaleString('pt-BR', { timeZone: 'America/Fortaleza', dateStyle: 'short', timeStyle: 'short' })} (horário de Brasília).`}</p>{!cooldown.loading && <><Button onClick={showRequests}>Meus pedidos</Button><Button variant="outline" onClick={() => setCooldownRevision(value => value + 1)}>Verificar novamente</Button></>}</section>);
+  if (success) return renderDialog(<section className="adoption-auth-panel adoption-success-panel" role="status"><CheckCircle2 className="h-10 w-10 text-primary" /><h2 className="text-2xl font-bold">Sua solicitação foi enviada</h2><div className="adoption-receipt"><span>Protocolo do pedido</span><strong>{adoptionProtocol(success)}</strong></div><p className="max-w-xl text-sm leading-relaxed text-content-secondary">A equipe de arborização de {cityLabel} avaliará o local e a espécie. Aguarde a confirmação da modalidade de atendimento escolhida.</p><ol className="adoption-success-steps" aria-label="Próximos passos"><li><span>1</span>Veja o andamento e responda às orientações em Meus pedidos.</li><li><span>2</span>{success.request_type === 'plantio' ? 'Aguarde a confirmação para acompanhar o plantio pela equipe.' : adoptionFulfillment(success) === 'entrega' ? 'Aguarde a equipe combinar a entrega no endereço informado no pedido.' : 'Aguarde a confirmação para retirar as mudas no viveiro escolhido e realizar o plantio.'}</li><li><span>3</span>Depois de plantar, cadastre sua árvore e comece o diário de cuidados.</li></ol><div className="flex flex-wrap justify-center gap-3"><Button onClick={showRequests}>Acompanhar solicitação</Button></div></section>);
+  const delivery = adoptionFulfillment(form) === 'entrega';
+  const intro = <TreeFormHeading className="adoption-form-intro" headingRef={headingRef} step={step} total={STEPS.length} title={step === 1 && delivery ? 'Onde entregar?' : STEPS[step].title} description={STEPS[step].description} />;
   return renderDialog(<div className="adoption-form-layout tree-form-theme">
     <form onSubmit={submit} noValidate className="adoption-form" data-step={step} aria-label={requestTitle} aria-busy={busy}>
     <header className="adoption-wizard-header"><p className="adoption-wizard-step">Etapa {step + 1} de {STEPS.length}</p><WizardProgress steps={STEPS} current={step} onSelect={move} busy={busy} label={`Etapas da solicitação: etapa ${step + 1} de ${STEPS.length}`} /></header>
     <div ref={bodyRef} className="adoption-form-body">
+      {step === 0 && <p className="text-sm text-content-secondary">Limite de 1 pedido a cada 30 dias por usuário.</p>}
       {step > 1 && intro}
       <fieldset disabled={busy} className="adoption-step-content">
         {step === 0 && <div className="adoption-request-layout">
           <div className="adoption-request-form">
           {intro}
           <AdoptionChoiceGroup legend="O que você precisa?" value={form.request_type} onChange={request_type => change({ request_type })} options={[
-            ...(settings.seedlingsEnabled ? [{ value: 'muda', label: 'Receber mudas', description: 'Você retira e planta.', icon: Sprout }] : []),
+            ...(settings.seedlingsEnabled ? [{ value: 'muda', label: 'Receber mudas', description: settings.deliveryEnabled ? 'Receba em casa ou retire no viveiro e plante.' : 'Você retira no viveiro e planta.', icon: Sprout }] : []),
             ...(settings.plantingEnabled ? [{ value: 'plantio', label: 'Pedir plantio', description: 'A equipe avalia e realiza o plantio.', icon: Trees }] : []),
           ]} />
-          {!settings.plantingEnabled && <p className="text-sm text-content-secondary">No momento, apenas mudas para você retirar e plantar.</p>}
+          {!settings.plantingEnabled && <p className="text-sm text-content-secondary">No momento, apenas mudas para você plantar.</p>}
           {!settings.seedlingsEnabled && <p className="text-sm text-content-secondary">No momento, apenas plantio pela equipe.</p>}
+          <TreeAdoptionFulfillment form={form} cityId={cityId} onChange={change} deliveryEnabled={settings.deliveryEnabled} />
           <AdoptionChoiceGroup className="adoption-purpose-choices" legend="Finalidade" value={form.purpose} onChange={purpose => change({ purpose })} options={[
             { value: 'sombra', label: 'Sombra', icon: Sun },
             { value: 'ornamentacao', label: 'Ornamental', icon: Flower2 },
@@ -181,7 +201,7 @@ function AdoptionForm({ open, cityId, city, cityLabel, settings, onSubmitted, on
           ]} />
           <section className="adoption-contact-fields" aria-label="Dados do solicitante">
             <div className="tree-form-section-label"><h3>Contato</h3></div>
-            {form.request_type === 'muda' && <label ref={cpfFieldRef} className="adoption-field adoption-request-cpf">CPF<input type="text" inputMode="numeric" autoComplete="off" required maxLength={14} placeholder="000.000.000-00" value={requesterCpf} onChange={event => { setError(''); setRequesterCpf(formatCpf(event.target.value)); }} /><small>Usado para conferir a cota de 6 mudas na retirada. Pedidos em andamento não reservam cota. O CPF não aparece no pedido.</small></label>}
+            {form.request_type === 'muda' && <label ref={cpfFieldRef} className="adoption-field adoption-request-cpf">CPF<input type="text" inputMode="numeric" autoComplete="off" required maxLength={14} placeholder="000.000.000-00" value={requesterCpf} onChange={event => { setError(''); setRequesterCpf(formatCpf(event.target.value)); }} /><small>Usado para conferir a cota de 6 mudas no recebimento. Pedidos em andamento não reservam cota. O CPF não aparece no pedido.</small></label>}
             <label className="adoption-field">Nome completo<input autoComplete="name" required maxLength={160} value={form.requester_name} onChange={event => change({ requester_name: event.target.value })} /></label>
             <label className="adoption-field">Telefone / WhatsApp com DDD<input type="tel" autoComplete="tel" required maxLength={30} placeholder="(87) 99999-9999" value={form.requester_phone} onChange={event => change({ requester_phone: event.target.value })} /></label>
             <label className="adoption-field">E-mail (opcional)<input type="email" autoComplete="email" maxLength={254} value={form.requester_email} onChange={event => change({ requester_email: event.target.value })} /></label>
@@ -191,9 +211,9 @@ function AdoptionForm({ open, cityId, city, cityLabel, settings, onSubmitted, on
         {step === 1 && <TreeAdoptionLocation intro={intro} form={form} city={city} cityLabel={cityLabel} onChange={change} busy={busy} onLocatingChange={setLocating} />}
         {step === 2 && <TreeAdoptionSpecies catalog={catalog} form={form} onChange={change} cityId={cityId} />}
         {step === 3 && <div className="tree-review-summary">
-          <ReviewSection title="Atendimento" onEdit={() => move(0)}><ReviewFields items={[["Pedido", ADOPTION_TYPES[form.request_type]], ['Finalidade', ADOPTION_PURPOSES[form.purpose]], ['Quantidade', adoptionQuantity(form)]]} /></ReviewSection>
+          <ReviewSection title="Atendimento" onEdit={() => move(0)}><ReviewFields items={[["Pedido", ADOPTION_TYPES[form.request_type]], ...(form.request_type === 'muda' ? [['Recebimento', adoptionFulfillmentLabel(form)]] : []), ['Finalidade', ADOPTION_PURPOSES[form.purpose]], ['Quantidade', adoptionQuantity(form)]]} /></ReviewSection>
           <ReviewSection title="Mudas" onEdit={() => move(2)}><ul className="tree-review-items">{items.map(item => <li key={item.species_id}><span className="tree-review-quantity">{item.quantity}×</span><span><strong>{catalog.species.find(row => row.id === item.species_id)?.common_name || 'Espécie cadastrada'}</strong><small>{adoptionProviderLabel(item.provider, catalog)}</small></span></li>)}</ul></ReviewSection>
-          <ReviewSection title="Local de plantio" onEdit={() => move(1)}><p className="tree-review-address">{[form.address, form.neighborhood].filter(Boolean).join(' · ')}</p><ReviewFields items={[["Cidade", cityLabel], ['Ponto de referência', form.reference_point], ['Espaço', `${ADOPTION_ZONES[form.zone]} · ${ADOPTION_PLACES[form.planting_place]}`], ['Fiação', ADOPTION_WIRING[form.overhead_wiring]]]} /></ReviewSection>
+          <ReviewSection title={delivery ? 'Endereço de entrega e plantio' : 'Local de plantio'} onEdit={() => move(1)}><p className="tree-review-address">{[form.address, form.neighborhood].filter(Boolean).join(' · ')}</p><ReviewFields items={[["Cidade", cityLabel], ['Ponto de referência', form.reference_point], ['Espaço', `${ADOPTION_ZONES[form.zone]} · ${ADOPTION_PLACES[form.planting_place]}`], ['Fiação', ADOPTION_WIRING[form.overhead_wiring]]]} /></ReviewSection>
           <ReviewSection title="Contato" onEdit={() => move(0)}><div className="tree-review-contact"><strong>{form.requester_name}</strong><span>{form.requester_phone}</span>{form.requester_email && <span>{form.requester_email}</span>}</div></ReviewSection>
           <details className="tree-review-note"><summary>Adicionar observação (opcional)</summary><label className="adoption-field"><span className="sr-only">Observação para a equipe</span><textarea maxLength={3000} rows={3} placeholder="Algo que a equipe precisa saber?" value={form.notes} onChange={event => change({ notes: event.target.value })} /></label></details>
           <p className="tree-review-privacy"><ShieldCheck size={16} aria-hidden="true" /><span>Pedido visível para você e a equipe.{form.request_type === 'plantio' ? ' O plantio concluído aparecerá no inventário público.' : ''}</span></p>
@@ -242,7 +262,7 @@ export function AdoptTreeContent() {
   return <main className={`tree-adoption-page page-shell-fluid${surface === 'programa' ? ' tree-adoption-overview-page' : surface === 'minhas' ? ' tree-collection-page tree-collection-scope tree-requests-page' : ''}`}>
     <Helmet><title>{tab === 'minhas' ? 'Meus pedidos | Adote uma árvore' : 'Adote uma árvore'}</title><meta name="description" content="Solicite mudas, escolha uma espécie e acompanhe o atendimento da equipe de arborização da sua cidade." /></Helmet>
     {surface === 'minhas' ? <><TreeCollectionToolbar /><TreeCollectionIntro title="Meus pedidos" description="Acompanhe suas solicitações."><Button disabled={!requestsAvailable} onClick={() => setTab('solicitar')}><Plus size={17} />{settings.seedlingsEnabled ? 'Solicitar muda' : 'Solicitar plantio'}</Button><Button variant="outline" onClick={() => setTab('programa')}>Sobre o programa</Button></TreeCollectionIntro>{!requestsAvailable && !settings.loading && <p role="status" className="text-sm text-content-secondary">{settings.error || 'Novas solicitações estão temporariamente desativadas nesta cidade.'}</p>}</> : <TreeAdoptionHeader cityId={cityId} city={city} tab="programa" onTabChange={setTab} />}
-    {surface === 'programa' && <TreeAdoptionIntroduction city={city} plantingEnabled={settings.plantingEnabled} seedlingsEnabled={settings.seedlingsEnabled} requestsAvailable={requestsAvailable} settingsLoading={settings.loading} settingsError={settings.error} onStart={() => setTab('solicitar')} onShowRequests={() => setTab('minhas')} />}
+    {surface === 'programa' && <TreeAdoptionIntroduction city={city} plantingEnabled={settings.plantingEnabled} seedlingsEnabled={settings.seedlingsEnabled} deliveryEnabled={settings.deliveryEnabled} requestsAvailable={requestsAvailable} settingsLoading={settings.loading} settingsError={settings.error} onStart={() => setTab('solicitar')} onShowRequests={() => setTab('minhas')} />}
     {tab !== 'programa' && (!cityId || !city) && <p className="rounded-xl border border-dashed p-6 text-sm text-content-secondary">Selecione a cidade do plantio para começar.</p>}
     {tab === 'solicitar' && cityId && city && !supportedCity && <div role="alert" className="rounded-xl border bg-surface-raised p-6 text-sm leading-relaxed"><h2 className="mb-2 text-lg font-semibold">Programa ainda não disponível em {city.name}</h2><p>{ADOPTION_CITY_NOTICE}</p></div>}
     {cityId && city && <>

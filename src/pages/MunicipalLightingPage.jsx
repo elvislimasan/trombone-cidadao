@@ -30,7 +30,7 @@ import useMunicipalityWorkspace from '@/hooks/useMunicipalityWorkspace';
 const STATUS = [['aceso', 'Aceso / funcionando'], ['apagado', 'Apagado ou com problema'], ['removido', 'Removido']];
 const empty = { id: null, identifier: '', address: '', lamp_type: '', lamp_power_w: '', lighting_status: 'aceso', latitude: '', longitude: '', ...emptyPoleTechnicalDetails };
 const EMPTY_FILTERS = { status: 'all', removed: false };
-const POLE_FIELDS = 'id,identifier,plate,address,latitude,longitude,lamp_type,lamp_power_w,lighting_status,is_broken,updated_at,raw_properties';
+const POLE_FIELDS = 'id,identifier,previous_identifiers,plate,address,latitude,longitude,lamp_type,lamp_power_w,lighting_status,is_broken,updated_at,raw_properties';
 const inputClass = 'mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm';
 const cleanTerm = (value) => value.trim().replace(/[%,()"'\\]/g, '');
 const STATUS_STYLES = { aceso: 'bg-success-bg text-success-fg', apagado: 'bg-danger-subtleBg text-danger-subtleFg', removido: 'bg-surface-subtle text-content-secondary' };
@@ -217,7 +217,7 @@ export default function MunicipalLightingPage() {
       if (!term) { if (active) { setResults([]); setSearchCount(0); setSearching(false); } return; }
       let request = supabase.from('poles')
         .select(POLE_FIELDS, { count: 'exact' })
-        .eq('city_id', cityId).or(`identifier.ilike.%${term}%,plate.ilike.%${term}%,address.ilike.%${term}%`);
+        .eq('city_id', cityId).or(`identifier.ilike.%${term}%,plate.ilike.%${term}%,address.ilike.%${term}%,previous_identifiers.cs.{${JSON.stringify(term)}}`);
       request = filterPoles(request, filters);
       const { data, count, error: failure } = await request.order('id').limit(20);
       if (active && failure) setError(failure.message);

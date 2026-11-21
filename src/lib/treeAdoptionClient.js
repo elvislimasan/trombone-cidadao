@@ -5,6 +5,16 @@ const serverError = () => Object.assign(new Error('O serviço de adoção não a
 const validSession = (session, userId) => Boolean(userId && session?.access_token && session.user?.id === userId);
 const deniedFunction = error => error?.code === '42501' && /permission denied for function submit_tree_adoption/i.test(error.message || '');
 
+export async function loadAdoptionCooldown(client, userId, requestId, now = Date.now()) {
+  const { data, error } = await client.from('tree_adoption_requests').select('id,created_at')
+    .eq('author_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error('Não foi possível consultar o prazo para um novo pedido. Tente novamente.');
+  // Uma resposta perdida pode ter criado o pedido do rascunho: permita seu reenvio idempotente.
+  if (!data || data.id === requestId) return null;
+  const next = new Date(data.created_at).getTime() + 30 * 24 * 60 * 60 * 1000;
+  return next > now ? new Date(next).toISOString() : null;
+}
+
 export async function submitAdoptionRequest(client, payload, userId) {
   const current = await client.auth.getSession();
   if (current.error || !validSession(current.data?.session, userId)) throw sessionError();

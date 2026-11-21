@@ -130,4 +130,6 @@ export async function validateStaffModules({ db, ids, asUser, check }) {
     const workspace=(await db.query('select municipal_workspace_access() value')).rows[0].value;
     assert.deepEqual(workspace.accesses.find(row=>row.canal_id===channel).disabled_modules,['water_supply']);
   });
+  const { validateStaffDepartmentTransfer } = await import('./municipal-staff-department-flow-cases.mjs');
+  await validateStaffDepartmentTransfer({ db, ids, asUser, check });
 }

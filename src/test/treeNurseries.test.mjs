@@ -49,6 +49,9 @@ const mocks = {
   'lucide-react': new Proxy({}, { get: () => () => null }),
   '@/components/ui/button': { Button: ({ variant, size, ...props }) => React.createElement('button', props) },
   '@/components/ui/input': { Input: React.forwardRef((props, ref) => React.createElement('input', { ...props, ref })) },
+  '@/components/ui/wizard-progress': { __esModule: true, default: ({ steps, current }) => React.createElement('ol', {}, steps.map((step, index) => React.createElement('li', { key: step, 'aria-current': current === index ? 'step' : undefined }, `${index + 1}${step}`))) },
+  '@/components/ui/dialog': { Dialog: ({ children }) => React.createElement(React.Fragment, {}, children), DialogTitle: ({ children }) => React.createElement('h2', {}, children), DialogDescription: ({ children }) => React.createElement('p', {}, children) },
+  '@/components/ui/task-dialog': { TaskDialogContent: React.forwardRef(({ children }, ref) => React.createElement('div', { ref, role: 'dialog' }, children)) },
   '@/lib/customSupabaseClient': { supabase },
   '@/hooks/useCanManageArborization': { useCanManageArborization: () => ({ canManage: true }) },
   '@/lib/treeAdoption': adoption,
@@ -89,7 +92,7 @@ async function withManager(run, empty = false, fixture = {}) {
   const root = createRoot(node);
   function Harness() {
     const [, revise] = React.useState(0);
-    return React.createElement(TreeNurseryManager, { cityId: 64, city: { id: 64, name: 'Floresta' }, catalog: {
+    return React.createElement(TreeNurseryManager, { cityId: 64, city: { id: 64, name: 'Floresta' }, canManageSpecies: true, catalog: {
       nurseries, availability, species, loading: false, error: '', refresh: () => revise(value => value + 1),
     } });
   }
@@ -113,7 +116,7 @@ test('cadastro começa pelo viveiro e grava local e atendimento uma única vez',
     assert.equal(writes[0].payload.pickup_details.address, 'Rua Nova, 50');
     assert.deepEqual(writes[0].payload.pickup_details.schedule, details.schedule);
     assert.match(node.textContent, /Selecione as espécies/);
-    assert.equal(node.querySelector('.nursery-steps [aria-current]').textContent, '3Espécies');
+    assert.equal(node.querySelector('.nursery-wizard [aria-current]').textContent, '3Espécies');
     click('Adicionar depois');
     assert.match(node.textContent, /Adicione a primeira espécie/);
   }, true);

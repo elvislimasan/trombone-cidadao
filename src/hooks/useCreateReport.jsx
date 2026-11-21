@@ -135,13 +135,17 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
           await saveMunicipalRequesterContact(supabase, data.id, newReportData, signal);
           throwIfAborted(signal);
         }
-        if (uploadMediaCallback) {
-          await uploadMediaCallback(data.id, { signal });
-          throwIfAborted(signal);
-        }
       } catch (submitError) {
         await supabase.from('reports').delete().eq('id', data.id);
         throw submitError;
+      }
+
+      // Depois de registrar a bronca, a falha de um anexo nunca apaga o relato.
+      // A fila mantém cada arquivo para reenvio, independentemente dos demais.
+      let mediaPending = false;
+      if (uploadMediaCallback) {
+        try { await uploadMediaCallback(data.id, { signal }); }
+        catch (mediaError) { mediaPending = true; console.warn('Bronca salva com anexos pendentes:', mediaError); }
       }
 
       if (!municipalMode) celebrate();
@@ -169,7 +173,7 @@ export function useCreateReport({ onCreated, municipalMode = false, municipality
       } catch {}
 
       window.dispatchEvent(new CustomEvent('report-submitted', { detail: {
-        id: data.id, title: data.title, protocol: data.protocol, municipal: municipalMode,
+        id: data.id, title: data.title, protocol: data.protocol, municipal: municipalMode, mediaPending,
         published: municipalMode ? data.is_public : !!(user.is_admin || user.is_master),
       } }));
       onCreated?.(data.id, data);

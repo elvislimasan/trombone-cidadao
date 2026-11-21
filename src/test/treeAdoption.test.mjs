@@ -138,3 +138,17 @@ test('edição de pedido de mudas mantém a validação de espécies sem pedir C
   assert.equal(validateAdoption(form, 64, species, null, availability, '', { requireCpf: false }), '');
   assert.equal(validateAdoption(form, 64, species, null, availability, ''), 'Informe um CPF válido para solicitar mudas.');
 });
+
+test('mudas oferecem entrega e retirada, exigem modalidade válida e preservam o endereço no payload', () => {
+  for (const fulfillment_method of ['entrega', 'retirada']) {
+    const form = { ...valid, request_type: 'muda', fulfillment_method };
+    assert.equal(validate(form, 64, species), '');
+    const payload = adoptionPayload(form, 64, 'pedido');
+    assert.equal(payload.fulfillment_method, fulfillment_method);
+    assert.equal(payload.address, valid.address);
+    assert.ok(!adoptionNextStatuses({ ...form, status: 'aprovada' }).includes('agendada'));
+    assert.equal(adoptionNextStatuses({ ...form, status: 'aprovada' }).includes('pronta_retirada'), fulfillment_method === 'retirada');
+  }
+  for (const fulfillment_method of ['', 'inventada', null]) assert.match(validate({ ...valid, request_type: 'muda', fulfillment_method }, 64, species), /receber em casa/);
+  assert.equal(adoptionPayload({ ...valid, fulfillment_method: 'entrega' }, 64, 'pedido').fulfillment_method, null);
+});

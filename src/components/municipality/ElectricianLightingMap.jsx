@@ -99,7 +99,7 @@ export default function ElectricianLightingMap({ municipality }) {
         .then(async ({ data, error: failure }) => {
           if (failure && ehErroDeRede(failure)) {
             const poles = await readElectricianCache(userId, `poles:${municipality.id}`);
-            data = (poles || []).filter(pole => `${pole.identifier || ''} ${pole.plate || ''} ${pole.address || ''}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 50).map(poste => ({ tipo: 'poste', poste }));
+            data = (poles || []).filter(pole => `${pole.identifier || ''} ${(pole.previous_identifiers || []).join(' ')} ${pole.plate || ''} ${pole.address || ''}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 50).map(poste => ({ tipo: 'poste', poste }));
             if (poles) failure = null;
           }
           if (!active) return;

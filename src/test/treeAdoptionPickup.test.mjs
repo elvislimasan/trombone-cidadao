@@ -52,6 +52,17 @@ test('pedido antigo recupera local da disponibilidade da espécie aprovada e man
 test('retirada não é oferecida para plantio pela equipe, pedidos encerrados ou pedidos ainda em análise', () => {
   for (const status of ['solicitada', 'em_analise', 'aprovada', 'agendada', 'concluida', 'cancelada', 'recusada']) assert.deepEqual(pickup.adoptionPickupLocations({ ...request, status }, catalog, city), []);
   assert.deepEqual(pickup.adoptionPickupLocations({ ...request, request_type: 'plantio' }, catalog, city), []);
+  assert.deepEqual(pickup.adoptionPickupLocations({ ...request, fulfillment_method: 'entrega' }, catalog, city), []);
+});
+
+test('viveiro municipal de Floresta usa a Secretaria como referência apenas quando não há endereço cadastrado', () => {
+  const municipal = { ...request, city_id: 64, provider: 'viveiro_municipal', confirmed_provider: 'viveiro_municipal' };
+  const [location] = pickup.adoptionPickupLocations(municipal, {}, city);
+  assert.match(location.address, /Secretaria de Produção Rural de Floresta/);
+  assert.match(new URL(location.href).searchParams.get('destination'), /Secretaria de Produção Rural de Floresta/);
+  const [configured] = pickup.adoptionPickupLocations(municipal, { nurseries: [{ city_id:64,provider:'viveiro_municipal',pickup_details:{address:'Rua cadastrada, 50'} }] }, city);
+  assert.equal(configured.address,'Rua cadastrada, 50');
+  assert.equal(pickup.adoptionPickupLocations({ ...municipal, city_id:65 }, {}, { ...city,id:65 })[0].href,null);
 });
 
 const require = createRequire(import.meta.url), React = require('react'), { renderToStaticMarkup } = require('react-dom/server');

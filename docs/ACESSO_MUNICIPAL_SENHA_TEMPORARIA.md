@@ -30,6 +30,16 @@ Na criação, no vínculo de conta existente e na edição, **Módulos com acess
 
 O banco filtra os inventários, categorias e atividades retornados pelo workspace e aplica os bloqueios nas políticas RLS e nos RPCs de operação, inclusive na leitura de solicitações municipais privadas criadas pelo próprio funcionário. Relatos comuns e áreas públicas do cidadão seguem suas regras anteriores. Administradores municipais conservam seu acesso administrativo. Edições validam a versão do acesso e geram auditoria; alterações feitas por clientes antigos preservam os bloqueios individuais.
 
+## Alterar a secretaria do funcionário
+
+Em **Equipe e acessos**, abra o funcionário, escolha **Secretaria responsável**, confira os cargos e módulos e clique em **Salvar alterações**. O seletor oferece as secretarias ativas da mesma prefeitura e mantém a secretaria atual visível quando estiver inativa. Cancelar descarta a troca.
+
+A transferência remove o acesso pelo vínculo anterior, mantém o ID e a data de criação do vínculo e recalcula as permissões para o destino. Os registros de atendimento permanecem nas secretarias de origem. Um vínculo já existente no destino, inclusive suspenso, bloqueia a transferência; nesse caso, edite aquele vínculo. Somente o administrador municipal pode transferir, e a operação valida a versão do acesso e registra origem e destino na auditoria.
+
+Para ativar, aplique `supabase/migrations/431_transfer_municipal_staff_department.sql` após as migrações anteriores e publique o frontend atualizado. A troca usa um RPC do banco e não exige republicar a Edge Function de criação de contas.
+
+`node tools/validate-municipal-responsibilities-ui.mjs --staff-department` verifica troca, cancelamento, erro e nova tentativa, cargos compatíveis com o destino e atualização dos filtros em 390, 1440 e 1920 px, nos temas claro e escuro. A validação de banco abaixo também verifica autorização, destinos inválidos, duplicidade, versão desatualizada, auditoria e revogação do acesso anterior.
+
 ## Validação local
 
 `powershell -File tools/validate-municipal-responsibilities-db.ps1` valida os fluxos reais, as políticas do Pipa e o isolamento por funcionário/secretaria. `node tools/validate-municipal-responsibilities-ui.mjs --staff-modules` verifica criação, vínculo, edição, erro de gravação e restauração em 390, 1440 e 1920 px, nos temas claro e escuro. `node --import ./tools/test-alias.mjs --test --test-isolation=none src/test/municipalStaffModules.test.mjs src/test/municipalAccountProvisioning.test.mjs` verifica herança e provisionamento.

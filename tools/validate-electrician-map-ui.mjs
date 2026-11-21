@@ -12,6 +12,8 @@ import loadConfig from 'tailwindcss/loadConfig.js';
 const root=process.cwd(), out=path.join(root,'.tmp/electrician-map-validation');
 await fs.mkdir(out,{recursive:true});
 const stubs={
+  '@/contexts/SupabaseAuthContext':`export const useAuth=()=>({user:{id:'worker'}});`,
+  '@/contexts/ElectricianOfflineContext':`export const useElectricianOffline=()=>({sync:async()=>{}});`,
   '@/design-system/theme/ThemeProvider':`export const useTheme=()=>({resolved:'light'});`,
   '@/contexts/UploadContext':`export const useUpload=()=>({activeUploads:{a:{id:'a',name:'Foto da bronca',status:'uploading',progress:42}},totalProgress:42,cancelUpload:()=>{}});`,
   '@/lib/appError':`export const showAppError=x=>{window.notices.push(x)};export const showAppNotice=()=>{};`,
@@ -69,11 +71,13 @@ try{
     await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port},sessionId);
     await waitFor('window.testMap && document.querySelector(`button[aria-label="Voltar ao centro da cidade"]`)');
     assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    if(!process.argv.includes('--visit-form')) {
     assert.ok(await evaluate('document.body.innerText.includes("Enviando arquivos: 42%")'));
     assert.ok(await evaluate('!document.querySelector(`button[aria-label="Ativar modo patrulha"]`)'));
     await evaluate('document.querySelector(`button[aria-label="Mostrar mapa de satélite"]`).click();void testMap.setZoom(19)');
     await waitFor('[...document.querySelectorAll(".leaflet-tile")].some(i=>i.src.includes("World_Imagery/MapServer/tile/18/"))');
     assert.ok(await evaluate('![...document.querySelectorAll(".leaflet-tile")].some(i=>i.src.includes("World_Imagery/MapServer/tile/19/"))'));
+    }
     const search=term=>evaluate(`(()=>{const input=document.querySelector('input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(term)});input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     await search('lenta');await pause(400);await search('rapida');
     await waitFor('document.body.innerText.includes("DEM-123")');await pause(1100);
@@ -81,13 +85,20 @@ try{
     await evaluate('[...document.querySelectorAll("button")].find(e=>e.textContent.includes("DEM-123")).click()');
     await waitFor('document.querySelector(`button[aria-label="Fechar poste"]`)');
     assert.ok(await evaluate('document.body.innerText.includes("X159189")'));
+    assert.ok(await evaluate('!document.body.innerText.includes("Realizei um serviço")'));
+    assert.equal(await evaluate('document.querySelectorAll("#electrician-pole-update input[type=checkbox]").length'),4);
+    await pause(600);
+    assert.ok(await evaluate('(()=>{const r=document.querySelector(`button[form="electrician-pole-update"]`).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()'));
+    assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+    const visitShot=await send('Page.captureScreenshot',{format:'png'},sessionId);
+    await fs.writeFile(path.join(out,`visit-${width}.png`),Buffer.from(visitShot.data,'base64'));
     await evaluate('document.querySelector(`button[aria-label="Fechar poste"]`).click()');
     await pause(300);
     const screenshot=await send('Page.captureScreenshot',{format:'png'},sessionId);
     await fs.writeFile(path.join(out,`map-${width}.png`),Buffer.from(screenshot.data,'base64'));
     assert.ok(await evaluate('Object.keys(gps.watchers).length===0'));
     await evaluate('window.unmount()');
-    results.push({width,overflow:false,uploadPercent:42,patrol:'acesso removido do mapa OK',search:'protocolo e respostas fora de ordem OK',satellite:'zoom 19 usando imagens do nível 18'});
+    results.push(process.argv.includes('--visit-form')?{width,overflow:false,visitServices:4,redundantCheckbox:false}:{width,overflow:false,uploadPercent:42,patrol:'acesso removido do mapa OK',search:'protocolo e respostas fora de ordem OK',satellite:'zoom 19 usando imagens do nível 18'});
   }
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify(results,null,2));

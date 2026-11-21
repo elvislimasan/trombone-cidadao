@@ -1,5 +1,6 @@
 const PRIORITY_ORDER = { urgente: 0, alta: 1, normal: 2, baixa: 3 };
 export const ELECTRICIAN_ACTIVE_STATUSES = ['aberta', 'triagem', 'programada', 'em_andamento'];
+export const ELECTRICIAN_SERVICE_TYPES = [['lamp_replacement', 'Troca de lâmpada'], ['arm_installation', 'Instalação de braço de luz'], ['relay_replacement', 'Troca de relé'], ['other', 'Outro serviço']];
 
 export function offerKey(offer) {
   return `${offer.tipo}:${offer.id}`;

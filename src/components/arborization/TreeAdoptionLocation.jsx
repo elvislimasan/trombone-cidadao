@@ -3,7 +3,7 @@ import { Building2, Loader2, MapPin, Navigation, Trees, Zap } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AdoptionChoiceGroup } from './TreeAdoptionFields';
-import { ADOPTION_PLACES, ADOPTION_WIRING } from '@/lib/treeAdoption';
+import { ADOPTION_PLACES, ADOPTION_WIRING, adoptionFulfillment } from '@/lib/treeAdoption';
 import { cityStateUf } from '@/lib/cityLocation';
 import { reverseGeocodePin } from '@/lib/reverseGeocodePin';
 import { supabase } from '@/lib/customSupabaseClient';
@@ -14,6 +14,7 @@ const LocationPickerMap = lazy(() => import('@/components/LocationPickerMap'));
 const normalized = value => String(value || '').normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/^municipio de\s+/, '');
 
 export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onChange, busy, onLocatingChange }) {
+  const delivery = adoptionFulfillment(form) === 'entrega';
   const [locating, setLocating] = useState(false);
   const [notice, setNotice] = useState('');
   const [wrongCity, setWrongCity] = useState(false);
@@ -79,7 +80,7 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
   const correct = (field, value) => { edits.current[field]++; onChange({ [field]: value }); };
   return <div className="adoption-location-layout">
     {intro}
-    <section className="adoption-location-map" aria-label="Mapa do local de plantio">
+    <section className="adoption-location-map" aria-label={delivery ? "Mapa do endereço de entrega e plantio" : "Mapa do local de plantio"}>
       <div className="adoption-map-heading"><p className="flex min-w-0 items-center gap-2 text-xs text-content-secondary"><MapPin className="h-4 w-4 shrink-0 text-primary" />Marque o local no mapa</p><Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={`Centralizar mapa em ${cityLabel}`} title={`Centralizar em ${cityLabel}`} onClick={() => setRecenter({ name: city.name, uf, nonce: Date.now() })}><Navigation className="h-4 w-4" /></Button></div>
       <div className="adoption-map-canvas" style={busy ? { pointerEvents: 'none' } : undefined}>
         <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>}><LocationPickerMap initialPosition={position} initialZoom={16} cityZoom={15} fallbackCityCenter={{ name: city.name, uf }} flyToCity={recenter} onLocationChange={pick} showMarker={Boolean(position)} showLocateButton showSatelliteToggle readOnly={busy} /></Suspense>
@@ -90,7 +91,7 @@ export default function TreeAdoptionLocation({ intro, form, city, cityLabel, onC
       </div>}
     </section>
     <div className="adoption-location-fields">
-      <div className="tree-form-location-heading"><h3>Confira o local</h3><p>Endereço preenchido pelo mapa. Ajuste se precisar.</p></div>
+      <div className="tree-form-location-heading"><h3>{delivery ? 'Endereço de entrega e plantio' : 'Confira o local'}</h3><p>Endereço preenchido pelo mapa. Ajuste se precisar.</p></div>
       <div className="adoption-address-fields">
         <label className="adoption-field">{form.zone === 'rural' ? 'Propriedade ou referência' : 'Endereço e número'}<Input maxLength={300} placeholder={form.zone === 'rural' ? 'Ex.: Sítio, comunidade e estrada de acesso' : 'Rua, número ou ponto de referência'} value={form.address} onChange={event => correct('address', event.target.value)} /></label>
         <label className="adoption-field">Ponto de referência (opcional)<Input maxLength={300} placeholder="Ex.: Em frente à escola, próximo à praça" value={form.reference_point || ''} onChange={event => onChange({ reference_point: event.target.value })} /></label>

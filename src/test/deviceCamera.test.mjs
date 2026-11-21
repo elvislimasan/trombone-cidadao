@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import { prefersDeviceCamera, prefersBrowserCamera, openDeviceCamera } from '../lib/deviceCamera.js';
+import { normalizeReportPhoto, isReportPhoto, isHeicPhoto, HEIC_CONVERSION_ERROR, REPORT_PHOTO_ACCEPT } from '../lib/reportPhoto.js';
 
 const source = fs.readFileSync(new URL('../components/ReportModal.jsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('ReportModal.jsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
@@ -107,6 +108,7 @@ function fileReturn() {
   const bindings = {
     Capacitor: { isNativePlatform: () => false },
     isMountedRef: { current: true }, errors: {},
+    normalizeReportPhoto, isReportPhoto, isHeicPhoto, HEIC_CONVERSION_ERROR,
     showAppError: error => notices.push(error),
     setErrors: () => {}, setIsPhotoProcessing: value => busy.push(value),
     setPhotoProcessingProgress: () => {}, setPhotoProcessingMessage: () => {},
@@ -203,4 +205,104 @@ test('cancelar ou falhar no processamento mantém o modal com os campos preenchi
   assert.equal(view.state().title, 'Buraco');
   assert.deepEqual(view.busy, [true, false]);
   assert.equal(view.notices.length, 1);
+});
+
+test('HEIC/HEIF do iPhone entra como JPEG, inclusive sem MIME e abaixo de 200KB', async () => {
+  for (const [name, type] of [['IMG_1.HEIC', 'image/heic'], ['IMG_2.heif', ''], ['IMG_3.heic', 'application/octet-stream']]) {
+    const view = fileReturn();
+    view.bindings.compressToJpeg = async file => {
+      assert.match(file.type, /^image\/hei[cf]$/);
+      return new File(['jpeg'], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+    };
+    view.bindings.input = { value: name, files: [new File(['heic'], name, { type })] };
+    await view.change({ target: view.bindings.input });
+    assert.equal(view.state().photos.length, 1);
+    assert.equal(view.state().photos[0].file.type, 'image/jpeg');
+    assert.match(view.state().photos[0].name, /\.jpg$/);
+    assert.deepEqual(view.notices, []);
+    URL.revokeObjectURL(view.state().photos[0].preview);
+  }
+  assert.match(REPORT_PHOTO_ACCEPT, /image\/heic/);
+  assert.match(REPORT_PHOTO_ACCEPT, /\.heif/);
+});
+
+test('HEIC sem decodificador exibe ação de recuperação e não anexa original incompatível', async () => {
+  const view = fileReturn();
+  view.bindings.compressToJpeg = async file => file;
+  view.bindings.input = { value: 'photo.heic', files: [new File(['heic'], 'photo.heic', { type: 'image/heic' })] };
+  await view.change({ target: view.bindings.input });
+  assert.equal(view.state().photos.length, 0);
+  assert.equal(view.state().title, 'Buraco');
+  assert.equal(view.notices[0].description, HEIC_CONVERSION_ERROR);
+  assert.deepEqual(view.busy, [true, false]);
+});
+
+test('conversão canvas ajusta extensão HEIF, GIF e arquivos sem extensão para JPEG', async () => {
+  for (const name of ['photo.heif', 'photo.gif', 'photo']) {
+    const view = compressionFixture();
+    const result = await view.compress(new File(['photo'], name, { type: 'image/heif' }));
+    assert.equal(result.name, 'photo.jpg');
+    assert.equal(result.type, 'image/jpeg');
+  }
+});
+
+function nativeFileReturn({ failRead = false, failCompress = false } = {}) {
+  const view = fileReturn();
+  const readers = [], writes = [];
+  Object.assign(view.bindings, {
+    Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => true, convertFileSrc: path => `capacitor://localhost/_capacitor_file_${path}` },
+    FileReader: class {
+      readAsDataURL(file) {
+        readers.push(this);
+        this.result = `data:${file.type};base64,aGVpYw==`;
+        if (failRead) queueMicrotask(() => this.onerror());
+      }
+    },
+    Filesystem: {
+      writeFile: async options => writes.push(options),
+      getUri: async ({ path }) => ({ uri: `file:///cache/${path}` }),
+    },
+    Directory: { Cache: 'CACHE' },
+    VideoProcessor: { compressImage: async () => {
+      if (failCompress) throw new Error('decode failed');
+      return { outputPath: `/cache/converted_${writes.length}.jpg` };
+    } },
+    setTimeout: () => {},
+  });
+  return { ...view, readers, writes };
+}
+
+test('galeria nativa iOS aguarda cada leitura e conversão antes de incluir a próxima foto', async () => {
+  const view = nativeFileReturn();
+  view.bindings.input = { value: 'photos', files: [new File(['heic'], 'IMG_1.heic', { type: 'image/heic' }), new File(['heif'], 'IMG_2.heif', { type: 'image/heif' })] };
+  let finished = false;
+  const change = view.change({ target: view.bindings.input }).then(() => { finished = true; });
+  assert.equal(view.readers.length, 1);
+  assert.equal(finished, false);
+  assert.equal(view.state().photos.length, 0);
+  view.readers[0].onload();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(view.readers.length, 2);
+  assert.equal(view.state().photos.length, 1);
+  assert.equal(finished, false);
+  view.readers[1].onload();
+  await change;
+  assert.match(view.writes[0].path, /\.heic$/);
+  assert.match(view.writes[1].path, /\.heif$/);
+  assert.deepEqual(view.state().photos.map(photo => photo.name), ['IMG_1.jpg', 'IMG_2.jpg']);
+  assert.ok(view.state().photos.every(photo => photo.file === null && photo.nativePath.endsWith('.jpg') && photo.preview));
+  assert.deepEqual(view.notices, []);
+});
+
+test('erro de leitura nativa ou conversão HEIC libera processamento sem anexar foto quebrada', async () => {
+  for (const options of [{ failRead: true }, { failCompress: true }]) {
+    const view = nativeFileReturn(options);
+    view.bindings.input = { value: 'photo', files: [new File(['heic'], 'photo.heic', { type: 'image/heic' })] };
+    const change = view.change({ target: view.bindings.input });
+    if (!options.failRead) view.readers[0].onload();
+    await change;
+    assert.equal(view.state().photos.length, 0);
+    assert.equal(view.notices.length, 1);
+    assert.deepEqual(view.busy, [true, false]);
+  }
 });

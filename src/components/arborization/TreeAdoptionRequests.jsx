@@ -20,7 +20,7 @@ import TreeAdoptionSettings from './TreeAdoptionSettings';
 import './treeAdoptionManagement.css';
 import './treeCitizenRequests.css';
 import './treeAdoptionDetails.css';
-import { adoptionItems, adoptionQuantity, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
+import { adoptionItems, adoptionQuantity, adoptionFulfillment, adoptionFulfillmentLabel, ADOPTION_FULFILLMENT, ADOPTION_TYPES, ADOPTION_ZONES, ADOPTION_PLACES, ADOPTION_PURPOSES, ADOPTION_WIRING, adoptionProviderLabel, ADOPTION_STATUSES, ADOPTION_TERMINAL, adoptionNextStatuses, adoptionProtocol, availableAdoptionSpecies, availableAdoptionProviders } from '@/lib/treeAdoption';
 
 const selectClass = 'min-h-[44px] w-full min-w-0 rounded-md border bg-background px-3 text-sm';
 const formatDate = value => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -99,8 +99,8 @@ function RequestDetails({ request, manager, dispatcher, catalog, city, onClose, 
         <ul className="adoption-detail-items" aria-label="Espécies e quantidades solicitadas">{items.map(item => <li key={item.species_id}><span className="adoption-detail-item-quantity" aria-label={`${item.quantity} unidades`}>{item.quantity}×</span><div><strong>{catalog.species.find(row => row.id === item.species_id)?.common_name || (item.species_id === request.species_id ? requestedSpecies : 'Espécie cadastrada')}</strong><span>{adoptionProviderLabel(item.provider, catalog)}</span></div></li>)}</ul>
       </section>
       <section className="adoption-detail-section adoption-detail-location" aria-label="Local de plantio">
-        <header><h3><MapPin size={17} aria-hidden="true" />Local de plantio</h3><a className="adoption-detail-map-link" aria-label="Ver local do plantio no mapa" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver mapa<ArrowUpRight size={15} aria-hidden="true" /></a></header>
-        {facts([['Endereço', address, true], ['Ponto de referência', request.reference_point, true], ['Espaço', [ADOPTION_ZONES[request.zone], ADOPTION_PLACES[request.planting_place]].filter(Boolean).join(' · ')], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação aérea', ADOPTION_WIRING[request.overhead_wiring]]])}
+        <header><h3><MapPin size={17} aria-hidden="true" />{adoptionFulfillment(request) === "entrega" ? "Endereço de entrega e plantio" : "Local de plantio"}</h3><a className="adoption-detail-map-link" aria-label="Ver local do plantio no mapa" href={`https://www.google.com/maps/search/?api=1&query=${request.latitude},${request.longitude}`} target="_blank" rel="noreferrer">Ver mapa<ArrowUpRight size={15} aria-hidden="true" /></a></header>
+        {facts([...(request.request_type === 'muda' ? [['Recebimento', adoptionFulfillmentLabel(request)]] : []), ['Endereço', address, true], ['Ponto de referência', request.reference_point, true], ['Espaço', [ADOPTION_ZONES[request.zone], ADOPTION_PLACES[request.planting_place]].filter(Boolean).join(' · ')], ['Finalidade', ADOPTION_PURPOSES[request.purpose]], ['Fiação aérea', ADOPTION_WIRING[request.overhead_wiring]]])}
       </section>
       <section className="adoption-detail-section adoption-detail-contact" aria-label="Dados do solicitante">
         <header><h3><User size={17} aria-hidden="true" />Solicitante</h3></header>
@@ -158,6 +158,7 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState(management ? 'ativas' : 'todas');
+  const [fulfillmentFilter, setFulfillmentFilter] = useState('');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
   const [openingRequest, setOpeningRequest] = useState(false);
@@ -199,6 +200,7 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
     if (!management) query = query.eq('author_id', user.id);
     if (filter === 'ativas') query = query.not('status', 'in', `(${ADOPTION_TERMINAL.join(',')})`);
     else if (filter !== 'todas') query = query.eq('status', filter);
+    if (management && fulfillmentFilter) query = query.eq('request_type', 'muda').eq('fulfillment_method', fulfillmentFilter);
     query.order('created_at', { ascending: false }).order('id').range((page - 1) * 10, page * 10 - 1).then(({ data, count: total, error: failure }) => {
       if (active) {
         setItems(data || []); setCount(total || 0); setError(failure ? 'Não foi possível carregar os pedidos. Confira sua conexão e tente novamente.' : ''); setLoading(false);
@@ -206,7 +208,7 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
       }
     });
     return () => { active = false; };
-  }, [user?.id, cityId, management, authorized, filter, page, revision, externalRevision]);
+  }, [user?.id, cityId, management, authorized, filter, fulfillmentFilter, page, revision, externalRevision]);
   if (!user) return <div className="adoption-queue-empty"><span className="adoption-request-icon"><ClipboardList size={28} /></span><h3>Seus pedidos, em um só lugar</h3><p>Entre para acompanhar a análise e as orientações da equipe.</p><Button asChild><Link to="/login" state={{ from: { pathname: '/adoteumaarvore', search: `?${new URLSearchParams({ cidade: String(cityId), aba: 'minhas', ...(requestId ? { pedido: requestId } : {}) })}` } }}>Entrar para acompanhar</Link></Button></div>;
   if (management && permissionLoading && !authorized) return <p role="status" className="text-sm">Verificando acesso à arborização…</p>;
   if (management && permissionError) return <div role="alert" className="text-sm"><p>{permissionError}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div>;
@@ -217,7 +219,7 @@ export default function TreeAdoptionRequests({ cityId, city, management = false,
     {catalog.error && <p role="alert" className="text-sm text-destructive">{catalog.error} <button className="underline" onClick={catalog.refresh}>Tentar novamente</button></p>}
     {openingRequest && <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />Abrindo pedido da notificação…</p>}
     {requestError && <div role="alert" className="flex flex-wrap items-center gap-3 text-sm"><p>{requestError}</p><Button variant="outline" size="sm" onClick={() => setRequestAttempt(value => value + 1)}>Tentar novamente</Button></div>}
-      <div className="adoption-queue-toolbar"><div>{management ? <Heading className="text-xl font-bold tracking-tight">Solicitações</Heading> : <h2>Seus pedidos</h2>}<p>{loading ? 'Atualizando pedidos…' : error ? 'Consulta indisponível' : `${count} ${count === 1 ? 'pedido' : 'pedidos'}`}</p></div><AdoptionSelect label={management ? "Filtrar solicitações" : "Status"} value={filter} placeholder={null} onChange={value => { setFilter(value); setPage(1); }} options={management ? { ativas: 'Em atendimento', todas: 'Todas as solicitações', ...ADOPTION_STATUSES } : { todas: 'Todos os pedidos', ativas: 'Em atendimento', ...ADOPTION_STATUSES }} /></div>
+      <div className="adoption-queue-toolbar"><div>{management ? <Heading className="text-xl font-bold tracking-tight">Solicitações</Heading> : <h2>Seus pedidos</h2>}<p>{loading ? 'Atualizando pedidos…' : error ? 'Consulta indisponível' : `${count} ${count === 1 ? 'pedido' : 'pedidos'}`}</p></div><AdoptionSelect label={management ? "Filtrar solicitações" : "Status"} value={filter} placeholder={null} onChange={value => { setFilter(value); setPage(1); }} options={management ? { ativas: 'Em atendimento', todas: 'Todas as solicitações', ...ADOPTION_STATUSES } : { todas: 'Todos os pedidos', ativas: 'Em atendimento', ...ADOPTION_STATUSES }} />{management && <AdoptionSelect label="Recebimento" value={fulfillmentFilter} placeholder={null} onChange={value => { setFulfillmentFilter(value); setPage(1); }} options={{ "": "Todas as modalidades", ...ADOPTION_FULFILLMENT }} />}</div>
       {loading ? <div role="status" className="adoption-queue-empty"><Loader2 className="h-6 w-6 animate-spin" /><p>Carregando solicitações…</p></div> : error ? <div role="alert" className="adoption-queue-empty"><p>{error}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div> : !items.length ? <div className="adoption-queue-empty"><span className="adoption-request-icon"><Sprout size={28} /></span><h3>{management ? 'Nenhuma solicitação neste filtro e nesta cidade.' : filter === 'todas' ? 'Seu próximo plantio começa aqui' : 'Nenhum pedido neste status'}</h3><p>{management ? 'Os pedidos de mudas e plantio aparecerão aqui quando forem enviados pelos cidadãos.' : filter === 'todas' ? 'Solicite uma muda e acompanhe o atendimento por aqui.' : 'Escolha outro status para consultar seus pedidos.'}</p>{!management && filter !== 'todas' && <Button variant="outline" onClick={() => { setFilter('todas'); setPage(1); }}>Ver todos os pedidos</Button>}</div> : <div className="adoption-request-list">{items.map(item => <TreeAdoptionRequestCard key={item.id} citizen={!management} item={item} catalog={catalog} city={city} onOpen={() => setSelected(item)} />)}</div>}
       {count > 10 && <div className="flex flex-wrap items-center justify-end gap-3 text-sm"><Button variant="outline" disabled={loading || page === 1} onClick={() => setPage(value => value - 1)}>Anterior</Button><span>Página {page} de {Math.ceil(count / 10)}</span><Button variant="outline" disabled={loading || page * 10 >= count} onClick={() => setPage(value => value + 1)}>Próxima</Button></div>}
     {selected && <RequestDetails key={selected.id} request={selected} manager={management && authorized} dispatcher={dispatcher} catalog={catalog} city={city} onClose={() => { setSelected(null); onRequestClose?.(); }} onUpdated={refresh} />}

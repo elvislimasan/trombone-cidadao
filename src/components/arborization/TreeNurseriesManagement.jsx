@@ -13,7 +13,7 @@ function NurseryWorkspace({ cityId, city }) {
     return () => window.removeEventListener('focus', catalog.refresh);
   }, [catalog.refresh]);
   return <section className="tree-adoption-management-content" data-section="disponibilidade" aria-label="Gestão de viveiros e mudas">
-    <TreeNurseryManager catalog={catalog} cityId={cityId} city={city} />
+    <TreeNurseryManager catalog={catalog} cityId={cityId} city={city} canManageSpecies />
   </section>;
 }
 

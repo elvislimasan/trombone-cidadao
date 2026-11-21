@@ -24,13 +24,15 @@ const stubs={
   '@/hooks/useNavVoice':`export const useNavVoice=()=>({preparar:prepare,anunciar:announce,mudo:false,alternarMudo:()=>{},suportada:true});const prepare=()=>{};const announce=text=>window.voiceAlerts.push(text);`,
   '@/components/municipality/ElectricianLightingMap':`export default function Map(){return <div>Mapa de iluminação</div>}`,
   '@/lib/customSupabaseClient':`
-    const rows=Array.from({length:53},(_,i)=>({tipo:'solicitacao',id:'row-'+(i+1),protocolo:'PAG-'+(i+1),titulo:'Poste '+(i+1),descricao:'Lâmpada apagada',endereco:'Rua A',bairro:'Centro',prioridade:'normal',status:'aberta',pole_id:i+1,report_id:'report-'+(i+1),created_at:new Date(2020,0,i+1).toISOString()}));
-    export const supabase={rpc(name,args){const request={name,args};if(name==='listar_painel_eletricista')window.requests.push(request);else window.auxRequests.push(request);let signal;return {abortSignal(s){signal=s;return this;},then(ok,fail){return new Promise(resolve=>setTimeout(()=>{
+    const rows=Array.from({length:53},(_,i)=>({tipo:'solicitacao',id:'row-'+(i+1),protocolo:'PAG-'+(i+1),titulo:'Poste '+(i+1),descricao:'Lâmpada apagada',issue_type:i%2===0?'arm_damaged':'lamp_off',service_types:i%3===0?['arm_installation','relay_replacement']:['lamp_replacement'],endereco:'Rua A',bairro:'Centro',prioridade:'normal',status:'aberta',pole_id:i+1,report_id:'report-'+(i+1),created_at:new Date(2020,0,i+1).toISOString()}));
+    export const supabase={rpc(name,args){const request={name,args};if(name.startsWith('listar_painel_eletricista'))window.requests.push(request);else window.auxRequests.push(request);let signal;return {abortSignal(s){signal=s;return this;},then(ok,fail){return new Promise(resolve=>setTimeout(()=>{
       request.aborted=Boolean(signal?.aborted);
-      if(name==='listar_painel_eletricista'){
+      if(name.startsWith('listar_painel_eletricista')){
         if(window.failPage){resolve({data:null,error:{message:'Falha de teste'}});return;}
         let found=rows.filter(r=>args.p_aba==='disponiveis'||args.p_etapa==='fazer').filter(r=>!args.p_busca||r.protocolo.toLowerCase().includes(args.p_busca.toLowerCase())||r.titulo.toLowerCase().includes(args.p_busca.toLowerCase()));
         found=found.filter(r=>!args.p_adiadas.includes(r.tipo+':'+r.id));
+        if(args.p_tipo_servico?.startsWith('problema:'))found=found.filter(r=>r.issue_type===args.p_tipo_servico.slice(9));
+        if(args.p_tipo_servico?.startsWith('servico:'))found=found.filter(r=>r.service_types.includes(args.p_tipo_servico.slice(8)));
         if(args.p_ordem==='recent')found=[...found].reverse();
         const page=Math.max(1,Math.min(args.p_pagina,Math.ceil(found.length/args.p_tamanho)));
         resolve({data:{items:found.slice((page-1)*args.p_tamanho,page*args.p_tamanho),total:found.length,page,stage_counts:{fazer:53,execucao:0,conferencia:0,historico:0}},error:null});
@@ -84,6 +86,7 @@ try{
   const screenshot=async(name)=>{const capture=await send('Page.captureScreenshot',{format:'png'},sessionId);await fs.writeFile(path.join(out,name+'.png'),Buffer.from(capture.data,'base64'));};
   const cards='[...document.querySelectorAll("button")].filter(b=>b.textContent.includes("Ver detalhes")||b.textContent.includes("Abrir ordem"))';
   const input=async(value)=>evaluate(`(()=>{const i=document.querySelector('input[placeholder]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,${JSON.stringify(value)});i.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  const serviceType=async(value)=>evaluate(`(()=>{const s=document.querySelector('select[aria-label="Tipo de serviço"]');s.value=${JSON.stringify(value)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   for(const [width,height] of [[390,844],[1440,900],[1920,1080]]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false},sessionId);
     await send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/prefeitura/eletricista?aba=disponiveis&vista=lista'},sessionId);
@@ -103,6 +106,16 @@ try{
     assert.equal(await evaluate(cards+'.length'),13);
     assert.ok(await evaluate('document.querySelector(`button[aria-label="Próxima página"]`).disabled'));
     await clickText('Anterior');await waitFor('document.body.innerText.includes("Página 2 de 3")');
+    await serviceType('problema:arm_damaged');await waitFor('document.body.innerText.includes("Página 1 de 2")');
+    assert.equal(await evaluate('requests.at(-1).args.p_pagina'),1);
+    assert.equal(await evaluate('requests.at(-1).name'),'listar_painel_eletricista_por_servico');
+    await screenshot(`service-filter-${width}`);
+    await clickText('Próxima');await waitFor('document.body.innerText.includes("Página 2 de 2")');assert.equal(await evaluate(cards+'.length'),7);
+    await input('PAG-53');await waitFor('document.body.innerText.includes("Página 1 de 1")');assert.equal(await evaluate(cards+'.length'),1);
+    await input('');await waitFor('document.body.innerText.includes("Página 1 de 2")');
+    await serviceType('servico:relay_replacement');await waitFor('document.body.innerText.includes("Página 1 de 1")');assert.equal(await evaluate(cards+'.length'),18);
+    await serviceType('problema:exposed_wiring');await waitFor('document.body.innerText.includes("Nenhuma oportunidade nesta lista")');assert.equal(await evaluate(cards+'.length'),0);
+    await serviceType('');await waitFor('document.body.innerText.includes("Página 1 de 3")');
     await input('PAG-53');await waitFor('document.body.innerText.includes("Página 1 de 1")');
     assert.equal(await evaluate(cards+'.length'),1);
     assert.ok(await evaluate(cards+'[0].textContent.includes("PAG-53")'));
@@ -133,7 +146,7 @@ try{
     await evaluate('document.querySelector(`a[aria-label="Mapa de iluminação"]`).click()');
     await waitFor('document.body.innerText.includes("Mapa de ilumina")');await pause(100);
     assert.equal(await evaluate('requests.length'),before);
-    results.push({width,pageSize:20,available:true,mine:true,searchOutsideFirstPage:true,filtersResetPage:true,overflow:false});
+    results.push({width,pageSize:20,available:true,mine:true,searchOutsideFirstPage:true,filtersResetPage:true,serviceFilter:true,secondaryService:true,overflow:false});
   }
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify(results,null,2));

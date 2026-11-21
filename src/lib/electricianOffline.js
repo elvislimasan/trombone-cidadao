@@ -187,7 +187,7 @@ export async function prepareElectricianOrders(client, userId, municipalityId, o
     const poles = [];
     for (let offset = 0; ; offset += 500) {
       signal?.throwIfAborted();
-      const result = await client.from('poles').select('id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w,raw_properties')
+      const result = await client.from('poles').select('id,identifier,previous_identifiers,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w,raw_properties')
         .eq('city_id', cityId).or('lighting_status.is.null,lighting_status.neq.removido').order('id').range(offset, offset + 499);
       if (result.error) throw result.error;
       poles.push(...(result.data || []));

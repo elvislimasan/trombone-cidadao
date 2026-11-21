@@ -60,6 +60,8 @@ export default function MunicipalityTeamPage() {
   const [assignAccess, setAssignAccess] = useState(EMPTY_ACCESS);
   const [assignError, setAssignError] = useState('');
   const [selected, setSelected] = useState(null);
+  const [editChannelId, setEditChannelId] = useState('');
+  const [editError, setEditError] = useState('');
   const [editAccess, setEditAccess] = useState(EMPTY_ACCESS);
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -157,6 +159,12 @@ export default function MunicipalityTeamPage() {
     : MUNICIPAL_STAFF_ROLES;
   const assignedToSelectedChannel = new Set(members.filter(member => String(member.canal_id) === String(assignChannelId)).map(member => String(member.user_id)));
   const assignableOfficials = publicOfficials.filter(candidate => !assignedToSelectedChannel.has(String(candidate.user_id)));
+  const selectedEditChannel = channels.find(channel => String(channel.id) === String(editChannelId));
+  const editChannelChanged = Boolean(selected && String(selected.canal_id) !== String(editChannelId));
+  const editRoles = selectedEditChannel && !(selectedEditChannel.categorias || []).length && !selectedEditChannel.municipal_modules?.includes('water_supply')
+    ? MUNICIPAL_STAFF_ROLES.filter(role => role.id === 'inventario')
+    : MUNICIPAL_STAFF_ROLES.filter(role => role.id !== 'executor' || selectedEditChannel?.execution_specialties?.length || (!editChannelChanged && editAccess.cargos?.includes('executor')));
+  const duplicateEditMembership = editChannelChanged && members.some(member => member.id !== selected.id && member.user_id === selected.user_id && String(member.canal_id) === String(editChannelId));
 
   const createAccess = async (event) => {
     event.preventDefault();
@@ -200,25 +208,37 @@ export default function MunicipalityTeamPage() {
     } finally { if (scope.current === assignedScope) setWorking(false); }
   };
 
-  const openMember = (member) => { setSelected(member); setEditAccess(member.access || EMPTY_ACCESS); setEditActive(member.ativo); };
+  const openMember = (member) => { setSelected(member); setEditChannelId(member.canal_id); setEditError(''); setEditAccess(member.access || EMPTY_ACCESS); setEditActive(member.ativo); };
+  const changeEditChannel = (nextId) => {
+    const nextChannel = channels.find(channel => String(channel.id) === String(nextId));
+    setEditChannelId(nextId); setEditError('');
+    setEditAccess(current => {
+      let cargos = current.cargos || [];
+      if (nextId === String(selected.canal_id)) cargos = selected.access?.cargos || [];
+      else if (initialStaffAccess(nextChannel).cargos.length) cargos = ['inventario'];
+      else if (!nextChannel?.execution_specialties?.length) cargos = cargos.filter(role => role !== 'executor');
+      return { ...current, cargos };
+    });
+  };
   const updateMember = async () => {
-    if (!selected || saving) return;
+    if (!selected || saving || !editChannelId || !editAccess.cargos?.length || duplicateEditMembership) return;
     const savedScope = scopeKey;
-    setSaving(true);
+    setSaving(true); setEditError('');
     try {
-      const { error } = await supabase.rpc('set_municipal_staff_access', {
+      const { error } = await supabase.rpc(editChannelChanged ? 'transfer_municipal_staff_department' : 'set_municipal_staff_access', {
         p_member_id: selected.id, p_cargos: editAccess.cargos, p_active: editActive, p_version: selected.access?.versao ?? 0,
         p_disabled_modules: editAccess.disabled_modules || [],
+        ...(editChannelChanged ? { p_channel_id: editChannelId } : {}),
       });
       if (error) throw error;
       if (scope.current !== savedScope) return;
       notifyPermissionsChanged(selected.user_id);
       await load({ quiet: true });
       setSelected(null);
-      showAppNotice({ title: 'Acesso atualizado' });
+      showAppNotice({ title: editChannelChanged ? 'Secretaria responsável atualizada' : 'Acesso atualizado' });
     } catch (error) {
       if (scope.current !== savedScope) return;
-      showAppError({ title: 'Não foi possível atualizar o funcionário', description: error.message, variant: 'destructive' });
+      setEditError(error.message || 'Não foi possível atualizar o funcionário. Tente novamente.');
     } finally { if (scope.current === savedScope) setSaving(false); }
   };
 
@@ -339,7 +359,7 @@ export default function MunicipalityTeamPage() {
                 { key: 'date', label: 'Na plataforma desde', value: (member) => member.created_at || '', render: (member) => memberDate(member.created_at) },
               ]} />
             <MunicipalDrawer task open={Boolean(selected)} onClose={() => setSelected(null)} busy={saving} title={selected?.perfil?.name || 'Funcionário'} description={channelName(selected?.canal_id)}
-              footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={saving} onClick={() => setSelected(null)}>Cancelar</Button><Button onClick={updateMember} disabled={saving || !editAccess.cargos?.length || (JSON.stringify(editAccess) === JSON.stringify(selected?.access) && editActive === selected?.ativo)}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
+              footer={<div className="flex justify-end gap-2"><Button variant="outline" disabled={saving} onClick={() => setSelected(null)}>Cancelar</Button><Button onClick={updateMember} disabled={saving || !editChannelId || duplicateEditMembership || !editAccess.cargos?.length || (!editChannelChanged && JSON.stringify(editAccess) === JSON.stringify(selected?.access) && editActive === selected?.ativo)}>{saving ? 'Salvando…' : 'Salvar alterações'}</Button></div>}>
               {selected && <div className="space-y-6">
                 <dl className="space-y-4 text-sm">
                   <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><Mail className="h-4 w-4" />E-mail da conta</dt><dd className="mt-1 break-all">{selected.email ? <a href={`mailto:${selected.email}`} className="text-brand underline">{selected.email}</a> : 'Não informado'}</dd></div>
@@ -347,9 +367,17 @@ export default function MunicipalityTeamPage() {
                   <div><dt className="flex items-center gap-2 text-xs text-content-tertiary"><CalendarDays className="h-4 w-4" />Na plataforma desde</dt><dd className="mt-1">{memberDate(selected.created_at)}</dd></div>
                 </dl>
                 <p className="text-xs leading-5 text-content-secondary">Os dados pessoais são mantidos pelo próprio usuário no perfil. Aqui você gerencia o acesso à secretaria.</p>
-                <MunicipalStaffResponsibilities value={editAccess} onChange={setEditAccess} disabled={saving} channel={channels.find(channel => channel.id === selected.canal_id)} />
+                <div>
+                  <Label htmlFor="edit-member-channel">Secretaria responsável</Label>
+                  <select id="edit-member-channel" value={editChannelId} disabled={saving} aria-describedby={editChannelChanged ? 'edit-member-channel-hint' : undefined} aria-invalid={duplicateEditMembership || undefined} onChange={event => changeEditChannel(event.target.value)} className="mt-2 h-10 w-full min-w-0 rounded-md border border-edge-subtle bg-surface-raised px-3">
+                    {channels.filter(channel => channel.ativo || String(channel.id) === String(selected.canal_id)).map(channel => <option key={channel.id} value={channel.id}>{channel.nome}{!channel.ativo ? ' (inativa)' : ''}</option>)}
+                  </select>
+                  {editChannelChanged && <p id="edit-member-channel-hint" role={duplicateEditMembership ? 'alert' : undefined} className={`mt-2 text-xs ${duplicateEditMembership ? 'text-danger-subtleFg' : 'text-content-secondary'}`}>{duplicateEditMembership ? 'Este funcionário já está vinculado a esta secretaria. Edite o vínculo existente.' : 'Ao salvar, o acesso à secretaria anterior será removido. Confira os cargos e módulos da nova secretaria.'}</p>}
+                </div>
+                <MunicipalStaffResponsibilities value={editAccess} onChange={setEditAccess} disabled={saving} roles={editRoles} channel={selectedEditChannel} />
 
                 <div><Label htmlFor="edit-member-status">Situação do acesso</Label><select id="edit-member-status" value={String(editActive)} disabled={saving} onChange={(event) => setEditActive(event.target.value === 'true')} className="mt-2 h-10 w-full rounded-md border border-edge-subtle bg-surface-raised px-3"><option value="true">Ativo</option><option value="false">Suspenso</option></select><p className="mt-2 text-xs text-content-secondary">Suspender remove o acesso a esta secretaria; o cadastro e o histórico permanecem.</p></div>
+                {editError && <p role="alert" className="rounded-xl border border-danger/25 bg-danger-subtleBg p-3 text-sm text-danger-subtleFg">{editError}</p>}
               </div>}
             </MunicipalDrawer>
           </div>

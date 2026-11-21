@@ -124,7 +124,7 @@ export const compressToJpeg = async (file, maxPx = 1280, quality = 0.75) => {
     });
     return new File(
       [blob],
-      (file.name || 'photo').replace(/\.(webp|png|heic)$/i, '.jpg'),
+      (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg',
       { type: 'image/jpeg' }
     );
   } catch (err) {

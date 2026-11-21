@@ -4,7 +4,7 @@ import { adoptionPickupLocations } from '@/lib/treeAdoptionPickup';
 import './treeAdoptionPickup.css';
 
 export default function TreeAdoptionPickup({ request, catalog, city }) {
-  if (request.status !== 'pronta_retirada' || request.request_type !== 'muda') return null;
+  if (request.status !== 'pronta_retirada' || request.request_type !== 'muda' || request.fulfillment_method === 'entrega') return null;
   if (catalog.loading) return <p className="adoption-pickup-unavailable" role="status">Carregando local de retirada…</p>;
   const locations = adoptionPickupLocations(request, catalog, city);
   if (!locations.length) return <p className="adoption-pickup-unavailable">Local de retirada a confirmar com a equipe.</p>;

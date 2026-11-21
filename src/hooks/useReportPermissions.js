@@ -14,11 +14,24 @@ export function useReportPermissions(report) {
   // Ativa quando navegamos com state.moderation=true a partir do Painel do Embaixador.
   const cameFromModeration = !!location.state?.moderation;
   const [canModerate, setCanModerate] = useState(false);
+  const [canAttachAsAmbassador, setCanAttachAsAmbassador] = useState(false);
 
   const isAdmin = !!user?.is_admin;
   const isMaster = !!user?.is_master;
   const isPublicOfficial = user?.user_type === 'public_official';
   const isAuthor = !!user && !!report && user.id === report.author_id;
+  const canAddPhotos = !!report && report.moderation_status !== 'rejected' && (isAuthor || isAdmin || isMaster || canAttachAsAmbassador);
+
+  useEffect(() => {
+    let active = true;
+    setCanAttachAsAmbassador(false);
+    if (user?.is_ambassador && report?.city_id && report.is_public !== false) {
+      supabase.rpc('is_ambassador_of', { p_user: user.id, p_city_id: report.city_id }).then(({ data, error }) => {
+        if (active) setCanAttachAsAmbassador(!error && data === true);
+      }).catch(() => {});
+    }
+    return () => { active = false; };
+  }, [user?.id, user?.is_ambassador, report?.city_id, report?.is_public]);
 
   // Autor da bronca ou admin: usado para decidir pending vs pending_moderation
   // ao enviar uma atualizacao (handleSubmitUpdate).
@@ -88,6 +101,7 @@ export function useReportPermissions(report) {
     isPublicOfficial,
     isAuthor,
     isAuthorOrAdmin,
+    canAddPhotos,
     canModerate,
     canEditCategory,
     canEditWaterUtility,

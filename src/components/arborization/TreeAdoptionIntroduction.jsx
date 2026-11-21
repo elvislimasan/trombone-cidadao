@@ -30,12 +30,12 @@ export function TreeAdoptionHomeSection({ cityId }) {
   const overviewTo = '/adoteumaarvore' + (url.size ? `?${url}` : '');
   url.set('aba', 'solicitar');
   return <section className="adoption-home-section" aria-label="Programa Adote uma árvore">
-    <div className="adoption-home-copy"><p className="adoption-program-eyebrow"><Sprout size={16} aria-hidden="true" />Adote uma árvore</p><h2>Uma muda hoje.<br />Mais vida para a cidade.</h2><p>Mais sombra, espaços acolhedores e um cuidado que cresce com você. Conheça o programa e solicite mudas para retirar e plantar na sua cidade.</p><div className="adoption-program-actions"><Button asChild><Link to={overviewTo}>Conhecer o programa<ArrowRight size={16} aria-hidden="true" /></Link></Button><Button asChild variant="outline"><Link to={`/adoteumaarvore?${url}`}>Fazer uma solicitação</Link></Button></div><span className="adoption-program-note">Você pode conhecer o programa sem entrar na sua conta.</span></div>
+    <div className="adoption-home-copy"><p className="adoption-program-eyebrow"><Sprout size={16} aria-hidden="true" />Adote uma árvore</p><h2>Uma muda hoje.<br />Mais vida para a cidade.</h2><p>Mais sombra, espaços acolhedores e um cuidado que cresce com você. Conheça o programa e solicite mudas para plantar na sua cidade.</p><div className="adoption-program-actions"><Button asChild><Link to={overviewTo}>Conhecer o programa<ArrowRight size={16} aria-hidden="true" /></Link></Button><Button asChild variant="outline"><Link to={`/adoteumaarvore?${url}`}>Fazer uma solicitação</Link></Button></div><span className="adoption-program-note">Você pode conhecer o programa sem entrar na sua conta.</span></div>
     <div className="adoption-home-art"><GrowingTree /></div>
   </section>;
 }
 
-export default function TreeAdoptionIntroduction({ city, plantingEnabled = false, seedlingsEnabled = true, requestsAvailable = true, settingsLoading = false, settingsError = '', onStart, onShowRequests }) {
+export default function TreeAdoptionIntroduction({ city, plantingEnabled = false, seedlingsEnabled = true, deliveryEnabled = false, requestsAvailable = true, settingsLoading = false, settingsError = '', onStart, onShowRequests }) {
   const cityLabel = city ? [city.name, cityStateUf(city)].filter(Boolean).join(' · ') : 'Sua cidade';
   // The program presentation has an intentional 1800px cap, following the
   // approved visual direction. The request form and map keep fluid layouts.
@@ -53,7 +53,7 @@ export default function TreeAdoptionIntroduction({ city, plantingEnabled = false
             <Button asChild variant="outline"><a href="#como-adotar-uma-arvore"><PlayCircle size={20} aria-hidden="true" />Como funciona</a></Button>
           </div>
           <ul className="adoption-program-benefits" aria-label="Um cuidado para toda a cidade"><li><Leaf size={20} aria-hidden="true" />Mais áreas verdes</li><li><Trees size={21} aria-hidden="true" />Cuidado com a cidade</li><li><Sprout size={20} aria-hidden="true" />Um futuro melhor</li></ul>
-          <p className="adoption-program-note" role="status"><ShieldCheck size={14} aria-hidden="true" />{settingsLoading ? 'Consultando disponibilidade…' : settingsError || (!requestsAvailable ? 'Novas solicitações estão temporariamente desativadas nesta cidade.' : plantingEnabled && seedlingsEnabled ? 'Retirada e plantio após confirmação da equipe.' : plantingEnabled ? 'Plantio após confirmação da equipe.' : 'Você retira as mudas e realiza o plantio após autorização.')}</p>
+          <p className="adoption-program-note" role="status"><ShieldCheck size={14} aria-hidden="true" />{settingsLoading ? 'Consultando disponibilidade…' : settingsError || (!requestsAvailable ? 'Novas solicitações estão temporariamente desativadas nesta cidade.' : plantingEnabled && seedlingsEnabled ? `${deliveryEnabled ? 'Entrega, retirada' : 'Retirada'} e plantio após confirmação da equipe.` : plantingEnabled ? 'Plantio após confirmação da equipe.' : deliveryEnabled ? 'Receba em casa ou retire no viveiro após a confirmação da equipe.' : 'Retire no viveiro após a confirmação da equipe.')}</p>
         </div>
       </div>
       <div className="adoption-program-hero-visual">
@@ -63,6 +63,6 @@ export default function TreeAdoptionIntroduction({ city, plantingEnabled = false
     </section>
     <AdoptionProgramSteps />
     <div className="adoption-program-secondary"><AdoptionExistingTree cityId={city?.id} /><AdoptionCareActions cityId={city?.id} /></div>
-    <AdoptionProgramFaq cityName={city?.name} plantingEnabled={plantingEnabled} seedlingsEnabled={seedlingsEnabled} />
+    <AdoptionProgramFaq cityName={city?.name} plantingEnabled={plantingEnabled} seedlingsEnabled={seedlingsEnabled} deliveryEnabled={deliveryEnabled} />
   </div>;
 }

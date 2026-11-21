@@ -23,8 +23,8 @@ serve(async req => {
     const commonName = typeof body?.common_name === 'string' ? body.common_name.trim() : '';
     const scientificName = typeof body?.scientific_name === 'string' ? body.scientific_name.trim() : '';
     if (!Number.isSafeInteger(Number(body?.city_id)) || Number(body.city_id) <= 0 || !commonName || commonName.length > 160 || scientificName.length > 200) return json({ error: 'Informe a cidade e um nome válido para a espécie.' }, 400);
-    const { data: allowed, error: permissionError } = await client.rpc('pode_gerenciar_arborizacao', { p_city_id: Number(body.city_id) });
-    if (permissionError || !allowed) return json({ error: 'Sem permissão para gerenciar as espécies desta cidade.' }, 403);
+    const { data: allowed, error: permissionError } = await client.rpc('can_manage_tree_adoption', { p_city: Number(body.city_id) });
+    if (permissionError || allowed !== true) return json({ error: 'Sem permissão para gerenciar as espécies desta cidade.' }, 403);
 
     const { data: quota, error: quotaError } = await client.rpc('consume_tree_species_ai_quota', { p_city_id: Number(body.city_id) });
     if (quotaError) return json({ error: 'Não foi possível verificar o limite de geração. Verifique a atualização do banco.' }, 503);

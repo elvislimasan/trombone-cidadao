@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { Window } from 'happy-dom';
 import * as categoryFields from '../lib/reportCategoryFields.js';
 import * as poleDisplay from '../lib/poleDisplay.js';
+import * as electricianPanel from '../lib/electricianPanel.js';
 
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 const require = createRequire(import.meta.url);
@@ -25,6 +26,7 @@ test('a visita mostra o problema de cada solicitação sem mudar a elegibilidade
     { report_id: 'r3', title: 'Solicitação antiga', issue_type: null },
   ];
   const calls = [];
+  const queued = [];
   const supabase = {
     async rpc(name, params) { calls.push({ name, params }); return { data: reports }; },
     from(table) {
@@ -40,7 +42,7 @@ test('a visita mostra o problema de cada solicitação sem mudar a elegibilidade
   const mocks = {
     '@/contexts/SupabaseAuthContext': { useAuth: () => ({ user: { id: 'worker' } }) },
     '@/contexts/ElectricianOfflineContext': { useElectricianOffline: () => ({ sync: async () => {} }) },
-  '@/lib/electricianOffline': { electricianCachedRead: async (user, key, read) => read(), readElectricianCache: async () => null, writeElectricianCache: async () => {}, queueElectricianJob: async () => {} },
+  '@/lib/electricianOffline': { electricianCachedRead: async (user, key, read) => read(), readElectricianCache: async () => null, writeElectricianCache: async () => {}, queueElectricianJob: async job => queued.push(job) },
   '@/lib/offlineErros': { ehErroDeRede: () => false },
     'react-router-dom': { Link: ({ to, children }) => React.createElement('a', { href: to }, children) },
     'lucide-react': { X: () => null },
@@ -52,6 +54,7 @@ test('a visita mostra o problema de cada solicitação sem mudar a elegibilidade
     '@/lib/poleDisplay': poleDisplay,
     '@/lib/lightingCatalog': { LAMP_TYPES: [] },
     '@/lib/reportCategoryFields': categoryFields,
+    '@/lib/electricianPanel': electricianPanel,
     '@/lib/appError': { showAppNotice() {} },
   };
   const code = ts.transpileModule(read('src/components/municipality/ElectricianPoleVisitDrawer.jsx'), {
@@ -76,6 +79,23 @@ test('a visita mostra o problema de cada solicitação sem mudar a elegibilidade
     assert.equal(cards[1].querySelector('input').disabled, true);
     assert.equal(cards[2].querySelector('input').disabled, false);
     assert.deepEqual(calls, [{ name: 'solicitacoes_ativas_poste_eletricista', params: { p_prefeitura: 'pref1', p_poste_id: 123 } }]);
+    assert.doesNotMatch(node.textContent, /Realizei um serviço/);
+    const services = [...node.querySelectorAll('input[type="checkbox"]')];
+    assert.equal(services.length, 4, 'serviços disponíveis sem um checkbox intermediário');
+    const submit = node.querySelector('button[type="submit"]');
+    const status = node.querySelector('select');
+    flushSync(() => { status.value = 'aceso'; status.dispatchEvent(new win.Event('change', { bubbles: true })); });
+    assert.equal(submit.disabled, true, 'resolver exige um serviço');
+    flushSync(() => services[0].click());
+    assert.equal(submit.disabled, false);
+    flushSync(() => services[0].click());
+    assert.equal(submit.disabled, true, 'desmarcar todos volta a exigir seleção');
+    flushSync(() => { services[0].click(); services[1].click(); services[2].click(); });
+    flushSync(() => node.querySelector('form').dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true })));
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(queued.length, 1);
+    assert.deepEqual(queued[0].args.p_servicos, ['lamp_replacement', 'arm_installation', 'relay_replacement']);
+    assert.equal(queued[0].args.p_report, 'r1');
   } finally {
     flushSync(() => root.unmount());
     node.remove();
