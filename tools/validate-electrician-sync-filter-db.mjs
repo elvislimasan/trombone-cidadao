@@ -141,6 +141,52 @@ try {
     await assert.rejects(db.query("insert into demanda_atendimentos(demanda_id) values($1)", [order]), /permission denied/);
     await assert.rejects(sync('50000000-0000-0000-0000-000000000003', { ...inspectionArgs, p_poste_atualizado_em: '2025-01-01' }), { code: '40001' });
   });
+  await db.query('reset role');
+  await db.query(`alter table poles add column raw_properties jsonb default '{}',add column geom point;
+    alter table pole_lighting_changes add column changed_at timestamptz default clock_timestamp();
+    create function handle_updated_at() returns trigger language plpgsql as $$begin new.updated_at=clock_timestamp();return new;end$$;
+    create trigger update_poles_updated_at before update on poles for each row execute function handle_updated_at();
+    insert into pole_lighting_changes(pole_id,city_id,pole_number) values(2,64,'S-ANTIGO');
+    create domain extensions.geography as point;`);
+  await install('348_eletricista_ofertas_municipio_e_busca.sql', 'buscar_mapa_eletricista');
+  await install('323_sugerir_postes_proximos_ordem_eletricista.sql', 'buscar_postes_ordem_eletricista');
+  await db.query(await sql('437_pole_identifier_history.sql'));
+  await check('recupera códigos antigos sem invalidar a versão offline', async () => {
+    const p = (await db.query('select previous_identifiers,updated_at from poles where id=2')).rows[0];
+    assert.deepEqual(p.previous_identifiers, ['S-ANTIGO']);
+    assert.equal(p.updated_at.toISOString(), '2026-01-01T00:00:00.000Z');
+  });
+  await check('renumeração preserva ID, histórico, busca e visita pendente', async () => {
+    await db.query("update poles set identifier='X-NOVO' where id=2");
+    await db.query("update poles set identifier='X-FINAL' where id=2");
+    const p = (await db.query('select id,previous_identifiers from poles where id=2')).rows[0];
+    assert.equal(p.id, '2');
+    assert.deepEqual(p.previous_identifiers, ['S-ANTIGO', 'S231058', 'X-NOVO']);
+    assert.equal((await db.query('select count(*) from pole_lighting_changes where pole_id=2 and renumber_only')).rows[0].count, '2');
+    await actor(worker);
+    const found = (await db.query('select poste from buscar_mapa_eletricista($1,$2)', [pref, 'S231058'])).rows;
+    assert.equal(found.length, 1); assert.equal(found[0].poste.identifier, 'X-FINAL');
+    const foundOrder = (await db.query('select identifier from buscar_postes_ordem_eletricista($1,$2,$3)', [pref, order, 'S231058'])).rows;
+    assert.equal(foundOrder[0].identifier, 'X-FINAL');
+    const id = '50000000-0000-0000-0000-000000000011';
+    assert.equal((await sync(id, inspectionArgs)).rows[0].result.response.vistoria, true);
+    await sync(id, inspectionArgs); // O recibo continua idempotente.
+    await db.query('reset role');
+    assert.equal((await db.query('select count(*) from electrician_offline_operations where id=$1', [id])).rows[0].count, '1');
+  });
+  await check('mudança técnica após renumeração continua exigindo revisão', async () => {
+    await db.query("update poles set lamp_power_w=75 where id=2");
+    await actor(worker);
+    await assert.rejects(sync('50000000-0000-0000-0000-000000000012', inspectionArgs), { code: '40001' });
+    await db.query('reset role');
+    await db.query("update poles set identifier='X-TECNICO',lamp_power_w=100 where id=2");
+    await actor(worker);
+    await assert.rejects(sync('50000000-0000-0000-0000-000000000013', inspectionArgs), { code: '40001' });
+    await db.query('reset role');
+    await db.query("update poles set lighting_status='removido' where id=2");
+    await actor(worker);
+    await assert.rejects(sync('50000000-0000-0000-0000-000000000014', inspectionArgs), /Poste ativo não encontrado/);
+  });
   await actor(other);
   await check('outra conta não reenvia nem lê os recibos', async () => {
     assert.equal((await db.query('select electrician_offline_receipt($1) result', [operation])).rows[0].result, null);
@@ -185,6 +231,55 @@ try {
     const old = (await db.query("select listar_painel_eletricista($1,'disponiveis') data", [pref])).rows[0].data;
     assert.equal(old.total, 53);
     await actor(other); await assert.rejects(filter('problema:arm_damaged'), /Sem acesso/);
+  });
+  await db.query('reset role');
+  await db.query(`create table tree_adoption_requests(id uuid primary key,author_id uuid not null,city_id bigint,
+    request_type text,status text default 'solicitada',created_at timestamptz not null default clock_timestamp());
+    create function submit_interval_test(p_id uuid,p_type text default 'muda') returns uuid
+    language plpgsql security definer set search_path=public,pg_temp as $$begin
+      if exists(select 1 from tree_adoption_requests where id=p_id and author_id=auth.uid()) then return p_id; end if;
+      insert into tree_adoption_requests(id,author_id,city_id,request_type) values(p_id,auth.uid(),64,p_type);
+      return p_id;
+    end$$;`);
+  await db.query(await sql('438_tree_adoption_request_interval.sql'));
+  const request = '60000000-0000-0000-0000-000000000001';
+  const nextRequest = '60000000-0000-0000-0000-000000000002';
+  const submit = id => db.query('select submit_interval_test($1)', [id]);
+  await actor(worker);
+  await check('bloqueia novo pedido por 30 dias e preserva reenvio e edição', async () => {
+    await submit(request); await submit(request);
+    await assert.rejects(submit(nextRequest), error => error.code === '23514' && /1 pedido a cada 30 dias/.test(error.message));
+    await db.query('reset role');
+    for (const status of ['solicitada', 'concluida', 'recusada', 'cancelada']) {
+      await db.query('update tree_adoption_requests set status=$1 where id=$2', [status, request]);
+      await actor(worker);
+      await assert.rejects(submit(nextRequest), { code: '23514' });
+      await db.query('reset role');
+    }
+    await db.query("update tree_adoption_requests set created_at=clock_timestamp()-interval '719 hours' where id=$1", [request]);
+    await actor(worker); await assert.rejects(submit(nextRequest), { code: '23514' });
+    await db.query('reset role');
+    await db.query("update tree_adoption_requests set created_at=clock_timestamp()-interval '720 hours' where id=$1", [request]);
+    await actor(worker); await submit(nextRequest);
+    await assert.rejects(db.query("select submit_interval_test('60000000-0000-0000-0000-000000000003','plantio')"), { code: '23514' });
+    await actor(other); await submit('60000000-0000-0000-0000-000000000004');
+  });
+  await check('envios simultâneos da mesma conta criam somente um pedido', async () => {
+    const concurrent = '10000000-0000-0000-0000-000000000003';
+    await actor(concurrent);
+    const second = new pg.Client({ host: '127.0.0.1', port, user: 'electrician_test', database: 'postgres' });
+    await second.connect();
+    try {
+      await second.query("select set_config('test.user',$1,false)", [concurrent]);
+      await second.query('set role authenticated');
+      await db.query('begin');
+      await submit('60000000-0000-0000-0000-000000000005');
+      const waiting = second.query("select submit_interval_test('60000000-0000-0000-0000-000000000006')");
+      const rejected = assert.rejects(waiting, { code: '23514' });
+      await db.query('commit'); await rejected;
+      await db.query('reset role');
+      assert.equal((await db.query('select count(*) from tree_adoption_requests where author_id=$1', [concurrent])).rows[0].count, '1');
+    } finally { await second.end(); }
   });
   console.log(`${checks} cenários aprovados: bloqueios reproduzidos, reenvio, recibos, vistorias, permissões e filtro paginado.`);
 } finally {

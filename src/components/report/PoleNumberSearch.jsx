@@ -15,7 +15,7 @@ export default function PoleNumberSearch({ cityId, selectedId, onSelect, compact
     setLoading(true); setError('');
     const timer = window.setTimeout(async () => {
       let request = supabase.from('poles').select('id,identifier,plate,address,latitude,longitude,city_id')
-        .neq('lighting_status', 'removido').or(`identifier.ilike.%${term}%,plate.ilike.%${term}%`).limit(12);
+        .neq('lighting_status', 'removido').or(`identifier.ilike.%${term}%,plate.ilike.%${term}%,previous_identifiers.cs.{${JSON.stringify(term)}}`).limit(12);
       if (cityId) request = request.eq('city_id', cityId);
       const { data, error: failure } = await request;
       if (!active) return;

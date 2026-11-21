@@ -18,7 +18,7 @@ import { electricianCachedRead, queueElectricianJob, readElectricianCache } from
 
 import { ehErroDeRede } from '@/lib/offlineErros';
 
-const POLE_FIELDS = 'id,identifier,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w';
+const POLE_FIELDS = 'id,identifier,previous_identifiers,plate,address,latitude,longitude,lighting_status,is_broken,updated_at,lamp_type,lamp_power_w';
 const STATUS_LABEL = { aceso: 'Aceso / funcionando', apagado: 'Apagado ou com problema' };
 const SERVICE_OPTIONS = ELECTRICIAN_SERVICE_TYPES;
 const formatDate = (value) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não informado';
@@ -37,8 +37,8 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
   const [description, setDescription] = useState('');
   const [lampType, setLampType] = useState(DEFAULT_MAINTENANCE_LAMP_TYPE);
   const [power, setPower] = useState('');
-  const [serviceDone, setServiceDone] = useState(false);
   const [services, setServices] = useState([]);
+  const serviceDone = services.length > 0;
   const [visitId, setVisitId] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
   const [detailError, setDetailError] = useState('');
@@ -49,7 +49,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
     const token = ++selectionId.current;
     setSelected(pole); setStatus(lightingStatus(pole));
     setDescription(''); setLampType(DEFAULT_MAINTENANCE_LAMP_TYPE); setPower(pole.lamp_power_w ?? '');
-    setServiceDone(false); setServices([]); setVisitId(crypto.randomUUID());
+    setServices([]); setVisitId(crypto.randomUUID());
     setOfflineNotice(''); setDetailError(''); setHistory([]); setActiveReports([]); setReportId(null); setHistoryLoading(true);
     const [current, changes, reports] = await electricianCachedRead(user?.id, `pole-detail:${municipality.id}:${pole.id}`, async () => {
       const results = await Promise.all([
@@ -88,7 +88,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
 
   const save = async (event) => {
     event.preventDefault();
-    if (!selected || saving || ((serviceDone || (reportId && status === 'aceso')) && !services.length)
+    if (!selected || saving || (reportId && status === 'aceso' && !services.length)
       || (status === 'aceso' && activeReports.length > 0 && !reportId)) return;
     setSaving(true); setDetailError('');
     try {
@@ -98,7 +98,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
           p_prefeitura: municipality.id, p_poste_id: selected.id,
           p_poste_atualizado_em: selected.updated_at, p_status: status,
           p_lamp_type: lampType || null, p_power_w: power === '' ? null : Number(power),
-          p_servicos: serviceDone || (reportId && status === 'aceso') ? services : [],
+          p_servicos: services,
           p_descricao: description.trim(), p_visita_id: visitId,
           p_report: status === 'aceso' ? reportId : null,
         },
@@ -130,6 +130,7 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
         </DrawerHeader>
       {selected && <div className="min-h-0 min-w-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
         <p className="text-sm text-content-secondary">Situação atual no mapa: <strong className="text-content-primary">{STATUS_LABEL[currentStatus] || 'Sem problema registrado'}</strong></p>
+        {selected.previous_identifiers?.length > 0 && <details className="text-sm"><summary className="cursor-pointer font-semibold">Números anteriores</summary><p className="mt-2 break-words text-content-secondary">{selected.previous_identifiers.join(', ')}</p></details>}
         <form id="electrician-pole-update" onSubmit={save} className="space-y-4">
           <label className="block text-sm font-semibold">Situação após a visita<select value={status} onChange={(event) => setStatus(event.target.value)} disabled={saving || historyLoading} className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">{Object.entries(STATUS_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           {activeReports.length > 0 && <fieldset className="space-y-2 rounded-xl border border-edge-subtle p-3">
@@ -147,15 +148,14 @@ export default function ElectricianPoleVisitDrawer({ pole, municipality, onClose
           </fieldset>}
           <label className="block text-sm font-semibold">Tipo de lâmpada instalado <span className="font-normal text-content-secondary">(opcional)</span><select value={lampType} onChange={(event) => setLampType(event.target.value)} disabled={saving} className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"><option value="">Não informado</option>{lampType && !LAMP_TYPES.includes(lampType) && <option value={lampType}>{lampType} (cadastro anterior)</option>}{LAMP_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
           <label className="block text-sm font-semibold">Potência (W) <span className="font-normal text-content-secondary">(opcional)</span><Input type="number" min="0.01" step="0.01" value={power} onChange={(event) => setPower(event.target.value)} disabled={saving} className="mt-2" /></label>
-          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={serviceDone} onChange={(event) => setServiceDone(event.target.checked)} disabled={saving} className="h-4 w-4 accent-brand" />Realizei um serviço neste poste</label>
-          {(serviceDone || (reportId && status === 'aceso')) && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Serviços realizados *</legend><p className="text-xs text-content-secondary">Para resolver uma solicitação, selecione o serviço executado. Use Outro serviço para uma vistoria que confirmou o funcionamento.</p>{SERVICE_OPTIONS.map(([key, label]) => <label key={key} className="flex min-h-9 items-center gap-2 rounded-lg border border-edge-subtle px-3 text-sm"><input type="checkbox" checked={services.includes(key)} onChange={(event) => setServices((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} disabled={saving} className="h-4 w-4 accent-brand" />{label}</label>)}</fieldset>}
+          <fieldset className="space-y-2"><legend className="text-sm font-semibold">Serviços realizados{reportId && status === 'aceso' ? ' *' : ' (opcional)'}</legend>{SERVICE_OPTIONS.map(([key, label]) => <label key={key} className="flex min-h-9 items-center gap-2 rounded-lg border border-edge-subtle px-3 text-sm"><input type="checkbox" checked={services.includes(key)} onChange={(event) => setServices((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} disabled={saving} className="h-4 w-4 accent-brand" />{label}</label>)}{reportId && status === 'aceso' && !services.length && <p role="status" className="text-xs text-content-secondary">Selecione um serviço para resolver a solicitação. Para uma vistoria que confirmou o funcionamento, marque Outro serviço.</p>}</fieldset>
           <label className="block text-sm font-semibold">{serviceDone ? 'O que foi feito (opcional)' : 'Observação (opcional)'}<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} disabled={saving} placeholder="Descreva a vistoria, o reparo ou o problema encontrado" className="mt-2 min-h-24 w-full rounded-lg border border-input bg-background p-3 text-sm" /></label>
         </form>
         {offlineNotice && <p role="status" className="text-xs text-content-secondary">{offlineNotice}</p>}
         {detailError && <p role="alert" className="text-sm text-danger">{detailError}</p>}
         <section className="border-t border-edge-subtle pt-4"><h2 className="text-sm font-bold">Histórico do poste</h2>{historyLoading ? <p className="mt-2 text-xs text-content-secondary">Carregando histórico…</p> : history.length ? <ol className="mt-3 space-y-3">{history.map((entry) => <li key={entry.id} className="border-l-2 border-brand/40 pl-3"><span className="text-[11px] text-content-secondary">{formatDate(entry.changed_at)}</span><p className="text-xs font-semibold">{STATUS_LABEL[entry.new_status] || entry.new_status}</p>{entry.descricao_servico && <p className="mt-1 whitespace-pre-line text-xs text-content-secondary">{entry.descricao_servico}</p>}</li>)}</ol> : <p className="mt-2 text-xs text-content-secondary">Nenhuma atualização registrada.</p>}</section>
       </div>}
-        <footer className="shrink-0 border-t border-edge-subtle bg-surface-raised px-4 pt-3 pb-[max(1rem,var(--safe-area-bottom,0px))]"><Button type="submit" form="electrician-pole-update" disabled={saving || ((serviceDone || (reportId && status === 'aceso')) && !services.length) || (status === 'aceso' && activeReports.length > 0 && !reportId) || Boolean(detailError) || historyLoading} className="min-h-12 w-full">{saving ? 'Salvando…' : reportId && status === 'aceso' ? 'Salvar e resolver solicitação' : activeReports.length > 0 ? 'Salvar sem resolver solicitação' : serviceDone ? 'Registrar serviço atendido' : 'Salvar dados do poste'}</Button></footer>
+        <footer className="shrink-0 border-t border-edge-subtle bg-surface-raised px-4 pt-3 pb-[max(1rem,var(--safe-area-bottom,0px))]"><Button type="submit" form="electrician-pole-update" disabled={saving || (reportId && status === 'aceso' && !services.length) || (status === 'aceso' && activeReports.length > 0 && !reportId) || Boolean(detailError) || historyLoading} className="min-h-12 w-full">{saving ? 'Salvando…' : reportId && status === 'aceso' ? 'Salvar e resolver solicitação' : activeReports.length > 0 ? 'Salvar sem resolver solicitação' : serviceDone ? 'Registrar serviço atendido' : 'Salvar dados do poste'}</Button></footer>
       </BottomSheetContent>
     </Drawer>
   );

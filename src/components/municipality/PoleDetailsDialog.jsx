@@ -30,6 +30,7 @@ export default function PoleDetailsDialog({ open, onOpenChange, pole, city, rela
     ? { ...pole.raw_properties?.kmz, ...pole.raw_properties?.municipal } : null;
   const plate = technical?.source_plate || pole.plate;
   const fields = [
+    ['Números anteriores', pole.previous_identifiers?.join(', ')],
     ['Código', technical?.source_code && poleCode(technical.source_code)], ['Pontos de luz', technical?.lamp_count],
     ['Alimentador', technical?.feeder], ['Transformador', technical?.transformer_code],
     ['Tipo de ponto', technical?.point_type], ['Tipo de rede', technical?.network_type],

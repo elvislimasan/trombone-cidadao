@@ -76,6 +76,7 @@ const stubs = {
         const rows=(window.emptyNeighborhoods?[]:[{id:'bairro-centro',name:'Centro',city_id:64},{id:'bairro-sao-jose',name:'São José',city_id:64},{id:'bairro-outra-cidade',name:'Bairro de outra cidade',city_id:65}]).filter(row=>filters.every(([key,value])=>String(row[key])===String(value)));
         return Promise.resolve({data:rows.slice(start,end+1),error:null}).then(ok,fail);
       }
+      if(table==='tree_adoption_requests'&&window.failCooldownLoad)return Promise.resolve({error:{message:'offline'}}).then(ok,fail);
       if(['city_trees','poles'].includes(table))window.mapQueries.push({table,filters});
       let rows=table==='city_trees'&&!location.search.includes('empty-map')?[{city_id:65,latitude:-8.05,longitude:-34.9},{city_id:64,latitude:-8.612345,longitude:-38.591234}]:table==='tree_nurseries'?nurseries:table==='city_tree_species'?species:table==='tree_species_availability'?availability:table==='tree_adoption_availability_alerts'?window.alerts:table==='tree_adoption_requests'?window.requests:table==='tree_adoption_events'?window.events:table==='categories'?[{id:'poda',name:'Arborização'}]:[];
       rows=rows.filter(r=>filters.every(([k,v])=>k==='species.city_id'?String(v)==='64':String(r[k])===String(v))&&excludes.every(([k,vs])=>!vs.includes(r[k])));
@@ -170,7 +171,28 @@ try {
     if (stage==='revisao' && height>=900) assert.ok(await evaluate('[...document.querySelectorAll(".adoption-review-column")].every(el=>el.scrollHeight<=el.clientHeight+1)'), 'Revisão resumida deve caber sem rolagem interna');
     if (await evaluate('document.querySelector(".adoption-form").dataset.step==="0"')) assert.ok(await evaluate(`(()=>{const fields=document.querySelector('.adoption-request-form'),body=document.querySelector('.adoption-form-body'),f=fields.getBoundingClientRect(),b=body.getBoundingClientRect();return f.top>=b.top&&f.bottom<=b.bottom&&fields.scrollHeight<=fields.clientHeight+1})()`), 'Campos iniciais precisam caber na área do formulário');
   };
-  if (process.argv.includes('--fulfillment-safe-area')) {
+  if (process.argv.includes('--request-interval')) {
+    for (const width of [390,1440,1920]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false},sessionId);
+      await navigate('?overview');
+      await waitFor('[...document.querySelectorAll("button")].some(b=>b.textContent.includes("Solicitar uma muda")&&!b.disabled)');
+      await evaluate(`window.requests=[{id:'60000000-0000-0000-0000-000000000001',author_id:'citizen',created_at:new Date(Date.now()-5*86400000).toISOString()}]`);
+      await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent.includes("Solicitar uma muda")).click()');
+      await waitFor('document.body.innerText.includes("Novo pedido disponível em")');
+      assert.ok(await evaluate('!document.querySelector(".adoption-form")'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      await capture(`request-interval-${width}`);
+      await evaluate('window.failCooldownLoad=true');
+      await click('Verificar novamente');
+      await waitFor('document.body.innerText.includes("Não foi possível consultar o prazo")');
+      await evaluate('window.failCooldownLoad=false;window.requests[0].created_at=new Date(Date.now()-31*86400000).toISOString()');
+      await click('Verificar novamente');
+      await waitFor('document.querySelector(".adoption-form")');
+      assert.ok(await evaluate('document.body.innerText.includes("Limite de 1 pedido a cada 30 dias por usuário")'));
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+      console.log(`${width}px: bloqueio antecipado, prazo, erro recuperável e liberação após 30 dias OK.`);
+    }
+  } else if (process.argv.includes('--fulfillment-safe-area')) {
     const results = [];
     const draft = { requestId: 'a4320000-0000-0000-0000-000000000001', step: 0, form: { request_type:'muda',fulfillment_method:'retirada',purpose:'sombra',zone:'urbana',planting_place:'quintal',overhead_wiring:'nao',address:'Rua de entrega, 20',reference_point:'Em frente à praça',neighborhood:'Centro',latitude:-8.6,longitude:-38.57,requester_name:'Maria da Silva',requester_phone:'87999999999',requester_email:'maria@example.test',items:[{species_id:'species1',quantity:1,provider:'viveiro_municipal'}],commitment:true } };
     const cases = [

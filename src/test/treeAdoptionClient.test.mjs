@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_ADOPTION } from '../lib/treeAdoption.js';
-import { loadAdoptionRequest, readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '../lib/treeAdoptionClient.js';
+import { loadAdoptionCooldown, loadAdoptionRequest, readAdoptionDraft, storeAdoptionDraft, submitAdoptionRequest } from '../lib/treeAdoptionClient.js';
 
 const userId = 'citizen';
 const session = { access_token: 'test-token', user: { id: userId } };
@@ -12,10 +12,23 @@ function requestClient(result) {
   const query = {
     select(value) { calls.push(['select', value]); return query; },
     eq(key, value) { calls.push(['eq', key, value]); return query; },
+    order(key, value) { calls.push(['order', key, value]); return query; },
+    limit(value) { calls.push(['limit', value]); return query; },
     async maybeSingle() { return result; },
   };
   return { calls, from(table) { calls.push(['from', table]); return query; } };
 }
+
+test('prazo usa 30 dias corridos e consulta somente o último pedido da própria conta', async () => {
+  const now = Date.parse('2026-11-21T12:00:00Z');
+  const api = requestClient({ data: { id: 'previous', created_at: '2026-11-01T12:00:00Z' } });
+  assert.equal(await loadAdoptionCooldown(api, userId, payload.id, now), '2026-12-01T12:00:00.000Z');
+  assert.deepEqual(api.calls, [['from', 'tree_adoption_requests'], ['select', 'id,created_at'], ['eq', 'author_id', userId], ['order', 'created_at', { ascending: false }], ['limit', 1]]);
+  for (const data of [null, { id: payload.id, created_at: '2026-11-21T12:00:00Z' }, { id: 'previous', created_at: '2026-10-22T12:00:00Z' }]) {
+    assert.equal(await loadAdoptionCooldown(requestClient({ data }), userId, payload.id, now), null);
+  }
+  await assert.rejects(loadAdoptionCooldown(requestClient({ error: { message: 'private detail' } }), userId, payload.id, now), /Não foi possível consultar o prazo/);
+});
 
 test('notificação abre diretamente um pedido encerrado fora da página atual, limitado à conta e cidade', async () => {
   const row = { ...payload, author_id: userId, status: 'concluida' };
