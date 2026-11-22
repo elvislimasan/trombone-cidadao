@@ -23,6 +23,7 @@ import LegislativeOverview from '@/components/legislative/LegislativeOverview';
 import LegislativeSessions from '@/components/legislative/LegislativeSessions';
 import LegislativeCityPicker from '@/components/legislative/LegislativeCityPicker';
 import useLegislativeView from '@/hooks/useLegislativeView';
+import useLegislativePeriod from '@/hooks/useLegislativePeriod';
 import LegislativeWorkspace from '@/components/legislative/LegislativeWorkspace';
 import MatterDetail from '@/components/legislative/LegislativeMatterDetail';
 import SessionDetail from '@/components/legislative/LegislativeSessionDetail';
@@ -41,7 +42,8 @@ function CorrectionForm({ cityId, matterId, context }) {
 }
 
 export default function LegislativePage({ view = 'overview' }) {
-  const { cityId, matterId, sessionId, parliamentarianId } = useParams();const { cities } = useCity();const navigate = useNavigate();const [params, setParams] = useSearchParams();const [revision, setRevision] = useState(0);
+  const { cityId, matterId, sessionId, parliamentarianId } = useParams();const { cities } = useCity();const navigate = useNavigate();const [searchParams, setParams] = useSearchParams();const [revision, setRevision] = useState(0);
+  const params = useLegislativePeriod(searchParams, setParams);
   const presentation = useLegislativeView();
   const filters = legislativeFilters(params);const invalidPeriod = filters.end < filters.start;
   const rpcFilters = ['matter', 'session'].includes(view) ? { id: Number(matterId || sessionId) } : { start: filters.start, end: filters.end, search: filters.search, territory: filters.territory, group_key: filters.group, parliamentarian_id: view === 'parliamentarian' ? Number(parliamentarianId) : filters.parliamentarianId, type_id: filters.typeId, councilor_id: filters.councilorId, topic: filters.topic, location: params.get('local') || null, page: filters.page };

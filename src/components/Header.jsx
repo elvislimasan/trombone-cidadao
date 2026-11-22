@@ -16,8 +16,8 @@ import { useTheme } from '@/design-system/theme/ThemeProvider';
 import { Switch } from './ui/switch';
 import { useNotifications } from '../contexts/NotificationContext';
 
-// No desktop compacto, mantém os três primeiros destinos disponíveis e reúne
-// os demais em "Mais", respeitando a ordem e a visibilidade do menu.
+// No desktop compacto, mantém os três primeiros destinos e o Radar legislativo
+// disponíveis; reúne os demais em "Mais", respeitando a visibilidade do menu.
 const PRIORIDADE_DESKTOP = new Map([['/', 0], ['/feed', 0], ['/explorar', 1], ['/seguindo', 2]]);
 
 
@@ -170,10 +170,14 @@ const Header = () => {
       const prioridadeB = PRIORIDADE_DESKTOP.get(b.path) ?? 100;
       return prioridadeA - prioridadeB;
     });
-  const compactPrimaryItems = visibleMenuItems.slice(0, 3);
-  const compactMoreItems = visibleMenuItems.slice(3);
+  const compactPrimaryItems = visibleMenuItems.filter((item, index) => index < 3 || item.path === '/camara');
+  const widePrimaryItems = visibleMenuItems.filter((item, index) => index < 7 || compactPrimaryItems.includes(item));
+  const compactMoreItems = visibleMenuItems.filter(item => !compactPrimaryItems.includes(item));
   const compactMoreIsActive = compactMoreItems.some(({ path }) => (
     path === '/' ? location.pathname === path : location.pathname.startsWith(path)
+  ));
+  const wideMoreIsActive = compactMoreItems.some(item => !widePrimaryItems.includes(item) && (
+    item.path === '/' ? location.pathname === item.path : location.pathname.startsWith(item.path)
   ));
   const darkThemeActive = resolvedTheme === 'dark';
   const nextThemeLabel = darkThemeActive ? 'Ativar tema claro' : 'Ativar tema escuro';
@@ -259,31 +263,17 @@ const Header = () => {
           </Link>
         </div>
 
-        {/* Navegação completa nas telas mais largas. */}
-        <nav className="hidden min-w-0 items-center gap-5 4xl:flex">
-          {visibleMenuItems.map(item => (
+        {/* Até sete destinos nas telas largas; no notebook, três e o Radar
+            legislativo. Os demais ficam em Mais, sem quebrar os rótulos. */}
+        <nav aria-label="Navegação principal" className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex xl:gap-4">
+          {widePrimaryItems.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
               end={item.path === '/'}
-              className={(state) => `${navLinkClass(state)} whitespace-nowrap`}
+              className={(state) => `${navLinkClass(state)} whitespace-nowrap text-[13px] ${compactPrimaryItems.includes(item) ? '' : 'hidden 4xl:inline-flex'}`}
             >
-              {item.name}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Modo notebook: três destinos principais e um menu secundário.
-            Nenhum rótulo quebra linha, portanto o header mantém altura fixa. */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-3 lg:flex 4xl:hidden xl:gap-4">
-          {compactPrimaryItems.map(item => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={(state) => `${navLinkClass(state)} whitespace-nowrap text-[13px]`}
-            >
-              {item.path === '/agora' ? 'Radar' : item.name}
+              {item.path === '/agora' ? <><span className="4xl:hidden">Radar</span><span className="hidden 4xl:inline">{item.name}</span></> : item.name}
             </NavLink>
           ))}
 
@@ -294,7 +284,7 @@ const Header = () => {
                   type="button"
                   className={`inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-semibold tracking-tight transition-colors ${
                     compactMoreIsActive ? 'text-tc-red' : 'text-white/75 hover:text-white'
-                  }`}
+                  } ${wideMoreIsActive ? '4xl:text-tc-red' : '4xl:text-white/75 4xl:hover:text-white'} ${compactMoreItems.every(item => widePrimaryItems.includes(item)) ? '4xl:hidden' : ''}`}
                   aria-label="Abrir mais opções de navegação"
                 >
                   Mais <LucideIcons.ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -307,7 +297,7 @@ const Header = () => {
                   const ItemIcon = LucideIcons[item.icon] || LucideIcons.Circle;
                   return (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link to={item.path} className="flex items-center gap-2">
+                      <Link to={item.path} className={`flex items-center gap-2 ${widePrimaryItems.includes(item) ? '4xl:hidden' : ''}`}>
                         <ItemIcon className="h-4 w-4 text-content-tertiary" aria-hidden="true" />
                         <span>{item.name}</span>
                       </Link>
