@@ -1,0 +1,48 @@
+.legislative-attendance-panel { container: legislative-attendance / inline-size; min-width: 0; margin-bottom: 28px; padding: 22px 24px 0; border: 1px solid rgb(var(--border-subtle)); border-radius: 12px; background: rgb(var(--surface-raised)); }
+.legislative-attendance-panel > header h2 { display: flex; align-items: center; gap: 9px; color: var(--leg-heading); font-family: var(--font-display); font-size: 1.1875rem; font-weight: 650; }
+.legislative-attendance-context { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; color: rgb(var(--text-secondary)); font-size: .8125rem; }
+.legislative-attendance-context a { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: var(--leg-chart-primary); }
+.legislative-attendance-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-block: 8px 18px; }
+.legislative-attendance-stats > div { --attendance-color: var(--leg-chart-primary); display: grid; grid-template-columns: 34px minmax(0,1fr); grid-template-areas: 'icon value' 'label label'; align-items: center; gap: 6px 9px; padding: 16px; border: 1px solid rgb(var(--border-subtle)); border-radius: 9px; }
+.legislative-attendance-stats [data-kind=presences] { --attendance-color: #118473; }.legislative-attendance-stats [data-kind=justified] { --attendance-color: #a36b0f; }
+.dark .legislative-attendance-stats [data-kind=presences] { --attendance-color: #4ed2b8; }.dark .legislative-attendance-stats [data-kind=justified] { --attendance-color: #e8b557; }
+.legislative-attendance-stats svg { grid-area: icon; color: var(--attendance-color); }
+.legislative-attendance-stats dd { grid-area: value; min-width: 0; color: var(--attendance-color); font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.legislative-attendance-stats dt { grid-area: label; color: rgb(var(--text-secondary)); font-size: .8125rem; }
+.legislative-attendance-notice { display: flex; align-items: start; gap: 9px; padding: 12px 14px; border-radius: 7px; margin-block: 12px 18px; color: rgb(var(--text-secondary)); background: rgb(var(--surface-sunken) / .55); font-size: .8125rem; line-height: 1.6; }
+.legislative-attendance-notice svg { flex-shrink: 0; margin-top: 2px; }
+.legislative-attendance-search { display: flex; align-items: center; gap: 9px; width: min(100%,400px); margin-bottom: 20px; padding-left: 12px; border: 1px solid rgb(var(--border-default)); border-radius: 8px; color: rgb(var(--text-secondary)); }
+.legislative-attendance-search:focus-within { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
+.legislative-page .legislative-workspace .legislative-attendance-search input { flex: 1; width: 0; padding-left: 0; border: none; background: transparent; outline: none; }
+.legislative-attendance-table table { width: 100%; table-layout: fixed; text-align: left; font-size: .875rem; }
+.legislative-attendance-table thead { background: rgb(var(--surface-sunken) / .6); }
+.legislative-attendance-table th,.legislative-attendance-table td { padding: 12px 10px; border-bottom: 1px solid rgb(var(--border-subtle)); vertical-align: middle; }
+.legislative-attendance-table thead th { color: rgb(var(--text-secondary)); font-size: .75rem; font-weight: 550; }
+.legislative-attendance-table th:first-child { width: 26%; }.legislative-attendance-table th:nth-child(2) { width: 24%; }.legislative-attendance-table th:last-child { width: 14%; }
+.legislative-attendance-table tbody th { font-weight: 600; overflow-wrap: anywhere; }
+.legislative-attendance-table tbody th a { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.legislative-attendance-avatar { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: rgb(var(--brand-subtle-bg)); color: var(--leg-chart-primary); font-weight: 650; }
+.legislative-attendance-table td[data-label] { font-variant-numeric: tabular-nums; }
+.legislative-attendance-bar { display: flex; height: 14px; overflow: hidden; border-radius: 4px; background: rgb(var(--surface-sunken)); }
+.legislative-attendance-bar [data-kind=presences],.legislative-attendance-legend i[data-kind=presences] { background: #139d89; }
+.legislative-attendance-bar [data-kind=justified],.legislative-attendance-legend i[data-kind=justified] { background: #d69219; }
+.legislative-attendance-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-block: 12px; }
+.legislative-attendance-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; color: rgb(var(--text-secondary)); font-size: .75rem; }
+.legislative-attendance-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legislative-attendance-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.legislative-attendance-profile { min-width: 0; }
+.legislative-attendance-profile > .legislative-attendance-panel { margin-bottom: 20px; }
+@container legislative-attendance (max-width: 850px) {
+  .legislative-attendance-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .legislative-attendance-table table,.legislative-attendance-table tbody { display: block; }
+  .legislative-attendance-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .legislative-attendance-table tr { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px 8px; padding-block: 16px; border-top: 1px solid rgb(var(--border-subtle)); }
+  .legislative-attendance-table th,.legislative-attendance-table td { display: block; width: auto !important; min-width: 0; padding: 0; border: none; }
+  .legislative-attendance-table tbody th,.legislative-attendance-table td:nth-child(2),.legislative-attendance-table td:last-child { grid-column: 1 / -1; }
+  .legislative-attendance-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 7px; color: rgb(var(--text-secondary)); font-size: .6875rem; }
+  .legislative-attendance-table td:nth-child(2)::before { display: none; }
+}
+@media (max-width: 767px) {
+  .legislative-attendance-panel { padding: 16px 16px 0; }.legislative-attendance-panel > header h2 { font-size: 1.0625rem; }
+  .legislative-attendance-context { font-size: .75rem; gap: 0 14px; }.legislative-attendance-stats { gap: 8px; }.legislative-attendance-stats > div { padding: 12px; gap: 5px; grid-template-columns: 25px minmax(0,1fr); }.legislative-attendance-stats dd { font-size: 1.5rem; }.legislative-attendance-stats dt { font-size: .75rem; }
+}

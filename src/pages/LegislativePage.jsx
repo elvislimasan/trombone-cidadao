@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { Link, NavLink, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, FileText, Landmark, LayoutGrid, Users, CalendarDays, MapPin } from 'lucide-react';
+import { ArrowLeft, FileText, LayoutGrid, Users, CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCity } from '@/contexts/CityContext';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/customSupabaseClient';
 import useLegislativeData from '@/hooks/useLegislativeData';
-import { legislativeDate, legislativeFilters, legislativePath, legislativeRpc, LEGISLATIVE_GROUPS, LEGISLATIVE_TOPICS } from '@/lib/legislative';
-import { LegislativeState, LegislativeMatterCard, LegislativeMatterList, LegislativePagination, LegislativeRelatedRecords, LegislativeAuthors } from '@/components/legislative/LegislativeComponents';
+import { legislativeFilters, legislativePath, legislativeRpc } from '@/lib/legislative';
+import { LegislativeState, LegislativeMatterList, LegislativePagination } from '@/components/legislative/LegislativeComponents';
 import '@/components/legislative/legislative.css';
+import '@/components/legislative/legislative-workspace.css';
+import '@/components/legislative/legislative-analytics.css';
+import '@/components/legislative/legislative-attendance.css';
+import '@/components/legislative/legislative-places-sessions.css';
 import Filters from '@/components/legislative/LegislativeFilters';
 import Directory from '@/components/legislative/LegislativeDirectory';
 import LegislativeParliamentarian from '@/components/legislative/LegislativeParliamentarian';
@@ -19,6 +23,9 @@ import LegislativeOverview from '@/components/legislative/LegislativeOverview';
 import LegislativeSessions from '@/components/legislative/LegislativeSessions';
 import LegislativeCityPicker from '@/components/legislative/LegislativeCityPicker';
 import useLegislativeView from '@/hooks/useLegislativeView';
+import LegislativeWorkspace from '@/components/legislative/LegislativeWorkspace';
+import MatterDetail from '@/components/legislative/LegislativeMatterDetail';
+import SessionDetail from '@/components/legislative/LegislativeSessionDetail';
 
 export function LegislativeEntry() {
   const { activeCityId } = useCity();
@@ -33,17 +40,6 @@ function CorrectionForm({ cityId, matterId, context }) {
   }}><label>O que precisa ser conferido?<textarea required minLength={10} maxLength={2800} value={message} onChange={event => setMessage(event.target.value)} /></label><Button disabled={busy} className="w-fit">{busy ? 'Enviando…' : 'Enviar para revisão'}</Button><p role="status">{state}</p></form>}</div></details>;
 }
 
-function MatterDetail({ data, cityId }) {
-  const { user } = useAuth();const matter = data.matter;
-  return <><section className="legislative-panel"><div className="legislative-matter-meta"><span className="legislative-type">{matter.type_data.name} {matter.data.number}/{matter.data.year}</span>{matter.data.group_key && <span>{LEGISLATIVE_GROUPS[matter.data.group_key]} · {matter.data.group_method === 'revisado' ? 'Revisado' : 'Estimativa automática'}</span>}<time dateTime={matter.data.presented_on}>{legislativeDate(matter.data.presented_on)}</time></div><p className="legislative-detail-title">{matter.data.summary}</p><LegislativeAuthors authors={matter.authors} cityId={cityId} /><div className="legislative-detail-actions"><Button asChild variant="outline"><a href={matter.source_url} target="_blank" rel="noreferrer">Ver na Câmara<ArrowUpRight size={16} /></a></Button>{matter.data.document_url && <Button asChild variant="outline"><a href={matter.data.document_url} target="_blank" rel="noreferrer"><FileText size={16} />Documento original</a></Button>}{(user?.is_admin || user?.is_master) && <Button asChild variant="outline"><Link to={`/admin/legislativo?cidade=${cityId}&materia=${matter.id}`}>Revisar classificação</Link></Button>}</div>{matter.annotation?.topic && <p className="legislative-notice">Tema revisado: {LEGISLATIVE_TOPICS[matter.annotation.topic]}</p>}</section>
-    <div className="legislative-columns mt-6"><section className="legislative-panel"><h2>Tramitação</h2>{!data.proceedings.length ? <p className="mt-4">Nenhuma tramitação publicada neste acervo.</p> : <ol className="legislative-timeline">{data.proceedings.map(item => <li key={item.id}><time dateTime={item.data.date}>{legislativeDate(item.data.date)}</time><strong>{item.status || 'Movimentação registrada'}</strong><p>{item.data.text}</p><a className="text-xs text-brand" href={item.source_url} target="_blank" rel="noreferrer">Ver registro oficial</a></li>)}</ol>}</section><div className="legislative-list"><section className="legislative-panel"><h2>Votações registradas</h2>{!data.ballots.length && <p className="mt-4">Nenhum resultado publicado neste acervo.</p>}{data.ballots.map(ballot => <div className="legislative-ballot" key={ballot.id}><strong>{ballot.result || 'Resultado não informado'}</strong><p className="text-sm text-content-secondary">{ballot.data.yes ?? '—'} favoráveis · {ballot.data.no ?? '—'} contrários · {ballot.data.abstentions ?? '—'} abstenções</p>{ballot.session_id && <Link className="text-sm text-brand" to={legislativePath(cityId, `/sessoes/${ballot.session_id}`)}>Ver sessão</Link>}{ballot.votes.length ? <details><summary>Votos nominais publicados ({ballot.votes.length})</summary><ul>{ballot.votes.map((vote, i) => <li key={i}><span>{vote.name}</span><a href={vote.source_url} target="_blank" rel="noreferrer">{vote.choice}<span className="sr-only"> · fonte oficial</span></a></li>)}</ul></details> : <p className="text-xs text-content-secondary">Sem votos individuais publicados neste acervo.</p>}</div>)}<p className="legislative-notice">O placar geral não permite deduzir o voto de cada vereador.</p></section>{data.norms.length > 0 && <section className="legislative-panel"><h2>Normas relacionadas</h2><ul className="legislative-timeline">{data.norms.map(norm => <li key={norm.id}><time>{legislativeDate(norm.data.date)}</time><p>{norm.data.summary}</p><a href={norm.source_url} target="_blank" rel="noreferrer" className="text-sm text-brand">Norma {norm.data.number}/{norm.data.year}</a></li>)}</ul></section>}</div></div>{data.related?.length > 0 && <section className="legislative-panel mt-6"><h2>Registros relacionados</h2><LegislativeRelatedRecords records={data.related} /><p className="legislative-notice">Vínculos revisados. Não comprovam execução do serviço nem autoria do atendimento.</p></section>}</>;
-}
-
-function SessionDetail({ data, cityId }) {
-  const session = data.session;
-  return <><section className="legislative-panel"><h2 className="legislative-detail-title">{session.data.label}</h2><p>{legislativeDate(session.data.date)}</p><div className="legislative-detail-actions">{[['Cadastro oficial', session.source_url], ['Ata', session.data.minutes_url], ['Pauta', session.data.agenda_url], ['Vídeo', session.data.video_url]].filter(([, url]) => url).map(([label, url]) => <Button key={label} variant="outline" asChild><a href={url} target="_blank" rel="noreferrer">{label}<ArrowUpRight size={16} /></a></Button>)}</div></section><div className="legislative-columns mt-6"><section><div className="legislative-section-heading"><h2>Matérias da sessão</h2></div><div className="legislative-list">{data.agenda.map(item => item.matter ? <div key={`${item.section}-${item.id}`}><p className="mb-2 text-xs text-content-secondary">{item.section} · item {item.data.order || '—'}</p><LegislativeMatterCard cityId={cityId} matter={item.matter} /></div> : <article className="legislative-panel" key={`${item.section}-${item.id}`}><p>{item.section} · matéria fora do recorte do acervo</p><a className="text-sm text-brand" href={item.source_url} target="_blank" rel="noreferrer">Ver registro na Câmara</a></article>)}{!data.agenda.length && <p>Nenhuma matéria registrada neste acervo.</p>}</div></section><section className="legislative-panel"><h2>Presenças registradas</h2><p className="legislative-notice">A ausência de um nome nesta lista não comprova falta.</p><ul className="grid gap-3 text-sm">{data.attendance.map((item, i) => <li key={i}><a href={item.source_url} target="_blank" rel="noreferrer">{item.name}</a></li>)}</ul>{!data.attendance.length && <p>Sem lista de presença publicada neste acervo.</p>}</section></div></>;
-}
-
 export default function LegislativePage({ view = 'overview' }) {
   const { cityId, matterId, sessionId, parliamentarianId } = useParams();const { cities } = useCity();const navigate = useNavigate();const [params, setParams] = useSearchParams();const [revision, setRevision] = useState(0);
   const presentation = useLegislativeView();
@@ -56,8 +52,9 @@ export default function LegislativePage({ view = 'overview' }) {
   const title = { parliamentarian: data?.parliamentarian?.data.parliamentary_name || 'Ficha parlamentar', overview: 'Radar legislativo', matters: 'Matérias', directory: 'Vereadores', sessions: 'Sessões', recurrences: 'Demandas recorrentes', matter: data?.matter ? `${data.matter.type_data.abbreviation} ${data.matter.data.number}/${data.matter.data.year}` : 'Matéria legislativa', session: 'Sessão da Câmara' }[view];
   const nav = [['', 'Radar', LayoutGrid], ['/vereadores', 'Vereadores', Users], ['/materias', 'Propostas', FileText], ['/sessoes', 'Sessões', CalendarDays], ['/demandas', 'Bairros', MapPin]];
   const base = legislativePath(cityId);
-  return <main className="legislative-page legislative-public-page page-shell-fluid" data-layout={presentation.layout}><Helmet><title>{title} · {city?.name || 'Câmara'} | Trombone Cidadão</title><meta name="description" content="Consulte propostas, autores, sessões e votações da Câmara com acesso às fontes oficiais." /></Helmet><header className="legislative-heading"><div className="legislative-heading-title"><span className="legislative-heading-icon"><Landmark size={24} /></span><div><small>Câmara Municipal</small><h1>{view === 'parliamentarian' ? 'Ficha parlamentar' : view === 'matter' ? title : view === 'session' ? 'Sessão da Câmara' : view === 'matters' ? 'Propostas' : view === 'recurrences' ? 'No seu bairro' : title}</h1></div></div><LegislativeCityPicker cityId={cityId} cities={cities} onChange={id => navigate(legislativePath(id))} /></header>
-    <nav className="legislative-nav" aria-label="Câmara">{nav.map(([suffix, label, Icon]) => <NavLink key={suffix} to={base + suffix} end={suffix === ''}><Icon size={17} aria-hidden="true" /><span>{label}</span></NavLink>)}</nav>
+  return <main className="legislative-page legislative-public-page page-shell-fluid" data-layout={presentation.layout}><Helmet><title>{title} · {city?.name || 'Câmara'} | Trombone Cidadão</title><meta name="description" content="Consulte propostas, autores, sessões e votações da Câmara com acesso às fontes oficiais." /></Helmet>
+    <LegislativeWorkspace heading={<header className="legislative-heading"><div className="legislative-heading-title"><div><small>Câmara Municipal</small><h1>{view === 'parliamentarian' ? 'Ficha parlamentar' : view === 'matter' ? title : view === 'session' ? 'Sessão da Câmara' : view === 'matters' ? 'Propostas' : view === 'recurrences' ? 'No seu bairro' : title}</h1></div></div><LegislativeCityPicker cityId={cityId} cities={cities} onChange={id => navigate(legislativePath(id))} /></header>}
+      navigation={nav.map(([suffix, label, Icon]) => <NavLink key={suffix} to={base + suffix} end={suffix === ''}><Icon size={18} aria-hidden="true" /><span>{label}</span></NavLink>)}>
     {data?.source?.stale && <p className="legislative-inline-warning" role="status">Atualização pendente · exibindo o último acervo conferido.</p>}
     {['matter', 'session'].includes(view) && <Link className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm text-brand" to={base + (view === 'matter' ? '/materias' : '/sessoes')}><ArrowLeft size={16} />{view === 'matter' ? 'Matérias' : 'Sessões'}</Link>}
     {['overview', 'matters', 'sessions', 'recurrences', 'parliamentarian', 'directory'].includes(view) && <Filters key={`${cityId}-${view}`} params={params} update={update} data={data} filters={filters} simple={['sessions', 'recurrences', 'parliamentarian'].includes(view)} territory={view === 'recurrences'} directory={view === 'directory'} presentation={presentation} overview={view === 'overview'} profile={view === 'parliamentarian'} />}
@@ -69,9 +66,10 @@ export default function LegislativePage({ view = 'overview' }) {
       {view === 'directory' && <Directory data={data} cityId={cityId} search={filters.search} activeOnly={params.get('cadastro') !== 'todos'} layout={presentation.layout} />}
       {view === 'matter' && <MatterDetail data={data} cityId={cityId} />}
       {view === 'session' && <SessionDetail data={data} cityId={cityId} />}
-      {view === 'sessions' && <LegislativeSessions data={data} cityId={cityId} layout={presentation.layout} onPage={page => update({ pagina: page })} />}
+      {view === 'sessions' && <LegislativeSessions data={data} cityId={cityId} layout={presentation.layout} onPage={page => update({ pagina: page })} filters={filters} onPeriodChange={update} />}
       {view === 'recurrences' && <LegislativeRecurrences data={data} cityId={cityId} layout={presentation.layout} />}
     </>}
     <LegislativePageInfo cityId={cityId} source={data?.source} correction={ready ? <CorrectionForm cityId={cityId} matterId={view === 'matter' ? Number(matterId) : null} context={`Camara ${cityId} / ${view} / ${parliamentarianId || matterId || sessionId || ''}`} /> : null} />
+    </LegislativeWorkspace>
   </main>;
 }

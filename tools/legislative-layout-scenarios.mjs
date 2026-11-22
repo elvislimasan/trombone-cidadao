@@ -14,10 +14,27 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
     await wait('document.querySelectorAll(".legislative-metrics dd").length===6');await noOverflow();
     assert.equal(await evaluate('document.querySelectorAll("input[type=date],select").length'), 0, 'Advanced fields start closed');
     assert.equal(await evaluate('document.querySelectorAll(".legislative-distribution-panel").length'), 0, 'Technical charts are optional');
-    assert.ok(await evaluate('document.querySelector(".legislative-matter-card").getBoundingClientRect().top < innerHeight*.8'), 'The first proposal must appear in the initial viewport');
+    assert.ok(await evaluate('document.querySelector(".legislative-analytics").getBoundingClientRect().top < innerHeight'), 'Indicators and charts lead the initial viewport');
+    assert.equal(await evaluate('document.querySelectorAll(".legislative-analytics .legislative-chart-panel").length'), 2);
+    assert.equal(await evaluate('document.querySelector(".legislative-ring-center strong").textContent'), '25');
     if (width >= 1200) assert.ok(await evaluate('(()=>{const main=document.querySelector("main"),r=main.getBoundingClientRect(),s=getComputedStyle(main);return r.left+parseFloat(s.paddingLeft)<=64&&innerWidth-r.right+parseFloat(s.paddingRight)<=64})()'));
     assert.equal(await evaluate('document.querySelectorAll(".legislative-metric-source[target=_blank]").length'), 6);
     await screenshot(`radar-${theme}-${width}`);
+    await wait(`document.querySelectorAll(".legislative-attendance-table tbody tr").length===${width < 768 ? 3 : 6}`);
+    assert.equal(await evaluate('document.querySelector(".legislative-attendance-stats [data-kind=unexcused] dd").textContent'), '—');
+    await click('Ver todos os vereadores (8)');await wait('document.querySelectorAll(".legislative-attendance-table tbody tr").length===8');
+    await input('input[name=buscar-presencas]', 'Pessoa');await wait('document.querySelectorAll(".legislative-attendance-table tbody tr").length===1');
+    await noOverflow();await screenshot(`presencas-${theme}-${width}`);
+    await clickSelector('.legislative-attendance-table a');await wait('document.querySelector("[role=tab][data-state=active]")?.textContent.includes("Presenças")');
+    await wait('document.querySelector(".legislative-attendance-table tbody tr")');
+    assert.ok(await evaluate('window.calls.some(c=>c.name==="legislative_attendance"&&c.args.p_person===1)'));
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-analytics")');
+
+    await clickSelector('.legislative-analytics .legislative-bars a');await wait('document.querySelector(".legislative-matter-feed")');
+    assert.ok(await evaluate('window.calls.some(call=>call.name==="legislative_public"&&call.args.p_filters?.type_id===21)'));
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-chart-legend a")');
+    await clickSelector('.legislative-chart-legend a[href*="grupo=homenagens"]');await wait('document.querySelectorAll(".legislative-matter-card").length===1');
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-metrics")');
 
     await clickSelector('button[aria-label="Abrir filtros"]');await waitSelector('select[aria-label="Grupo de propostas"]');
     if (width < 768) await wait('document.querySelector(".legislative-sheet") && document.querySelector(".legislative-sheet").getBoundingClientRect().bottom<=innerHeight+1');

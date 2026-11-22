@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { legislativePath } from '@/lib/legislative';
 
 export function LegislativeState({ query, onRetry }) {
-  if (query.loading) return <div className="legislative-state" role="status"><Loader2 className="animate-spin" size={22} />Consultando a Câmara…</div>;
+  if (query.loading) return <div className="legislative-state" role="status"><Loader2 className="animate-spin" size={22} aria-hidden="true" />Consultando a Câmara…</div>;
   if (query.error) return <div className="legislative-state" role={query.error.notInstalled ? 'status' : 'alert'}><p>{query.error.notInstalled ? 'Dados da Câmara ainda não disponíveis.' : query.error.message}</p>{!query.error.notInstalled && <Button variant="outline" onClick={onRetry}>Tentar novamente</Button>}</div>;
   const message = { unconfigured: 'Integração oficial ainda não disponível nesta cidade.', pending: 'O acervo desta Câmara ainda não foi publicado.', missing: 'Registro não encontrado.' }[query.data?.state];
-  return message ? <div className="legislative-state" role="status"><FileText size={26} /><p>{message}</p></div> : null;
+  return message ? <div className="legislative-state" role="status"><FileText size={26} aria-hidden="true" /><p>{message}</p></div> : null;
 }
 
 export function LegislativeSource({ source }) {

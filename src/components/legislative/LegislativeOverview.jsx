@@ -3,13 +3,17 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, BarChart3 } from 'lucide-react';
 import { legislativeMatterFilters, legislativePath } from '@/lib/legislative';
 import { LegislativeMatterList, LegislativeMetrics } from './LegislativeComponents';
+import LegislativeCharts from './LegislativeCharts';
+import LegislativeAttendance from './LegislativeAttendance';
 
 export default function LegislativeOverview({ data, cityId, filters, presentation }) {
   const base = legislativePath(cityId);
   return <>
     {presentation.summary && <LegislativeMetrics metrics={data.metrics} groups={data.groups} cityId={cityId} filters={filters} />}
+    {presentation.summary && <LegislativeCharts data={data} cityId={cityId} filters={filters} />}
+    <LegislativeAttendance cityId={cityId} filters={filters} />
     <div className={`legislative-overview-layout ${presentation.distribution ? 'has-distribution' : ''}`}>
-      <section><div className="legislative-section-heading"><h2>Últimas propostas</h2><Link to={`${base}/materias?${legislativeMatterFilters(filters)}`}>Ver todas <ArrowUpRight size={15} /></Link></div>
+      <section className="legislative-recent-panel"><div className="legislative-section-heading"><h2>Últimas propostas</h2><Link to={`${base}/materias?${legislativeMatterFilters(filters)}`}>Ver todas <ArrowUpRight size={15} /></Link></div>
         <LegislativeMatterList matters={data.matters.slice(0, 6)} cityId={cityId} layout={presentation.layout} />
         {!data.total && <p className="legislative-notice">Nenhuma proposta encontrada neste período e filtro.</p>}
       </section>

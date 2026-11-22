@@ -7,7 +7,7 @@ export default function LegislativeClassificationForm({ matter, onSave, disabled
   const [location, setLocation] = useState(matter.annotation?.location_label || ''), [neighborhood, setNeighborhood] = useState(matter.annotation?.neighborhood || '');
   const [service, setService] = useState(matter.annotation?.service || ''), [note, setNote] = useState(matter.annotation?.note || '');
   return <form className="legislative-review-form" onSubmit={event => { event.preventDefault();onSave('classify', { matter_id: matter.id, version_hash: matter.hash, topic, group_key: group, location, neighborhood, service, note }); }}>
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="legislative-classification-fields">
       <label>Grupo<select aria-label="Grupo revisado" value={group} onChange={event => setGroup(event.target.value)}><option value="">Automático: {LEGISLATIVE_GROUPS[matter.data.group_key] || 'Conforme regra'}</option>{Object.entries(LEGISLATIVE_GROUPS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
       <label>Tema<select value={topic} onChange={event => setTopic(event.target.value)}><option value="">Sem tema revisado</option>{Object.entries(LEGISLATIVE_TOPICS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
       <label>Serviço<select value={service} onChange={event => setService(event.target.value)}><option value="">Sem serviço revisado</option>{Object.entries(LEGISLATIVE_SERVICES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>

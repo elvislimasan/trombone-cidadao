@@ -40,7 +40,7 @@ try {
     create table reports(id uuid primary key,city_id bigint,is_public boolean,moderation_status text,status text,signal_status text,protocol text);
   `);
   const migrations=(await fs.readdir('supabase/migrations')).filter(name=>/^\d+_legislative_.*\.sql$/.test(name)).sort();
-  assert.equal(migrations.length, 10, 'A suíte deve executar todas as migrações legislativas.');
+  assert.equal(migrations.length, 13, 'A suíte deve executar todas as migrações legislativas.');
   for (const name of migrations) await q(await fs.readFile(`supabase/migrations/${name}`, 'utf8'));
   const source = (await q('select * from legislative_sources')).rows[0];assert.equal(source.daily_enabled, false);
   assert.equal((await value("select legislative_public(65) value")).state, 'unconfigured');
@@ -59,12 +59,13 @@ try {
     authors: [{ id: 11, nome: 'Pessoa', tipo: 1, autor_related: { value: 1 } }],
     matter_types: [{ id: 1, descricao: 'Projeto de Lei Ordinária', sigla: 'PLO' }, { id: 21, descricao: 'Pedido de Providência', sigla: 'PPROV' }],
     matters: Array.from({ length: 4 }, (_, i) => ({ id: i + 1, numero: i + 1, ano: 2025, tipo: i ? 21 : 1, data_apresentacao: `2025-02-0${i + 1}`, ementa: `Matéria ${i + 1}`, autores: [11], ip: 'not-public' })),
-    sessions: [{ id: 1, numero: 1, data_inicio: '2025-02-01', tipo: 1, __str__: 'Sessão de teste' }],
+    sessions: [{ id: 1, numero: 1, data_inicio: '2025-02-01', tipo: 1, __str__: 'Sessão de teste' }, { id: 2, numero: 2, data_inicio: '2025-03-01', tipo: 1 }, { id: 3, numero: 3, data_inicio: '2026-02-01', tipo: 1 }],
     agenda: [{ id: 1, sessao_plenaria: 1, materia: 1, tipo_votacao: 2 }],
     ballot_types: [{ id: 0, nome: 'Não informado' }, { id: 1, nome: 'Aprovado' }],
     ballots: [{ id: 1, materia: 1, ordem: 1, tipo_resultado_votacao: 1, numero_votos_sim: 1, numero_votos_nao: 0, numero_abstencoes: 0 }],
     votes: [{ id: 1, votacao: 1, parlamentar: 1, voto: 'Sim', ip: 'not-public', user: 123 }],
     attendance: [{ id: 1, sessao_plenaria: 1, parlamentar: 1 }],
+    absence_justifications: [{ id: 1, sessao_plenaria: 2, parlamentar: 1, ausencia: 2 }, { id: 2, sessao_plenaria: 2, parlamentar: 1, ausencia: 2 }, { id: 3, sessao_plenaria: 1, parlamentar: 1, ausencia: 2 }, { id: 4, sessao_plenaria: 2, parlamentar: 2, ausencia: 1 }, { id: 5, sessao_plenaria: 3, parlamentar: 1, ausencia: 2 }],
   };
   for (const job of (await q('select * from legislative_jobs where run_id=$1 order by resource_key', [run])).rows) {
     const claim = await rpc('legislative_claim_job', { p_run: run });assert.ifError(claim.error);assert.equal(claim.data.id, job.id);
@@ -76,6 +77,27 @@ try {
   await q("select set_config('test.uid',$1,false)", [admin]);
   await q('select legislative_publish_run($1)', [run]);
   const publicRpc = (view, filters = {}) => value('select legislative_public(64,$1,$2) value', [view, JSON.stringify(filters)]);
+  const attendanceRpc = (person = null) => value("select legislative_attendance(64,'2025-01-01','2025-12-31',$1) value", [person]);
+  const attendance = await attendanceRpc();
+  const sessionMetrics = (await publicRpc('sessions', { start: '2025-01-01', end: '2025-12-31' })).session_metrics;
+  assert.equal(sessionMetrics.total, 2);
+  assert.deepEqual(sessionMetrics.months, [{ month: '2025-02', total: 1 }, { month: '2025-03', total: 1 }]);
+  assert.equal(sessionMetrics.types.reduce((sum,row) => sum + row.total,0), 2);
+  assert.equal(attendance.sessions, 2);
+  const personAttendance = attendance.people.find(person => person.id === 1);
+  assert.equal(personAttendance.presences, 1);
+  assert.equal(personAttendance.justified, 1, 'Duplicate, conflicting, matter-only and out-of-period justifications cannot inflate session absences');
+  assert.equal(personAttendance.conflicts, 1);
+  assert.equal(personAttendance.unexcused, null, 'Missing presences are not unexcused absences');
+  assert.equal(attendance.people.find(person => person.id === 2).justified, 0, 'A matter-only absence is not absence from a session');
+  assert.equal((await attendanceRpc(1)).people.length, 1);
+  assert.equal((await value("select legislative_attendance(65,'2025-01-01','2025-12-31') value")).state, 'unconfigured');
+  await q('begin');
+  await q("delete from legislative_jobs where run_id=$1 and kind='absence_justifications'", [run]);
+  const legacyAttendance = await attendanceRpc();
+  assert.equal(legacyAttendance.absence_complete, false);
+  assert.equal(legacyAttendance.totals.justified, null, 'Old published snapshots have unknown absence coverage rather than zero absences');
+  await q('rollback');
   let overview = await publicRpc('overview');assert.equal(overview.total, 4);assert.equal(overview.metrics.normative, 1);assert.equal(overview.metrics.requests, 3);
   assert.equal((await publicRpc('matters', { search: 'Matéria 2' })).total, 1);
   assert.equal((await publicRpc('matters', { start: '2025-02-03' })).total, 2);
@@ -138,6 +160,12 @@ try {
   assert.equal((await publicRpc('session', { id: 1 })).attendance.length, 1);
   const activity = await value("select legislative_activity(64,$1,'2025-01-01','2025-12-31') value", [councilor]);
   assert.equal(activity.votes.total, 1);assert.equal(activity.attendance.total, 1);
+  assert.equal(activity.votes.items[0].matter.id, 1);
+  assert.equal(activity.votes.items[0].matter.type_abbreviation, 'PLO');
+  assert.equal(activity.votes.items[0].matter.summary, 'Matéria 1');
+  const missingVote = await value("select legislative_vote_context($1,$2) value", [run, JSON.stringify({ state:'ready', votes:{ items:[{id:9999,matter_id:9999}] } })]);
+  assert.equal(missingVote.votes.items[0].matter, null);
+  assert.equal(missingVote.votes.items[0].matter_url, 'https://sapl.floresta.pe.leg.br/materia/9999');
   assert.equal((await publicRpc('matter', { id: 999 })).state, 'missing');
   await q('set role anon');
   await assert.rejects(q('select * from legislative_versions'), /permission denied/);

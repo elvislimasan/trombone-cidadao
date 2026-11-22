@@ -12,6 +12,7 @@ const definitions = [
   ['expedient', 'sessao/expedientemateria'], ['ballot_types', 'sessao/tiporesultadovotacao'],
   ['ballots', 'sessao/registrovotacao'], ['votes', 'sessao/votoparlamentar'],
   ['attendance', 'sessao/sessaoplenariapresenca'], ['agenda_attendance', 'sessao/presencaordemdia'],
+  ['absence_justifications', 'sessao/justificativaausencia'],
   ['norms', 'norma/normajuridica'], ['committees', 'comissoes/comissao'],
 ];
 export const RESOURCE_KINDS = [...definitions.map(([kind]) => kind), 'matters'];
@@ -63,6 +64,8 @@ export function normalizeSaplRow(kind, row) {
     case 'ballots': data = { matter_id: integer(row.materia), agenda_id: integer(row.ordem), expedient_id: integer(row.expediente), result_id: identifier(row.tipo_resultado_votacao), yes: count(row.numero_votos_sim), no: count(row.numero_votos_nao), abstentions: count(row.numero_abstencoes) }; break;
     case 'votes': data = { ballot_id: integer(row.votacao), parliamentarian_id: integer(row.parlamentar), choice: text(row.voto, 100) }; break;
     case 'attendance': case 'agenda_attendance': data = { session_id: integer(row.sessao_plenaria), parliamentarian_id: integer(row.parlamentar) }; break;
+    // Only the event and scope are imported, never medical reasons or attachments.
+    case 'absence_justifications': data = { session_id: integer(row.sessao_plenaria), parliamentarian_id: integer(row.parlamentar), scope: row.ausencia === 2 ? 'session' : row.ausencia === 1 ? 'matter' : null }; break;
     case 'norms': data = { matter_id: integer(row.materia), number: text(String(row.numero ?? ''), 80), year: integer(row.ano), date: date(row.data), type_id: integer(row.tipo), summary: text(row.ementa), document_url: saplUrl(row.texto_integral) }; break;
     case 'committees': data = { name: text(row.nome, 500), abbreviation: text(row.sigla, 100), active: row.ativa === true }; break;
     default: data = names();

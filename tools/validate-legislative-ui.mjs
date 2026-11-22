@@ -16,8 +16,17 @@ const source = { id: '30000000-0000-4000-8000-000000000001', city_id: 64, name: 
 const matter = i => ({ id: i, data: { number: i, year: 2025, presented_on: '2025-02-01', summary: `Matéria ${i}: serviço público e transparência para a população de Floresta.`, document_url: 'https://sapl.floresta.pe.leg.br/media/doc.pdf' }, type_data: { name: 'Pedido de Providência', abbreviation: 'PPROV' }, source_url: `https://sapl.floresta.pe.leg.br/materia/${i}`, hash: 'version-1', authors: [{ id: 11, name: 'Pessoa de teste', councilor_id: personId, parliamentarian_id: 1, slug: 'pessoa-de-teste' }] });
 const data = { state: 'ready', source, matters: Array.from({ length: 25 }, (_, i) => matter(i + 1)), metrics: { matters: 25, normative: 2, requests: 23, classified: 3, honorary: 1 }, distribution: [{ id: 21, name: 'Pedido de Providência', abbreviation: 'PPROV', total: 23 }], types: [{ id: 21, data: { name: 'Pedido de Providência' } }], councilors: [{ id: personId, name: 'Pessoa de teste', slug: 'pessoa-de-teste' }], parliamentarians: [{ id: 1, data: { name: 'Pessoa de teste', parliamentary_name: 'Pessoa', active: true }, councilor: { id: personId, name: 'Pessoa de teste', slug: 'pessoa-de-teste' }, source_url: 'https://sapl.floresta.pe.leg.br/parlamentar/1' }], proceedings: [{ id: 1, data: { date: '2025-02-02', text: 'Encaminhado para avaliação.' }, status: 'Em análise', source_url: 'https://sapl.floresta.pe.leg.br/api/materia/tramitacao/1/' }], norms: [], ballots: [{ id: 1, data: { yes: 10, no: 0, abstentions: 0 }, result: 'Aprovado', session_id: 1, votes: [{ name: 'Pessoa', choice: 'Sim', source_url: 'https://sapl.floresta.pe.leg.br/api/sessao/votoparlamentar/1/' }] }], sessions: [{ id: 1, data: { date: '2025-02-01', label: '1ª Sessão Ordinária' }, source_url: 'https://sapl.floresta.pe.leg.br/sessao/1' }], attendance: [{ name: 'Pessoa', source_url: 'https://sapl.floresta.pe.leg.br/api/sessao/sessaoplenariapresenca/1/' }], groups: [{ location_key: 'rua de teste', location: 'Rua de teste', service: 'poda', total: 3, first_date: '2025-02-01', last_date: '2025-02-03', matters: [1, 2, 3].map(id => ({ id, number: id, year: 2025 })) }] };
 data.recurrences = data.groups;
+data.recurrences.push({location_key:'rua da praca',location:'Rua da Praça',neighborhood:'Centro',service:'pavimentacao',total:2,first_date:'2026-03-01',last_date:'2026-11-18',matters:[4,5].map(id=>({id,number:id,year:2025}))},{location_key:'rua do mercado',location:'Rua do Mercado',service:'esgoto',total:2,first_date:'2026-06-01',last_date:'2026-11-04',matters:[6,7].map(id=>({id,number:id,year:2025}))});
+data.sessions[0].data={...data.sessions[0].data,type_id:1,finished:true,minutes_url:'https://sapl.floresta.pe.leg.br/media/ata.pdf'};
+data.sessions.push(...['2026-06-10','2026-06-17','2026-07-08','2026-08-12','2026-08-19','2026-09-16','2026-10-14','2026-11-18'].map((date,index)=>({id:index+2,data:{date,type_id:index%4===0?2:1,label:`${index+2}ª Sessão ${index%4===0?'Extraordinária':'Ordinária'}`,finished:index!==7,minutes_url:index%3===0?null:'https://sapl.floresta.pe.leg.br/media/ata.pdf',agenda_url:'https://sapl.floresta.pe.leg.br/media/pauta.pdf',video_url:index%2===0?'https://www.youtube.com/watch?v=example':null},source_url:`https://sapl.floresta.pe.leg.br/sessao/${index+2}`})));
 data.groups = { melhorias: 23, cobrancas: 0, homenagens: 1, leis: 1, outros: 0 };
 data.classification = { reviewed: 0, automatic: 25, method: 'regras-1' };
+data.attendance_summary = { state: 'ready', sessions: 32, presence_complete: true, absence_complete: true, legislature_ids: [9], people: [{ id: 1, name: 'Pessoa', full_name: 'Pessoa de teste', presences: 1, justified: 0, unexcused: null, conflicts: 0 }, ...['Ana de teste', 'Bruno de teste', 'Carlos de teste', 'Daniela de teste', 'Elisa de teste', 'Fabio de teste', 'Gabriela de teste'].map((name, index) => ({ id: index + 2, name, full_name: name, presences: 20 + index, justified: index % 3, unexcused: null, conflicts: 0 }))].sort((a,b) => a.name.localeCompare(b.name)) };
+data.distribution = [{ id: 21, name: 'Pedido de Providência', total: 23 }, { id: 22, name: 'Projeto de Lei', total: 1 }, { id: 23, name: 'Moção', total: 1 }];
+data.types = data.distribution.map(type => ({ id: type.id, data: { name: type.name } }));
+data.matters.forEach(matter => { matter.type_id = 21; });
+data.matters[0].type_id = 22;data.matters[0].type_data = { name: 'Projeto de Lei', abbreviation: 'PL' };
+data.matters[1].type_id = 23;data.matters[1].type_data = { name: 'Moção', abbreviation: 'MOC' };
 data.matters.forEach((m,i) => {m.data.group_key=i===0?'leis':i===1?'homenagens':'melhorias';m.data.group_method='regras-1';if(i===2||i===3)m.data.summary+=' Rua S\u00e3o Jos\u00e9, bairro Tr\u00eas Marias.';});
 data.related = [{ id: '40000000-0000-4000-8000-000000000001', kind: 'report', title: 'Bronca TC-001', href: '/bronca/20000000-0000-4000-8000-000000000001', status: 'resolved', note: 'Vínculo conferido pelo endereço e pelo documento.' }];
 const fixtureCode = `
@@ -27,17 +36,21 @@ export const supabase={functions:{invoke:async(name,args)=>({data:{run_id:'run',
  if(name==='legislative_decide'){if(args.p_action==='publish')window.published=true;if(args.p_action==='bind')window.bound=true;return {data:{saved:true}};}
  if(name==='legislative_review_collection'){window.qualityReviewed=true;return {data:null};}
  if(name==='legislative_report_error')return {data:'correction'};
- if(name==='legislative_activity'||name==='legislative_parliamentarian_activity')return {data:{state:'ready',votes:{total:1,items:[{id:1,choice:'Sim',date:'2025-02-01',session_id:1,source_url:'https://sapl.floresta.pe.leg.br/api/sessao/votoparlamentar/1/'}]},attendance:{total:1,items:[{session_id:1,date:'2025-02-01',label:'1ª Sessão Ordinária'}]},agenda_attendance:{total:1}}};
+ if((name==='legislative_activity'||name==='legislative_parliamentarian_activity')&&f.activity_override)return {data:f.activity_override};
+ if(name==='legislative_attendance'){if(args.p_city!==64)return {data:{state:'unconfigured'}};const a=f.attendance_summary;const rows=a.people.filter(p=>args.p_councilor?p.id===1:!args.p_person||p.id===args.p_person).map(p=>({...p,justified:window.absencePending?null:p.justified}));return {data:{...a,absence_complete:!window.absencePending,people:rows,totals:{presences:rows.reduce((n,p)=>n+p.presences,0),justified:window.absencePending?null:rows.reduce((n,p)=>n+p.justified,0),unexcused:null,conflicts:0}}};}
+ if(name==='legislative_activity'||name==='legislative_parliamentarian_activity')return {data:{state:'ready',votes:{total:1,items:[{id:1,choice:'Sim',matter_id:1,matter:{id:1,number:1,year:2025,type_abbreviation:'PL',type_name:'Projeto de Lei',summary:f.matters[0].data.summary},date:'2025-02-01',session_id:1,source_url:'https://sapl.floresta.pe.leg.br/api/sessao/votoparlamentar/1/'}]},attendance:{total:1,items:[{session_id:1,date:'2025-02-01',label:'1ª Sessão Ordinária'}]},agenda_attendance:{total:1}}};
  if(args.p_city!==64)return {data:{state:'unconfigured'}};
  if(location.search.includes('pending'))return {data:{state:'pending',source:f.source}};
  let rows=f.matters;const filters=args.p_filters||{};if(filters.search)rows=rows.filter(m=>m.data.summary.toLowerCase().includes(filters.search.toLowerCase()));if(filters.group_key)rows=rows.filter(m=>m.data.group_key===filters.group_key);if(filters.territory)rows=rows.filter(m=>m.data.summary.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(filters.territory.toLowerCase()));const page=filters.page||1;
  const result={...f,total:rows.length,page,page_size:20,matters:rows.slice((page-1)*20,page*20)};
+ if(args.p_view==='sessions'&&f.sessions_override)return {data:f.sessions_override};
+ if(args.p_view==='recurrences'&&f.recurrences_override)return {data:f.recurrences_override};
  if(args.p_view==='parliamentarian'){result.parliamentarian={...f.parliamentarians[0],councilor:null,author_ids:[11]};}
  if(args.p_view!=='directory')result.parliamentarians=f.parliamentarians.map(p=>({id:p.id,name:p.data.parliamentary_name,active:true}));
  if(args.p_view==='matter'){result.matter=f.matters.find(m=>m.id===filters.id);if(!result.matter)return {data:{state:'missing'}};}
- if(args.p_view==='session'){result.session=f.sessions[0];result.agenda=[{id:1,data:{order:1},section:'Ordem do dia',matter:f.matters[0]}];}
- if(args.p_view==='sessions')result.total=1;
- if(args.p_view==='recurrences'){result.groups=f.recurrences;result.total=1;}
+ if(args.p_view==='session'){result.session=f.sessions.find(s=>s.id===filters.id)||f.sessions[0];result.agenda=[{id:1,data:{order:1},section:'Ordem do dia',matter:f.matters[0]}];}
+ if(args.p_view==='sessions'){const ss=f.sessions.filter(s=>(!filters.start||s.data.date>=filters.start)&&(!filters.end||s.data.date<=filters.end));result.sessions=ss;result.total=ss.length;const types=new Map(),months=new Map();for(const s of ss){types.set(s.data.type_id,(types.get(s.data.type_id)||0)+1);const m=s.data.date.slice(0,7);months.set(m,(months.get(m)||0)+1);}result.session_metrics={total:ss.length,finished:ss.filter(s=>s.data.finished).length,minutes:ss.filter(s=>s.data.minutes_url).length,videos:ss.filter(s=>s.data.video_url).length,types:[...types].map(([id,total])=>({id,label:id===2?'Extraordin\u00e1ria':'Ordin\u00e1ria',total})),months:[...months].map(([month,total])=>({month,total}))};}
+ if(args.p_view==='recurrences'){result.groups=f.recurrences;result.total=f.recurrences.length;}
  return {data:result};}};
 `;
 await build({ stdin: { contents: `
@@ -56,9 +69,14 @@ for (const match of [...css.matchAll(/@import '(.+?)';/g)]) css = css.replace(ma
 css += '\n' + await fs.readFile(path.join(out, 'preview.css'), 'utf8');
 const config = loadConfig(path.join(root, 'tailwind.config.js'));
 const compiled = await postcss([tailwind({ ...config, content: ['src/components/legislative/*.jsx', 'src/pages/LegislativePage.jsx', 'src/pages/admin/ManageLegislativePage.jsx', 'src/components/councilor/CouncilorLegislativeOverview.jsx', 'src/components/ui/*.jsx'] })]).process(css, { from: 'src/index.css' });
-await fs.writeFile(path.join(out, 'preview.css'), compiled.css);
+let previewCss = compiled.css;
+for (const font of ['BricolageGrotesque.woff2', 'Inter.woff2']) previewCss = previewCss.replaceAll(`/fonts/${font}`, `data:font/woff2;base64,${(await fs.readFile(path.join(root, 'public/fonts', font))).toString('base64')}`);
+await fs.writeFile(path.join(out, 'preview.css'), previewCss);
+if (!process.argv.includes('--build-only')) {
 const server = http.createServer(async (req, res) => { const file = req.url.split('?')[0];if (['/preview.js', '/preview.css'].includes(file)) { res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : 'text/css');res.end(await fs.readFile(path.join(out, file.slice(1)))); } else { res.setHeader('Content-Type', 'text/html');res.end('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>'); } });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+console.log(`Legislative preview: http://127.0.0.1:${server.address().port}`);
+if (!process.argv.includes('--serve-only')) {
 const profile = path.join(out, `chrome-${Date.now()}`);
 const chrome = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--disable-gpu', '--disable-extensions', '--no-first-run', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { windowsHide: true });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));let ws;
@@ -91,3 +109,5 @@ try {
   const scenarios = await runLegislativeLayoutScenarios({ send, sessionId, navigate, evaluate, wait, input, click, clickSelector, screenshot, setTheme, pause });
   assert.deepEqual(errors, []);console.log(JSON.stringify({ scenarios, runtimeErrors: errors.length, artifacts: out }));
 } finally { ws?.close();chrome.kill();server.close(); }
+}
+}

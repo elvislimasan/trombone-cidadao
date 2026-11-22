@@ -27,6 +27,14 @@ test('collection plans cover each year and do not rely on ignored nested filters
   assert.deepEqual(plan.find(row => row.kind === 'authorships').params, {});
   assert.deepEqual(plan.find(row => row.kind === 'sessions').params, { data_inicio__gte: '2025-01-01' });
   assert.throws(() => buildSaplPlan(2026, 2025));
+  assert.equal(plan.find(row => row.kind === 'absence_justifications').path, 'sessao/justificativaausencia');
+});
+
+test('absence imports preserve session scope and omit notes, diagnoses and attachments', () => {
+  const raw = { id: 12, sessao_plenaria: 44, parlamentar: 3, ausencia: 2, observacao: 'private-note', upload_anexo: '/private.pdf', tipo_ausencia: 8 };
+  assert.deepEqual(normalizeSaplRow('absence_justifications', raw).payload, { session_id: 44, parliamentarian_id: 3, scope: 'session' });
+  assert.equal(normalizeSaplRow('absence_justifications', { ...raw, ausencia: 1 }).payload.scope, 'matter');
+  assert.equal(normalizeSaplRow('absence_justifications', { ...raw, ausencia: 7 }).payload.scope, null);
 });
 test('pagination uses SAPL metadata and validates server-side year filtering', async () => {
   const result = await fetchSaplPage(job, 1, { fetchImpl: async url => { const parsed = new URL(url);assert.equal(parsed.searchParams.get('ano'), '2025');assert.equal(parsed.searchParams.get('page_size'), '100');return response([raw]); } });

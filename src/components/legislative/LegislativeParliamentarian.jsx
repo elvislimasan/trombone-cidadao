@@ -10,9 +10,9 @@ export default function LegislativeParliamentarian({ data, cityId, filters, pres
   const { user } = useAuth();const person = data.parliamentarian;
   return <>
     <section className="legislative-panel legislative-person-header">
-      <div className="flex flex-wrap items-center gap-4">
-        {person.data.photo_url && <img className="h-20 w-20 rounded-xl object-cover" alt="" src={person.data.photo_url} />}
-        <div><h2 className="text-xl font-bold">{person.data.parliamentary_name || person.data.name}</h2><p className="mt-1 text-sm text-content-secondary">{person.data.name}</p></div>
+      <div className="legislative-person-identity">
+        {person.data.photo_url ? <img className="legislative-profile-avatar" width={80} height={80} alt="" src={person.data.photo_url} /> : <span className="legislative-person-avatar legislative-profile-avatar" aria-hidden="true">{person.data.name.charAt(0)}</span>}
+        <div><h2>{person.data.parliamentary_name || person.data.name}</h2>{person.data.parliamentary_name && person.data.parliamentary_name !== person.data.name && <p>{person.data.name}</p>}</div>
       </div>
       <div className="legislative-detail-actions">
         <Button asChild variant="outline"><a href={person.source_url} target="_blank" rel="noreferrer">Ficha oficial da Câmara</a></Button>
