@@ -1,4 +1,5 @@
 import { legislativeChartCount } from './legislativeCharts';
+import { legislativeRemuneration } from './legislativeRemuneration';
 
 // Ratio of published records to sessions, not an inferred attendance or absence rate.
 export function legislativePresenceRatio(data, person) {
@@ -9,6 +10,7 @@ export function legislativePresenceRatio(data, person) {
 
 // A cited statutory base, not net pay or a claim about the latest payroll.
 export function legislativeSalaryBase(cityId, filters) {
-  if (Number(cityId) !== 64 || !filters?.start || !filters?.end || filters.end < filters.start || filters.start < '2025-01-01' || filters.end > '2028-12-31') return null;
-  return { amount: 10432, reference: 'Resolução 8/2023 · base de 2025', source: 'https://sapl.floresta.pe.leg.br/norma/2218' };
+  const policy = legislativeRemuneration(cityId);
+  if (!policy || !filters?.start || !filters?.end || filters.end < filters.start || filters.start < policy.start || filters.end >= policy.endExclusive) return null;
+  return { amount: policy.monthlyCents / 100, reference: policy.reference, source: policy.salarySource };
 }

@@ -11,7 +11,6 @@ export default function LegislativeOverview({ data, cityId, filters, presentatio
   const base = legislativePath(cityId);
   return <>
     {presentation.summary && <div className="legislative-radar-highlights"><LegislativeProposalSummary data={data} cityId={cityId} filters={filters} /><LegislativeCharts data={data} cityId={cityId} filters={filters} typesOnly /></div>}
-    <LegislativeAttendance cityId={cityId} filters={filters} />
     <div className={`legislative-overview-layout ${presentation.distribution ? 'has-distribution' : ''}`}>
       <section className="legislative-recent-panel"><div className="legislative-section-heading"><h2>Últimas propostas</h2><Link to={`${base}/materias?${legislativeMatterFilters(filters)}`}>Ver todas <ArrowUpRight size={15} /></Link></div>
         <LegislativeMatterList matters={data.matters.slice(0, 6)} cityId={cityId} layout={presentation.layout} />
@@ -19,5 +18,6 @@ export default function LegislativeOverview({ data, cityId, filters, presentatio
       </section>
       {presentation.distribution && <aside className="legislative-panel legislative-distribution-panel"><h2 className="flex items-center gap-2"><BarChart3 size={18} />Tipos oficiais</h2><div className="legislative-distribution">{data.distribution.map(type => <div key={type.id}><Link to={`${base}/materias?${legislativeMatterFilters({ ...filters, typeId: type.id })}`}><span>{type.name}</span><strong>{type.total}</strong></Link><meter min={0} max={Math.max(1, data.total)} value={type.total} aria-label={`${type.name}: ${type.total}`} /></div>)}</div></aside>}
     </div>
+    <LegislativeAttendance cityId={cityId} filters={{ start: filters.start, end: filters.end }} />
   </>;
 }

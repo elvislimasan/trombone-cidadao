@@ -2,6 +2,16 @@
 
 ## Revisão de 23/11/2026
 
+A terminologia pública do contador usa **Salário pago aos 13 vereadores desde a posse**, com a quantidade de cargos da cidade, conforme solicitado pelo cliente. Rótulos acessíveis, ajuda e links usam “salário”; a indicação de estimativa permanece junto ao valor.
+
+**Alcance dos controles:** no radar, o contador do mandato vem primeiro. O seletor de datas fica em uma faixa identificada como “Período de propostas e presenças”. Busca, filtros de assunto/grupo/vereador e visualização aparecem sob “Propostas da Câmara”, junto dos gráficos e da lista de propostas, que permanecem contíguos. O botão usa “Filtrar propostas” e a busca explicita “Buscar proposta, rua ou bairro”. Presenças aparece depois desse conjunto, com busca própria por vereador; recebe apenas o período compartilhado, sem herdar filtros de propostas. Os controles continuam acessíveis mesmo quando a consulta retorna erro ou período inválido.
+
+**Contador de subsídios no radar:** indicador com fundo do tema, faixa lateral e valor em vermelho, antes dos demais indicadores, com valor acumulado estimado desde 01/01/2025, atualização a cada segundo e controle de pausa. A referência é de 13 cargos × R$ 10.432 mensais, conforme a Resolução 8/2023 e a ata de posse de 2025. Meses completos somam a base integral; o mês atual é proporcional aos segundos decorridos no horário de Fortaleza, considerando a duração real do mês. O contador é independente dos filtros de propostas e fica visível mesmo ao ocultar o resumo. Os dados de referência estão centralizados em `legislativeRemuneration.js`, compartilhados com o salário-base dos perfis; não há extrapolação para outra cidade ou legislatura.
+
+O card identifica a estimativa junto ao valor e informa que não é folha de pagamento. A ajuda opcional detalha a fórmula e as fontes, sem contabilizar 13º, férias, encargos, revisões ou ajustes individuais não confirmados. O relógio recalcula pelo horário atual ao retomar a aba, sem acumular incrementos fictícios e sem anunciar cada segundo ao leitor de tela. Esta inclusão não precisa de migration ou escrita em banco remoto.
+
+Verificação do contador: nove testes de cálculo, perfil e gráficos; build completo; Playwright em 320, 390, 768, 1440 e 1920 px nos dois temas, incluindo crescimento, pausa, retomada, fontes, independência dos filtros e cidade sem referência. Sem erros de execução ou rolagem horizontal.
+
 Refinamento do perfil: cabeçalho em vermelho suave da paleta da marca, com adaptação ao tema escuro. O percentual de presença usa símbolo menor e espaçamento próprio, para manter valores como 91% e 100% dentro do anel no celular.
 
 O perfil e o radar seguem a referência móvel fornecida pelo cliente: identidade em fundo claro, foto circular, presença em anel, valores compactos e propostas em lista com faixa colorida. No desktop, os mesmos blocos se distribuem em colunas fluidas. A referência já define a composição; não foi necessário gerar outro mockup. Mantidos os títulos neutros, o vermelho da marca, as fontes oficiais, os filtros e as abas de registros.

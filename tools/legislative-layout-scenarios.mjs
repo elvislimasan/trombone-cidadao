@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 export async function runLegislativeLayoutScenarios({ send, sessionId, navigate, evaluate, wait, input, click, clickSelector, screenshot, setTheme, pause }) {
   const viewport = (width, height) => send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false }, sessionId);
   const escape = async () => { await pause(150);await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId);await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId); };
-  const customize = async label => { await clickSelector('button[aria-label="Personalizar visualização"]');await wait('document.querySelector("[role=menu]")');await click(label);await wait('!document.querySelector("[role=menu]")'); };
+  const customize = async label => {
+    await wait('!document.querySelector("[data-slot=drawer-overlay]")');
+    await evaluate('[...document.querySelectorAll("button")].find(button=>button.getAttribute("aria-label")==="Personalizar visualização").focus()');
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, sessionId);
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, sessionId);
+    await wait('document.querySelector("[role=menu]")');await click(label);await wait('!document.querySelector("[role=menu]")');
+  };
   const noOverflow = async () => assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth'), 'The page must not scroll horizontally');
   const waitSelector = selector => wait(`document.querySelector(${JSON.stringify(selector)})`);
   let scenarios = 0;
@@ -39,9 +45,11 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
     await clickSelector('button[aria-label="Abrir filtros"]');await waitSelector('select[aria-label="Grupo de propostas"]');
     if (width < 768) await wait('document.querySelector(".legislative-sheet") && document.querySelector(".legislative-sheet").getBoundingClientRect().bottom<=innerHeight+1');
     else assert.ok(await evaluate('Boolean(document.querySelector("[data-radix-popper-content-wrapper] .legislative-floating-panel"))'));
-    const beforeFilter = await evaluate('window.calls.length');await input('select[aria-label="Grupo de propostas"]', 'homenagens');await pause(40);assert.equal(await evaluate('window.calls.length'), beforeFilter, 'Draft filters do not trigger network calls');
+    const beforeFilter = await evaluate('window.calls.length');await input('select[aria-label="Grupo de propostas"]', 'homenagens');await input('select[aria-label="Vereador das propostas"]', '1');await pause(40);assert.equal(await evaluate('window.calls.length'), beforeFilter, 'Draft filters do not trigger network calls');
     await noOverflow();await screenshot(`filtros-${theme}-${width}`);await click('Aplicar');await wait('document.querySelectorAll(".legislative-matter-card").length===1');
+    assert.ok(await evaluate('window.calls.filter(call=>call.name==="legislative_attendance").every(call=>call.args.p_person===null&&call.args.p_councilor===null)'), 'A proposal author filter must not change attendance scope');
     await clickSelector('button[aria-label="Remover filtro Homenagens"]');await wait('document.querySelectorAll(".legislative-matter-card").length===6');
+    await clickSelector('button[aria-label="Remover filtro Pessoa"]');await wait('![...document.querySelectorAll("button")].some(button=>button.getAttribute("aria-label")==="Remover filtro Pessoa")');
 
     await clickSelector('button[aria-label="Selecionar período"]');await wait('document.querySelector("input[name=inicio]")');
     await input('input[name=inicio]', '2026-12-20');await input('input[name=fim]', '2026-01-01');await click('Aplicar');await wait('document.querySelector(".legislative-filter-form [role=alert]")');

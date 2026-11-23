@@ -7,8 +7,8 @@ import LegislativeViewMenu from './LegislativeViewMenu';
 
 const filterKeys = ['grupo', 'parlamentar', 'vereador', 'tipo', 'tema', 'territorio', 'local', 'cadastro'];
 
-export default function LegislativeToolbar({ params, update, data, filters, simple = false, territory = false, directory = false, presentation, overview = false, profile = false }) {
-  const primaryKey = territory ? 'territorio' : 'busca', hasSearch = !simple || territory;
+export default function LegislativeToolbar({ params, update, data, filters, simple = false, territory = false, directory = false, presentation, overview = false, profile = false, periodOnly = false, hidePeriod = false }) {
+  const primaryKey = territory ? 'territorio' : 'busca', hasSearch = !periodOnly && (!simple || territory);
   const [search, setSearch] = useState(territory ? filters.territory : filters.search);
   const [panel, setPanel] = useState(null), [draft, setDraft] = useState({}), [error, setError] = useState('');
   const formId = useId(), inputId = useId(), periodId = useId();
@@ -27,8 +27,8 @@ export default function LegislativeToolbar({ params, update, data, filters, simp
     !territory && !directory && filters.territory && ['territorio', filters.territory],
     params.get('local') && ['local', 'Local selecionado'],
     directory && params.get('cadastro') === 'todos' && ['cadastro', 'Todos os cadastros'],
-  ].filter(Boolean);
-  const advanced = !simple || territory;
+  ].filter(item => item && !periodOnly);
+  const advanced = !periodOnly && (!simple || territory);
   const openPanel = value => {
     setError('');setDraft({ start: filters.start, end: filters.end, group: filters.group || '', person: String(selectedPerson), type: String(filters.typeId || ''), topic: filters.topic || '', territory: filters.territory, status: params.get('cadastro') || 'ativos' });setPanel(value);
   };
@@ -63,14 +63,14 @@ export default function LegislativeToolbar({ params, update, data, filters, simp
     <div className={`legislative-toolbar ${!hasSearch ? 'legislative-toolbar-without-search' : ''}`}>
       {hasSearch && <form className="legislative-search" role="search" onSubmit={event => { event.preventDefault();update({ [primaryKey]: search.trim() }); }}>
         <label htmlFor={inputId} className="sr-only">{directory ? 'Buscar vereador' : territory ? 'Buscar rua ou bairro' : 'Buscar proposta, rua ou bairro'}</label>
-        <Search size={18} aria-hidden="true" /><input id={inputId} name={primaryKey} maxLength={200} autoComplete="off" value={search} placeholder={directory ? 'Buscar vereador' : territory ? 'Rua ou bairro' : 'Assunto, rua ou bairro'} onChange={event => setSearch(event.target.value)} />
+        <Search size={18} aria-hidden="true" /><input id={inputId} name={primaryKey} maxLength={200} autoComplete="off" value={search} placeholder={directory ? 'Buscar vereador' : territory ? 'Rua ou bairro' : overview ? 'Buscar proposta, rua ou bairro' : 'Assunto, rua ou bairro'} onChange={event => setSearch(event.target.value)} />
         {search && <button type="button" className="legislative-icon-button" aria-label="Limpar busca" onClick={() => { setSearch('');update({ [primaryKey]: null }); }}><X size={16} /></button>}
         <button type="submit" className="legislative-search-submit" aria-label={territory ? 'Buscar rua ou bairro' : 'Buscar proposta'}><Search size={18} /></button>
       </form>}
       <div className="legislative-toolbar-controls">
-        {!directory && <LegislativeResponsivePanel title="Período" open={panel === 'period'} onOpenChange={open => open ? openPanel('period') : close()} footer={footer} trigger={<Button variant="outline" className="legislative-toolbar-button legislative-period-button" aria-label="Selecionar período" aria-describedby={periodId} title={periodLabel}><CalendarDays size={17} /><span id={periodId}>{periodLabel}</span><ChevronDown size={14} /></Button>}>{panel === 'period' && content}</LegislativeResponsivePanel>}
-        {advanced && !territory && <LegislativeResponsivePanel title="Filtros" open={panel === 'filters'} onOpenChange={open => open ? openPanel('filters') : close()} footer={footer} trigger={<Button variant="outline" className="legislative-toolbar-button" aria-label="Abrir filtros"><SlidersHorizontal size={17} /><span>Filtros</span>{chips.length > 0 && <span className="legislative-filter-count">{chips.length}</span>}</Button>}>{panel === 'filters' && content}</LegislativeResponsivePanel>}
-        {presentation && <LegislativeViewMenu presentation={presentation} summary={overview || profile} distribution={overview} />}
+        {!directory && !hidePeriod && <LegislativeResponsivePanel title={periodOnly ? 'Período de propostas e presenças' : 'Período'} open={panel === 'period'} onOpenChange={open => open ? openPanel('period') : close()} footer={footer} trigger={<Button variant="outline" className="legislative-toolbar-button legislative-period-button" aria-label="Selecionar período" aria-describedby={periodId} title={periodLabel}><CalendarDays size={17} /><span id={periodId}>{periodLabel}</span><ChevronDown size={14} /></Button>}>{panel === 'period' && content}</LegislativeResponsivePanel>}
+        {advanced && !territory && <LegislativeResponsivePanel title={overview ? 'Filtros de propostas' : 'Filtros'} open={panel === 'filters'} onOpenChange={open => open ? openPanel('filters') : close()} footer={footer} trigger={<Button variant="outline" className="legislative-toolbar-button" aria-label="Abrir filtros"><SlidersHorizontal size={17} /><span>{overview ? 'Filtrar propostas' : 'Filtros'}</span>{chips.length > 0 && <span className="legislative-filter-count">{chips.length}</span>}</Button>}>{panel === 'filters' && content}</LegislativeResponsivePanel>}
+        {presentation && !periodOnly && <LegislativeViewMenu presentation={presentation} summary={overview || profile} distribution={overview} />}
       </div>
     </div>
     {chips.length > 0 && <div className="legislative-filter-chips" aria-label="Filtros aplicados">{chips.map(([key, label]) => <button type="button" key={key} onClick={() => update({ [key]: null, ...(key === 'parlamentar' || key === 'vereador' ? { parlamentar: null, vereador: null } : {}) })} aria-label={`Remover filtro ${label}`}><span>{label}</span><X size={13} /></button>)}<button type="button" className="legislative-clear-filters" onClick={clear}>Limpar</button></div>}

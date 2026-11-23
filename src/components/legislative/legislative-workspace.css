@@ -29,6 +29,13 @@
 .legislative-admin-city { display: grid; gap: 4px; color: rgb(var(--text-secondary)); font-size: .8125rem; }
 .legislative-admin-city select { color: rgb(var(--text-primary)); min-width: 140px; }
 .legislative-toolbar-wrap { margin-bottom: 24px; }
+.legislative-consultation-period { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 24px; padding-block: 12px; border-block: 1px solid rgb(var(--border-subtle)); }
+.legislative-consultation-period > h2 { flex: 1; min-width: 130px; color: rgb(var(--text-secondary)); font-size: .875rem; font-weight: 550; }
+.legislative-consultation-period .legislative-toolbar-wrap { margin: 0; }
+.legislative-consultation-period .legislative-toolbar-controls .legislative-period-button { max-width: none; }
+.legislative-proposals-controls > h2 { margin-bottom: 14px; color: rgb(var(--text-primary)); font-family: var(--font-display); font-size: 1.25rem; font-weight: 650; letter-spacing: -.025em; }
+.legislative-proposals-controls .legislative-toolbar-wrap { margin-bottom: 18px; }
+.legislative-overview-layout + .legislative-attendance-panel { margin-top: 28px; }
 .legislative-search,.legislative-toolbar-button { border-radius: 9px; }
 .legislative-workspace .legislative-search { max-width: none; }
 .legislative-toolbar-button { font-size: .875rem; }

@@ -20,6 +20,7 @@ import LegislativeParliamentarian from '@/components/legislative/LegislativeParl
 import LegislativeRecurrences from '@/components/legislative/LegislativeRecurrences';
 import LegislativePageInfo from '@/components/legislative/LegislativePageInfo';
 import LegislativeOverview from '@/components/legislative/LegislativeOverview';
+import LegislativeSalaryClock from '@/components/legislative/LegislativeSalaryClock';
 import LegislativeSessions from '@/components/legislative/LegislativeSessions';
 import LegislativeCityPicker from '@/components/legislative/LegislativeCityPicker';
 import useLegislativeView from '@/hooks/useLegislativeView';
@@ -59,7 +60,12 @@ export default function LegislativePage({ view = 'overview' }) {
       navigation={nav.map(([suffix, label, Icon]) => <NavLink key={suffix} to={base + suffix} end={suffix === ''}><Icon size={18} aria-hidden="true" /><span>{label}</span></NavLink>)}>
     {data?.source?.stale && <p className="legislative-inline-warning" role="status">Atualização pendente · exibindo o último acervo conferido.</p>}
     {['matter', 'session'].includes(view) && <Link className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm text-brand" to={base + (view === 'matter' ? '/materias' : '/sessoes')}><ArrowLeft size={16} />{view === 'matter' ? 'Matérias' : 'Sessões'}</Link>}
-    {['overview', 'matters', 'sessions', 'recurrences', 'parliamentarian', 'directory'].includes(view) && <Filters key={`${cityId}-${view}`} params={params} update={update} data={data} filters={filters} simple={['sessions', 'recurrences', 'parliamentarian'].includes(view)} territory={view === 'recurrences'} directory={view === 'directory'} presentation={presentation} overview={view === 'overview'} profile={view === 'parliamentarian'} />}
+    {view === 'overview' && <>
+      {ready && <LegislativeSalaryClock key={cityId} cityId={cityId} />}
+      <div className="legislative-consultation-period" role="group" aria-labelledby="legislative-period-scope"><h2 id="legislative-period-scope">Período de propostas e presenças</h2><Filters key={`${cityId}-period`} params={params} update={update} data={data} filters={filters} periodOnly /></div>
+      <div className="legislative-proposals-controls" role="group" aria-labelledby="legislative-proposals-scope"><h2 id="legislative-proposals-scope">Propostas da Câmara</h2><Filters key={`${cityId}-proposals`} params={params} update={update} data={data} filters={filters} presentation={presentation} overview hidePeriod /></div>
+    </>}
+    {['matters', 'sessions', 'recurrences', 'parliamentarian', 'directory'].includes(view) && <Filters key={`${cityId}-${view}`} params={params} update={update} data={data} filters={filters} simple={['sessions', 'recurrences', 'parliamentarian'].includes(view)} territory={view === 'recurrences'} directory={view === 'directory'} presentation={presentation} profile={view === 'parliamentarian'} />}
     {invalidPeriod ? <p role="alert" className="legislative-notice">A data final precisa ser igual ou posterior à inicial.</p> : <LegislativeState query={query} onRetry={() => setRevision(value => value + 1)} />}
     {ready && <>
       {view === 'overview' && <LegislativeOverview data={data} cityId={cityId} filters={filters} presentation={presentation} />}
