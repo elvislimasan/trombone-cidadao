@@ -1,6 +1,6 @@
 import { LEGISLATIVE_GROUPS } from './legislative';
 
-export const LEGISLATIVE_CHART_COLORS = Object.freeze({ melhorias: '#139d89', cobrancas: '#df594b', homenagens: '#d69219', leis: '#4383cd', outros: '#7b8595' });
+export const LEGISLATIVE_CHART_COLORS = Object.freeze({ melhorias: '#2563eb', cobrancas: '#dc5905', homenagens: '#d51d70', leis: '#078568', outros: '#647181' });
 export const legislativeChartCount = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 
 export function legislativeGroupChart(groups) {

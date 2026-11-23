@@ -10,8 +10,8 @@ export default function useLegislativeData(cityId, view = 'overview', filters = 
     if (!Number.isSafeInteger(Number(cityId)) || Number(cityId) <= 0) { setState({ key, loading: false, data: { state: 'unconfigured' }, error: null });return; }
     setState({ key, loading: true, data: null, error: null });
     const [, queryView, queryFilters] = JSON.parse(key);
-    const request = queryView === 'attendance_summary'
-      ? legislativeRpc(supabase, 'legislative_attendance', { p_city: Number(cityId), p_start: queryFilters.start, p_end: queryFilters.end, p_person: queryFilters.parliamentarian_id || null, p_councilor: queryFilters.councilor_id || null })
+    const request = ['attendance_summary', 'profile_highlights'].includes(queryView)
+      ? legislativeRpc(supabase, queryView === 'attendance_summary' ? 'legislative_attendance' : 'legislative_profile_highlights', { p_city: Number(cityId), p_start: queryFilters.start, p_end: queryFilters.end, p_person: queryFilters.parliamentarian_id || null, p_councilor: queryFilters.councilor_id || null })
       : queryView === 'parliamentarian_activity'
       ? legislativeRpc(supabase, 'legislative_parliamentarian_activity', { p_city: Number(cityId), p_person: queryFilters.parliamentarian_id, p_start: queryFilters.start, p_end: queryFilters.end })
       : queryView === 'activity'

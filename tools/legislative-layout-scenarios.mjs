@@ -11,14 +11,14 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
   for (const [width, height] of [[390, 844], [1440, 900], [1920, 1080]].filter(([width])=>!onlyWidth||width===onlyWidth)) for (const theme of ['light', 'dark']) {
     setTheme(theme);await viewport(width, height);await navigate('/camara/64');
     await evaluate('localStorage.clear();window.dispatchEvent(new StorageEvent("storage",{key:null}))');
-    await wait('document.querySelectorAll(".legislative-metrics dd").length===6');await noOverflow();
+    await wait('document.querySelectorAll(".legislative-category-list li").length===5');await noOverflow();
     assert.equal(await evaluate('document.querySelectorAll("input[type=date],select").length'), 0, 'Advanced fields start closed');
     assert.equal(await evaluate('document.querySelectorAll(".legislative-distribution-panel").length'), 0, 'Technical charts are optional');
-    assert.ok(await evaluate('document.querySelector(".legislative-analytics").getBoundingClientRect().top < innerHeight'), 'Indicators and charts lead the initial viewport');
-    assert.equal(await evaluate('document.querySelectorAll(".legislative-analytics .legislative-chart-panel").length'), 2);
-    assert.equal(await evaluate('document.querySelector(".legislative-ring-center strong").textContent'), '25');
+    assert.ok(await evaluate('document.querySelector(".legislative-proposal-summary").getBoundingClientRect().top < innerHeight'), 'Indicators and charts lead the initial viewport');
+    assert.equal(await evaluate('document.querySelectorAll(".legislative-analytics .legislative-chart-panel").length'), 1);
+    assert.equal(await evaluate('document.querySelector(".legislative-proposal-total").textContent'), '25 propostas');
     if (width >= 1200) assert.ok(await evaluate('(()=>{const main=document.querySelector("main"),r=main.getBoundingClientRect(),s=getComputedStyle(main);return r.left+parseFloat(s.paddingLeft)<=64&&innerWidth-r.right+parseFloat(s.paddingRight)<=64})()'));
-    assert.equal(await evaluate('document.querySelectorAll(".legislative-metric-source[target=_blank]").length'), 6);
+    assert.equal(await evaluate('document.querySelectorAll(".legislative-snapshot-source[target=_blank]").length'), 1);
     await screenshot(`radar-${theme}-${width}`);
     await wait(`document.querySelectorAll(".legislative-attendance-table tbody tr").length===${width < 768 ? 3 : 6}`);
     assert.equal(await evaluate('document.querySelector(".legislative-attendance-stats [data-kind=unexcused] dd").textContent'), '—');
@@ -32,9 +32,9 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
 
     await clickSelector('.legislative-analytics .legislative-bars a');await wait('document.querySelector(".legislative-matter-feed")');
     assert.ok(await evaluate('window.calls.some(call=>call.name==="legislative_public"&&call.args.p_filters?.type_id===21)'));
-    await navigate('/camara/64');await wait('document.querySelector(".legislative-chart-legend a")');
-    await clickSelector('.legislative-chart-legend a[href*="grupo=homenagens"]');await wait('document.querySelectorAll(".legislative-matter-card").length===1');
-    await navigate('/camara/64');await wait('document.querySelector(".legislative-metrics")');
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-category-list a")');
+    await clickSelector('.legislative-category-list a[href*="grupo=homenagens"]');await wait('document.querySelectorAll(".legislative-matter-card").length===1');
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-proposal-summary")');
 
     await clickSelector('button[aria-label="Abrir filtros"]');await waitSelector('select[aria-label="Grupo de propostas"]');
     if (width < 768) await wait('document.querySelector(".legislative-sheet") && document.querySelector(".legislative-sheet").getBoundingClientRect().bottom<=innerHeight+1');
@@ -54,11 +54,11 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
     await clickSelector('button[aria-label="Limpar busca"]');await wait('document.querySelectorAll(".legislative-matter-card").length===20');
     await clickSelector('button[aria-label="Abrir filtros"]');await wait('document.querySelector("input[name=territorio]")');await input('input[name=territorio]', 'sao jose');await click('Aplicar');await wait('document.querySelectorAll(".legislative-matter-card").length===2');
     await clickSelector('button[aria-label="Remover filtro sao jose"]');await wait('document.querySelectorAll(".legislative-matter-card").length===20');
-    await navigate('/camara/64');await wait('document.querySelector(".legislative-metrics")');
-    const beforePreference = await evaluate('window.calls.length');await customize('Mostrar resumo');await wait('!document.querySelector(".legislative-metrics")');assert.equal(await evaluate('window.calls.length'), beforePreference, 'Visual preferences must not refetch or change the data');
-    await viewport(width < 768 ? 1440 : 390, height);await wait('document.querySelectorAll(".legislative-metrics dd").length===6');assert.equal(await evaluate('document.querySelector("main").dataset.layout'), 'cards');
-    await viewport(width, height);await wait('document.querySelector("main").dataset.layout==="list"&&!document.querySelector(".legislative-metrics")');
-    await customize('Restaurar padrão');await wait('document.querySelectorAll(".legislative-metrics dd").length===6&&document.querySelector("main").dataset.layout==="cards"');
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-proposal-summary")');
+    const beforePreference = await evaluate('window.calls.length');await customize('Mostrar resumo');await wait('!document.querySelector(".legislative-proposal-summary")');assert.equal(await evaluate('window.calls.length'), beforePreference, 'Visual preferences must not refetch or change the data');
+    await viewport(width < 768 ? 1440 : 390, height);await wait('document.querySelectorAll(".legislative-category-list li").length===5');assert.equal(await evaluate('document.querySelector("main").dataset.layout'), 'cards');
+    await viewport(width, height);await wait('document.querySelector("main").dataset.layout==="list"&&!document.querySelector(".legislative-proposal-summary")');
+    await customize('Restaurar padrão');await wait('document.querySelectorAll(".legislative-category-list li").length===5&&document.querySelector("main").dataset.layout==="cards"');
     await customize('Mostrar tipos oficiais');await wait('document.querySelector(".legislative-distribution-panel")');await noOverflow();await customize('Mostrar tipos oficiais');
     await click('Como contamos');await wait('document.querySelector("#metodo-legislativo[open]")');await escape();await wait('!document.querySelector(".legislative-info-dialog")');
     assert.ok(await evaluate('document.activeElement.textContent.includes("Como contamos")'), 'Help returns focus to its trigger');
@@ -71,7 +71,7 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
     await click('Vereadores');await wait('document.querySelector(".legislative-person")');await click('Ver atuação na Câmara');await wait('document.querySelector(".legislative-activity")');await click('Votos');await wait('document.body.textContent.includes("1 voto individual publicado")');await click('Presenças');await wait('document.body.textContent.includes("1 presença registrada")');
     assert.ok(await evaluate('document.body.textContent.includes("Registro ausente não comprova falta")'));
     await clickSelector('button[aria-label="Ações do perfil"]');await wait('document.querySelector("[role=menu]")');await click('Criar ou vincular perfil');await wait('document.querySelector(".legislative-admin-table select")');await click('Criar perfil');await click('Confirmar criação');await wait('window.calls.some(c=>c.name==="legislative_decide"&&c.args.p_action==="bind"&&c.args.p_data.create===true)');
-    await navigate('/vereadores/64/pessoa-de-teste');await wait('document.querySelectorAll(".legislative-profile .legislative-metrics dd").length===6');await noOverflow();
+    await navigate('/vereadores/64/pessoa-de-teste');await wait('document.querySelectorAll(".legislative-profile .legislative-category-list li").length===5');await noOverflow();
     await navigate('/camara/64/sessoes/1');await wait('document.body.textContent.includes("A ausência de um nome")');
     await navigate('/camara/64/demandas');await wait('document.querySelector(".legislative-recurrence-card")');assert.ok(await evaluate('document.body.textContent.includes("Atendimento ainda não verificado")'));await click('Ver pedidos e autores');await noOverflow();
 
@@ -83,12 +83,12 @@ export async function runLegislativeLayoutScenarios({ send, sessionId, navigate,
     await wait('!document.querySelector(".legislative-review-form button").disabled');await input('input[placeholder^="/bronca/"]', '/bronca/20000000-0000-4000-8000-000000000001');await input('.legislative-review-form textarea[maxlength="600"]', 'Mesmo endereço, relação conferida no documento.');await click('Confirmar vínculo com o registro');await wait('window.calls.some(c=>c.name==="legislative_decide"&&c.args.p_action==="relate")');
     await wait('!document.querySelector(".legislative-review-form button").disabled');await click('Remover vínculo');await wait('window.calls.some(c=>c.name==="legislative_decide"&&c.args.p_action==="unrelate")');await screenshot(`admin-${theme}-${width}`);await noOverflow();
 
-    await navigate('/camara/64');await wait('document.querySelector(".legislative-metrics")');await clickSelector('button[aria-label="Escolher cidade"]');await wait('document.querySelector(".legislative-city-options")');await click('Recife · PE');await wait('document.body.textContent.includes("Integração oficial ainda não disponível")');assert.equal(await evaluate('document.querySelectorAll(".legislative-matter-card").length'), 0);
-    await navigate('/camara/64?pending=1');await wait('document.body.textContent.includes("ainda não foi publicado")');assert.equal(await evaluate('document.querySelectorAll(".legislative-metrics").length'), 0);
-    await navigate('/camara/64');await wait('document.querySelector(".legislative-metrics")');await evaluate('window.failLoad=true');await click('Propostas');await wait('document.querySelector("[role=alert]")');await evaluate('window.failLoad=false');await click('Tentar novamente');await wait('document.querySelector(".legislative-matter-card")');
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-proposal-summary")');await clickSelector('button[aria-label="Escolher cidade"]');await wait('document.querySelector(".legislative-city-options")');await click('Recife · PE');await wait('document.body.textContent.includes("Integração oficial ainda não disponível")');assert.equal(await evaluate('document.querySelectorAll(".legislative-matter-card").length'), 0);
+    await navigate('/camara/64?pending=1');await wait('document.body.textContent.includes("ainda não foi publicado")');assert.equal(await evaluate('document.querySelectorAll(".legislative-proposal-summary").length'), 0);
+    await navigate('/camara/64');await wait('document.querySelector(".legislative-proposal-summary")');await evaluate('window.failLoad=true');await click('Propostas');await wait('document.querySelector("[role=alert]")');await evaluate('window.failLoad=false');await click('Tentar novamente');await wait('document.querySelector(".legislative-matter-card")');
     scenarios++;console.log(`${width}px ${theme}: compact toolbar, responsive panels, per-device preferences, public pages and admin passed.`);
   }
-  setTheme('light');await viewport(320, 740);await navigate('/camara/64');await wait('document.querySelector(".legislative-metrics")');await noOverflow();await screenshot('radar-light-320');
+  setTheme('light');await viewport(320, 740);await navigate('/camara/64');await wait('document.querySelector(".legislative-proposal-summary")');await noOverflow();await screenshot('radar-light-320');
   await clickSelector('button[aria-label="Selecionar período"]');await wait('document.querySelector("input[name=inicio]")');await noOverflow();await screenshot('periodo-light-320');await escape();
   return scenarios;
 }

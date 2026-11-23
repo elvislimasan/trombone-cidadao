@@ -47,7 +47,7 @@ export function LegislativeRing({ rows, total, caption }) {
   </div>;
 }
 
-export default function LegislativeCharts({ data, cityId, filters, officialHref }) {
+export default function LegislativeCharts({ data, cityId, filters, officialHref, typesOnly = false }) {
   const typeId = useId(), groupId = useId();
   const official = officialHref || legislativeOfficialSearch(filters);
   const group = legislativeGroupChart(data.groups);
@@ -62,11 +62,11 @@ export default function LegislativeCharts({ data, cityId, filters, officialHref 
       {rows.length ? <LegislativeBars rows={rows} label="Propostas por tipo oficial" /> : <p className="legislative-chart-empty">Sem distribuição por tipo publicada neste recorte.</p>}
       <footer><a href={official} target="_blank" rel="noreferrer">Fonte oficial<ArrowUpRight size={14} aria-hidden="true" /></a><span>{types.length > 5 ? 'Tipos mais frequentes' : 'Tipos oficiais'}</span></footer>
     </section>
-    <section className="legislative-chart-panel" aria-labelledby={groupId}>
+    {!typesOnly && <section className="legislative-chart-panel" aria-labelledby={groupId}>
       <header><h2 id={groupId}><PieChart size={19} aria-hidden="true" />Perfil das propostas</h2><button type="button" className="legislative-chart-help" onClick={() => window.dispatchEvent(new CustomEvent('legislative:data-info', { detail: 'method' }))}>Como contamos</button></header>
       <LegislativeRing rows={groups} total={group.total} caption={full ? 'Propostas' : 'No gráfico'} />
       <footer><span>Grupos automáticos · estimativa</span>{reviewed !== null && automatic !== null && <span className="legislative-chart-review"><CheckCheck size={15} aria-hidden="true" />{format(reviewed)} de {format(reviewed + automatic)} revisadas</span>}</footer>
       {!full && <p className="legislative-chart-coverage">Distribuição disponível para parte das propostas deste recorte.</p>}
-    </section>
+    </section>}
   </div>;
 }

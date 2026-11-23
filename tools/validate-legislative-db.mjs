@@ -40,7 +40,7 @@ try {
     create table reports(id uuid primary key,city_id bigint,is_public boolean,moderation_status text,status text,signal_status text,protocol text);
   `);
   const migrations=(await fs.readdir('supabase/migrations')).filter(name=>/^\d+_legislative_.*\.sql$/.test(name)).sort();
-  assert.equal(migrations.length, 13, 'A suíte deve executar todas as migrações legislativas.');
+  assert.equal(migrations.length, 14, 'A suíte deve executar todas as migrações legislativas.');
   for (const name of migrations) await q(await fs.readFile(`supabase/migrations/${name}`, 'utf8'));
   const source = (await q('select * from legislative_sources')).rows[0];assert.equal(source.daily_enabled, false);
   assert.equal((await value("select legislative_public(65) value")).state, 'unconfigured');
@@ -79,6 +79,26 @@ try {
   const publicRpc = (view, filters = {}) => value('select legislative_public(64,$1,$2) value', [view, JSON.stringify(filters)]);
   const attendanceRpc = (person = null) => value("select legislative_attendance(64,'2025-01-01','2025-12-31',$1) value", [person]);
   const attendance = await attendanceRpc();
+  const highlights = await value("select legislative_profile_highlights(64,'2025-01-01','2025-12-31',1) value");
+  assert.equal(highlights.state, 'ready');
+  assert.equal(highlights.votes_complete, true);
+  assert.deepEqual(highlights.votes, { total: 1, yes: 1, no: 0, abstentions: 0, other: 0 });
+  assert.equal((await value("select legislative_profile_highlights(65,'2025-01-01','2025-12-31',1) value")).state, 'unconfigured');
+  assert.equal((await value("select legislative_profile_highlights(64,'2025-01-01','2025-12-31',999) value")).state, 'missing');
+  assert.equal((await value("select legislative_profile_highlights(64,'2025-01-01','2025-12-31',null,$1) value", [other])).state, 'unlinked');
+  assert.equal((await value("select legislative_profile_highlights(64,'2026-01-01','2026-12-31',1) value")).votes.total, 0);
+  await q('begin');
+  await q(`with added as (insert into legislative_versions(source_id,kind,external_id,hash,payload,source_url)
+    select $1,'votes',i,'highlight-test-'||i,jsonb_build_object('ballot_id',1,'parliamentarian_id',1,'choice',case i%3 when 0 then 'Sim' when 1 then 'Não' else 'Abstenção' end),
+      'https://sapl.floresta.pe.leg.br/api/sessao/votoparlamentar/'||i||'/' from generate_series(100,159)i returning *)
+    insert into legislative_run_items(run_id,source_id,kind,external_id,version_id) select $2,source_id,kind,external_id,id from added`, [source.id, run]);
+  const manyVotes = await value("select legislative_profile_highlights(64,'2025-01-01','2025-12-31',1) value");
+  assert.deepEqual(manyVotes.votes, { total: 61, yes: 21, no: 20, abstentions: 20, other: 0 }, 'The summary counts all votes beyond the 50-item preview');
+  await q("delete from legislative_jobs where run_id=$1 and kind='votes'", [run]);
+  const incompleteVotes = await value("select legislative_profile_highlights(64,'2025-01-01','2025-12-31',1) value");
+  assert.equal(incompleteVotes.votes_complete, false);
+  assert.equal(incompleteVotes.votes, null, 'Missing coverage cannot become zero votes');
+  await q('rollback');
   const sessionMetrics = (await publicRpc('sessions', { start: '2025-01-01', end: '2025-12-31' })).session_metrics;
   assert.equal(sessionMetrics.total, 2);
   assert.deepEqual(sessionMetrics.months, [{ month: '2025-02', total: 1 }, { month: '2025-03', total: 1 }]);

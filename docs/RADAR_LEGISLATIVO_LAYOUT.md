@@ -1,5 +1,19 @@
 # Radar legislativo — layout público
 
+## Revisão de 23/11/2026
+
+Refinamento do perfil: cabeçalho em vermelho suave da paleta da marca, com adaptação ao tema escuro. O percentual de presença usa símbolo menor e espaçamento próprio, para manter valores como 91% e 100% dentro do anel no celular.
+
+O perfil e o radar seguem a referência móvel fornecida pelo cliente: identidade em fundo claro, foto circular, presença em anel, valores compactos e propostas em lista com faixa colorida. No desktop, os mesmos blocos se distribuem em colunas fluidas. A referência já define a composição; não foi necessário gerar outro mockup. Mantidos os títulos neutros, o vermelho da marca, as fontes oficiais, os filtros e as abas de registros.
+
+O perfil mostra presenças registradas, sessões do período e justificativas. O percentual é a razão entre presenças e sessões consultadas, sem inferir faltas ou corrigir automaticamente exercício, suplências e afastamentos. Contagens ausentes, cobertura incompleta de presenças, denominador zero e conflitos não geram percentual. A explicação do cálculo fica na ajuda opcional. O período padrão termina na data atual.
+
+O salário aparece como **salário-base mensal · 2025**, R$ 10.432, com link para a [Resolução 8/2023](https://sapl.floresta.pe.leg.br/norma/2218), artigo 1º. É o subsídio previsto na norma para a legislatura iniciada em 2025, não o líquido recebido ou a confirmação da folha atual. Revisões anuais e pagamentos efetivos permanecem não confirmados. A referência fica restrita a Floresta e a recortes dentro de 2025–2028; outros casos mostram valor não informado.
+
+A migration `454_legislative_profile_highlights.sql` fornece partido no fim do recorte e votos agregados de todo o período: sim, não, abstenções e outros registros. Usa somente o acervo publicado, verifica cobertura dos recursos e preserva os estados de cidade não configurada, parlamentar inexistente e vínculo ausente. Não usa os 50 itens da prévia como total. Precisa ser aplicada ao banco do ambiente para disponibilizar partido e resumo de votos; os demais indicadores reutilizam consultas existentes.
+
+Validação local: 24 testes unitários, suíte de PostgreSQL temporário com todas as 14 migrations legislativas, incluindo contagem acima de 50 votos e cobertura ausente; build completo; cenários de navegador em 390, 1440 e 1920 px, nos temas claro e escuro, e conferência com Playwright. A prévia usa fixtures e não altera bancos remotos.
+
 ## Revisão de 21/11/2026
 
 **Bairros e Sessões:** títulos neutros e destaques no vermelho da marca, sem vinho. Bairros ganhou indicadores dos locais e pedidos da lista, barras por serviço com filtro local, registros recentes e cartões com datas e ações de expansão. Os pedidos são deduplicados nos indicadores e dentro de cada serviço. Sessões ganhou totais do período inteiro, distribuição por tipo, gráfico dos seis meses finais com filtro ao clicar, datas destacadas e links disponíveis para ata, pauta e vídeo. A migration `452_legislative_session_metrics.sql` calcula os agregados fora da paginação do arquivo.
@@ -70,6 +84,8 @@ As preferências ficam neste navegador, separadas entre celular e desktop pelo m
 ## Leitura e navegação
 
 Filtros são preparados localmente e aplicados em conjunto. Os filtros ativos aparecem em etiquetas removíveis; há atalhos de período e validação das datas. O texto digitado na busca só consulta o servidor ao enviar.
+
+O período aplicado fica salvo no `localStorage` (`trombone:legislative-period:v1`) e é restaurado ao voltar ao painel ou trocar de seção. Datas explícitas na URL têm prioridade. Cancelar o seletor mantém o valor anterior; “Restaurar” volta ao período padrão após aplicar. Dados salvos inválidos e armazenamento indisponível não impedem o uso dos filtros.
 
 Nos pedidos longos, uma abertura formal reconhecida pode ser omitida da prévia, identificada com reticências. A prévia mantém um trecho exato da ementa, inclusive negações. O detalhe conserva o texto completo; não há resumo gerado nem mudança da informação oficial.
 

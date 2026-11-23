@@ -4,14 +4,18 @@ import { ArrowUpRight, CalendarDays, FileText, Vote } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import useLegislativeData from '@/hooks/useLegislativeData';
 import { legislativeDate, legislativeMatterFilters, legislativeOfficialPresence, legislativeOfficialSearch, legislativePath } from '@/lib/legislative';
-import { LegislativeMatterList, LegislativeMetrics, LegislativeState } from './LegislativeComponents';
+import { LegislativeMatterList, LegislativeState } from './LegislativeComponents';
 import LegislativePageInfo from './LegislativePageInfo';
-import LegislativeCharts from './LegislativeCharts';
+import LegislativeProposalSummary from './LegislativeProposalSummary';
+import LegislativeProfileSnapshot from './LegislativeProfileSnapshot';
+import LegislativeVoteSummary from './LegislativeVoteSummary';
 import LegislativeAttendance from './LegislativeAttendance';
 
-export default function LegislativeActivity({ data, cityId, councilorId, parliamentarianId, filters, showSource = true, presentation }) {
+export default function LegislativeActivity({ data, cityId, councilorId, parliamentarianId, filters, showSource = true, presentation, highlightsQuery, onHighlightsRetry }) {
   const [params] = useSearchParams();
   const [tab, setTab] = useState(() => params.get('aba') === 'presencas' ? 'attendance' : 'matters'), [revision, setRevision] = useState(0);
+  const [highlightsRevision, setHighlightsRevision] = useState(0);
+  const ownHighlights = useLegislativeData(!highlightsQuery && presentation?.summary !== false ? cityId : null, 'profile_highlights', { start: filters.start, end: filters.end, parliamentarian_id: parliamentarianId, councilor_id: councilorId }, highlightsRevision);
   const scoped = { ...filters, ...(parliamentarianId ? { parliamentarianId } : { councilorId }) };
   const activity = useLegislativeData(tab !== 'matters' ? cityId : null, parliamentarianId ? 'parliamentarian_activity' : 'activity', {
     start: filters.start, end: filters.end, councilor_id: councilorId, parliamentarian_id: parliamentarianId,
@@ -19,14 +23,17 @@ export default function LegislativeActivity({ data, cityId, councilorId, parliam
   const official = legislativeOfficialSearch(filters, data.parliamentarian?.author_ids || []);
   const path = legislativePath(cityId, `/materias?${legislativeMatterFilters(scoped)}`);
   return <>
+    {presentation?.summary !== false && <div className="legislative-profile-highlights">
+      <LegislativeProfileSnapshot data={data} cityId={cityId} filters={filters} parliamentarianId={parliamentarianId} councilorId={councilorId} />
+      <LegislativeProposalSummary data={data} cityId={cityId} filters={scoped} profile officialHref={official} />
+      <LegislativeVoteSummary query={highlightsQuery || ownHighlights} onRetry={onHighlightsRetry || (() => setHighlightsRevision(value => value + 1))} />
+    </div>}
     <Tabs value={tab} onValueChange={setTab} className="legislative-activity">
       <div className="legislative-activity-heading"><TabsList className="legislative-activity-tabs" aria-label="Atuação na Câmara">
         <TabsTrigger value="matters"><FileText size={15} />Propostas</TabsTrigger><TabsTrigger value="votes"><Vote size={15} />Votos</TabsTrigger><TabsTrigger value="attendance"><CalendarDays size={15} />Presenças</TabsTrigger>
       </TabsList>{showSource && <span className="legislative-period-caption">{legislativeDate(filters.start)} – {legislativeDate(filters.end)}</span>}</div>
       <TabsContent value={tab}>
         {tab === 'matters' ? <>
-          {presentation?.summary !== false && <LegislativeMetrics metrics={data.metrics} groups={data.groups} cityId={cityId} filters={scoped} officialHref={official} />}
-          {presentation?.summary !== false && <LegislativeCharts data={data} cityId={cityId} filters={scoped} officialHref={official} />}
           <LegislativeMatterList matters={data.matters.slice(0, 3)} cityId={cityId} layout={presentation?.layout || 'cards'} />
           {!data.total && <p className="legislative-notice">Nenhuma proposta deste parlamentar registrada no recorte consultado.</p>}
           <Link className="legislative-more-link" to={path}>Ver todas as propostas ({data.total})<ArrowUpRight size={15} /></Link>
