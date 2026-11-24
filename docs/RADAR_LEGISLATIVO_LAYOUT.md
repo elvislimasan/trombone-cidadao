@@ -1,5 +1,13 @@
 # Radar legislativo — layout público
 
+## Revisão de 24/11/2026
+
+A lista de vereadores abre em **Mandato atual**, cruzando cadastro ativo com mandato vinculado ao período legislativo vigente e suas datas de início/fim. A marca de cadastro ativo, sozinha, não inclui vereadores de mandatos anteriores. Suplentes ativos com mandato no período continuam elegíveis; cadastros inativos não representam exercício atual. O recorte é da data atual, independentemente do período das propostas. **Todos os cadastros** preserva os perfis e registros históricos.
+
+A migration `455_legislative_current_mandates.sql` acrescenta a identificação de mandato atual à consulta pública do diretório. Usa apenas o acervo publicado, verifica a cobertura de mandatos e legislaturas e mantém as funções auxiliares privadas. Se não houver dados suficientes ou um único período vigente, a interface informa que os mandatos estão em conferência, sem usar a marca de cadastro ativo como alternativa. O acervo de desenvolvimento tinha Bia marcada como ativa, mas somente com mandatos encerrados em 2016 e 2020; a correção trata a regra geral, sem excluir nomes manualmente.
+
+Aplicada ao ambiente de desenvolvimento em 24/11/2026: 13 vereadores na seleção atual, 32 cadastros preservados e Bia fora do mandato atual. Validação em PostgreSQL temporário com as 15 migrations legislativas, incluindo suplente ativo, duplicidades, mandato futuro/encerrado, cadastro ativo sem mandato, cobertura ausente e privacidade das funções auxiliares. Playwright em 390, 1440 e 1920 px nos dois temas, conferindo a seleção padrão, o histórico e os links dos perfis.
+
 ## Revisão de 23/11/2026
 
 A terminologia pública do contador usa **Salário pago aos 13 vereadores desde a posse**, com a quantidade de cargos da cidade, conforme solicitado pelo cliente. Rótulos acessíveis, ajuda e links usam “salário”; a indicação de estimativa permanece junto ao valor.

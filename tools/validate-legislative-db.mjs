@@ -40,7 +40,7 @@ try {
     create table reports(id uuid primary key,city_id bigint,is_public boolean,moderation_status text,status text,signal_status text,protocol text);
   `);
   const migrations=(await fs.readdir('supabase/migrations')).filter(name=>/^\d+_legislative_.*\.sql$/.test(name)).sort();
-  assert.equal(migrations.length, 14, 'A suíte deve executar todas as migrações legislativas.');
+  assert.equal(migrations.length, 15, 'A suíte deve executar todas as migrações legislativas.');
   for (const name of migrations) await q(await fs.readFile(`supabase/migrations/${name}`, 'utf8'));
   const source = (await q('select * from legislative_sources')).rows[0];assert.equal(source.daily_enabled, false);
   assert.equal((await value("select legislative_public(65) value")).state, 'unconfigured');
@@ -55,7 +55,9 @@ try {
   const run = initial.data;assert.equal((await value('select legislative_public(64) value')).state, 'pending');
   await assert.rejects(q('select legislative_publish_run($1)', [run]), /Sem permissão/);
   const fixtures = {
-    parliamentarians: [{ id: 1, nome_completo: 'Pessoa de teste', nome_parlamentar: 'Pessoa', ativo: true, ip: 'not-public', user: 123 },{id:2,nome_completo:'Outra pessoa de teste',nome_parlamentar:'Outra',ativo:true}],
+    parliamentarians: [{ id: 1, nome_completo: 'Pessoa de teste', nome_parlamentar: 'Pessoa', ativo: true, ip: 'not-public', user: 123 },{id:2,nome_completo:'Outra pessoa de teste',nome_parlamentar:'Outra',ativo:true},{id:3,nome_completo:'Cadastro historico de teste',nome_parlamentar:'Historica',ativo:true}],
+    legislatures: [{id:9,numero:9,data_inicio:'2025-01-01',data_fim:'2028-12-31'},{id:7,numero:7,data_inicio:'2017-01-01',data_fim:'2020-12-31'}],
+    mandates: [{id:1,parlamentar:1,legislatura:9,data_inicio_mandato:'2025-02-01',data_fim_mandato:'2027-12-31',titular:false},{id:2,parlamentar:3,legislatura:7,data_inicio_mandato:'2017-01-01',data_fim_mandato:'2020-12-31',titular:true},{id:3,parlamentar:1,legislatura:9,data_inicio_mandato:'2025-02-01',data_fim_mandato:'2027-12-31',titular:false}],
     authors: [{ id: 11, nome: 'Pessoa', tipo: 1, autor_related: { value: 1 } }],
     matter_types: [{ id: 1, descricao: 'Projeto de Lei Ordinária', sigla: 'PLO' }, { id: 21, descricao: 'Pedido de Providência', sigla: 'PPROV' }],
     matters: Array.from({ length: 4 }, (_, i) => ({ id: i + 1, numero: i + 1, ano: 2025, tipo: i ? 21 : 1, data_apresentacao: `2025-02-0${i + 1}`, ementa: `Matéria ${i + 1}`, autores: [11], ip: 'not-public' })),
@@ -79,6 +81,25 @@ try {
   const publicRpc = (view, filters = {}) => value('select legislative_public(64,$1,$2) value', [view, JSON.stringify(filters)]);
   const attendanceRpc = (person = null) => value("select legislative_attendance(64,'2025-01-01','2025-12-31',$1) value", [person]);
   const attendance = await attendanceRpc();
+  const directory = await publicRpc('directory');
+  assert.equal(directory.membership.complete, true);
+  assert.deepEqual(directory.parliamentarians.filter(person=>person.current_mandate).map(person=>person.id), [1], 'Only a current mandate and active registration qualify; duplicates do not duplicate people');
+  assert.equal(directory.parliamentarians.find(person=>person.id===2).current_mandate, false, 'Active registration without a current mandate is insufficient');
+  assert.equal(directory.parliamentarians.find(person=>person.id===3).current_mandate, false, 'Active historical registration is not a current mandate');
+  assert.equal(directory.parliamentarians.length, 3, 'Historical registrations remain available for explicit consultation');
+  assert.equal((await publicRpc('parliamentarian',{parliamentarian_id:3})).state,'ready','Historical profiles remain directly accessible');
+  const datedDirectory = date => value('select legislative_directory_membership($1,$2,$3) value', [run, JSON.stringify(directory), date]);
+  assert.equal((await datedDirectory('2025-01-15')).parliamentarians.find(person=>person.id===1).current_mandate, false, 'A future personal mandate is excluded');
+  assert.equal((await datedDirectory('2028-01-01')).parliamentarians.find(person=>person.id===1).current_mandate, false, 'An ended personal mandate is excluded');
+  assert.equal((await datedDirectory('2030-01-01')).membership.complete, false, 'Do not extrapolate to an unknown legislature');
+  const inactiveDirectory = structuredClone(directory);inactiveDirectory.parliamentarians.find(person=>person.id===1).data.active=false;
+  assert.equal((await value("select legislative_directory_membership($1,$2,'2026-11-24') value",[run,JSON.stringify(inactiveDirectory)])).parliamentarians.find(person=>person.id===1).current_mandate,false);
+  assert.equal(await value("select has_function_privilege('anon','public.legislative_directory_membership(uuid,jsonb,date)','execute') value"),false);
+  await q('begin');await q("delete from legislative_jobs where run_id=$1 and kind='mandates'",[run]);
+  const unknownDirectory = await publicRpc('directory');
+  assert.equal(unknownDirectory.membership.complete,false);
+  assert.ok(unknownDirectory.parliamentarians.every(person=>person.current_mandate===null),'Unknown coverage must not fall back to active registrations');
+  await q('rollback');
   const highlights = await value("select legislative_profile_highlights(64,'2025-01-01','2025-12-31',1) value");
   assert.equal(highlights.state, 'ready');
   assert.equal(highlights.votes_complete, true);
