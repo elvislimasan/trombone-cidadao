@@ -74,12 +74,16 @@ export const CityEventHighlightCard = ({ evento, agora = new Date() }) => {
           <span className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide text-content-primary">
             {tipo.rotulo}
           </span>
-          <SeloDeStatus status={evento.status} />
+          <SeloDeStatus status={evento.status} type={evento.type} />
         </div>
 
         {onde && <p className="mt-2 truncate text-sm font-semibold text-content-secondary">{onde}</p>}
 
-        {!ehComunicado && <p className="mt-1 text-sm text-content-tertiary">
+        {evento.type === 'event' ? (
+          <p className="mt-1 text-sm text-content-tertiary">
+            {evento.status === 'resolved' ? `Encerrado ${tempoDesde(evento.resolved_at, agora)}` : evento.estimated_end_at ? `Até ${previsao.texto}` : previsaoLegivel(evento.started_at, agora)}
+          </p>
+        ) : !ehComunicado && <p className="mt-1 text-sm text-content-tertiary">
           {previsao.tem ? (
             <span className={previsao.vencida ? 'font-bold text-danger' : ''}>
               {previsao.vencida ? 'Previsão vencida' : `Previsão: ${previsao.texto}`}
@@ -145,11 +149,12 @@ const CityEventCard = ({
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-extrabold leading-tight uppercase tracking-wide text-content-primary">
-            {tipo.rotulo}
+            {evento.type === 'event' ? evento.title || tipo.rotulo : tipo.rotulo}
           </h3>
           {mostrarSelo && (
             <SeloDeStatus
               status={evento.status}
+              type={evento.type}
               className={compact ? '!border-transparent !bg-transparent px-1.5 py-0.5 opacity-75' : ''}
             />
           )}
@@ -161,14 +166,18 @@ const CityEventCard = ({
             Resolvido responde "quando acabou"; aberto responde "até quando".
             Mostrar as duas em qualquer um dos casos enche o cartão com a
             metade que já não importa mais. */}
-        {resolvido ? (
+        {resolvido || evento.status === 'resolved' ? (
           <p className="mt-0.5 text-xs font-semibold text-status-resolvedFg">
-            Normalizado {tempoDesde(evento.resolved_at, agora)}
+            {evento.type === 'event' ? 'Encerrado' : 'Normalizado'} {tempoDesde(evento.resolved_at, agora)}
           </p>
         ) : ehComunicado ? (
           evento.started_at ? (
             <p className="mt-0.5 text-xs text-content-tertiary">Publicado às {horaCurta(evento.started_at)}</p>
           ) : null
+        ) : evento.type === 'event' ? (
+          <p className="mt-0.5 text-xs text-content-tertiary">
+            {evento.estimated_end_at ? `Até ${previsao.texto}` : previsaoLegivel(evento.started_at, agora)}
+          </p>
         ) : (
           <p className="mt-0.5 text-xs text-content-tertiary">
             {previsao.tem ? (

@@ -25,6 +25,7 @@ import {
   tiposDoFiltro,
   statusDe,
   estaAberto,
+  eventoNoInstante,
   horaCurta,
   previsaoLegivel,
   tempoDesde,
@@ -40,6 +41,30 @@ import {
   podeConfirmar,
   situacaoDaRua,
 } from '../lib/cityEvents.js';
+
+test('agenda encerra no término sem aguardar o cron nem vencer previsão', () => {
+  const evento = { id: 1, type: 'event', title: 'Sessão da Câmara', status: 'active', started_at: '2026-11-16T13:00:00Z', estimated_end_at: '2026-11-16T15:00:00Z' };
+  assert.equal(eventoNoInstante(evento, new Date('2026-11-16T14:59:59Z')), evento);
+  const encerrado = eventoNoInstante(evento, new Date('2026-11-16T15:00:00Z'));
+  assert.equal(encerrado.status, 'resolved');
+  assert.equal(encerrado.resolved_at, '2026-11-16T15:00:00.000Z');
+  assert.equal(evento.status, 'active', 'Não altera o objeto retornado pelo servidor');
+  assert.equal(estadoDaPrevisao(evento, new Date('2026-11-16T16:00:00Z')).vencida, false);
+  assert.equal(situacaoDaRua([evento], new Date('2026-11-16T16:00:00Z')).normal, true);
+  assert.equal(linhaDoTempo(evento).some(item => item.pendente), false);
+});
+
+test('agenda sem término usa seis horas; encerrados e cancelados preservam estado', () => {
+  const evento = { type: 'event', status: 'active', started_at: '2026-11-16T13:00:00Z' };
+  assert.equal(eventoNoInstante(evento, new Date('2026-11-16T18:59:59Z')).status, 'active');
+  assert.equal(eventoNoInstante(evento, new Date('2026-11-16T19:00:00Z')).status, 'resolved');
+  for (const status of ['cancelled', 'draft', 'resolved']) {
+    const original = { ...evento, status }; assert.equal(eventoNoInstante(original, new Date('2026-11-17T00:00:00Z')), original);
+  }
+  const alerta = { ...evento, type: 'water_outage', estimated_end_at: '2026-11-16T15:00:00Z' };
+  assert.equal(eventoNoInstante(alerta, new Date('2026-11-17T00:00:00Z')), alerta);
+  assert.equal(estadoDaPrevisao(alerta, new Date('2026-11-17T00:00:00Z')).vencida, true);
+});
 
 // ── O catálogo bate com o banco ──────────────────────────────────────────────
 

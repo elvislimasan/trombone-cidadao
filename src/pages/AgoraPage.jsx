@@ -44,6 +44,7 @@ import {
   horaCurta,
   previsaoLegivel,
   rotuloDasAreas,
+  tempoDesde,
 } from '@/lib/cityEvents';
 
 const FILTROS_RADAR = [
@@ -127,12 +128,12 @@ const EventoLateral = ({ evento, agora, programado = false }) => {
           <p className="min-w-0 flex-1 line-clamp-2 text-[11px] font-extrabold leading-tight text-content-primary">
             {evento.title || rotuloDoTipo(evento.type)}
           </p>
-          {!programado && <SeloDeStatus status={evento.status} className="!px-1.5 !py-0.5 !text-[7px]" />}
+          {!programado && <SeloDeStatus status={evento.status} type={evento.type} className="!px-1.5 !py-0.5 !text-[7px]" />}
         </div>
         <p className="mt-0.5 line-clamp-2 text-[9px] leading-tight text-content-tertiary">{onde || 'Toda a cidade'}</p>
         {!ehComunicado && horario && (
           <p className={`mt-0.5 line-clamp-2 text-[9px] font-semibold leading-tight ${previsao.vencida ? 'text-brand' : 'text-amber-400/80'}`}>
-            {programado ? horario : previsao.tem ? `Até ${horario}` : horario}
+            {evento.type === 'event' && evento.status === 'resolved' ? `Encerrado ${tempoDesde(evento.resolved_at, agora)}` : programado ? horario : previsao.tem ? `Até ${horario}` : horario}
           </p>
         )}
       </div>
@@ -202,6 +203,7 @@ function AgoraPage() {
   const { podeGerir, papel, bairrosDesignados, restritoABairros } = useCanManageCityEvents(cityId);
 
   const abertos = useCityEvents(cityId, { filtro: 'todos', escopo: 'abertos' });
+  const historico = useCityEvents(cityId, { filtro: 'eventos', escopo: 'resolvidos', limite: 20 });
   useSweepCityEvents(podeGerir && Boolean(cityId));
 
   const acoes = useCityEventActions({
@@ -231,6 +233,10 @@ function AgoraPage() {
   const todosAbertos = useMemo(() => abertos.eventos || [], [abertos.eventos]);
   const emAndamento = eventosVisiveis.filter((evento) => evento.status !== 'scheduled');
   const programados = eventosVisiveis.filter((evento) => evento.status === 'scheduled');
+  const encerrados = [...new Map([...(abertos.encerrados || []), ...historico.eventos].map((evento) => [evento.id, evento])).values()]
+    .filter((evento) => (!filtroAtual.tipos || filtroAtual.tipos.includes('event'))
+      && (!busca.trim() || normalizar([evento.title, evento.description, evento.location_label, 'Evento', rotuloDasAreas(evento.areas)].join(' ')).includes(normalizar(busca.trim()))))
+    .sort((a, b) => new Date(b.resolved_at) - new Date(a.resolved_at));
   const agora = new Date();
 
   const resumoDasAreas = useMemo(() => {
@@ -279,7 +285,7 @@ function AgoraPage() {
         <meta name="description" content={`Acompanhe alertas, interrupções e eventos em ${nomeDaCidade}.`} />
       </Helmet>
 
-      <main className="mx-auto w-full max-w-[100rem] px-3 py-5 sm:px-5 lg:px-6 lg:py-8">
+      <main className="page-shell-fluid py-5 lg:py-8">
         <section className="relative overflow-hidden rounded-[1.75rem] border border-edge-subtle bg-surface-raised shadow-elevation-2">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-surface-raised via-surface-raised/90 to-surface-raised/55" />
           <div className="relative p-5 sm:p-6 lg:p-7">
@@ -404,6 +410,13 @@ function AgoraPage() {
                     carregando={abertos.carregando}
                     vazio="Nenhum evento programado neste filtro."
                   />
+                  {encerrados.length > 0 && <ListaLateral
+                    titulo="Eventos encerrados"
+                    Icone={CalendarClock}
+                    eventos={encerrados}
+                    agora={abertos.agora}
+                    carregando={historico.carregando}
+                  />}
                 </div>
               </section>
             )}

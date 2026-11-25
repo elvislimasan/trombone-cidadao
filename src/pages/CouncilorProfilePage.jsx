@@ -4,8 +4,8 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 import { ArrowRight, Building2, CheckCircle2, Instagram, Landmark, Loader2, Mail, MapPin, MessageCircle, Navigation, Pencil, Phone, Share2, ShieldCheck, User, UserPlus } from 'lucide-react';
 
 import BackButton from '@/components/BackButton';
-import CouncilorRankingCard from '@/components/pavement/CouncilorRankingCard';
 import CouncilorStoryModal from '@/components/councilor/CouncilorStoryModal';
+import CouncilorLegislativeOverview from '@/components/councilor/CouncilorLegislativeOverview';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/customSupabaseClient';
 import { cityIdDeVereador, normalizarFotos, rotaDoVereador } from '@/lib/pavementStreetHistory';
@@ -23,7 +23,6 @@ export default function CouncilorProfilePage() {
   const { user } = useAuth();
   const [councilor, setCouncilor] = useState(null);
   const [streets, setStreets] = useState([]);
-  const [cityStreets, setCityStreets] = useState([]);
   const [cityName, setCityName] = useState('');
   const resourceKey = `${cityId}/${slug}`;
   const [loadState, setLoadState] = useState({ key: resourceKey, status: 'loading' });
@@ -58,10 +57,9 @@ export default function CouncilorProfilePage() {
         setLoadState({ key: resourceKey, status: result.status });
         return;
       }
-      const { councilor: profile, streets: matchingStreets, cityStreets: allStreets, cityName: name } = result.data;
+      const { councilor: profile, streets: matchingStreets, cityName: name } = result.data;
       setCouncilor(profile);
       setStreets(matchingStreets);
-      setCityStreets(allStreets);
       setCityName(name);
       if (profile?.user_id) {
         const { count } = await supabase
@@ -186,7 +184,6 @@ export default function CouncilorProfilePage() {
     });
   }, [streets]);
 
-  const councilorFirstName = String(councilor?.name || '').trim().split(/\s+/)[0] || 'vereador';
 
   if (!loading && legacyPath) return <Navigate to={{ pathname: legacyPath, search: searchParams.toString() ? `?${searchParams}` : '' }} replace />;
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-brand" /></div>;
@@ -200,12 +197,12 @@ export default function CouncilorProfilePage() {
   return (
     <div className="min-h-screen bg-surface-subtle pb-16">
       <Helmet>
-        <title>{councilor.name} — Ruas e projetos | Trombone Cidadão</title>
+        <title>{councilor.name} — Atuação legislativa | Trombone Cidadão</title>
         <link rel="canonical" href={`https://trombonecidadao.com.br${rotaDoVereador(councilor.city_id, councilor.slug)}`} />
-        <meta name="description" content={`${councilor.name} aparece como autor de ${streets.length} projetos de denominação de ruas em ${cityName}.`} />
+        <meta name="description" content={`Consulte o perfil legislativo de ${councilor.name}, os documentos relacionados e o acervo de ruas em ${cityName}.`} />
       </Helmet>
 
-      <main className="mx-auto w-full max-w-[112rem] px-3 py-2 sm:px-5 sm:py-6 lg:px-8">
+      <main className="councilor-profile-shell page-shell-fluid px-3 py-2 sm:px-5 sm:py-6 lg:px-8">
         <div className="mb-3 hidden sm:block"><BackButton paraOnde="/mapa-pavimentacao" /></div>
 
         <section className="relative overflow-hidden rounded-3xl border border-edge-subtle bg-surface-raised shadow-elevation-1">
@@ -242,15 +239,16 @@ export default function CouncilorProfilePage() {
 
           <div className="relative border-t border-edge-subtle bg-surface-base/75 px-4 py-3 text-center sm:px-6">
             <Navigation className="mx-auto h-4 w-4 text-success-fg" />
-            <strong className="mt-1 block text-lg font-black text-content-primary">{streets.length}</strong>
-            <span className="block text-[9px] font-bold uppercase tracking-wide text-content-secondary sm:text-[10px]">Ruas nomeadas</span>
+            <a href="#ruas-nomeadas" className="mt-1 block text-lg font-black text-content-primary">{streets.length}</a>
+            <span className="block text-[9px] font-bold uppercase tracking-wide text-content-secondary sm:text-[10px]">Ruas no acervo</span>
           </div>
         </section>
 
+        <CouncilorLegislativeOverview cityId={cityId} councilorId={councilor.id} />
         <div className="mt-4 grid gap-4 lg:grid-cols-12">
           <section id="ruas-nomeadas" className="rounded-3xl border border-edge-subtle bg-surface-raised shadow-sm lg:col-span-8">
             <div className="flex items-center justify-between gap-3 border-b border-edge-subtle px-4 py-4 sm:px-6">
-              <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><Building2 className="h-[18px] w-[18px]" /></span><div className="min-w-0"><h2 className="text-sm font-extrabold text-content-primary sm:text-base">Confira as ruas nomeadas por {councilorFirstName}</h2><p className="truncate text-xs text-content-secondary">Projetos de denominação registrados</p></div></div>
+              <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><Building2 className="h-[18px] w-[18px]" /></span><div className="min-w-0"><h2 className="text-sm font-extrabold text-content-primary sm:text-base">Ruas vinculadas no acervo</h2><p className="truncate text-xs text-content-secondary">Documentos de denominação cadastrados</p></div></div>
               <Button asChild variant="ghost" size="sm" className="shrink-0 gap-1 text-xs text-brand"><Link to="/mapa-pavimentacao">Ver mapa <ArrowRight className="h-3.5 w-3.5" /></Link></Button>
             </div>
             <div className="divide-y divide-edge-subtle px-3 sm:px-5">
@@ -279,7 +277,7 @@ export default function CouncilorProfilePage() {
           <aside className="grid content-start gap-4 lg:col-span-4">
             <section className="rounded-3xl border border-edge-subtle bg-surface-raised p-5 shadow-sm sm:p-6">
               <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-subtleBg text-brand"><User className="h-[18px] w-[18px]" /></span><h2 className="text-base font-extrabold text-content-primary">Sobre</h2></div>
-              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-content-secondary">{councilor.biography || 'Este perfil foi criado automaticamente a partir dos projetos de lei cadastrados no mapa de ruas. As informações biográficas ainda podem ser complementadas.'}</p>
+              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-content-secondary">{councilor.biography || 'As informações biográficas ainda não foram preenchidas.'}</p>
               {councilor.claim_status === 'unclaimed' && <div className="mt-5 border-t border-edge-subtle pt-4">
                 {councilor.claim_status === 'unclaimed' && <p className="rounded-xl bg-surface-subtle px-3 py-2.5 text-xs leading-relaxed text-content-secondary">Página criada a partir do acervo. Nenhuma conta responsável foi vinculada.</p>}
               </div>}
@@ -347,7 +345,7 @@ export default function CouncilorProfilePage() {
         </div>
 
         <div className="mt-4">
-          <CouncilorRankingCard streets={cityStreets} cityId={cityId} cityName={cityName} />
+          <Button asChild variant="outline"><Link to={`/camara/${cityId}/vereadores`}>Consultar vereadores da cidade</Link></Button>
         </div>
       </main>
 

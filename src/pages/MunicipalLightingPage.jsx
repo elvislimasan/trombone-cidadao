@@ -373,11 +373,15 @@ export default function MunicipalLightingPage() {
       });
       if (generation !== saveGeneration.current) return;
       if (saveError) throw saveError;
+      if (!data) throw new Error('O banco não confirmou a alteração do poste. Tente novamente ou avise o administrador.');
       if (action === 'updated') {
         const { data: savedPole, error: readError } = await supabase.from('poles')
-          .select('latitude,longitude').eq('id', data).eq('city_id', cityId).single();
+          .select('identifier,latitude,longitude').eq('id', data).eq('city_id', cityId).single();
         if (generation !== saveGeneration.current) return;
         if (readError) throw readError;
+        if (savedPole?.identifier !== poleCode(form.identifier)) {
+          throw new Error('O código do poste não foi gravado no banco. Avise o administrador e tente novamente.');
+        }
         const location = polePosition(savedPole);
         const requested = polePosition(form);
         if (!location || !requested || Math.abs(location.lat - requested.lat) > 0.0000001 || Math.abs(location.lng - requested.lng) > 0.0000001) {
@@ -415,6 +419,7 @@ export default function MunicipalLightingPage() {
       });
       if (generation !== saveGeneration.current) return;
       if (removeError) throw removeError;
+      if (!data) throw new Error('O banco não confirmou a remoção do poste. Tente novamente ou avise o administrador.');
       showAppNotice({ title: 'Poste removido do mapa ativo', description: `Registro ${data} salvo no histórico de iluminação.` });
       setSelected(null);
       setDetailsOpen(false);

@@ -36,6 +36,7 @@ const adminLinks = [
   { to: '/admin/arborizacao', icon: 'Trees', title: 'Gerenciar arborização', description: 'Cadastre árvores, espécies, condições e manejos por cidade.', module: 'arborization' },
   { to: '/admin/arborizacao/solicitacoes', icon: 'Sprout', title: 'Solicitações de árvores', description: '', module: 'arborization' },
   { to: '/admin/vereadores', icon: 'Landmark', title: 'Vereadores e vínculos', description: 'Cadastre vereadores e analise solicitações de vínculo de contas.', module: 'pavement' },
+  { to: '/admin/legislativo', icon: 'Landmark', title: 'Radar legislativo', description: '', module: 'legislative' },
   { to: '/admin/imoveis-alugados', icon: 'Building', title: 'Gerenciar Imóveis Alugados', description: 'Cadastre imóveis e contratos de aluguel.', module: 'rentals' },
   { to: '/admin/servicos', icon: 'Briefcase', title: 'Gerenciar Guia da Cidade', description: 'Adicione e edite locais do Guia da Cidade.', module: 'services' },
   { to: '/admin/noticias', icon: 'Newspaper', title: 'Gerenciar Notícias', description: 'Publique e edite notícias.' },

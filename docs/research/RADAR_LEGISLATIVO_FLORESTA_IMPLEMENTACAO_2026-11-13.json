@@ -1,0 +1,116 @@
+{
+  "verified_at": "2026-11-13T17:23:18.491Z",
+  "environment": "development",
+  "project": "xxdletrjyjajtrmhwzev",
+  "migrations": [
+    428,
+    429,
+    430,
+    431,
+    432,
+    433,
+    434
+  ],
+  "initial_import": {
+    "project": "xxdletrjyjajtrmhwzev",
+    "runId": "dec51387-adbb-4d36-959d-315ae1985649",
+    "summary": {
+      "norms": 2783,
+      "units": 19,
+      "votes": 382,
+      "agenda": 4528,
+      "method": "legislative-1",
+      "authors": 51,
+      "ballots": 3055,
+      "matters": 1118,
+      "parties": 33,
+      "mandates": 67,
+      "sessions": 123,
+      "statuses": 55,
+      "expedient": 4334,
+      "attendance": 7117,
+      "committees": 8,
+      "authorships": 8498,
+      "proceedings": 5330,
+      "affiliations": 50,
+      "ballot_types": 5,
+      "legislatures": 7,
+      "matter_types": 34,
+      "session_types": 3,
+      "period_warning": "O período de legislatura da fonte deve ser conferido com a documentação de posse.",
+      "parliamentarians": 32,
+      "agenda_attendance": 6897
+    },
+    "published": true,
+    "finished_at": "2026-11-13T17:00:39.024Z",
+    "normalized_records": 44529
+  },
+  "automation": {
+    "project": "xxdletrjyjajtrmhwzev",
+    "daily_enabled": true,
+    "auto_publish": true,
+    "last_daily_on": "2026-11-13",
+    "dedicatedAuthentication": true,
+    "idleTick": true,
+    "verified_at": "2026-11-13T17:21:00.996Z"
+  },
+  "public_checks": [
+    {
+      "view": "overview",
+      "ms": 1605,
+      "total": 1118,
+      "metrics": {
+        "matters": 1118,
+        "honorary": 0,
+        "requests": 399,
+        "normative": 226,
+        "classified": 0
+      }
+    },
+    {
+      "view": "matters",
+      "ms": 374,
+      "total": 1118
+    },
+    {
+      "view": "matter",
+      "ms": 541
+    },
+    {
+      "view": "sessions",
+      "ms": 178,
+      "total": 123
+    },
+    {
+      "view": "session",
+      "ms": 391
+    },
+    {
+      "view": "directory",
+      "ms": 230
+    },
+    {
+      "view": "recurrences",
+      "ms": 253
+    }
+  ],
+  "validation": {
+    "unit_and_regression_tests": 27,
+    "database_migrations": 7,
+    "browser_scenarios": 6,
+    "browser_widths": [
+      390,
+      1440,
+      1920
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "browser_runtime_errors": 0,
+    "vite_build": "passed"
+  },
+  "production_modified": false,
+  "frontend_hosting_deployed": false,
+  "observation_cycles_completed": 0
+}

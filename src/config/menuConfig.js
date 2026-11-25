@@ -12,6 +12,7 @@ export const defaultMenuSettings = {
     { name: 'Feed', path: '/feed', icon: 'List', isVisible: true, authOnly: true },
     { name: 'Broncas', path: '/mapa', icon: 'Megaphone', isVisible: true },
     { name: 'Radar da cidade', path: '/agora', icon: 'Radio', isVisible: true },
+    { name: 'Radar legislativo', path: '/camara', icon: 'Landmark', isVisible: true },
     // "Sobre" saiu do menu do header. A página continua existindo em /sobre e
     // continua linkada no rodapé — o que mudou é a disputa por espaço no topo,
     // onde cada item a mais empurra os que levam a alguma ação.
@@ -76,7 +77,7 @@ export const defaultFooterSettings = {
 };
 
 export const availableIcons = [
-  'Trees', 'Leaf',
+  'Trees', 'Leaf', 'Landmark',
   'LayoutDashboard', 'Info', 'BarChart2', 'User', 'Construction', 'Route', 'Megaphone',
   'Briefcase', 'Newspaper', 'Shield', 'Home', 'Settings', 'Mail', 'Phone',
   'MapPin', 'Globe', 'Server', 'Cloud', 'Code', 'Activity', 'Airplay', 'AlertCircle',

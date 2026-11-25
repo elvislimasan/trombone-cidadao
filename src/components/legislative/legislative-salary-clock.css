@@ -1,0 +1,35 @@
+/* A compact financial indicator in the radar's own palette and layout. */
+.legislative-salary-clock { display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1.3fr) minmax(0,1fr); gap: 24px; align-items: center; margin-bottom: 24px; padding: 20px 24px; border: 1px solid rgb(var(--border-subtle)); border-left: 4px solid rgb(var(--brand)); border-radius: 12px; background: rgb(var(--surface-raised)); color: rgb(var(--text-primary)); }
+.legislative-salary-clock-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.legislative-salary-clock-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border: 1px solid rgb(var(--border-subtle)); border-radius: 9px; color: rgb(var(--brand)); }
+.legislative-salary-clock h2 { font-family: var(--font-display); font-size: 1.125rem; font-weight: 650; line-height: 1.4; letter-spacing: -.025em; color: rgb(var(--text-primary)); }
+.legislative-salary-clock-heading div > span { display: block; margin-top: 4px; color: rgb(var(--text-secondary)); font-size: .75rem; line-height: 1.5; }
+.legislative-salary-clock-main,.legislative-salary-clock-basis { min-width: 0; }
+.legislative-salary-clock-main { padding-inline: 24px; border-inline: 1px solid rgb(var(--border-subtle)); }
+.legislative-salary-clock-context { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.legislative-salary-clock-context > span { color: rgb(var(--text-secondary)); font-size: .75rem; }
+.legislative-salary-clock-context button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding-inline: 8px; border-radius: 7px; color: rgb(var(--text-secondary)); font-size: .75rem; touch-action: manipulation; }
+.legislative-salary-clock-context button:hover { background: rgb(var(--surface-sunken) / .5); color: rgb(var(--text-primary)); }
+.legislative-salary-clock-value { display: flex; align-items: baseline; gap: 8px; margin-block: 0 6px; font-family: var(--font-display); font-size: clamp(2rem,2.7vw,3.25rem); font-weight: 750; line-height: 1.15; letter-spacing: -.04em; font-variant-numeric: tabular-nums; white-space: nowrap; color: rgb(var(--brand)); }
+.legislative-salary-clock-currency,.legislative-salary-clock-cents { font-size: .58em; font-weight: 650; letter-spacing: -.015em; }
+.legislative-salary-clock-note { color: rgb(var(--text-secondary)); font-size: .6875rem; line-height: 1.6; }
+.legislative-salary-clock-basis > p { color: rgb(var(--text-primary)); font-size: .8125rem; font-weight: 550; line-height: 1.6; }
+.legislative-salary-clock-basis > span { display: block; margin-top: 3px; color: rgb(var(--text-secondary)); font-size: .75rem; }
+.legislative-salary-clock details { margin-top: 4px; font-size: .75rem; line-height: 1.65; color: rgb(var(--text-secondary)); }
+.legislative-salary-clock summary { width: fit-content; min-height: 44px; align-content: center; padding-block: 10px; cursor: pointer; color: rgb(var(--text-primary)); }
+.legislative-salary-clock details p { margin-bottom: 12px; }
+.legislative-salary-clock details a { display: flex; align-items: center; gap: 6px; min-height: 44px; color: rgb(var(--brand)); }
+.legislative-salary-clock :is(a,button,summary):focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 3px; border-radius: 5px; }
+.legislative-salary-clock :is(a,summary):hover { text-decoration: underline; text-underline-offset: 3px; }
+@media(max-width: 1199px) {
+  .legislative-salary-clock { grid-template-columns: minmax(0,1fr) minmax(0,1.3fr); gap: 16px 24px; }
+  .legislative-salary-clock-main { padding-right: 0; border-right: 0; }
+  .legislative-salary-clock-basis { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid rgb(var(--border-subtle)); }
+}
+@media(max-width: 767px) {
+  .legislative-salary-clock { grid-template-columns: minmax(0,1fr); gap: 12px; padding: 16px; }
+  .legislative-salary-clock h2 { font-size: 1.0625rem; }
+  .legislative-salary-clock-main { padding-inline: 0; border-inline: 0; }
+  .legislative-salary-clock-value { font-size: clamp(1.875rem,9.8vw,3.75rem); }
+  .legislative-salary-clock-basis { padding-top: 10px; }
+}

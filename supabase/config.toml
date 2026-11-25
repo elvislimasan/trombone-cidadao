@@ -384,6 +384,10 @@ verify_jwt = false
 [functions.create-anonymous-report]
 verify_jwt = false
 
+# The worker validates either a real user session + module permission or its dedicated secret.
+[functions.collect-legislative-data]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

@@ -33,7 +33,7 @@ test('a migration importa autores antigos e sincroniza as próximas edições', 
 });
 
 test('renomear vereador atualiza o perfil antes de disparar a sincronização das ruas', async () => {
-  const migration = await read('supabase/migrations/263_fix_councilor_rename_sync_conflict.sql');
+  const migration = (await read('supabase/migrations/263_fix_councilor_rename_sync_conflict.sql')).replace(/\r\n/g, '\n');
   const profileUpdate = migration.indexOf('update public.councilors\n  set name = v_new_name');
   const streetLoop = migration.indexOf('for v_street in');
 

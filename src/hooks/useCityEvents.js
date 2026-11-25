@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { showAppError, showAppNotice } from '@/lib/appError';
-import { tiposDoFiltro } from '@/lib/cityEvents';
+import { eventoNoInstante, tiposDoFiltro } from '@/lib/cityEvents';
 import { removerImagemDeAcontecimento, uploadImagemDeAcontecimento } from '@/lib/cityEventMedia';
 
 // Acesso aos acontecimentos do Trombone Agora.
@@ -26,6 +26,22 @@ const mesmoId = (a, b) => String(a ?? '') === String(b ?? '');
 const naoEncontrada = (error) =>
   error?.code === 'PGRST202' || /does not exist|não existe/i.test(error?.message || '');
 
+function useEventClock() {
+  const [agora, setAgora] = useState(() => new Date());
+  useEffect(() => {
+    const atualizar = () => setAgora(new Date());
+    const timer = window.setInterval(atualizar, 30000);
+    window.addEventListener('focus', atualizar);
+    document.addEventListener('visibilitychange', atualizar);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', atualizar);
+      document.removeEventListener('visibilitychange', atualizar);
+    };
+  }, []);
+  return agora;
+}
+
 /**
  * A lista do Agora.
  *
@@ -35,6 +51,7 @@ const naoEncontrada = (error) =>
  * não por início) e um limite bem menor.
  */
 export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', limite = 50 } = {}) {
+  const agora = useEventClock();
   const [eventos, setEventos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [indisponivel, setIndisponivel] = useState(false);
@@ -96,11 +113,17 @@ export function useCityEvents(cityId, { filtro = 'todos', escopo = 'abertos', li
 
   useEffect(() => { carregar(); return () => { requestId.current += 1; }; }, [carregar]);
 
-  return { eventos, carregando, indisponivel, erro, recarregar: carregar };
+  const atuais = useMemo(() => eventos.map((evento) => eventoNoInstante(evento, agora)), [eventos, agora]);
+  return {
+    eventos: atuais.filter((evento) => statuses.includes(evento.status)),
+    encerrados: atuais.filter((evento) => evento.type === 'event' && evento.status === 'resolved'),
+    agora, carregando, indisponivel, erro, recarregar: carregar,
+  };
 }
 
 /** Um acontecimento com áreas, linha do tempo e placar da enquete, numa ida. */
 export function useCityEvent(eventId) {
+  const agora = useEventClock();
   const [evento, setEvento] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [naoAchou, setNaoAchou] = useState(false);
@@ -130,7 +153,7 @@ export function useCityEvent(eventId) {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  return { evento, carregando, naoAchou, recarregar: carregar };
+  return { evento: eventoNoInstante(evento, agora), carregando, naoAchou, recarregar: carregar };
 }
 
 /** Os acontecimentos que pegam numa rua. É o que Minha Rua consulta. */

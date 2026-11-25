@@ -117,6 +117,16 @@ export const statusDe = (id) => STATUS[id] || STATUS.active;
 
 export const estaAberto = (evento) => Boolean(statusDe(evento?.status).aberto);
 
+// Agenda encerra no horário de término, inclusive entre passagens do cron.
+// A janela de seis horas para eventos sem término acompanha a migração 233.
+export const eventoNoInstante = (evento, agora = new Date()) => {
+  if (evento?.type !== 'event' || !estaAberto(evento)) return evento;
+  const inicio = paraData(evento.started_at);
+  const fim = paraData(evento.estimated_end_at) || (inicio && new Date(inicio.getTime() + 6 * 3600000));
+  if (!fim || fim > agora) return evento;
+  return { ...evento, status: 'resolved', resolved_at: evento.resolved_at || fim.toISOString() };
+};
+
 // ── Datas ─────────────────────────────────────────────────────────────────────
 
 const paraData = (valor) => {
@@ -291,7 +301,7 @@ export const estadoDaPrevisao = (evento, agora = new Date()) => {
 
   if (!previsto) return { tem: false, vencida: false, texto: 'Sem previsão' };
 
-  const vencida = estaAberto(evento) && previsto <= referencia;
+  const vencida = evento?.type !== 'event' && estaAberto(evento) && previsto <= referencia;
   const soDia = Boolean(evento?.estimated_end_day_only);
   return {
     tem: true,
@@ -466,7 +476,7 @@ export const linhaDoTempo = (evento, agora = new Date()) => {
     };
   });
 
-  if (estaAberto(evento)) {
+  if (evento?.type !== 'event' && estaAberto(evento)) {
     const previsao = estadoDaPrevisao(evento, agora);
     itens.push({
       id: 'pendente',
@@ -546,7 +556,7 @@ export const podeConfirmar = (evento) => evento?.status === 'resolved';
 const PESO_SEVERIDADE = { critical: 3, warning: 2, info: 1 };
 
 export const situacaoDaRua = (eventos, agora = new Date()) => {
-  const abertos = (Array.isArray(eventos) ? eventos : []).filter(estaAberto);
+  const abertos = (Array.isArray(eventos) ? eventos : []).map((evento) => eventoNoInstante(evento, agora)).filter(estaAberto);
 
   if (abertos.length === 0) {
     return { normal: true, texto: 'Tudo normal na sua região', evento: null, outros: 0 };
